@@ -4,3 +4,4 @@
 @import url("css/hud.css"); /* HUD · 사이드 패널 · 모바일 */
 @import url("css/patches.css"); /* 판별 덧붙임 (v2.2 ~ v2.7.18) — 앞 파일의 규칙을 덮어쓰므로 순서를 지킨다 */
 @import url("css/tiles.css"); /* 타일 판 (v2.7.21) */
+@import url("css/routes.css"); /* 루트 비교 · 인물끼리 호감 · 칸별 토큰 · 원클릭 세트 (선택 기능) */

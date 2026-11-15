@@ -318,7 +318,8 @@ export function manageHTML(s, ui = {}) {
             <i class="fa-solid ${m.icon}"></i><span><b>${m.name}</b><small>${gOff ? '모든 채팅에서 꺼 둠 — 확장 설정 › 기능 켜고 끄기' : m.desc}</small></span>${gOff ? '' : s.data[m.id] ? '' : '<em>비어 있음</em>'}</label>`; }).join('')}</div></div>`).join(''))}
         ${(() => { const p = playOf(meta); return sec('<i class="fa-solid fa-masks-theater"></i> 플레이 방식', `${seg(Object.entries(PLAY_MODES).map(([k, v]) => [k, `<i class="fa-solid ${v.icon}"></i> ${v.name}`]), p.mode, 'playmode', 'class="ss-seg wrap"')}
             <p class="ss-hint">${esc(PLAY_MODES[p.mode].desc)}</p>
-            ${p.mode === 'director' ? `<label class="ss-f wide"><span>주인공 (상태창의 「나」 — 돈·수치·관계를 이 사람 기준으로)</span><input class="ss-in" data-chg="playhero" value="${esc(p.hero)}" placeholder="예: 서이현"></label>` : ''}
+            ${p.mode === 'director' && !p.ensemble ? `<label class="ss-f wide"><span>주인공 (상태창의 「나」 — 돈·수치·관계를 이 사람 기준으로)</span><input class="ss-in" data-chg="playhero" value="${esc(p.hero)}" placeholder="예: 서이현"></label>` : ''}
+            ${p.mode === 'director' ? `<label class="ss-tog"><input type="checkbox" class="ss-switch" data-chg="playensemble" ${p.ensemble ? 'checked' : ''}><span>주인공 없음 — 군상극 (여러 인물을 고르게 · 인물끼리의 관계만 추적)</span></label>${p.ensemble ? `<p class="ss-hint">수치 · 재산 · 본거지처럼 주인 한 명이 필요한 칸은 「쓸 기능」에서 꺼 두는 걸 권해요. 관계 탭 › 보일 것 › 「💞 인물끼리 호감」을 켜면 인물 사이도 수치로 쌓여요${st.pairAff === true ? ' (켜져 있어요)' : ''}.</p>` : ''}` : ''}
             <label class="ss-tog"><input type="checkbox" class="ss-switch" data-chg="playworld" ${p.cardIsWorld ? 'checked' : ''}><span>카드 이름이 캐릭터가 아니라 세계관·봇 이름이에요</span></label>
             ${p.cast.length ? `<p class="ss-hint">등장인물: ${p.cast.map(esc).join(', ')}</p>` : ''}
             <div class="ss-row-btns"><button class="ss-btn sm" data-act="playauto">${ai1} 자동으로 알아보고 맞추기</button></div>`); })()}
@@ -505,7 +506,7 @@ export const VIEW_ACTIONS = {
         const box = document.createElement('div');
         box.className = 'ss-root ss-scope';
         box.innerHTML = `<div class="ss-wz-head"><i class="fa-solid fa-masks-theater"></i><div><b>이렇게 노는 것 같아요</b><small>${esc(r.why)}</small></div></div>
-            <div class="ss-card"><b>${esc(PLAY_MODES[r.mode].name)}</b> — ${esc(PLAY_MODES[r.mode].desc)}${r.mode === 'director' && r.hero ? `<br>주인공: <b>${esc(r.hero)}</b>` : ''}${r.cardIsWorld ? '<br>카드 이름 = 세계관·봇 이름' : ''}${r.cast.length ? `<br><small class="ss-dim">등장인물: ${r.cast.map(esc).join(', ')}</small>` : ''}</div>
+            <div class="ss-card"><b>${esc(PLAY_MODES[r.mode].name)}</b> — ${esc(PLAY_MODES[r.mode].desc)}${r.mode === 'director' && r.hero ? `<br>주인공: <b>${esc(r.hero)}</b>` : ''}${r.ensemble ? '<br>주인공 없음 (군상극)' : ''}${r.cardIsWorld ? '<br>카드 이름 = 세계관·봇 이름' : ''}${r.cast.length ? `<br><small class="ss-dim">등장인물: ${r.cast.map(esc).join(', ')}</small>` : ''}</div>
             <label class="ss-tog"><input type="checkbox" class="ss-switch ss-refit" ${s && (s.data.rel || s.data.profile) ? 'checked' : ''}><span>관계 · 프로필도 이 방식에 맞게 고치기 (AI ${['rel', 'profile'].filter(m => s?.data[m]).length}회 · 바뀌는 내용은 바로 적용)</span></label>`;
         if (!(await confirmPopup(box, '적용', '취소'))) return;
         const meta = getMeta(true);
@@ -513,7 +514,8 @@ export const VIEW_ACTIONS = {
         await saveMeta(); app.refreshNow();
         toastr.success(`플레이 방식: ${PLAY_MODES[r.mode].name}`, TITLE);
         if (!box.querySelector('.ss-refit')?.checked) return;
-        const ins = r.mode === 'director' ? `플레이 방식이 풀사칭(유저는 디렉터)이에요. 유저는 이 세계에 없어요. 주인공은 ${r.hero || '주요 인물'}이에요. 프로필에서 role "user"는 주인공으로, 관계의 "user" 목록은 주인공과 다른 인물의 관계로 바꾸고, 디렉터(유저) 자신은 빼 주세요.${r.cardIsWorld ? ' 카드 이름은 세계관 이름이라 인물이 아니에요 — 그 이름의 인물이 있으면 빼 주세요.' : ''}`
+        const ins = r.ensemble ? `플레이 방식이 풀사칭 · 군상극이에요. 유저는 이 세계에 없고 주인공도 없어요. 프로필에서 role "user"인 사람과 디렉터(유저) 자신은 빼고, 관계의 "user" 목록은 비우고, 인물끼리의 관계를 pairs(a, b, label, memo, aff)로 적어 주세요.${r.cardIsWorld ? ' 카드 이름은 세계관 이름이라 인물이 아니에요.' : ''}`
+            : r.mode === 'director' ? `플레이 방식이 풀사칭(유저는 디렉터)이에요. 유저는 이 세계에 없어요. 주인공은 ${r.hero || '주요 인물'}이에요. 프로필에서 role "user"는 주인공으로, 관계의 "user" 목록은 주인공과 다른 인물의 관계로 바꾸고, 디렉터(유저) 자신은 빼 주세요.${r.cardIsWorld ? ' 카드 이름은 세계관 이름이라 인물이 아니에요 — 그 이름의 인물이 있으면 빼 주세요.' : ''}`
             : r.mode === 'multi' ? `다인봇이에요. 등장인물(${r.cast.join(', ') || '카드·로어북에 나오는 사람들'})마다 따로 프로필·관계를 만들어 주세요.${r.cardIsWorld ? ' 카드 이름은 세계관 이름이라 인물이 아니에요 — 그 이름의 인물이 있으면 빼 주세요.' : ''}`
                 : `1:1 롤플이에요.${r.cardIsWorld ? ' 카드 이름은 세계관 이름이라 인물이 아니에요 — 그 이름의 인물이 있으면 빼 주세요.' : ''}`;
         for (const m of ['rel', 'profile']) {
@@ -533,6 +535,7 @@ export const VIEW_CHANGES = {
     memotog: (el, t) => addAdjust({ ops: [['_memo', `tog|${t.dataset.arg}`]], silent: true }),
     ...MUSIC_CHANGES,
     playhero: async (el, t) => { const meta = getMeta(true); meta.play = normPlay({ ...playOf(meta), hero: t.value }); await saveMeta(); app.refreshNow(); },
+    playensemble: async (el, t) => { const meta = getMeta(true); meta.play = normPlay({ ...playOf(meta), ensemble: t.checked }); if (app.current?.state) meta.fullTurn = app.current.state.turn; await saveMeta(); app.refreshNow(); },
     playworld: async (el, t) => { const meta = getMeta(true); meta.play = normPlay({ ...playOf(meta), cardIsWorld: t.checked }); await saveMeta(); app.refreshNow(); },
 };
 export { MODS, MOD_IDS, ctx, stamp, CONTACT_MODES };

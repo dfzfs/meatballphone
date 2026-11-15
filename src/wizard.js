@@ -1,5 +1,5 @@
 // 처음 만들기 (마법사 · 기준 상태 세우기) — shell.js에서 떼어 냄
-import { DATA_V, app, ctx, settings, saveSettings, getMeta, saveMeta, MOD, MOD_IDS, EMPTY, NORM, normalize, DIFFS, GENRES, CONTACT_MODES, esc, clone, clamp, h, TITLE, LOG, PLAY_MODES, normPlay, playOf, mascotUrl, relFromProfiles, ssErr, ssWarn } from './core.js';
+import { DATA_V, app, ctx, settings, saveSettings, getMeta, saveMeta, MOD, MOD_IDS, EMPTY, NORM, normalize, DIFFS, GENRES, CONTACT_MODES, esc, clone, clamp, h, TITLE, LOG, PLAY_MODES, normPlay, playOf, mascotUrl, relFromProfiles, ssErr, ssWarn, PLAY_SETS } from './core.js';
 import { gatherSources, loreNames, chatCharacters, setBase, startBlank } from './engine.js';
 import { genModule, genGroup, GEN_GROUPS } from './ai.js';
 import { popup, askConfirm, busyBtn, seg, sec, mascot } from './kit.js';
@@ -32,6 +32,10 @@ export async function openWizard() {
             <div><span>로어북</span><b>${lore.length ? lore.map(esc).join(', ') : '없음'}</b></div>
             <div><span>채팅</span><b>${chatN}개</b></div>
         </div>
+        <section class="ss-sec"><div class="ss-sec-h"><h4>빠른 세트 <small>선택 · 누르면 아래 「플레이 방식」과 「쓸 기능」이 맞춰져요 (그 뒤에 하나씩 바꿔도 돼요)</small></h4></div>
+            <div class="ss-sets">${Object.entries(PLAY_SETS).map(([k, v]) => `<button class="ss-btn" data-set="${k}"><b><i class="fa-solid ${v.icon}"></i> ${v.name}</b><small>${v.desc}</small></button>`).join('')}</div>
+            <p class="ss-hint ss-set-note ss-hide"></p>
+        </section>
         <section class="ss-sec"><div class="ss-sec-h"><h4>만드는 방식</h4></div>
             <div class="ss-seg wrap stack" data-w="gm">${Object.entries(GEN_MODES).map(([k, v]) => `<button data-v="${k}" class="${W.gm === k ? 'on' : ''}"><i class="fa-solid ${v.icon}"></i> ${v.name}<small>${v.desc}</small></button>`).join('')}</div>
             <p class="ss-hint ss-gmhint ${W.gm === 'ai' ? 'ss-hide' : ''}">기본 틀은 아래 「장르」에 맞춰져요 (안 고르면 현대). 수치 · 주사위 · 달력 · 업적 · 운명 카드처럼 어떤 세계관에도 맞는 칸은 검증된 모양으로 고정되고, 나머지는 「기본 틀만」이면 빈 뼈대로 · 「기본 틀 + AI」면 AI가 세계관에 맞게 채워요.</p>
@@ -50,6 +54,7 @@ export async function openWizard() {
         <section class="ss-sec"><div class="ss-sec-h"><h4>플레이 방식</h4></div>
             <div class="ss-seg wrap stack" data-w="play"><button data-v="auto" class="${W.play === 'auto' ? 'on' : ''}">자동 (추천)<small>카드·채팅을 보고 AI가 알아서 (추가 호출 없음)</small></button>${Object.entries(PLAY_MODES).map(([k, v]) => `<button data-v="${k}" class="${W.play === k ? 'on' : ''}">${v.name}<small>${v.desc}</small></button>`).join('')}</div>
             <label class="ss-f wide ss-hero ${W.play === 'director' ? '' : 'ss-hide'}"><span>주인공 이름 (풀사칭 · 비우면 AI가 정함)</span><input class="ss-in ss-w-hero" value="${esc(meta?.play?.hero ?? '')}" placeholder="예: 서이현"></label>
+            <label class="ss-tog ss-ens ${W.play === 'director' ? '' : 'ss-hide'}"><input type="checkbox" class="ss-switch ss-w-ens" ${meta?.play?.ensemble ? 'checked' : ''}><span>주인공 없음 — 군상극 (여러 인물을 고르게 · 인물끼리의 관계만)</span></label>
             <label class="ss-tog ss-cardworld ${W.play === 'auto' ? 'ss-hide' : ''}"><input type="checkbox" class="ss-switch ss-w-world" ${meta?.play?.cardIsWorld ? 'checked' : ''}><span>카드 이름이 캐릭터가 아니라 세계관·봇 이름이에요</span></label>
         </section>
         <section class="ss-sec"><div class="ss-sec-h"><h4>참고할 자료</h4></div><div class="ss-pills">
@@ -80,7 +85,27 @@ export async function openWizard() {
         el.querySelector('.ss-w-cost').textContent = settings().genBatch ? `AI ${g + 1}회 (세계 핵심 1 + 묶음 ${g} · 기능 ${n}개) · 보통 1~2분` : `AI ${n + 1}회 (세계 핵심 1 + 기능 ${n}) · 보통 1~3분`; el.querySelector('.ss-cmode').classList.toggle('ss-hide', !el.querySelector('[data-mod="contact"]').checked); };
     cost();
     el.addEventListener('change', (e) => { const l = e.target.closest('.ss-mod'); if (l) l.classList.toggle('on', e.target.checked); cost(); });
+    const syncPlay = () => { el.querySelector('.ss-hero').classList.toggle('ss-hide', W.play !== 'director' || el.querySelector('.ss-w-ens').checked); el.querySelector('.ss-ens').classList.toggle('ss-hide', W.play !== 'director'); el.querySelector('.ss-cardworld').classList.toggle('ss-hide', W.play === 'auto'); };
+    el.querySelector('.ss-w-ens').addEventListener('change', syncPlay);
+    syncPlay();
     el.addEventListener('click', (e) => {
+        const sb = e.target.closest('[data-set]');
+        if (sb) { // 원클릭 세트: 플레이 방식 · 쓸 기능을 맞추고, 선택 기능은 「생성 시작」 때 켠다
+            const ps = PLAY_SETS[sb.dataset.set]; if (!ps) return;
+            W.set = W.set === sb.dataset.set ? '' : sb.dataset.set;
+            el.querySelectorAll('[data-set]').forEach(x => x.classList.toggle('pri', x.dataset.set === W.set));
+            const note = el.querySelector('.ss-set-note');
+            note.classList.toggle('ss-hide', !W.set);
+            if (!W.set) return;
+            W.play = ps.play.mode;
+            el.querySelectorAll('[data-w="play"] > button').forEach(x => x.classList.toggle('on', x.dataset.v === W.play));
+            el.querySelector('.ss-w-ens').checked = !!ps.play.ensemble;
+            syncPlay();
+            el.querySelectorAll('[data-mod]').forEach(i => { i.checked = ps.mods.includes(i.dataset.mod); i.closest('.ss-mod').classList.toggle('on', i.checked); });
+            const opt = Object.keys(ps.set).map(k => ({ relRace: '🏁 루트 비교', pairAff: '💞 인물끼리 호감' }[k])).filter(Boolean);
+            note.textContent = `「${ps.name}」 — 기능 ${ps.mods.length}개${opt.length ? ` · ${opt.join(' · ')}도 켜요 (모든 채팅에 걸려요 · 관계 탭 › 보일 것에서 끌 수 있어요)` : ''}`;
+            cost(); return;
+        }
         const all = e.target.closest('[data-all]');
         if (all) { el.querySelectorAll('[data-mod]').forEach(i => { i.checked = all.dataset.all === 'rec' ? REC_MODS.includes(i.dataset.mod) : all.dataset.all === '1'; i.closest('.ss-mod').classList.toggle('on', i.checked); }); cost(); return; }
         const b = e.target.closest('[data-w] > button'); if (!b) return;
@@ -97,7 +122,7 @@ export async function openWizard() {
         b.parentElement.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
         W[k] = b.dataset.v;
         if (k === 'lang') el.querySelector('.ss-w-trbox')?.classList.toggle('ss-hide', W.lang !== 'enview');
-        if (k === 'play') { el.querySelector('.ss-hero').classList.toggle('ss-hide', W.play !== 'director'); el.querySelector('.ss-cardworld').classList.toggle('ss-hide', W.play === 'auto'); }
+        if (k === 'play') syncPlay();
         if (k === 'diff') el.querySelector('.ss-diffdesc').textContent = DIFFS[W.diff].desc;
         if (k === 'gm') { settings().genMode = W.gm; saveSettings(); cost(); }
     });
@@ -121,7 +146,7 @@ export async function openWizard() {
             const data = await genModule(id, { sources: opts.sources, core: results.core, instruction: opts.instruction, profileMode: opts.pmode, contactMode: opts.cmode, feature: 'wizard', play: opts.play, detectPlay: auto });
             if (id === 'core') { results.core = data; queueMicrotask(() => { app.playTemp = opts.play; }); if (fillHero) opts.play = normPlay({ ...opts.play, hero: data.play?.hero ?? '', cast: data.play?.cast ?? [] }); else if (auto) opts.play = data.play ?? normPlay({ mode: 'rp' }); results.play = opts.play; }
             else results.data[id] = data;
-            setRow(id, name, 'ok', id === 'core' ? `${esc(data.title)} · ${PLAY_MODES[opts.play.mode].name}${opts.play.mode === 'director' && opts.play.hero ? ` (주인공 ${esc(opts.play.hero)})` : ''}${opts.play.cardIsWorld ? ' · 카드=세계관' : ''}${auto ? ' — 자동' : ''}` : '');
+            setRow(id, name, 'ok', id === 'core' ? `${esc(data.title)} · ${PLAY_MODES[opts.play.mode].name}${opts.play.mode === 'director' && opts.play.hero ? ` (주인공 ${esc(opts.play.hero)})` : ''}${opts.play.ensemble ? ' (군상극)' : ''}${opts.play.cardIsWorld ? ' · 카드=세계관' : ''}${auto ? ' — 자동' : ''}` : '');
             return true;
         } catch (e) { ssErr(LOG, id, e); setRow(id, name, 'fail', `${esc(e.message)} <button class="ss-btn sm" data-retry="${id}">다시</button>`); return false; }
     };
@@ -170,6 +195,7 @@ export async function openWizard() {
         const btn = e.currentTarget;
         const src = Object.fromEntries([...el.querySelectorAll('[data-src]')].map(i => [i.dataset.src, i.checked]));
         mods = Object.fromEntries([...el.querySelectorAll('[data-mod]')].map(i => [i.dataset.mod, i.checked]));
+        if (W.set && PLAY_SETS[W.set]) { const add = Object.entries(PLAY_SETS[W.set].set).filter(([k, v]) => settings()[k] !== v); if (add.length) { Object.assign(settings(), Object.fromEntries(add)); saveSettings(); } } // 세트의 선택 기능 켜기
         if (W.lang && settings().ssGenLang !== W.lang) { settings().ssGenLang = W.lang; saveSettings(); } // 생성 전에 — 모든 AI 호출 · 기본 틀이 이 언어로
         if (W.lang === 'enview' && W.tr && settings().trEngine !== W.tr) { settings().trEngine = W.tr; saveSettings(); }
         const g = GENRES.find(x => x.id === W.genre);
@@ -182,7 +208,7 @@ export async function openWizard() {
         results.core = null; results.data = {};
         const sources = W.gm === 'tpl' ? '' : W.base === 'new' ? await gatherSources({ card: false, lore: false, chat: false, persona: src.persona }) : await gatherSources(src);
         const cmode = W.cmode === 'auto' && g && g.contact !== 'auto' ? g.contact : W.cmode;
-        opts = { sources, instruction: W.base === 'new' ? `${instruction}\n(Create a NEW world. Ignore any existing card/lorebook.)` : instruction, pmode: W.pmode, cmode, play: W.play === 'auto' ? null : normPlay({ mode: W.play, hero: el.querySelector('.ss-w-hero').value, cardIsWorld: el.querySelector('.ss-w-world').checked }) };
+        opts = { sources, instruction: W.base === 'new' ? `${instruction}\n(Create a NEW world. Ignore any existing card/lorebook.)` : instruction, pmode: W.pmode, cmode, play: W.play === 'auto' ? null : normPlay({ mode: W.play, hero: el.querySelector('.ss-w-hero').value, ensemble: el.querySelector('.ss-w-ens').checked, cardIsWorld: el.querySelector('.ss-w-world').checked }) };
         results.play = opts.play;
         app.playTemp = opts.play;
         // 추천 음악은 장면이 생기면 본편 AI가 고르므로 처음엔 빈 칸으로 (AI 호출 아끼기)

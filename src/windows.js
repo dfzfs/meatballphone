@@ -1,11 +1,27 @@
 // 프롬프트 · 토큰 창 · 꾸미기 창 — shell.js에서 떼어 냄
-import { app, settings, saveSettings, getMeta, modOn, MOD_IDS, esc, fmtNum, sub } from './core.js';
+import { app, settings, saveSettings, getMeta, modOn, MOD_IDS, MOD, INJ, esc, fmtNum, sub } from './core.js';
 import { buildInjection } from './engine.js';
 import { PROMPT_DEFS, setPrompt, countTokens, FEATURE_NAMES } from './prompts.js';
 import { popup, askConfirm, gauge, seg, applyTheme, THEMES, THEME_KEYS, themeVars, emptyBox, sec } from './kit.js';
 import { MINI, MINI_REL_VALS, MINI_REL_SORT, miniRelOpt } from './views.js';
 
 // ───── 프롬프트 · 토큰 창 ─────
+// 칸별 토큰: 그 칸 하나를 뺀 주입문과의 차이 = 「이 칸을 끄면 줄어드는 양」. 버튼을 눌렀을 때만 잰다 (칸 수만큼 세어야 해서)
+// 지금 턴의 전체 주입문 기준 — 변한 것만 보내는 턴엔 실제로는 이보다 적게 간다
+export async function modTokens() {
+    const r = app.current, meta = getMeta();
+    if (!r || meta?.paused) return null;
+    const text = () => { const inj = buildInjection(r, { full: true }); return sub([inj.main, inj.people, inj.romance].filter(Boolean).join('\n\n')).trim(); };
+    const all = await countTokens(text());
+    const list = [];
+    for (const id of MOD_IDS) {
+        if (!modOn(id, meta) || !r.state.data[id]) continue;
+        let t; INJ.skip = id; try { t = text(); } finally { INJ.skip = null; }
+        const n = Math.max(0, all - await countTokens(t));
+        if (n > 0) list.push([id, n]);
+    }
+    return { all, list: list.sort((a, b) => b[1] - a[1]) };
+}
 export async function openPromptWindow(tab = 'when') {
     const el = document.createElement('div');
     el.className = 'ss-root ss-scope ss-pw';
@@ -24,6 +40,7 @@ export async function openPromptWindow(tab = 'when') {
             body = `<div class="ss-callout"><i class="fa-solid fa-circle-info"></i><div><b>토큰은 두 군데서 들어요</b><span>① 본편(메인 AI)을 부를 때마다 붙는 상태 주입문 ② 확장이 따로 AI를 부르는 버튼 (<span class="ss-ai"><i class="fa-solid fa-wand-magic-sparkles"></i>AI</span> 표시)</span></div></div>
             ${sec('① 매 턴 — 본편 생성마다 자동', `
                 ${row('fa-arrow-right-to-bracket', `상태 주입문 (입력) ≈ <b>${fmtNum(injTok)}</b> 토큰`, `본 답 · 다시 생성 · 스와이프 · 이어 쓰기마다 요청에 붙어요. 깊이 ${set.injectDepth} · 규칙 ${{ full: '전체', lite: '간결', ultra: '초압축' }[set.injectMode] ?? '전체'}${set.deltaMode ? ` · 변화 위주 (${set.deltaEvery}턴마다 전체)` : ''}${Object.keys(set.injEvery ?? {}).length ? ' · 칸별 보내는 때 설정됨' : ''}`, '매 턴', !!injText)}
+                ${injTok ? '<div class="ss-row-btns"><button class="ss-btn sm" data-tokmods><i class="fa-solid fa-chart-simple"></i> 칸별로 보기</button><small class="ss-hint">어느 칸이 토큰을 많이 쓰는지 · 누를 때만 재요</small></div><div class="ss-tokmods-box"></div>' : ''}
                 ${inj?.romance ? row('fa-heart', `그중 로맨스 보정 · 내 주입문 ≈ <b>${fmtNum(await countTokens(sub(inj.romance)))}</b> 토큰`, `따로 주입돼요 (깊이 ${set.romDepth}). 확장 설정 › 로맨스 보정에서 켠 것만 들어가요.`, '매 턴') : ''}
                 ${row('fa-arrow-right-from-bracket', 'AI가 응답 끝에 쓰는 &lt;meatball&gt; (출력)', '바뀐 것만 적어서 보통 20~80 토큰. 화면에선 숨겨지고, 2턴 지난 것은 프롬프트에서도 지워져요.', '매 턴', set.sync === 'tag' || set.sync === 'tagPlus')}
                 <p class="ss-hint">0 토큰이 되는 때: ⏸ 일시정지 · 「다음 1번 건너뛰기」 · OOC 메시지${set.oocDetect ? ' (자동 감지 켬)' : ' (자동 감지 꺼짐)'} · 조용한 생성/퀵리플라이 /gen${set.skipQuiet ? ' (자동 제외 켬)' : ' (꺼짐)'} · 이 채팅에서 끔</p>`)}
@@ -75,6 +92,16 @@ export async function openPromptWindow(tab = 'when') {
         const t = e.target.closest('[data-act="pw"]'); if (t) { cur = t.dataset.arg; await render(); return; }
         const r = e.target.closest('[data-preset]'); if (r) { setPrompt(r.dataset.preset, null); await render(); el.querySelector(`[data-pk="${r.dataset.preset}"]`)?.closest('details')?.setAttribute('open', ''); app.refreshNow(); return; }
         if (e.target.closest('[data-presetall]') && await askConfirm('모든 프롬프트를 기본값으로 되돌릴까요?')) { settings().prompts = {}; saveSettings(); await render(); app.refreshNow(); }
+        const tm = e.target.closest('[data-tokmods]');
+        if (tm) {
+            const box = el.querySelector('.ss-tokmods-box'); tm.disabled = true;
+            try {
+                const r = await modTokens();
+                const max = Math.max(1, ...(r?.list ?? []).map(x => x[1]));
+                box.innerHTML = !r ? '' : `<div class="ss-tokmods">${r.list.map(([id, n]) => `<div><span>${esc(MOD[id]?.name ?? id)}</span><i style="width:${Math.round(n / max * 100)}%"></i><em>≈ ${fmtNum(n)}</em></div>`).join('')}</div><p class="ss-hint">각 줄 = 그 칸을 끄면 줄어드는 양 (전체 주입 ≈ ${fmtNum(r.all)} 토큰 기준 · 머리말 · 규칙처럼 칸과 상관없는 부분은 빠져 있어요). 「변한 것만 보내기」를 켠 턴엔 실제로는 이보다 적게 가요. 칸은 관리 탭 › 쓸 기능에서 꺼요.</p>`;
+            } finally { tm.disabled = false; }
+            return;
+        }
         if (e.target.closest('[data-uclear]')) { settings().usage = []; saveSettings(); await render(); }
     });
     let tmr;

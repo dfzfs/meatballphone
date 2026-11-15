@@ -1,7 +1,7 @@
 // v2.5 화면: SNS · 추천 음악 · 내 탭 · 추억 앨범 · 플레이 기록 · 검색 · 속마음 · 엔딩 · 모델 맞춤 설정
 import { app, ctx, settings, saveSettings, isAiPart, aiOff, partTouched, getMeta, saveMeta, modOn, esc, short, clone, clamp, num, fmtNum, signed, uid, findBy, norm, stamp, userName, TITLE, LOG, MOD, dayIndex, msgText, DEFAULT_STAGES } from './core.js';
-import { loveIndex, ensureLove, relAxes, romanceStart, ladderIssue, fixLoveLadder } from './core.js';
-import { addAdjust, commit, stageIndex, stripStatus, isFresh } from './engine.js';
+import { loveIndex, ensureLove, relAxes, romanceStart, ladderIssue, fixLoveLadder, playOf } from './core.js';
+import { addAdjust, commit, stageIndex, stripStatus, isFresh, pairStage } from './engine.js';
 const FRESH_I = '<i class="ss-fresh" title="방금 AI 답에서 바뀌었어요"></i>';
 import { newSns, snsReactions, musicPicks, peekMind, fillWants } from './ai.js';
 import { sec, emptyBox, chip, avatar, ai1, seg, gauge, meter, askInput, askConfirm, busyBtn, insertInput, closeIfPopup, mascot, choosePopup } from './kit.js';
@@ -137,6 +137,31 @@ export const REL_SHOW = [
     ['relShowPairs', '인물끼리', '인물끼리 관계 목록'],
 ];
 const relOn = (k) => settings()[k] !== false;
+// 선택 기능 (기본 꺼짐) — 「숫자만 / 다 보기」에는 안 묶인다. 끄면 계산 · 주입문 · 화면 어디에도 안 걸림
+export const REL_OPT = [
+    ['relRace', '🏁 루트 비교', '맨 위에 인물별 진행도를 나란히 — 누가 앞서는지 · 최근 메시지 20개 동안 얼마나 움직였는지 (화면만 · 토큰 0)'],
+    ['pairAff', '💞 인물끼리 호감', '유저 말고 인물 둘 사이의 호감도 수치로 쌓아요 (AI가 pairaff로 적음 · 주입문에 한 줄 늘어요). 끄면 AI에게 안 가르치고 적어 와도 반영하지 않아요'],
+];
+const optOn = (k) => settings()[k] === true;
+// 🏁 루트 비교: 호감 높은 순으로 한 줄씩. recent = 최근 메시지 동안의 변화 (compute가 relRace를 켰을 때만 줌)
+function raceHTML(d, st, AX, STG, ens) {
+    const recent = app.current?.recent ?? {};
+    const delta = (n) => (n > 0 ? `<em class="up" title="최근 메시지 20개 동안">▲${n}</em>` : n < 0 ? `<em class="down" title="최근 메시지 20개 동안">▼${-n}</em>` : '<em class="flat" title="최근 메시지 20개 동안 변화 없음">–</em>');
+    const bar = (v) => `<div class="ss-race-t"><b style="width:${clamp(v, 0, 100)}%"></b></div>`;
+    if (ens) {
+        const ps = d.pairs.filter(p => Number.isFinite(p.aff)).sort((a, b) => b.aff - a.aff);
+        if (ps.length < 2) return '';
+        return sec('🏁 루트 비교 <small>인물끼리 · 호감 높은 순</small>', `<div class="ss-race">${ps.slice(0, 12).map((p, i) => `<div class="ss-race-r ${i === 0 && p.aff > 0 && p.aff > ps[1].aff ? 'lead' : ''}"><span class="ss-race-n"><b>${esc(p.a)} ↔ ${esc(p.b)}</b>${p.label ? `<small>${esc(p.label)}</small>` : ''}</span>${bar(p.aff)}<span class="ss-race-v">${p.aff}</span></div>`).join('')}</div>`);
+    }
+    const us = d.user.filter(x => !x.out).sort((a, b) => (b.bond ? 1 : 0) - (a.bond ? 1 : 0) || b.aff - a.aff || b.trust - a.trust);
+    if (us.length < 2) return '';
+    const top = us.find(x => !x.noLove), second = us.filter(x => !x.noLove)[1];
+    return sec(`🏁 루트 비교 <small>${esc(AX.aff)} 높은 순 · ▲▼는 최근 메시지 20개</small>`, `<div class="ss-race">${us.slice(0, 12).map(r => {
+        const g = st[clamp(r.stage ?? stageIndex(st, r.aff, r.trust), 0, st.length - 1)], rc = recent[r.name];
+        const lead = r === top && r.aff > 0 && (!second || r.aff > second.aff);
+        return `<div class="ss-race-r ${lead ? 'lead' : ''} ${r.noLove ? 'off' : ''}"><span class="ss-race-n"><b>${lead ? '👑 ' : ''}${r.bond ? '💍 ' : ''}${esc(r.name)}</b><small>${r.noLove ? '우정만' : STG && g ? esc(g.name) : esc(r.label)}</small></span>${bar(r.aff)}<span class="ss-race-v" title="${esc(AX.aff)} ${r.aff} · ${esc(AX.trust)} ${r.trust}">${r.aff}<small>/${r.trust}</small></span>${delta(rc?.aff ?? 0)}</div>`;
+    }).join('')}</div>`);
+}
 export function relView(s, d, ui) {
     const st = stagesOf(d);
     const set = settings();
@@ -173,13 +198,17 @@ export function relView(s, d, ui) {
         ${MIND_ON() ? `<div class="ss-seg">${Object.entries(MIND_FREQ).map(([k, v]) => `<button class="${(set.mindFreq ?? 'random') === k ? 'on' : ''}" data-act="mindset" data-arg="freq:${k}">${v}${k === 'random' ? ` ${num(set.mindPct, 35)}%` : ''}</button>`).join('')}</div>` : ''}</div>`;
     const showBar = `<details class="ss-more ss-relshow" ${ui.relShow ? 'open' : ''}><summary><i class="fa-solid fa-sliders"></i> 보일 것 ${nOff ? `<small>${REL_SHOW.length - nOff}/${REL_SHOW.length} 켬</small>` : ''}</summary>
         <div class="ss-pills">${REL_SHOW.map(([k, t, tip]) => `<button class="ss-pill ${relOn(k) ? 'on' : ''}" data-act="relshow" data-arg="${k}" title="${esc(tip)}${isAiPart('rel', k) ? (relOn(k) || aiOff('rel', k) ? ' · 끄면 AI에게도 안 보내요' : ' · 예전에 꺼 둔 것이라 지금은 화면에서만 숨김 — 다시 눌러 켰다 끄면 AI에게도 안 보내요') : ''}">${relOn(k) ? '<i class="fa-solid fa-check"></i> ' : ''}${isAiPart('rel', k) ? '<i class="fa-solid fa-robot"></i> ' : ''}${esc(t)}</button>`).join('')}</div>
+        <div class="ss-pills ss-relopt"><small>선택 기능</small>${REL_OPT.map(([k, t, tip]) => `<button class="ss-pill ${optOn(k) ? 'on' : ''}" data-act="relopt" data-arg="${k}" title="${esc(tip)}">${optOn(k) ? '<i class="fa-solid fa-check"></i> ' : ''}${esc(t)}</button>`).join('')}</div>
         <div class="ss-row-btns"><button class="ss-btn sm" data-act="relshow" data-arg="__min"><i class="fa-solid fa-hashtag"></i> 숫자만</button><button class="ss-btn sm ghost" data-act="relshow" data-arg="__all"><i class="fa-solid fa-eye"></i> 다 보기</button></div>
         <p class="ss-hint">모든 채팅에 걸려요. 「단계」와 <i class="fa-solid fa-robot"></i> 표시는 끄면 AI에게도 안 보내요. 지운 게 아니라 다시 켜면 그대로예요.</p></details>`;
     const bad = STG ? ladderIssue(d) : [];
     const ladderBar = bad.length ? `<div class="ss-callout warn"><i class="fa-solid fa-triangle-exclamation"></i><div><b>연애 느낌 단계가 우정만으로 열려요</b><span>${bad.map(esc).join(', ')} — 친구 · 가족도 우정만 높으면 이 단계로 올라가요. 고치면 애정도 있어야 열려요 (AI 0회).</span></div><button class="ss-btn sm pri" data-act="relladder">고치기</button></div>` : '';
-    return `${ladderBar}${showBar}${mindBar}${romBar}<div class="ss-stack">${d.user.map(card).join('') || emptyBox('관계가 없어요', 'fa-people-arrows')}</div>
+    const ens = playOf().ensemble, PA = optOn('pairAff');
+    const race = optOn('relRace') ? raceHTML(d, st, AX, STG, ens) : '';
+    const pairRow = (p) => `<div><b>${esc(p.a)}</b><i class="fa-solid fa-arrows-left-right"></i><b>${esc(p.b)}</b>${p.label ? chip(esc(p.label)) : ''}${PA ? `${STG && Number.isFinite(p.aff) ? chip(esc(pairStage(d, p).name)) : ''}<span class="ss-pair-adj"><button class="ss-ib" data-act="pairadj" data-arg="${esc(`${p.a}|${p.b}|-5`)}" title="${esc(AX.aff)} −5">−</button><button class="ss-ib" data-act="pairadj" data-arg="${esc(`${p.a}|${p.b}|+5`)}" title="${esc(AX.aff)} +5">+</button></span>` : ''}${p.memo ? `<small>${esc(p.memo)}</small>` : ''}${PA ? meter(AX.aff, p.aff ?? 0, 'love') : ''}</div>`;
+    return `${ladderBar}${showBar}${ens ? '' : mindBar}${ens ? '' : romBar}${race}${ens && !d.user.length ? '' : `<div class="ss-stack">${d.user.map(card).join('') || emptyBox('관계가 없어요', 'fa-people-arrows')}</div>`}
         ${life.length ? sec('🌙 화면 밖 소식', `<div class="ss-stack">${life.map(x => `<div class="ss-ev"><b>${esc(x.who)}</b><small>${esc(x.text)}${x.date ? ` · ${esc(x.date)}` : ''}</small></div>`).join('')}</div>`) : ''}
-        ${relOn('relShowPairs') && d.pairs.length ? sec('인물끼리', `<div class="ss-pairs">${d.pairs.map(p => `<div><b>${esc(p.a)}</b><i class="fa-solid fa-arrows-left-right"></i><b>${esc(p.b)}</b>${chip(esc(p.label))}${p.memo ? `<small>${esc(p.memo)}</small>` : ''}</div>`).join('')}</div>`) : ''}
+        ${relOn('relShowPairs') && d.pairs.length ? sec('인물끼리', `<div class="ss-pairs ${PA ? 'aff' : ''}">${d.pairs.map(pairRow).join('')}</div>`) : ens ? emptyBox('인물끼리의 관계가 아직 없어요', 'fa-people-arrows') : ''}
         ${!STG ? '' : `<details class="ss-more"><summary>관계 단계 ${st.length}개</summary><ol class="ss-stages">${st.map((x, i) => `<li><b>${i === L ? '💞 ' : ''}${esc(x.name)}</b> <small>${esc([x.at > -100 ? `${AX.aff} ${x.at}+` : '', x.trust > -100 ? `${AX.trust} ${x.trust}+` : ''].filter(Boolean).join(' · ')) || '처음부터'}${x.unlock ? ` — <span>${esc(x.unlock)}</span>` : ''}</small></li>`).join('')}</ol><p class="ss-hint">${L >= 0 ? `💞 표시가 <b>연인 단계</b>예요${set.romBond ? ' — 숫자만으론 안 올라가고, 고백 후 💍 확정해야 올라가요' : ''}.` : '이 세계관의 단계엔 <b>연인 단계가 없어요</b>. 아래 버튼으로 맨 위에 붙일 수 있어요.'} 다른 단계를 연인 단계로 쓰려면 ✏️ 편집 › 관계 단계에서 「💞 연인 단계」를 체크하세요.</p>${L < 0 ? '<div class="ss-row-btns"><button class="ss-btn sm pri" data-act="addlove"><i class="fa-solid fa-heart"></i> 💞 연인 단계 추가</button></div>' : ''}</details>`}`;
 }
 function peekLeft(s) {
@@ -213,6 +242,14 @@ export const REL_ACTIONS = {
         if (k === 'freq' && MIND_FREQ[v]) set.mindFreq = v;
         saveSettings(); app.refreshNow?.(); app.rerenderPanels?.(true); app.renderPanel(el);
     },
+    relopt: (el, arg) => {
+        if (!REL_OPT.some(([k]) => k === arg)) return;
+        const set = settings(); set[arg] = set[arg] !== true;
+        if (arg === 'pairAff') { const m = getMeta(), st = app.current?.state; if (m && st) { m.fullTurn = st.turn; saveMeta(); } } // AI에게 가는 글이 바뀌므로 다음 턴은 전체
+        el._ss.ui.relShow = true;
+        saveSettings(); app.refreshNow?.(); app.rerenderPanels?.(true); app.renderPanel(el);
+    },
+    pairadj: (el, arg) => { const [a, b, v] = arg.split('|'); if (!a || !b || !/^[+-]\d+$/.test(v ?? '')) return; return addAdjust({ ops: [['pairaff', `${a} & ${b} ${v}`]], label: `💞 ${a}↔${b} ${v}` }); },
     relshow: (el, arg) => {
         const set = settings();
         const wasAi = REL_SHOW.map(([k]) => k).filter(k => aiOff('rel', k));

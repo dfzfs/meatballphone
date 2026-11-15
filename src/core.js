@@ -5,7 +5,7 @@ export { clamp, clone, esc, num, str, arr, norm, fmtNum, signed, uid, short, spl
 export const MODULE = 'statussim';
 export const LOG = '[미트볼 상태창]';
 export const TITLE = '미트볼 상태창';
-export const VERSION = '2.7.21';
+export const VERSION = '2.7.22';
 export const INJECT_KEY = 'statussim_state';
 export const INJECT_KEY2 = 'statussim_people';
 export const INJECT_KEY3 = 'statussim_romance'; // 로맨스 보정 · 내 주입문 (v2.6)
@@ -159,6 +159,8 @@ export const DEFAULTS = Object.freeze({
     relShowWants: true,      // 인물의 욕구 줄 · 「욕구 AI로 채우기」 막대 (⑤를 켰을 때)
     relShowLife: true,       // 🌙 화면 밖 소식 목록
     relShowPairs: true,      // 인물끼리 관계 목록
+    pairAff: false,          // 💞 인물끼리 호감 수치 (pairaff) — 끄면 AI에게 안 가르치고, 적어 와도 반영하지 않고, 화면에도 안 보임
+    relRace: false,          // 🏁 관계 탭 맨 위 「루트 비교」 — 화면만 (토큰 0). 끄면 최근 변화 집계도 안 함
     relShowBtns: true,       // 카드 오른쪽 단추 (속마음 · 연락 · 이야기에서 빠짐 · 애정 끄기)
     trLlmFallback: true,     // 🌐 실리 번역기가 못 바꾼 글은 묻지 않고 번역 모델로 (v2.7.19)
     mindMode: 'off',         // 💭 속마음 (v2.7.21): off | thought(속마음 한 줄) | emoji(이모티콘) | kaomoji(카모지) — 본편 AI가 <meatball>에 같이 적음 (추가 호출 0)
@@ -446,9 +448,19 @@ export const PLAY_MODES = {
     multi: { name: '다인봇', icon: 'fa-users', desc: '내가 주인공, 캐릭터가 여러 명' },
     director: { name: '풀사칭', icon: 'fa-clapperboard', desc: '나는 디렉터 — 지시만 하고 캐릭터들이 알아서 진행' },
 };
+// 원클릭 세트 (만들기 창 맨 위): 플레이 방식 + 쓸 기능 + 선택 기능을 한 번에. 누른 뒤에도 아래에서 하나씩 바꿀 수 있다
+// set의 선택 기능은 「켜기」만 한다 (다른 채팅에서 켜 둔 것을 끄지 않음)
+export const PLAY_SETS = {
+    romance: { name: '여성향 연애', icon: 'fa-heart', desc: '1:1 롤플 · 관계 · 연락 · 달력 중심', play: { mode: 'rp' }, mods: ['profile', 'rel', 'calendar', 'contact', 'map', 'memo', 'sns'], set: {} },
+    routes: { name: '다인 · 루트 미정', icon: 'fa-users', desc: '내가 주인공, 누구와 이어질지 모름 · 🏁 루트 비교 켬', play: { mode: 'multi' }, mods: ['profile', 'rel', 'calendar', 'contact', 'map', 'memo', 'gossip', 'sns'], set: { relRace: true } },
+    director: { name: '풀사칭', icon: 'fa-clapperboard', desc: '주인공도 AI가 씀 · 💞 인물끼리 호감 켬', play: { mode: 'director' }, mods: ['profile', 'stats', 'rel', 'calendar', 'map', 'memo', 'gossip'], set: { pairAff: true, relRace: true } },
+    ensemble: { name: '풀사칭 · 군상극', icon: 'fa-people-group', desc: '주인공 없음 · 인물끼리의 관계만 추적', play: { mode: 'director', ensemble: true }, mods: ['profile', 'rel', 'calendar', 'map', 'memo', 'gossip', 'news'], set: { pairAff: true, relRace: true } },
+};
 export function normPlay(p) {
     p = p && typeof p === 'object' ? p : {};
-    return { mode: PLAY_MODES[p.mode] ? p.mode : 'rp', hero: String(p.hero ?? '').trim().slice(0, 40), cardIsWorld: !!p.cardIsWorld, cast: Array.isArray(p.cast) ? p.cast.map(String).map(x => x.trim()).filter(Boolean).slice(0, 20) : [] };
+    const mode = PLAY_MODES[p.mode] ? p.mode : 'rp';
+    const ensemble = mode === 'director' && (p.ensemble === true || p.ensemble === 'true'); // 군상극: 풀사칭인데 주인공이 없음 (인물끼리의 관계만 추적)
+    return { mode, ensemble, hero: ensemble ? '' : String(p.hero ?? '').trim().slice(0, 40), cardIsWorld: !!p.cardIsWorld, cast: Array.isArray(p.cast) ? p.cast.map(String).map(x => x.trim()).filter(Boolean).slice(0, 20) : [] };
 }
 export function playOf(meta) { try { return normPlay((meta ?? (app.playTemp ? { play: app.playTemp } : getMeta()))?.play); } catch { return normPlay(null); } }
 // 풀사칭인데 주인공 이름이 유저(페르소나) 이름과 같은가 — 유저 「루시」가 지시만 하고 AI가 루시 몫까지 쓰는 경우
@@ -460,7 +472,7 @@ export function heroIsUser(p = playOf()) {
 export function swapUser(text, meta) {
     const p = playOf(meta);
     if (p.mode !== 'director') return text;
-    return String(text ?? '').replace(/\{\{user\}\}/gi, p.hero || 'the protagonist');
+    return String(text ?? '').replace(/\{\{user\}\}/gi, p.ensemble ? 'the cast' : p.hero || 'the protagonist');
 }
 
 // ───── 설정 / 메타 ─────
@@ -585,8 +597,11 @@ try {
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushMeta(); });
     window.addEventListener('pagehide', () => flushMeta());
 } catch (e) { ssNote('나갈 때 저장 걸기 실패', e); }
+// on: 주입문을 만드는 중 (가린 칸은 꺼진 것처럼) · skip: 이 칸 하나를 뺀 주입문을 재 볼 때 (칸별 토큰)
+export const INJ = { on: false, skip: null };
 export function modOnRaw(id, meta = getMeta()) {
     if (!meta) return false;
+    if (INJ.skip === id) return false;
     if (GLOBAL_OFF[id] && settings()[GLOBAL_OFF[id]] === false) return false; // v2.7.3: 모든 채팅에서 끈 칸
     if (meta.mods?.[id] === false) return false;
     const need = MOD[id]?.needs;
@@ -595,7 +610,6 @@ export function modOnRaw(id, meta = getMeta()) {
 }
 // 🙈 가리기 (채팅마다): 켜져 있는 칸이라도 AI에게 보내는 글을 만드는 동안엔 꺼진 것처럼 — 직접 다시 켤 때까지 유지
 // INJ.on은 buildInjection이 도는 동안만 true → 화면·버튼·자동 반영은 그대로, 주입문에서만 빠진다
-export const INJ = { on: false };
 export const isHidden = (id, meta = getMeta()) => !!meta?.hide?.[id];
 export function modOn(id, meta = getMeta()) {
     if (!modOnRaw(id, meta)) return false;
@@ -706,7 +720,7 @@ export const NORM = {
         const stages = arr(d.stages).filter(x => x?.name).map(x => ({ name: str(x.name), at: clamp(Math.round(num(x.at, 0)), -100, 100), trust: clamp(Math.round(num(x.trust, -100)), -100, 100), unlock: str(x.unlock), ...(x.love === true || x.love === 'true' ? { love: true } : x.love === false || x.love === 'false' ? { love: false } : {}) })).sort((a, b) => a.at - b.at);
         return {
             user: arr(d.user).filter(r => r?.name).map(r => ({ name: str(r.name), label: str(r.label), aff: clamp(Math.round(num(r.aff, 0)), -100, 100), trust: clamp(Math.round(num(r.trust, 0)), -100, 100), memo: str(r.memo), stage: Number.isFinite(Number(r.stage)) && r.stage !== null && r.stage !== '' ? Math.round(Number(r.stage)) : -1, jealous: clamp(Math.round(num(r.jealous, 0)), 0, 100), met: str(r.met), bond: r.bond === true || r.bond === 'true', ...(r.emoji ? { emoji: str(r.emoji).slice(0, 8) } : {}), ...(r.mind?.text ? { mind: { text: str(r.mind.text), turn: Math.round(num(r.mind.turn, 0)) } } : {}), ...(r.noLove === true || r.noLove === 'true' ? { noLove: true } : {}), likes: str(r.likes), dislikes: str(r.dislikes), concern: str(r.concern), ...(['dead', 'left'].includes(r.out) ? { out: r.out } : {}) })),
-            pairs: arr(d.pairs).filter(p => p?.a && p?.b).map(p => ({ a: str(p.a), b: str(p.b), label: str(p.label), memo: str(p.memo) })),
+            pairs: arr(d.pairs).filter(p => p?.a && p?.b).map(p => ({ a: str(p.a), b: str(p.b), label: str(p.label), memo: str(p.memo), ...(p.aff !== null && p.aff !== '' && p.aff !== undefined && Number.isFinite(Number(p.aff)) ? { aff: clamp(Math.round(Number(p.aff)), -100, 100) } : {}) })), // aff는 「인물끼리 호감」을 쓴 쌍에만 생김
             stages: stages.length ? stages : (() => { const st = clone(str(d.affName) ? LOVE_STAGES : DEFAULT_STAGES); if (!viewTr()) return st; const en = toEnglish(st); try { app.addTrPairs?.(usedPairs(en)); } catch { /* 사전 없어도 저장은 영어 */ } return en; })(), // 영어 저장이면 기본 단계도 영어로
             affName: short(str(d.affName), 12), trustName: short(str(d.trustName), 12),
             life: arr(d.life).filter(x => x?.text).map(x => ({ who: str(x.who), text: str(x.text), date: str(x.date) })).slice(-20),

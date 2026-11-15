@@ -31,10 +31,17 @@
 - **옛 채팅 한 번 손보기**: `engine.js`의 `fixOldMeta`에 한 줄.
 - **위 파일의 함수를 아래 파일에서 불러야 할 때**: import하지 말고 `app.이름`에 걸어요. 건 것은 `core.js` 맨 위 목록에 적어요.
 - **넘어가도 되는 오류**: 빈 `catch { }` 대신 `ssNote('어디서', e)` — 콘솔엔 안 찍히고 오류 보고문에만 남아요.
-- **스타일**: `style.css`는 `@import`만 있고 내용은 `css/` 폴더에 순서대로 (`base` → `panel` → `hud` → `patches` → `tiles`). 뒤 파일이 앞 파일을 덮어써요.
+- **스타일**: `style.css`는 `@import`만 있고 내용은 `css/` 폴더에 순서대로 (`base` → `panel` → `hud` → `patches` → `tiles` → `routes`). 뒤 파일이 앞 파일을 덮어써요.
 
 ## 올릴 때마다 자동 시험 (`.github/workflows/test.yml`)
 
 깃허브에 올리면 문법 검사 → 판 번호 확인(`manifest.json` = `src/core.js`) → 시나리오 전부를 돌려요. 결과는 저장소의 Actions 탭에서 봐요.
 내 컴퓨터에서 돌릴 땐 Playwright가 `/opt/npm-tools`에 없으면 저장소 폴더에서 `npm install --no-save playwright` 한 번.
 
+## 선택 기능을 넣을 때 (끄면 아무 영향이 없게)
+
+`pairAff` · `relRace`가 본보기예요. 설정 기본값은 `false`, 켰는지는 `=== true`로만 봐요.
+- **계산**: 처리기 맨 앞에서 꺼져 있으면 바로 돌아감 (`opPairaff`) · 집계는 켰을 때만 그릇을 만듦 (`compute`의 `recent`).
+- **AI에게 가는 글**: 안내 줄(`tagKeysFor`)과 주입 줄(`buildInjection0`)에 켰을 때만 덧붙임.
+- **화면**: 켰을 때만 그림. 스타일은 `css/routes.css`.
+- **시험**: `t-routes.mjs`처럼 「끄면 주입문이 글자 하나 안 바뀐다」를 같이 확인.

@@ -1,0 +1,29 @@
+/* ───── 🏁 루트 비교 · 💞 인물끼리 호감 (선택 기능 — 꺼져 있으면 이 파일의 규칙은 쓰이지 않음) ───── */
+.ss-scope .ss-race { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.ss-scope .ss-race-r { display: grid; grid-template-columns: minmax(84px, 34%) 1fr auto auto; align-items: center; gap: 8px; font-size: .92em; }
+.ss-scope .ss-race-n { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.ss-scope .ss-race-n b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ss-scope .ss-race-n small { color: var(--ss-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ss-scope .ss-race-t { height: 8px; background: var(--ss-surface2); border-radius: 99px; overflow: hidden; }
+.ss-scope .ss-race-t b { display: block; height: 100%; background: var(--ss-love, #e0567f); border-radius: 99px; opacity: .55; }
+.ss-scope .ss-race-r.lead .ss-race-t b { opacity: 1; }
+.ss-scope .ss-race-r.off { opacity: .6; }
+.ss-scope .ss-race-v { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 2.2em; text-align: right; }
+.ss-scope .ss-race-v small { font-weight: 400; color: var(--ss-dim); }
+.ss-scope .ss-race-r em { font-style: normal; font-size: .85em; min-width: 2.6em; text-align: right; font-variant-numeric: tabular-nums; }
+.ss-scope .ss-race-r em.up { color: var(--ss-pos, #2e9e5b); }
+.ss-scope .ss-race-r em.down { color: var(--ss-neg, #d0453f); }
+.ss-scope .ss-race-r em.flat { color: var(--ss-dim); }
+.ss-scope .ss-relopt { margin-top: 6px; align-items: center; }
+.ss-scope .ss-relopt > small { color: var(--ss-dim); }
+.ss-scope .ss-pairs.aff > div { padding: 6px 0; border-bottom: 1px solid var(--ss-line, rgba(127,127,127,.2)); }
+.ss-scope .ss-pairs.aff > div:last-child { border-bottom: 0; }
+.ss-scope .ss-pairs.aff .ss-meter { flex-basis: 100%; }
+.ss-scope .ss-pair-adj { margin-left: auto; display: inline-flex; gap: 2px; }
+.ss-scope .ss-tokmods { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.ss-scope .ss-tokmods > div { display: grid; grid-template-columns: minmax(70px, 30%) 1fr auto; align-items: center; gap: 8px; font-size: .92em; }
+.ss-scope .ss-tokmods i { display: block; height: 6px; background: var(--ss-trust, #3a8ee6); border-radius: 99px; min-width: 2px; opacity: .7; }
+.ss-scope .ss-tokmods em { font-style: normal; font-variant-numeric: tabular-nums; color: var(--ss-dim); }
+.ss-scope .ss-sets { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; }
+.ss-scope .ss-sets button { text-align: left; display: flex; flex-direction: column; gap: 2px; }
+.ss-scope .ss-sets button small { color: var(--ss-dim); font-weight: 400; white-space: normal; }

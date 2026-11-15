@@ -14,7 +14,7 @@ export const KEYMAP = {
     loc: 'loc', '위치': 'loc', '장소': 'loc', location: 'loc',
     place: 'place', '발견장소': 'place', '새장소': 'place',
     aff: 'aff', '호감': 'aff', '호감도': 'aff', '애정': 'aff', '애정도': 'aff', trust: 'trust', '신뢰': 'trust', '신뢰도': 'trust', '우정': 'trust', '우정도': 'trust',
-    rel: 'rel', '관계': 'rel', pair: 'pair', '인물관계': 'pair',
+    rel: 'rel', '관계': 'rel', pair: 'pair', '인물관계': 'pair', pairaff: 'pairaff', '인물호감': 'pairaff',
     date: 'date', '날짜': 'date', day: 'date', '일': 'date', time: 'time', '시간': 'time', '시간대': 'time',
     days: 'date', '날짜이동': 'date', period: 'time', slot: 'time',
     event: 'event', '일정': 'event',
@@ -40,7 +40,7 @@ export const KEYMAP = {
 };
 export const KEY_MOD = {
     stat: 'stats', attr: 'stats', cond: 'stats', cash: 'wallet', item: 'wallet', stock: 'shop', decor: 'home', room: 'home', loc: 'map', place: 'map',
-    aff: 'rel', trust: 'rel', rel: 'rel', pair: 'rel', date: 'calendar', time: 'calendar', event: 'calendar', ach: 'ach', memo: 'memo', msg: 'contact',
+    aff: 'rel', trust: 'rel', rel: 'rel', pair: 'rel', pairaff: 'rel', date: 'calendar', time: 'calendar', event: 'calendar', ach: 'ach', memo: 'memo', msg: 'contact',
     npc: 'profile', roll: 'dice', quest: 'quest', news: 'news', rumor: 'gossip', post: 'board', curse: 'fate', weather: 'calendar',
     bgm: 'music', sns: 'sns', custom: 'custom', life: 'rel', mind: 'rel', jealous: 'rel', confess: 'rel', concern: 'rel', taste: 'rel',
 };
@@ -735,6 +735,7 @@ function opAff(s, val, info, L, T, key, rawKey) {
     if (nv > b && info.ai && romLive(s)) nv = b + romGain(s, info, r.name, key, nv - b); // 로맨스 보정: 상한
     if (key === 'aff' && r.noLove && nv > b) { if (info.ai) L(`🚫♥ ${r.name} (애정 꺼 둠)`); nv = b; } // 💗 애정 꺼 둔 사람: 안 오름 (내려가는 건 그대로)
     r[key] = nv;
+    if (info.recent && nv !== b) { const rc = (info.recent[r.name] ??= { aff: 0, trust: 0 }); rc[key] += nv - b; } // 🏁 루트 비교: 최근 변화 (설정 relRace를 켰을 때만 info.recent가 있음)
     if (m[3]) r.memo = m[3];
     if (r[key] !== b) L(`${key === 'aff' ? '♥' : '🤝'} ${r.name} ${signed(r[key] - b)}`);
     if (key === 'aff' && r[key] > b) jealousyFrom(s, r.name, r[key] - b, info);
@@ -763,6 +764,28 @@ function opPair(s, val, info, L, T, key, rawKey) {
     if (ex) { ex.label = label; if (memo) ex.memo = memo; } else rl.pairs.push({ a: m[1].trim(), b: m[2].trim(), label, memo: memo ?? '' });
     L(`💞 ${m[1].trim()}↔${m[2].trim()}: ${label}`);
     return;
+}
+// 💞 인물끼리 호감 (선택 · 설정 pairAff): 「A & B +3」 「A & B = 40」 「A & B -5 | 메모」
+// 꺼져 있으면 AI가 적어 와도 아무 일도 안 한다 (저장된 수치는 그대로 남고, 화면 · 주입문에서만 빠짐)
+export const PAIR_STEP = 15; // AI가 한 번에 올리고 내릴 수 있는 폭
+export const pairFind = (rl, a, b) => (rl?.pairs ?? []).find(p => (norm(p.a) === norm(a) && norm(p.b) === norm(b)) || (norm(p.a) === norm(b) && norm(p.b) === norm(a)));
+export const pairStage = (rl, p) => { const st = rl?.stages?.length ? rl.stages : DEFAULT_STAGES; return st[clamp(stageIndex(st, p.aff ?? 0, 100), 0, st.length - 1)]; }; // 신뢰 축이 없어서 호감만으로 단계
+function opPairaff(s, val, info, L, T, key, rawKey) {
+    if (settings().pairAff !== true) return;
+    const m = val.match(/^(.+?)\s*(?:&|와|과|,|↔)\s*(.+?)\s*([=+\-−]\s*\d+(?:\.\d+)?)\s*(?:\|\s*(.*))?$/);
+    if (!m) return;
+    const a = m[1].replace(/\*\*|__|`/g, '').trim(), b = m[2].replace(/\*\*|__|`/g, '').trim();
+    if (!a || !b || a.length > 30 || b.length > 30 || norm(a) === norm(b)) return;
+    const pn = parseNum(m[3].replace(/\s+/g, '')); if (!pn) return;
+    const rl = ensure(s, 'rel');
+    let pr = pairFind(rl, a, b);
+    if (!pr) { pr = { a, b, label: '', memo: '' }; rl.pairs.push(pr); }
+    const was = pr.aff ?? 0;
+    let d = pn.mode === 'add' ? pn.v : pn.v - was;
+    if (info.ai) d = clamp(d, -PAIR_STEP, PAIR_STEP);
+    pr.aff = clamp(Math.round(was + d), -100, 100);
+    if (m[4]) pr.memo = m[4];
+    if (pr.aff !== was) L(`💞 ${pr.a}↔${pr.b} ${signed(pr.aff - was)}`);
 }
 function opDate(s, val, info, L, T, key, rawKey) {
     const cal = ensure(s, 'calendar');
@@ -1023,6 +1046,7 @@ const OPS = {
     'trust': opAff,
     'rel': opRel,
     'pair': opPair,
+    'pairaff': opPairaff,
     'date': opDate,
     'time': opTime,
     'event': opEvent,

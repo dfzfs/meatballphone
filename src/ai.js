@@ -10,7 +10,7 @@ const tasteLine = () => { const t = app.current?.state?.data?.music?.taste || se
 export function playLine(p = playOf()) {
     const world = p.cardIsWorld ? P('gen.play.world') : '';
     const cast = p.cast.length ? ` — cast: ${p.cast.join(', ')}` : '';
-    return P(heroIsUser(p) ? 'gen.play.director.self' : `gen.play.${p.mode}`, { world, cast, hero: p.hero || 'the main character' });
+    return P(p.ensemble ? 'gen.play.ensemble' : heroIsUser(p) ? 'gen.play.director.self' : `gen.play.${p.mode}`, { world, cast, hero: p.hero || 'the main character' });
 }
 const diffLine = () => `Difficulty: ${DIFFS[diffOf()].name} — ${P(`diff.${diffOf()}`)}`;
 const contactModeLine = (mode) => (mode && mode !== 'auto' ? `Use mode "${mode}" (${CONTACT_MODES[mode]?.name}).` : 'Choose mode: phone for modern/sci-fi worlds with phones, instant for magic/radio/telepathy, letter for worlds without phones (letters take days).');
@@ -255,7 +255,7 @@ export async function fillWants(state) {
     const o = await finJSON(await aiJSON('wants', P('ai.wants'), L.join('\n\n'), 1500));
     return Array.isArray(o?.list) ? o.list.filter(x => x?.name) : [];
 }
-export const PLAY_SHAPE = '{"mode":"rp|multi|director","cardIsWorld":false,"hero":"","cast":["이름"]}';
+export const PLAY_SHAPE = '{"mode":"rp|multi|director","cardIsWorld":false,"hero":"","ensemble":false,"cast":["이름"]}';
 export async function detectPlay() {
     const c = ctx();
     const chars = chatCharacters();

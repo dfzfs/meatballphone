@@ -4,7 +4,7 @@ import {
     TITLE, INJECT_KEY, INJECT_KEY2, INJECT_KEY3, trLook, trBack, viewTr, weekday, PROMPT_IN_CHAT, ROLE_SYSTEM, MODULE, AI_PARTS, aiOff, uid, diffOf, LOG, loveIndex, CONTACT_MODES, tidy, msgText, DEFAULT_STAGES, arr, playOf, swapUser, ssWarn, relAxes, INJ, isHidden, modOnRaw, DATA_V, normPlay, ssNote, heroIsUser,
 } from './core.js';
 import { P } from './prompts.js';
-import { KEYMAP, KEY_MOD, seeded, effSum, today, applyLines, seasonOf, pickWeather, stageIndex, noLoveStage, updateStage, startDay, applyOp, stagesOn, dateFromIndex } from './ops.js';
+import { pairStage, KEYMAP, KEY_MOD, seeded, effSum, today, applyLines, seasonOf, pickWeather, stageIndex, noLoveStage, updateStage, startDay, applyOp, stagesOn, dateFromIndex } from './ops.js';
 export * from './ops.js'; // 떼어 낸 것 — 다른 파일은 예전처럼 여기서 받아도 된다
 
 
@@ -485,6 +485,7 @@ function fixOldMeta(meta, chat) {
     if (!meta.editFix) { for (const a of meta.adjust ?? []) if (a?.an && a.set && /^(✏️|💬|🔄) /u.test(a.label ?? '')) { delete a.an; a.keep = true; } meta.editFix = true; }
 }
 const adjEvents = new Map();
+export const RACE_SPAN = 20; // 🏁 루트 비교가 보는 최근 메시지 수
 export function compute(limit, opts = {}) {
     const c = ctx();
     const meta = getMeta();
@@ -515,6 +516,8 @@ export function compute(limit, opts = {}) {
     const seed = String(c.getCurrentChatId?.() ?? MODULE);
     let lastAI = -1;
     for (let i = n - 1; i >= start; i--) if (isStoryAI(chat[i])) { lastAI = i; break; }
+    // 🏁 루트 비교 (설정 relRace): 최근 RACE_SPAN개 메시지에서 인물별 호감 · 신뢰가 얼마나 움직였나 — 꺼져 있으면 null이라 아무것도 안 함
+    const recent = !opts.bake && settings().relRace === true ? {} : null, recentFrom = n - RACE_SPAN;
     let ai = 0, fresh = null;
     markRomFrom(meta, chat);
     const romFrom = Number.isFinite(meta.romFrom) ? meta.romFrom : Infinity;
@@ -564,6 +567,7 @@ export function compute(limit, opts = {}) {
         if (!ops.length) continue;
         s.romActive = i >= romFrom;
         const info = { seed: `${seed}:${i}`, labels: [], alerts: [], mods: meta.mods, roll: null, meta, cut: 0, ai: true };
+        if (recent && i >= recentFrom) info.recent = recent;
         const before = i === lastAI && !opts.bake && settings().freshDot !== false ? freshSnap(s) : null; // 🔴 방금 AI 답에서 바뀐 곳 (v2.7.3)
         for (const [k, v] of ops) applyOp(s, k, v, info);
         if (romRun && s.romActive) { const used = info.romUsed ?? {}; const run = (s.romRun ??= {}); for (const k of new Set([...Object.keys(run), ...Object.keys(used)])) run[k] = used[k] > 0 ? (run[k] ?? 0) + 1 : 0; }
@@ -581,7 +585,7 @@ export function compute(limit, opts = {}) {
     const cal = s.data.calendar;
     if (cal?.autoWeather && !cal.weather && modOn('calendar', meta)) cal.weather = pickWeather(cal, `${seed}:w${dayIndex(cal)}`);
     for (const [a, p] of slimmed) a.set = { mod: a.set.mod, patch: p };
-    return { state: s, snaps, lastAI, rest: adj.slice(ai), fresh, slimmed: slimmed.length };
+    return { state: s, snaps, lastAI, rest: adj.slice(ai), fresh, slimmed: slimmed.length, ...(recent ? { recent } : {}) };
 }
 // 옛 채팅(v2.7.6 이하)에 쌓인 연락 · 피드 통째 기록을 한 번 줄인다 → 줄인 개수
 export function slimLegacy(meta = getMeta()) {
@@ -942,7 +946,10 @@ export function tagKeysFor(meta) {
     if (on('shop')) K.push('stock (상점 | 상품 | 가격 | 설명 — when the story adds goods; 상점 | -상품 removes)');
     if (on('home')) K.push('decor (+가구 | 방 — when {{user}} gets/places furniture) · room (+새 공간 | 설명)');
     if (on('map')) K.push('loc (장소 — whenever {{user}} moves) · place (이름 | 설명 | 이어진곳 — newly discovered place)');
-    if (on('rel')) K.push(`${relKeyHint()} · rel (이름 = 관계 이름, when it truly changes) · pair (A & B = 관계)`);
+    if (on('rel')) {
+        const pa = settings().pairAff === true ? ' · pairaff (A & B ±N — how close two characters OTHER than {{user}} are to each other, -100..100; +1~+3 after a real moment between them, − after they clash)' : '';
+        K.push(playOf(meta).ensemble ? `pair (A & B = 관계 — how two characters relate; add or update when it truly changes)${pa}` : `${relKeyHint()} · rel (이름 = 관계 이름, when it truly changes) · pair (A & B = 관계)${pa}`);
+    }
     if (on('calendar')) K.push('days (+1 when days pass / 3월 14일 to jump) · period (one of the time slots) · weather (only when the story changes it) · event (날짜 | 제목 | 설명 — a new appointment)');
     if (on('quest')) K.push('quest (제목 | 새/수락/완료/실패 | 설명 — a new request appears, {{user}} accepts, or it ends; 제목 | 진행 내용 = progress)');
     if (on('news')) K.push('news (헤드라인 | 내용 — only for big public events)');
@@ -1390,7 +1397,7 @@ function buildInjection1(r, opt = {}) {
     const p = playOf();
     if (p.mode === 'rp' && !p.cardIsWorld) return inj;
     const world = p.cardIsWorld ? ' "{{char}}" is the name of this world/bot, not a person.' : '';
-    const line = p.mode === 'director' ? P(heroIsUser(p) ? 'inj.play.director.self' : 'inj.play.director', { hero: p.hero || 'the main character' }) + world : p.mode === 'multi' ? P('inj.play.multi', { world }) : world.trim();
+    const line = p.mode === 'director' ? P(p.ensemble ? 'inj.play.ensemble' : heroIsUser(p) ? 'inj.play.director.self' : 'inj.play.director', { hero: p.hero || 'the main character' }) + world : p.mode === 'multi' ? P('inj.play.multi', { world }) : world.trim();
     const lines = swapUser(inj.main).split('\n');
     lines.splice(1, 0, line);
     return { main: lines.join('\n'), people: swapUser(inj.people) };
@@ -1497,12 +1504,13 @@ function buildInjection0(r, opt = {}) {
     if (on('gossip') && d.gossip.issues.length && !lite) L.push(`Rumors going around: ${d.gossip.issues.slice(-2).map(x => `${x.title}${x.about.length ? ` (about ${x.about.join(', ')})` : ''}`).join(' / ')}`);
     if (on('rel')) {
         const rl = d.rel;
-        const here = rl.user.filter(x => inScene(x.name)), away = rl.user.filter(x => !inScene(x.name));
+        const ens = playOf(meta).ensemble, PA = set.pairAff === true; // 군상극: 「→ 유저」 줄은 빼고 인물끼리만 · PA: 인물끼리 호감 수치
+        const here = ens ? [] : rl.user.filter(x => inScene(x.name)), away = ens ? [] : rl.user.filter(x => !inScene(x.name));
         const AX = relAxes(rl, viewTr()), W = viewTr() ? { aff: AX.aff, trust: AX.trust, stage: 'stage', jealous: 'jealousy' } : { aff: AX.aff, trust: AX.trust, stage: '단계', jealous: '질투' }; // 화면만 번역: 고정 낱말도 영어로
         for (const x of here.slice(0, 12)) { const g = stageOf(rl, x); PP.push(`${x.name}${x.label ? ` [${x.label}]` : ''} → {{user}}: ${W.aff} ${x.aff} · ${W.trust} ${x.trust} ${stagesOn() ? ` · ${W.stage} 「${g.name}」` : ''}${set.romBond && x.bond ? ' · 💞 lovers (confirmed)' : ''}${x.noLove ? ' · PLATONIC ONLY — no romantic feelings toward {{user}}; never raise aff' : ''}${!stagesOn() ? '' : g.unlock && !lite ? ` (unlocked: ${short(g.unlock, 60)}${set.stageLock && !set.romFacts ? " — don't act beyond this stage yet" : ''})` : set.stageLock && !set.romFacts ? ' (stay within this stage)' : ''}${x.jealous >= 30 ? ` · ${W.jealous} ${x.jealous}/100 (show it subtly when they meet)` : ''}${x.memo && !lite ? ` — ${short(x.memo, 90)}` : ''}`); }
         if (away.length) PP.push(`Not in this scene (${W.aff}/${W.trust}): ${away.slice(0, 15).map(x => `${x.name} ${x.aff}/${x.trust}`).join(', ')}`);
         const pairs = rl.pairs.filter(p => inScene(p.a) || inScene(p.b));
-        if (pairs.length && !lite) PP.push(`Between others: ${pairs.slice(0, 10).map(p => `${p.a}↔${p.b} ${p.label}`).join(' · ')}`);
+        if (pairs.length && (!lite || ens || PA)) PP.push(`${ens ? 'Between the characters' : 'Between others'}: ${pairs.slice(0, ens ? 20 : 10).map(p => `${p.a}↔${p.b}${p.label ? ` ${p.label}` : ''}${PA && Number.isFinite(p.aff) ? ` (${W.aff} ${p.aff}${stagesOn() ? ` · 「${pairStage(rl, p).name}」` : ''})` : ''}`).join(' · ')}`);
         const life = rl.life.filter(x => inScene(x.who)).slice(-2);
         if (life.length && !lite) PP.push(`Off-screen lately: ${life.map(x => `${x.who} — ${short(x.text, 70)}`).join(' / ')}`);
         // <meatball>에 쓰라는 줄이라 태그 방식일 때만 (사칭·별도 분석·끔에선 빼기)
