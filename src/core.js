@@ -130,6 +130,8 @@ export const DEFAULTS = Object.freeze({
     profGen: '',
     profFeeds: '',
     profAnalyze: '',
+    hpFace: 'auto',          // 📒 미니홈피 프로필 그림: auto(기분 따라) · con:이름 · my:번호
+    hpFaces: [],             // 📒 내가 올린 프로필 그림 (최대 12장 · 긴 변 320px)
     hompyFull: true,         // 📒 전체화면으로 열면 미니홈피(수첩) 모양으로 (v2.8 · 화면만 · 끄면 예전 전체화면)
     sheetFull: false,        // 상태창을 전체화면으로 열기
     genBatch: true,          // 상태창 만들기: 관련 칸끼리 묶어서 한 번에 생성 (17번 → 6번)

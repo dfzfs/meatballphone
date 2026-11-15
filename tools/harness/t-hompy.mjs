@@ -20,6 +20,20 @@ for (const width of [1300, 390]) {
             out.parts = ['.ss-hp-url', '.ss-hp-left .ss-hp-photo img', '.ss-hp-right .ss-body', '.ss-hp-index .ss-groups', '.ss-hp-today'].filter(q => !el.querySelector(q)).join(' ') || true;
             await wait(600);
             out.imgsLoad = [...el.querySelectorAll('.ss-hompy img[src*="/img/meatcon/"]')].every(i => i.naturalWidth > 0);
+            // 화면에 딱 맞음: 넓은 화면에선 수첩이 창 안에 다 들어오고 안쪽(오른쪽 쪽)만 스크롤
+            { const bk = el.querySelector('.ss-hp-book').getBoundingClientRect(), root = el.querySelector('.ss-hompy').getBoundingClientRect();
+              out.fitsWindow = innerWidth < 861 || (root.top === 0 && Math.round(root.height) === innerHeight && bk.bottom <= innerHeight && getComputedStyle(el.querySelector('.ss-hp-right')).overflowY === 'auto') || JSON.stringify([root.top, root.height, bk.bottom, innerHeight]); }
+            // 프로필 그림: 기본은 기분 따라 · 고르면 그 그림 · 내 그림 · 고르기 창이 뜸
+            const face = () => el.querySelector('.ss-hp-photo img').getAttribute('src');
+            out.faceAuto = face().includes('/img/meatcon/');
+            core.settings().hpFace = 'con:box'; shell.rerenderPanels(true); await wait(150); out.facePicked = face().endsWith('/img/meatcon/box.webp');
+            core.settings().hpFaces = ['data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7']; core.settings().hpFace = 'my:0'; shell.rerenderPanels(true); await wait(150); out.faceMine = face().startsWith('data:image/gif');
+            core.settings().hpFace = 'my:7'; shell.rerenderPanels(true); await wait(150); out.faceMissingFallsBack = face().includes('/img/meatcon/');
+            el.querySelector('.ss-hp-photo').click(); await wait(400);
+            { const pk = document.querySelector('.ss-hp-pick'); out.pickerOpens = !!pk && pk.querySelectorAll('.ss-hp-face').length >= 16 && !!pk.querySelector('[data-choice="upload"]') && !!pk.querySelector('[data-choice="del:0"]');
+              pk?.querySelector('[data-choice="con:heart"]')?.click(); await wait(400); out.pickerSets = core.settings().hpFace === 'con:heart' && face().endsWith('/heart.webp'); }
+            core.settings().hpFace = 'auto'; core.settings().hpFaces = []; shell.rerenderPanels(true); await wait(150);
+            out.closeButton = !!el.querySelector('.ss-hp-url [data-hp="close"]');
             // 🖼 홈의 큰 사진: 없으면 단추만 · 넣으면 보임 · 한마디 · 빼기 · 다른 탭엔 없음
             out.photoEmpty = !!el.querySelector('.ss-hp-right .ss-hp-addphoto [data-hp="photo"]') && !el.querySelector('.ss-hp-main');
             core.getMeta().hpPhoto = { src: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', cap: '우리 집 <b>고양이</b>' }; shell.rerenderPanels(true); await wait(200);
