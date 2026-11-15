@@ -45,15 +45,15 @@ for (const width of [1300, 390]) {
             out.windows = ['.ss-hp-win[data-win="profile"]', '.ss-hp-win[data-win="stats"]', '.ss-hp-win.main', '.ss-hp-marks [data-hp="deco"]'].filter(q => !el.querySelector(q)).join(' ') || true;
             core.settings().hpTheme = 2; core.settings().hpLayout = { off: ['stats'] }; shell.rerenderPanels(true); await wait(200);
             { const r = el.querySelector('.ss-hompy'); out.customize = r.style.getPropertyValue('--hp-h') === '215' && !el.querySelector('.ss-hp-win[data-win="stats"]'); }
-            (await import('/ext/src/hompy.js'))._decoMode(true); el.querySelector('[data-hp="deco"]').click(); await wait(400);
+            (await import('/ext/src/hompy.js'))._decoMode(true); el.querySelector('[data-hp="deco"]').click(); await wait(400); document.querySelector('.ss-hp-sheet [data-arg="more:1"]').click(); await wait(400);
             { const pk = document.querySelector('.ss-hp-pick'); out.decoOpens = !!pk && pk.querySelectorAll('.ss-hp-sw').length === 9 && !!pk.querySelector('[data-choice="skin:dot"]') && !!pk.querySelector('[data-hpr="fs"]') && !!pk.querySelector('[data-hpc="hpInk"]') && !!pk.querySelector('[data-hpr="hue"]') && !!pk.querySelector('[data-choice="dark:dark"]') && !!pk.querySelector('[data-choice="setsave:1"]') && !!pk.querySelector('[data-choice="win:stats"]') && !!pk.querySelector('[data-choice="hudskin:1"]');
               pk?.querySelector('[data-choice="theme:0"]')?.click(); await wait(400); out.decoSets = core.settings().hpTheme === 0 && document.body.style.getPropertyValue('--hp-h') === '340' && document.body.classList.contains('ss-retro');
-              document.querySelectorAll('dialog').forEach(d => { if (d.querySelector('.ss-hp-pick')) d.querySelector('.popup-button-ok')?.click(); }); await wait(300); }
+              document.querySelectorAll('dialog').forEach(d => { if (d.querySelector('.ss-hp-pick')) d.querySelector('.popup-button-ok')?.click(); }); await wait(300); (await import('/ext/src/hompy.js'))._edit.end(true); await wait(200); }
             core.settings().hpLayout = {}; shell.rerenderPanels(true); await wait(200);
             // 창 하나하나 옮기기: 꾸미기 › 창 옮기기 → ▼(순서) · ⇄(반대쪽 줄) · ✕(숨김) · 가운데 창 위치
             if (innerWidth > 860) {
               const hpm = await import('/ext/src/hompy.js'); const keys = (sel) => [...el.querySelectorAll(`${sel} [data-win]`)].map(x => x.dataset.win).join();
-              el.querySelector('[data-hp="deco"]').click(); await wait(300); document.querySelector('.ss-hp-pick [data-choice="edit:1"]').click(); await wait(400);
+              el.querySelector('[data-hp="deco"]').click(); await wait(300); document.querySelector('.ss-hp-sheet [data-arg="more:1"]').click(); await wait(400); document.querySelector('.ss-hp-pick [data-choice="edit:1"]').click(); await wait(400);
               const before = keys('.ss-hp-left');
               el.querySelector('.ss-hp-left [data-hp="mv"][data-arg="profile:down"]').click(); await wait(250);
               const swapped = keys('.ss-hp-left');
@@ -97,7 +97,7 @@ for (const width of [1300, 390]) {
                 Object.assign(S0, { hpFreeOn: true, hpFree: {} }); shell.rerenderPanels(true); await wait(300);
                 const book = el.querySelector('.ss-hp-book.free'), pw = book?.querySelector('.ss-hp-win[data-win="profile"]'), mw = book?.querySelector('.ss-hp-win.main');
                 const noDrag = !book?.querySelector('.ss-hp-rs') && getComputedStyle(pw).position === 'absolute' && !!mw;
-                el.querySelector('.ss-hp-marks [data-hp="deco"]').click(); await wait(400); document.querySelector('.ss-hp-pick [data-choice="mode:1"]').click(); await wait(400); document.querySelector('.ss-hp-pick [data-choice="edit:1"]').click(); await wait(500);
+                el.querySelector('.ss-hp-marks [data-hp="deco"]').click(); await wait(400); document.querySelector('.ss-hp-sheet [data-arg="more:1"]').click(); await wait(400); document.querySelector('.ss-hp-pick [data-choice="mode:1"]').click(); await wait(400); document.querySelector('.ss-hp-pick [data-choice="edit:1"]').click(); await wait(500);
                 const pw2 = el.querySelector('.ss-hp-book.free.ss-hp-editing .ss-hp-win[data-win="profile"]'), wt = pw2?.querySelector('.ss-hp-wt'), r0 = wt.getBoundingClientRect(), ev = (type, x, y) => wt.dispatchEvent(new PointerEvent(type, { bubbles: true, clientX: x, clientY: y, pointerId: 7, button: 0 }));
                 ev('pointerdown', r0.left + 20, r0.top + 5); ev('pointermove', r0.left + 140, r0.top + 65); ev('pointerup', r0.left + 140, r0.top + 65); await wait(100);
                 const saved = S0.hpFree?.[innerWidth > 1100 ? 'wide' : 'tab']?.profile;
@@ -107,11 +107,11 @@ for (const width of [1300, 390]) {
                 Object.assign(S0, { hpFreeOn: false, hpFree: {} });
               }
               Object.assign(S0, { hpParts: {}, hpCss: '', hpProf: {}, hpTitles: {}, hpGroupNames: {}, hpUserWins: [] }); hpm.applyRetro(); shell.rerenderPanels(true); await wait(200);
-              el.querySelector('[data-hp="deco"]').click(); await wait(400); document.querySelector('.ss-hp-pick [data-choice="mode:0"]')?.click(); await wait(400); document.querySelector('.ss-hp-pick [data-choice="preset:3"]').click(); await wait(500);
+              el.querySelector('[data-hp="deco"]').click(); await wait(400); document.querySelector('.ss-hp-sheet [data-arg="more:1"]').click(); await wait(400); document.querySelector('.ss-hp-pick [data-choice="mode:0"]')?.click(); await wait(400); document.querySelector('.ss-hp-pick [data-choice="preset:3"]').click(); await wait(500);
               const presetOk = S0.hpSkin === 'dot' && S0.hpDark === 'dark' && B.classList.contains('ss-skin-dot') && B.classList.contains('ss-hp-dark');
               document.querySelector('.ss-hp-pick [data-choice="undo:1"]')?.click(); await wait(500);
               out.presetUndo = (presetOk && S0.hpSkin === 'clean' && !B.classList.contains('ss-hp-dark')) || [presetOk, S0.hpSkin, S0.hpDark].join('|');
-              document.querySelectorAll('dialog').forEach(d => { if (d.querySelector('.ss-hp-pick')) d.querySelector('.popup-button-ok')?.click(); }); await wait(300);
+              document.querySelectorAll('dialog').forEach(d => { if (d.querySelector('.ss-hp-pick')) d.querySelector('.popup-button-ok')?.click(); }); await wait(300); (await import('/ext/src/hompy.js'))._edit.end(true); await wait(200);
               Object.assign(S0, { hpSkin: 'clean', hpDark: 'light', hpTheme: 0, hpPattern: 'grid' }); hpm.applyRetro(); shell.rerenderPanels(true); await wait(200);
               // 분위기: 세계관 글로 어림 → 권하는 줄 → 「이 채팅에 적용」이면 이 채팅에만 양피지 + 용어. 모양 넷 다 색이 제대로
               { const st0 = window.__SS_TEST__.api.app.current.state;
@@ -127,6 +127,27 @@ for (const width of [1300, 390]) {
                 const looks = {}; for (const k of Object.keys(hpm.SKINS)) { S0.hpSkin = k; hpm.applyRetro(); shell.rerenderPanels(true); await wait(120); const cs = getComputedStyle(el.querySelector('.ss-hompy')); looks[k] = `${cs.getPropertyValue('--hp-paper').trim()}/${cs.fontFamily.slice(0, 12)}`; }
                 out.fourSkins = (new Set(Object.values(looks).map(x => x.split('/')[0])).size >= 4 && Object.keys(looks).length === 5) || JSON.stringify(looks);
                 Object.assign(S0, { hpSkin: 'clean', hpFont: 'g', hpDark: 'light', hpSuggest: false }); hpm.applyRetro(); shell.rerenderPanels(true); await wait(200); }
+              // 🎛 꾸미기 모드: 꾸미기 단추 → 아래 판 · 색을 누르면 바로 바뀜 · 바꿀 곳을 누르면 그 부분 · 취소하면 들어오기 전으로 · 완료하면 남음 · 길게 누르면 켜짐
+              { Object.assign(S0, { hpSkin: 'clean', hpTheme: 0, hpDark: 'light', hpParts: {} }); hpm.applyRetro(); shell.rerenderPanels(true); await wait(200);
+                el.querySelector('[data-hp="deco"]').click(); await wait(300);
+                const sh = () => el.querySelector('.ss-hp-sheet'), tapS = async (arg) => { sh().querySelector(`[data-arg="${arg}"]`).click(); await wait(250); };
+                const opened = !!sh() && !!el.querySelector('.ss-hp-edbar') && el.querySelector('.ss-hompy').classList.contains('ss-hp-edit') && sh().querySelectorAll('.ss-hp-strip .card').length >= 5;
+                await tapS('skin:note'); const live1 = B.classList.contains('ss-skin-note');
+                await tapS('tab:color'); await tapS('theme:2'); await tapS('dark:dark'); const live2 = S0.hpTheme === 2 && B.classList.contains('ss-hp-dark');
+                await tapS('tab:frame'); const rg = sh().querySelector('[data-hpr="corner"]'); rg.value = '2'; rg.dispatchEvent(new Event('input', { bubbles: true })); rg.dispatchEvent(new Event('change', { bubbles: true })); await wait(250); const live3 = S0.hpCorner === 2 && B.classList.contains('ss-hp-r-2');
+                const wtb = el.querySelector('.ss-hp-win[data-win="profile"] .ss-hp-wt b') ?? el.querySelector('.ss-hp-win.main .ss-hp-wt b'); wtb?.click(); await wait(250);
+                const partSheet = !wtb || sh().dataset.tab === 'part'; if (wtb) { const pc = sh().querySelector('[data-pc="ink"]'); pc.value = '#00aa00'; pc.dispatchEvent(new Event('input', { bubbles: true })); pc.dispatchEvent(new Event('change', { bubbles: true })); await wait(250); }
+                const live4 = !wtb || S0.hpParts?.wt?.ink === '#00aa00';
+                out.editMode = (opened && live1 && live2 && live3 && partSheet && live4) || JSON.stringify([opened, live1, live2, live3, partSheet, live4]);
+                el.querySelector('[data-hp="edcancel"]').click(); await wait(300);
+                out.editCancel = (!el.querySelector('.ss-hp-sheet') && S0.hpSkin === 'clean' && S0.hpTheme === 0 && S0.hpDark === 'light' && !S0.hpParts?.wt && !B.classList.contains('ss-hp-dark') && !B.classList.contains('ss-skin-note')) || JSON.stringify([S0.hpSkin, S0.hpTheme, S0.hpDark, S0.hpParts]);
+                el.querySelector('[data-hp="deco"]').click(); await wait(300); await tapS('tab:color'); await tapS('theme:3'); el.querySelector('[data-hp="eddone"]').click(); await wait(300);
+                out.editDone = (!el.querySelector('.ss-hp-sheet') && S0.hpTheme === 3 && !!el.querySelector('.ss-hp-url')) || S0.hpTheme;
+                const bk = el.querySelector('.ss-hp-book'), r0 = bk.getBoundingClientRect(), pe = (type) => bk.dispatchEvent(new PointerEvent(type, { bubbles: true, clientX: r0.left + 3, clientY: r0.bottom - 3, pointerId: 3, button: 0 }));
+                pe('pointerdown'); await wait(750); pe('pointerup'); out.longPress = !!el.querySelector('.ss-hp-sheet') || 'no sheet'; hpm._edit.end(false); await wait(200);
+                const pal = await hpm.paletteFrom((() => { const c = document.createElement('canvas'); c.width = c.height = 16; const x = c.getContext('2d'); x.fillStyle = '#2060e0'; x.fillRect(0, 0, 16, 16); x.fillStyle = '#e03020'; x.fillRect(0, 0, 6, 6); return c.toDataURL(); })());
+                out.palette = (pal.length >= 2 && Math.abs(pal[0][0] - 220) < 20) || JSON.stringify(pal);
+                Object.assign(S0, { hpTheme: 0, hpCorner: 1 }); hpm.applyRetro(); shell.rerenderPanels(true); await wait(200); }
               out.profileCard = !!el.querySelector('.ss-hp-badges') || innerWidth <= 640 && !el.querySelector('.ss-hompy.ss-hp-athome') ; }
             out.closeButton = !!el.querySelector('.ss-hp-url [data-hp="close"]');
             // 🖼 홈의 큰 사진: 없으면 단추만 · 넣으면 보임 · 한마디 · 빼기 · 다른 탭엔 없음

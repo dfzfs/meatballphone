@@ -5,7 +5,7 @@ export { clamp, clone, esc, num, str, arr, norm, fmtNum, signed, uid, short, spl
 export const MODULE = 'statussim';
 export const LOG = '[미트볼 상태창]';
 export const TITLE = '미트볼 상태창';
-export const VERSION = '2.7.23';
+export const VERSION = '2.8.0';
 export const INJECT_KEY = 'statussim_state';
 export const INJECT_KEY2 = 'statussim_people';
 export const INJECT_KEY3 = 'statussim_romance'; // 로맨스 보정 · 내 주입문 (v2.6)
