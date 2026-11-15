@@ -2,7 +2,7 @@
 import { letterMode, contactSimple, instantLetter, SIMPLE_THREAD, app, settings, getMeta, modOn, esc, short, clone, findBy, norm, uid, randInt, rand, clamp, num, fmtNum, nowTick, tickUnit, stamp, CONTACT_MODES, TITLE, COURIER_PRESETS, touchContact, msgText, ssErr, ssWarn } from './core.js';
 import { commit, addAdjust, dueLetters, inTransit, affMul } from './engine.js';
 import { phoneReply, letterReply, pingMessage, summarizeThread } from './ai.js';
-import { avatar, ai1, emptyBox, askInput, askConfirm, busyBtn } from './kit.js';
+import { avatar, ai1, emptyBox, askInput, askConfirm, busyBtn, choosePopup } from './kit.js';
 
 const isLetter = (d) => letterMode(d);
 const simple = () => contactSimple();
@@ -144,6 +144,14 @@ export function contactView(s, d, ui) {
 
 // ───── 동작 ─────
 const curState = () => app.current?.state;
+// 지운 내 말풍선 (v2.7.23): 보낼 때 남긴 기록(「~에게: 내용」)이 「방금 한 일」 · 하루 기록으로 본편 AI에게 계속 가던 것 → 그 기록을 조용하게 바꾼다
+// 새로 보내는 것은 말풍선 번호(mid)로, 예전에 보낸 것은 기록 글(받는 사람 + 내용 앞부분)로 찾는다
+function hushSent(m, who) {
+    if (!m || m.from !== 'me') return;
+    const tail = `: ${short(msgText(m), 30)}`;
+    const a = (getMeta()?.adjust ?? []).findLast(x => x?.set?.mod === 'contact' && x.label && !x.silent && (x.mid ? x.mid === m.id : x.label.includes(`${who}에게`) && x.label.endsWith(tail)));
+    if (a) { a.silent = true; a.label = `${who}에게 보낸 메시지 (지움)`; }
+}
 function findMsg(nd, id) {
     for (const [who, th] of Object.entries(nd.threads)) { const k = th.findIndex(m => m.id === id); if (k >= 0) return { who, th, k, m: th[k] }; }
     return null;
@@ -169,7 +177,7 @@ async function sendPhone(el, s, who, text, extra = {}) {
     trimSimple(nd, who);
     touchContact(nd, who);
     if (!findBy(nd.contacts, who)) nd.contacts.push({ name: who, handle: '', status: '', courier: '' });
-    await commit('contact', nd, lbl(`${nd.app}로 ${who}에게${instantLetter(nd) ? ' 편지' : ''}: ${short(msgText(m), 30)}`));
+    await commit('contact', nd, lbl(`${nd.app}로 ${who}에게${instantLetter(nd) ? ' 편지' : ''}: ${short(msgText(m), 30)}`), { mid: m.id });
     redraw(el);
     if (!ui.noReply) await getPhoneReply(el, who);
 }
@@ -253,7 +261,8 @@ async function sendLetter(el, s, who, text) {
     if ((fee || encCash) && w && modOn('wallet') && w.cash < fee + encCash) { toastr.warning(`돈이 모자라요 (${fmtNum(fee + encCash)} ${esc(w.currency)} 필요).`, TITLE); return; }
     if (enc.length) text = `${text}\n\n${enc.map(x => x.kind === 'photo' ? `[동봉한 사진·그림: ${x.text}]` : x.kind === 'gift' ? `[동봉한 선물: ${x.text}]` : `[동봉한 돈: ${fmtNum(x.amount)} ${w?.currency ?? ''}]`).join('\n')}`;
     const arrive = now + (express ? 0 : randInt(c.min, c.max));
-    (nd.threads[who] ??= []).push({ id: uid(), from: 'me', text, date: stamp(s), at: now, arrive, courier: c.name, express, fee, rush: false });
+    const mid = uid();
+    (nd.threads[who] ??= []).push({ id: mid, from: 'me', text, date: stamp(s), at: now, arrive, courier: c.name, express, fee, rush: false });
     touchContact(nd, who);
     if (!findBy(nd.contacts, who)) nd.contacts.push({ name: who, handle: '', status: '', courier: '' });
     let rushNote = '';
@@ -267,7 +276,7 @@ async function sendLetter(el, s, who, text) {
         if (rush && !rushPaid) rushNote = 'rush';
     }
     ui.draft = ''; ui.express = false; ui.rushPaid = false; ui.enc = [];
-    await commit('contact', nd, `${c.icon} ${c.name}(으)로 ${who}에게 편지를 부쳤다${express ? ' — 오늘 도착' : ` — ${arrive - now}${tickUnit(s)} 뒤 도착`}${enc.length ? ` (동봉: ${enc.map(x => x.label).join(', ')})` : ''}`);
+    await commit('contact', nd, `${c.icon} ${c.name}(으)로 ${who}에게 편지를 부쳤다${express ? ' — 오늘 도착' : ` — ${arrive - now}${tickUnit(s)} 뒤 도착`}${enc.length ? ` (동봉: ${enc.map(x => x.label).join(', ')})` : ''}`, { mid });
     if (fee && w && modOn('wallet')) await addAdjust({ ops: [['cash', `-${fee}`]], label: `편지 요금 −${fmtNum(fee)} ${w.currency}` });
     const encOps = [];
     for (const x of enc) { if (x.kind === 'gift') encOps.push(['item', `-${x.text} 1|`]); if (x.kind === 'money') encOps.push(['cash', `-${x.amount}`]); }
@@ -331,7 +340,7 @@ export const CONTACT_ACTIONS = {
     },
     cunsend: async (el, arg, btn, s) => {
         const nd = clone(s.data.contact); const f = findMsg(nd, arg); if (!f) return;
-        if (!f.m.read) { f.th.splice(f.k, 1); await commit('contact', nd, ''); toastr.info('상대가 읽기 전에 취소했어요.', TITLE); return; }
+        if (!f.m.read) { hushSent(f.m, f.who); f.th.splice(f.k, 1); await commit('contact', nd, ''); toastr.info('상대가 읽기 전에 취소했어요.', TITLE); return; }
         Object.assign(f.m, { kind: 'deleted', orig: f.m.text, text: '' });
         await commit('contact', nd, `${f.who}에게 보낸 메시지를 지웠다 (이미 읽음)`);
         toastr.info('지웠지만… 상대는 이미 읽었어요.', TITLE);
@@ -398,8 +407,27 @@ export const CONTACT_ACTIONS = {
     },
     cmsgdel: async (el, arg, btn, s) => {
         const nd = clone(s.data.contact); const f = findMsg(nd, arg); if (!f) return;
+        const m = f.m, who = f.who, mine = m.from === 'me';
+        // 🎁 💸 내가 보낸 선물 · 송금을 지울 때: 물건 · 돈을 돌려받을지 고른다 (v2.7.23 · 예전엔 말풍선만 사라지고 물건은 안 돌아왔음)
+        const gift = mine && m.kind === 'gift' && !!m.text, money = mine && m.kind === 'money' && m.amount > 0;
+        let refund = false;
+        if ((gift || money) && s.data.wallet && modOn('wallet')) {
+            const what = gift ? `🎁 ${m.text}` : `💸 ${fmtNum(m.amount)} ${s.data.wallet.currency ?? ''}`;
+            const box = document.createElement('div'); box.className = 'ss-root ss-scope';
+            box.innerHTML = `<h3>${esc(what)} — 지울까요?</h3><p class="ss-hint">${gift ? '보냈던 물건을 소지품으로 돌려받고, 선물로 오른 호감도 되돌릴 수 있어요.' : '보냈던 돈을 돌려받을 수 있어요.'}</p><div class="ss-row-btns"><button class="ss-btn sm pri" data-choice="refund">돌려받고 지우기</button><button class="ss-btn sm ghost" data-choice="only">기록만 지우기</button></div>`;
+            const pick = await choosePopup(box);
+            if (!pick) return;
+            refund = pick === 'refund';
+        }
+        if (mine) hushSent(m, who);
         f.th.splice(f.k, 1);
         await commit('contact', nd, '');
+        if (refund) {
+            const r = gift && s.data.rel ? findBy(s.data.rel.user, who) : null;
+            const ops = gift ? [['item', `+${m.text} 1`], ...(r ? [['aff', `${who} -${Math.max(1, Math.round(2 * affMul(s)))}`]] : [])] : [['cash', `+${m.amount}`]];
+            await addAdjust({ ops, label: `↩ ${who}에게 보낸 ${gift ? m.text : '돈'} 돌려받음`, silent: true }); // 조용히 — 「없던 일」이라 AI에게 알리지 않는다
+            toastr.info(gift ? `「${esc(m.text)}」을(를) 돌려받았어요.` : '돈을 돌려받았어요.', TITLE);
+        }
     },
     cmsgre: async (el, arg, btn, s) => {
         const f = findMsg(s.data.contact, arg); if (!f) return;
