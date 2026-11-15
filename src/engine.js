@@ -428,6 +428,23 @@ function legacyKeys(chat) {
     return map;
 }
 export const anchorOf = (m) => `${msgKey(m)}|${m?.swipe_id ?? 0}`;
+// ⏪ 되감기 고침 (v2.7.23): 답을 보고 한 행동(아이템 사용 · 구매 · 이동 …)은 그 답에 묶였다 → 그 뒤 내 메시지와 다음 답을 지워도 행동은 남았음 (「썼던 물건이 안 돌아와요」)
+// → 내 메시지를 보내면, 바로 앞 답에 묶여 있던 행동을 그 「내 메시지」로 옮겨 묶는다. 그 턴(내 메시지부터)을 지우면 행동도 같이 사라지고, 다음 답만 다시 생성하면 행동은 그대로.
+//   답을 보낸 뒤 아직 내 메시지를 안 보냈을 때는 예전처럼 그 답에 묶여 있다 (그 답을 다시 생성 · 스와이프하면 같이 사라짐).
+export function rebindToUser(meta = getMeta()) {
+    const chat = ctx().chat ?? [];
+    if (!meta?.adjust?.some(a => typeof a?.an === 'string')) return false;
+    const idx = new Map(); chat.forEach((m, i) => idx.set(anchorOf(m), i));
+    let changed = false;
+    for (const a of meta.adjust) {
+        if (typeof a?.an !== 'string') continue;
+        const i = idx.get(a.an); if (i === undefined || chat[i].is_user) continue;
+        const u = chat[i + 1]; if (!u?.is_user) continue;
+        stampUser(meta, u);
+        a.an = anchorOf(u); changed = true;
+    }
+    return changed;
+}
 // 스와이프 삭제 (v2.7.21 고침): 묶인 행동의 열쇠는 「첫 스와이프의 생성 시각 | 스와이프 번호」라서,
 // 앞 스와이프를 지우면 번호가 하나씩 당겨지고 · 첫 스와이프를 지우면 열쇠 자체가 바뀐다 → 그 답에 묶인 행동이 계산에서 조용히 빠졌음
 // → 계산할 때마다 메시지의 열쇠를 적어 두고(스와이프가 줄어든 채로는 덮어쓰지 않음), 지웠다는 신호가 오면 옛 열쇠로 찾아 새 열쇠 · 새 번호로 옮긴다.

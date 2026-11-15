@@ -7,7 +7,7 @@ import {
 import { opInfo } from './src/engine.js';
 import {
     shiftSwipeAnchors, clampAdjust, noteGeneration, compute, buildInjection, setInjection, addAdjust, stashStatus, stashAllSwipes,
-    shiftSwipeKeys, drawerOps, setDrawer, extractOps, ssValue, undoLast, hasStatus, autoBake, slimLegacy,
+    rebindToUser, shiftSwipeKeys, drawerOps, setDrawer, extractOps, ssValue, undoLast, hasStatus, autoBake, slimLegacy,
 } from './src/engine.js';
 import { analyzeMessage } from './src/ai.js';
 import { mainBusy } from './src/prompts.js';
@@ -246,6 +246,7 @@ const CHANGELOG = [
         ['⚠ 못 읽은 줄 표시', '그래도 못 읽은 줄이 있으면 칩 옆에 ⚠ 숫자가 떠요. 누르면 어떤 줄인지 보여 줘요.'],
         ['🔗 인물 합치기', '같은 사람이 이름만 달라 둘로 생겼을 때(Leon · 레온) 관계 카드의 🔗 단추로 합쳐요. 수치는 더해지고, 그 뒤로는 어느 이름으로 적어도 한 사람에게 반영돼요.'],
         ['📈 변화 그래프', '관계 탭의 「변화 그래프」 또는 /ss-graph — 애정 · 우정 · 돈이 어떻게 변해 왔는지 선으로 보여 줘요 (AI 0회).'],
+        ['⏪ 지우면 되돌아가게', '상태창에서 아이템을 쓰거나 물건을 사고 메시지를 보낸 뒤, 그 메시지를 지우면 썼던 물건 · 돈이 돌아와요. 예전엔 안 돌아왔어요.'],
         ['📱 연락 — 지우기', '내가 보낸 말풍선을 지우면 본편 AI에게 가던 「방금 보냄」 기록도 같이 빠져요. 보낸 선물 · 송금을 지울 땐 「돌려받고 지우기」를 고를 수 있어요.'],
         ['🩹 그 밖에', 'AI에게 보내는 출력 규칙 문구가 깨져 나가던 것 · 안 닫힌 <meatball> 뒤의 대사가 본문에서 잘리던 것 · 키보드로 옮겨 다닐 때 단추 테두리 표시.'],
     ] },
@@ -778,6 +779,7 @@ async function onChatChanged() {
     pingCounter = 0;
     for (const el of panels) if (el._ss) { el._ss.mode = 'view'; el._ss.ui = {}; el._ss.tab = 'home'; el._ss.group = null; }
     try { await followBranch(); } catch (e) { ssWarn(LOG, 'branch', e); }
+    try { const meta = getMeta(); if (meta?.base && rebindToUser(meta)) saveMeta(); } catch (e) { ssNote('행동 묶음 옮기기 실패', e); } // 예전에 한 행동도 그 다음 내 메시지에 묶는다
     try { if (isActive() && ready()) { const n = slimLegacy(); if (n) { saveMeta(); console.log(LOG, `옛 연락 · 피드 기록 ${n}개를 줄였어요`); } } } catch (e) { ssWarn(LOG, 'slim', e); }
     refreshNow();
     // 카드에 상태창이 들어 있으면 (이 채팅에 아직 없을 때) 한 번 물어본다
@@ -837,6 +839,9 @@ function init() {
     on('MESSAGE_SWIPED', onSwiped);
     on('MESSAGE_EDITED', onEdited);
     on('MESSAGE_SWIPE_DELETED', onSwipeDeleted);
+    // ⏪ 내 메시지를 보내면 앞 답에 묶인 행동을 이 메시지로 옮겨 묶는다 (v2.7.23 · 그 턴을 지우면 썼던 물건 · 돈이 돌아오게)
+    const rebind = () => { try { const meta = getMeta(); if (meta?.base && rebindToUser(meta)) { saveMeta(); ctx().saveChat?.(); refresh(true); } } catch (e) { ssNote('행동 묶음 옮기기 실패', e); } };
+    for (const ev of ['MESSAGE_SENT', 'USER_MESSAGE_RENDERED']) on(ev, rebind);
     for (const ev of ['USER_MESSAGE_RENDERED', 'MORE_MESSAGES_LOADED', 'GENERATION_STOPPED']) on(ev, () => refresh());
     on('MESSAGE_UPDATED', () => refresh(true)); // 옛 메시지가 바뀌면 다시 계산
     on('MESSAGE_DELETED', async () => { // v2.7.20: 지운 메시지 뒤에 묶인 편집은 남은 끝으로 당겨서 계속 계산되게
