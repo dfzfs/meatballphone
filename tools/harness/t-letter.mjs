@@ -40,9 +40,37 @@ try {
         await send({ quick: 's3', express: true, enc: [{ kind: 'gift', text: '꽃', label: '꽃' }, { kind: 'money', amount: 300, label: '300' }] });
         out.encTaken = items() !== i0 && c3 - cash() === base + 300;
         const my = th().filter(m => m.from === 'me').at(-1), n0 = th().length;
-        setTimeout(() => document.querySelector('[data-choice="refund"]')?.click(), 500);
+        setTimeout(() => document.querySelector('[data-choice="undo"]')?.click(), 500);
         await ct.CONTACT_ACTIONS.cmsgdel(el, my.id, null, st()); await wait(400);
         out.encBack = items() === i0 && cash() === c3 - base && th().length === n0 - 2;
+        // 받은 돈 · 선물: 말풍선을 지우면서 되돌리기 · 대화 비우기에서 한꺼번에 되돌리기
+        const give = async (kind, v) => { const nd = core.clone(st().data.contact); (nd.threads.Leon ??= []).push(kind === 'money' ? { id: core.uid(), from: 'them', kind: 'money', text: '송금', amount: v, at: 0, arrive: 0 } : { id: core.uid(), from: 'them', kind: 'gift', text: v, at: 0, arrive: 0 }); await eng.commit('contact', nd, ''); await eng.addAdjust({ ops: [kind === 'money' ? ['cash', `+${v}`] : ['item', `+${v} 1|`]], label: 'got' }); await wait(200); };
+        const c4 = cash(), i4 = items();
+        await give('money', 500); await give('gift', '조개');
+        out.got = cash() === c4 + 500 && items().includes('조개');
+        const mm = th().find(m => m.from === 'them' && m.kind === 'money');
+        setTimeout(() => document.querySelector('[data-choice="undo"]')?.click(), 500);
+        await ct.CONTACT_ACTIONS.cmsgdel(el, mm.id, null, st()); await wait(400);
+        out.moneyBack = cash() === c4 && !th().some(m => m.id === mm.id);
+        // 대화 비우기: 메뉴 → 비우기(두 번) → 되돌리고 지우기
+        const menu = ct.CONTACT_ACTIONS.cmenu(el, 'Leon', null, st());
+        await wait(500); const bt = () => document.querySelector('[data-m="clear"]'); bt().click(); await wait(150); bt().click();
+        await wait(600); document.querySelector('[data-choice="undo"]')?.click(); await menu; await wait(400);
+        out.clearUndo = th().length === 0 && !items().includes('조개') && cash() === c4;
+        // 🧠 연락 속 인물의 기억: 설정한 분량만큼 보관된 대화를 읽는다 · 요약도 같이 · 200개까지 보관
+        { const ai = await import('/ext/src/ai.js'); const set = core.settings();
+          const nd = core.clone(st().data.contact);
+          nd.threads.Leon = Array.from({ length: 260 }, (_, k) => ({ id: 'r' + k, from: k % 2 ? 'them' : 'me', text: `line-${k} ` + 'x'.repeat(40), at: 0, arrive: 0, kind: 'text' }));
+          nd.summaries = { Leon: { text: 'they promised to meet at the pier', n: 10, manual: true } };
+          await eng.commit('contact', nd, ''); await wait(250);
+          const c = st().data.contact; const lines = (t) => t.split('\n').filter(l => /line-\d+/.test(l)).length;
+          out.kept200 = c.threads.Leon.length === 200;
+          set.contactRecall = 'short'; const a = ai.threadMemory(c, 'Leon', 14);
+          set.contactRecall = 'mid'; const m = ai.threadMemory(c, 'Leon', 14);
+          set.contactRecall = 'all'; const z = ai.threadMemory(c, 'Leon', 14);
+          out.recallShort = lines(a) === 14; out.recallMid = lines(m) > 60 && lines(m) < 200 && m.length < 6400; out.recallAll = lines(z) === 200;
+          out.recallSummary = a.includes('meet at the pier') && z.includes('line-259');
+          set.contactRecall = 'mid'; }
         return out;
     });
     for (const [k, v] of Object.entries(r)) check(v === true, k);

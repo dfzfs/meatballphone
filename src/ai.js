@@ -160,6 +160,22 @@ function aboutPerson(who, state) {
 }
 const threadN = (n) => (contactSimple() ? Math.min(n, 4) : n); // 간단 모드: 최근 4줄만 기억
 const threadText = (ct, who, n = 14) => (ct.threads[who] ?? []).filter(m => !m.pending).slice(-threadN(n)).map(m => `${m.from === 'me' ? '{{user}}' : who}: ${msgText(m)}`).join('\n');
+// 🧠 연락 속 인물의 기억 (v2.7.23): 답장할 때 그 사람과의 보관된 대화를 「정한 분량 안에서」 최근 것부터 거슬러 올라가며 전부 읽는다
+//   (예전엔 최근 14줄 · 편지 8통뿐이라 오래 얘기해도 앞의 일을 몰랐음). 한 줄 요약이 있으면 맨 앞에 같이 준다. 간단 모드는 그대로 최근 4줄.
+export const RECALL = { short: 0, mid: 6000, long: 20000, all: Infinity }; // 글자 수 (0 = 예전처럼 줄 수로)
+export function threadMemory(ct, who, minLines = 14) {
+    const all = (ct.threads[who] ?? []).filter(m => !m.pending);
+    const fmt = (m) => `${m.from === 'me' ? '{{user}}' : who}: ${msgText(m)}`;
+    if (contactSimple()) return all.slice(-4).map(fmt).join('\n');
+    const budget = RECALL[settings().contactRecall] ?? RECALL.mid;
+    let take = all.slice(-minLines);
+    if (budget) {
+        take = []; let used = 0;
+        for (let i = all.length - 1; i >= 0; i--) { const line = fmt(all[i]); if (take.length >= minLines && used + line.length > budget) break; take.unshift(all[i]); used += line.length + 1; }
+    }
+    const sm = ct.summaries?.[who]?.text;
+    return `${sm ? `(Summary of this relationship's conversation so far: ${sm})\n` : ''}${take.length < all.length ? '(…earlier messages omitted…)\n' : ''}${take.map(fmt).join('\n')}`;
+}
 
 // 연락 대화 한 줄 요약 (반영 모드 = 요약)
 export async function summarizeThread(who, state) {
@@ -202,7 +218,7 @@ export function takeSends(t, out) {
 export async function phoneReply(who, state, sends = null) {
     const ct = state.data.contact;
     const sys = P('ai.phone', { who, app: ct.app }) + sendRule(state, who);
-    const out = takeSends(await aiGenerate('phone', sys, [...aboutPerson(who, state), `Conversation so far:\n${threadText(ct, who)}`].join('\n\n'), 800), sends);
+    const out = takeSends(await aiGenerate('phone', sys, [...aboutPerson(who, state), `Conversation so far:\n${threadMemory(ct, who, 14)}`].join('\n\n'), 800), sends);
     return finLines(stripStatus(out).split(/\r?\n/).map(x => x.replace(nameRe(who), '').replace(/^["“](.*)["”]$/, '$1').trim()).filter(Boolean).slice(0, 4));
 }
 // 편지 답장 → 본문 하나
@@ -210,7 +226,7 @@ export async function letterReply(who, state, { courier, rush }, sends = null) {
     const ct = state.data.contact;
     const sys = P('ai.letter', { who, app: ct.app, courier: courier || ct.app, rush: rush ? `${who} paid extra for an express courier so it arrives fast — it may show a little in the letter (eagerness).` : '' }) + sendRule(state, who);
     // v2.7.18: 700 → 2400 (한국어 편지 · 생각하는 모델은 700으로 끝까지 못 써서 잘렸음)
-    const out = await aiGenerate('letter', sys, [...aboutPerson(who, state), `Letters so far (oldest first):\n${threadText(ct, who, 8)}`].join('\n\n'), 2400);
+    const out = await aiGenerate('letter', sys, [...aboutPerson(who, state), `Letters so far (oldest first):\n${threadMemory(ct, who, 8)}`].join('\n\n'), 2400);
     return finText(takeSends(stripStatus(out), sends).replace(/^```\w*\s*|```\s*$/g, '').trim());
 }
 // 선톡

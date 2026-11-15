@@ -196,6 +196,37 @@ export function sweepSent() {
     }
     return n > 0;
 }
+// 🎁 💸 말풍선에 딸려 오간 물건 · 돈 (v2.7.23) — out: 내가 보낸 것(지우면 돌려받음) · in: 받은 것(지우면 돌려줌)
+function goodsOf(m) {
+    const out = [], mine = m.from === 'me', dir = mine ? 'out' : 'in';
+    if (m.kind === 'gift' && m.text) out.push({ dir, kind: 'gift', text: m.text, aff: mine }); // 메신저로 보낸 선물은 호감도 올랐음
+    if (m.kind === 'money' && m.amount > 0) out.push({ dir, kind: 'money', amount: m.amount });
+    if (mine && Array.isArray(m.enc)) for (const x of m.enc) { if (x.kind === 'gift' && x.text) out.push({ dir, kind: 'gift', text: x.text }); if (x.kind === 'money' && x.amount > 0) out.push({ dir, kind: 'money', amount: x.amount }); }
+    else if (mine && m.kind === 'text') { // 예전에 부친 편지: 본문 끝의 「[동봉한 …]」 줄로 알아본다
+        for (const g of String(m.text).matchAll(/\[동봉한 선물: ([^\]]+)\]/g)) out.push({ dir, kind: 'gift', text: g[1].trim() });
+        for (const g of String(m.text).matchAll(/\[동봉한 돈: ([\d,.]+)/g)) { const v = Number(g[1].replace(/,/g, '')); if (v > 0) out.push({ dir, kind: 'money', amount: v }); }
+    }
+    return out;
+}
+const goodsText = (list, cur) => list.map(x => `${x.dir === 'in' ? '받은 ' : '보낸 '}${x.kind === 'gift' ? `🎁 ${x.text}` : `💸 ${fmtNum(x.amount)} ${cur}`}`).join(' · ');
+// 오간 것을 없던 일로: 보낸 건 돌려받고 · 받은 건 돌려준다 (조용히 — AI에게 알리지 않음)
+async function undoGoods(list, who, s) {
+    if (!list.length) return;
+    const r = s.data.rel ? findBy(s.data.rel.user, who) : null;
+    const ops = [];
+    for (const x of list) {
+        const sign = x.dir === 'out' ? '+' : '-';
+        if (x.kind === 'gift') { ops.push(['item', `${sign}${String(x.text).replace(/[|,，/]/g, ' ').trim()} 1${sign === '-' ? '|' : ''}`]); if (x.aff && r) ops.push(['aff', `${who} -${Math.max(1, Math.round(2 * affMul(s)))}`]); }
+        else ops.push(['cash', `${sign}${x.amount}`]);
+    }
+    await addAdjust({ ops, label: `↩ ${who}와(과) 주고받은 것 되돌림`, silent: true });
+}
+async function askUndoGoods(list, s, title) {
+    if (!list.length || !s.data.wallet || !modOn('wallet')) return 'only';
+    const box = document.createElement('div'); box.className = 'ss-root ss-scope';
+    box.innerHTML = `<h3>${esc(title)}</h3><p class="ss-hint">${esc(goodsText(list, s.data.wallet.currency ?? ''))}<br>보낸 것은 돌려받고, 받은 것은 돌려줄 수 있어요${list.some(x => x.aff) ? ' (선물로 오른 호감도 되돌아가요)' : ''}. 배달 요금은 돌아오지 않아요.</p><div class="ss-row-btns"><button class="ss-btn sm pri" data-choice="undo">되돌리고 지우기</button><button class="ss-btn sm ghost" data-choice="only">기록만 지우기</button></div>`;
+    return await choosePopup(box); // null = 취소
+}
 function findMsg(nd, id) {
     for (const [who, th] of Object.entries(nd.threads)) { const k = th.findIndex(m => m.id === id); if (k >= 0) return { who, th, k, m: th[k] }; }
     return null;
@@ -394,7 +425,7 @@ export const CONTACT_ACTIONS = {
         if (!ids.size) return done();
         if (arg === 'del') {
             if (!(await askConfirm(`고른 말풍선 ${ids.size}개를 지울까요?`))) return;
-            for (const m of th) if (ids.has(m.id) && m.from === 'me' && ['gift', 'money'].includes(m.kind)) ids.delete(m.id); // 🎁 💸 은 남긴다 — 하나씩 지워야 돌려받을지 고를 수 있어요
+            for (const m of th) if (ids.has(m.id) && goodsOf(m).length) ids.delete(m.id); // 🎁 💸 은 남긴다 — 하나씩 지워야 돌려받을지 고를 수 있어요
             for (const m of th) if (ids.has(m.id)) hushSent(m, who);
             nd.threads[who] = th.filter(m => !ids.has(m.id));
         } else {
@@ -508,48 +539,26 @@ export const CONTACT_ACTIONS = {
     cmsgdel: async (el, arg, btn, s) => {
         const nd = clone(s.data.contact); const f = findMsg(nd, arg); if (!f) return;
         const m = f.m, who = f.who, mine = m.from === 'me';
-        // 🎁 💸 내가 보낸 선물 · 송금 · 편지에 동봉한 것을 지울 때: 물건 · 돈을 돌려받을지 고른다 (v2.7.23 · 예전엔 글만 사라지고 물건은 안 돌아왔음)
-        const back = []; // [{ kind, text, amount, aff }]
-        if (mine && m.kind === 'gift' && m.text) back.push({ kind: 'gift', text: m.text, aff: true }); // 메신저 선물은 호감도 올랐음
-        if (mine && m.kind === 'money' && m.amount > 0) back.push({ kind: 'money', amount: m.amount });
-        if (mine && Array.isArray(m.enc)) for (const x of m.enc) { if (x.kind === 'gift' && x.text) back.push({ kind: 'gift', text: x.text }); if (x.kind === 'money' && x.amount > 0) back.push({ kind: 'money', amount: x.amount }); }
-        else if (mine && m.kind === 'text') { // 예전에 부친 편지: 본문 끝의 「[동봉한 …]」 줄로 알아본다
-            for (const g of String(m.text).matchAll(/\[동봉한 선물: ([^\]]+)\]/g)) back.push({ kind: 'gift', text: g[1].trim() });
-            for (const g of String(m.text).matchAll(/\[동봉한 돈: ([\d,.]+)/g)) { const v = Number(g[1].replace(/,/g, '')); if (v > 0) back.push({ kind: 'money', amount: v }); }
-        }
-        let refund = false;
-        if (back.length && s.data.wallet && modOn('wallet')) {
-            const cur = s.data.wallet.currency ?? '';
-            const what = back.map(x => (x.kind === 'gift' ? `🎁 ${x.text}` : `💸 ${fmtNum(x.amount)} ${cur}`)).join(' · ');
-            const box = document.createElement('div'); box.className = 'ss-root ss-scope';
-            box.innerHTML = `<h3>${esc(what)} — 지울까요?</h3><p class="ss-hint">보냈던 물건 · 돈을 돌려받을 수 있어요${back.some(x => x.aff) ? ' (선물로 오른 호감도 되돌아가요)' : ''}. 배달 요금은 돌아오지 않아요.</p><div class="ss-row-btns"><button class="ss-btn sm pri" data-choice="refund">돌려받고 지우기</button><button class="ss-btn sm ghost" data-choice="only">기록만 지우기</button></div>`;
-            const pick = await choosePopup(box);
-            if (!pick) return;
-            refund = pick === 'refund';
-        }
+        // 🎁 💸 물건 · 돈이 오간 말풍선 · 편지를 지울 때: 같이 되돌릴지 고른다 (v2.7.23 · 예전엔 글만 사라지고 물건 · 돈은 그대로였음)
+        const goods = goodsOf(m);
+        const pick = await askUndoGoods(goods, s, '지울까요?');
+        if (!pick) return;
         if (mine) hushSent(m, who);
         f.th.splice(f.k, 1);
         // 아직 안 뜯은 답장(기다리는 중)이 이 편지에 딸려 있으면 같이 지운다 — 보낸 편지가 없는데 답장만 오지 않게
         if (mine && f.th[f.k]?.pending && f.th[f.k].from === 'them') f.th.splice(f.k, 1);
         await commit('contact', nd, '');
-        if (refund) {
-            const r = s.data.rel ? findBy(s.data.rel.user, who) : null;
-            const ops = [];
-            for (const x of back) {
-                if (x.kind === 'gift') { ops.push(['item', `+${x.text} 1`]); if (x.aff && r) ops.push(['aff', `${who} -${Math.max(1, Math.round(2 * affMul(s)))}`]); }
-                else ops.push(['cash', `+${x.amount}`]);
-            }
-            await addAdjust({ ops, label: `↩ ${who}에게 보낸 것 돌려받음`, silent: true }); // 조용히 — 「없던 일」이라 AI에게 알리지 않는다
-            toastr.info('보냈던 것을 돌려받았어요.', TITLE);
-        }
+        if (pick === 'undo') { await undoGoods(goods, who, s); toastr.info('주고받은 것을 되돌렸어요.', TITLE); }
     },
     cmsgre: async (el, arg, btn, s) => {
         const f = findMsg(s.data.contact, arg); if (!f) return;
         // 이 말풍선과 그 뒤에 이어진 상대 말풍선들을 지우고 다시 받는다
         const nd = clone(s.data.contact); const g = findMsg(nd, arg);
         let end = g.k; while (end + 1 < g.th.length && g.th[end + 1].from === 'them') end++;
+        const regoods = g.th.slice(g.k, end + 1).filter(x => x.from === 'them').flatMap(goodsOf); // 다시 받으면 새 답이 또 줄 수 있어서, 지워지는 답이 준 돈 · 물건은 되돌린다
         g.th.splice(g.k + 1, end - g.k);
         await commit('contact', nd, '');
+        if (regoods.length && s.data.wallet && modOn('wallet')) await undoGoods(regoods, f.who, s);
         await getPhoneReply(el, f.who, arg);
     },
     cmenu: async (el, arg, btn, s) => {
@@ -596,6 +605,13 @@ export const CONTACT_ACTIONS = {
         if (pick === 'sumdel') { if (nd.summaries) delete nd.summaries[who]; }
         if (pick.startsWith('refl:')) { c.reflect = pick.slice(5); }
         if (pick === 'block') { c.blocked = !c.blocked; toastr.info(c.blocked ? `${esc(who)}을(를) 차단했어요.` : '차단을 풀었어요.', TITLE); }
+        let undoList = [];
+        if (pick === 'clear' || pick === 'remove') {
+            const all = (nd.threads[who] ?? []).flatMap(goodsOf);
+            const ans = await askUndoGoods(all, curState(), pick === 'clear' ? '대화를 비울까요?' : '연락처를 지울까요?');
+            if (!ans) return;
+            if (ans === 'undo') undoList = all;
+        }
         if (pick === 'clear') { nd.threads[who] = []; delete nd.unread[who]; }
         if (pick === 'remove') {
             nd.contacts = nd.contacts.filter(x => norm(x.name) !== norm(who)); delete nd.threads[who]; delete nd.unread[who];
@@ -604,6 +620,7 @@ export const CONTACT_ACTIONS = {
             nd.recent = (nd.recent ?? []).filter(x => norm(typeof x === 'string' ? x : x?.who ?? '') !== norm(who));
         }
         await commit('contact', nd, '');
+        if (undoList.length) { await undoGoods(undoList, who, curState()); toastr.info('주고받은 것을 되돌렸어요.', TITLE); }
         if (pick === 'remove') toastr.info(`${esc(who)}을(를) 연락처에서 지웠어요.`, TITLE);
     },
     cmode: async (el, arg, btn, s) => {

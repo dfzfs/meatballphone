@@ -28,7 +28,7 @@ try {
     const s1 = await st();
     check(s1.data.contact.threads.P0.some(m => m.text === '메시지 24'), 'my message kept');
     check(s1.data.contact.threads.P1.filter(m => /AI가 보낸 문자/.test(m.text)).length === 10, `AI messages kept between my edits (${s1.data.contact.threads.P1.filter(m => /AI가 보낸 문자/.test(m.text)).length})`);
-    check(Object.values(s1.data.contact.threads).every(t => t.length <= 50), 'threads capped at 50');
+    check(Object.values(s1.data.contact.threads).every(t => t.length <= 200), 'threads capped at 200'); // v2.7.23: 50 → 200 (따로 보관이라 늘림)
     check(s1.data.contact.contacts.length >= 6, 'contacts kept');
     // 되돌리기: 마지막 메시지만 빠진다
     await S(async () => { const { undoLast } = await import('/ext/src/engine.js'); await undoLast(); });
