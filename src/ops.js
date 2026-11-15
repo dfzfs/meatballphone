@@ -79,6 +79,39 @@ const PERIOD = (s, every) => (every === 'day' ? 1 : every === 'week' ? Math.max(
 // "체력 -5" · "돈 +10" · "cash: +200" · 여러 개는 ; 또는 줄바꿈
 // 쉼표 뒤에 숫자가 아닌 글이 오면 다른 항목 (「1,000」은 안 나눔)
 const MULTI_RE = /\s*,\s*(?=[^\d\s,])/;
+// 점검 반영: AI가 숫자 뒤에 이유를 붙이면(「Leon +2 (he smiled)」 · 「체력 -12 — 맞음」) 줄이 통째로 버려졌다 → 숫자 뒤의 괄호 · 줄표 설명은 떼고 읽는다
+// 「| 메모」 뒤는 안 건드리고, 이름 안의 괄호(「체력(HP) -12」)나 이름 끝 숫자(「R2 - D2 +3」)도 그대로
+const NOTE_KEYS = new Set(['stat', 'attr', 'aff', 'trust', 'jealous', 'pairaff']);
+const NUM_END = '(?<=(?:^|[\\s+\\-−=])\\d[\\d.,]*)';
+const NOTE_PAREN = new RegExp(`${NUM_END}\\s*[(（\\[][^()（）\\[\\]]*[)）\\]]`, 'g');
+const NOTE_DASH = new RegExp(`${NUM_END}\\s*(?:[—–]|\\s-\\s)\\s*[^\\d\\s,][^,]*`, 'g');
+export function dropNote(val) {
+    const cut = val.indexOf('|');
+    const head = cut < 0 ? val : val.slice(0, cut), tail = cut < 0 ? '' : val.slice(cut);
+    const h = head.replace(NOTE_PAREN, '').replace(NOTE_DASH, '').trimEnd();
+    return h === head.trimEnd() || !/\d$/.test(h) ? val : (tail ? `${h} ${tail}` : h);
+}
+// 「aff: Leon +2, trust: Leon +1」처럼 한 줄에 다른 키를 섞어 쓰면 그 키로 보낸다 (예전엔 우정 +1이 애정에 더해졌음)
+function applyPart(s, key, part, info) {
+    const kv = part.match(/^([^:：]{1,24}?)\s*[:：]\s*(.+)$/);
+    if (kv && KEYMAP[kv[1].trim().toLowerCase()]) applyOp(s, kv[1].trim(), kv[2], info);
+    else applyOp(s, key, part, info);
+}
+// 게이지 이름을 다른 말로 쓰면(「HP」 「Health」 ↔ 「체력」) 새 게이지를 만들지 않고 이미 있는 같은 뜻의 게이지에 반영한다
+const BAR_ALIAS = [
+    ['hp', 'health', 'life', 'vitality', '체력', '생명', '생명력', '건강'],
+    ['mp', 'mana', 'magic', '마나', '마력', '내공', '기'],
+    ['stamina', 'energy', 'sp', '기력', '스태미나', '에너지', '활력'],
+    ['stress', '스트레스'],
+    ['fatigue', 'tiredness', 'exhaustion', '피로', '피로도'],
+    ['hunger', '허기', '배고픔', '공복'],
+    ['sanity', 'mental', 'willpower', '정신력', '멘탈', '이성'],
+];
+function aliasBar(bars, name) {
+    const n = norm(name);
+    const g = BAR_ALIAS.find(a => a.includes(n));
+    return g ? (bars ?? []).find(b => g.includes(norm(b.name))) ?? null : null;
+}
 export function applyLines(s, text, info) {
     for (const raw0 of String(text ?? '').split(/\s*[;\n]\s*/)) {
         const line0 = raw0.trim();
@@ -347,6 +380,7 @@ export function applyOp(s, rawKey, rawVal, info) {
     if (mod && info.mods && info.mods[mod] === false) return;
     if (mod && GLOBAL_OFF[mod] && settings()[GLOBAL_OFF[mod]] === false) return; // 모든 채팅에서 끈 칸 (v2.7.3)
     if (!val && !key.startsWith('_')) return;
+    if (NOTE_KEYS.has(key)) val = dropNote(val);
     const L = (t) => info.labels.push(t);
     const T = (s.tally ??= { earn: 0, spend: 0, places: [], rolls: 0, good: 0, crit: 0, fumble: 0, sent: 0, got: 0, quests: 0, curses: 0 });
     if (Object.hasOwn(OPS, key)) OPS[key](s, val, info, L, T, key, rawKey);
@@ -557,11 +591,14 @@ function opXRepay(s, val, info, L, T, key, rawKey) {
 }
 function opStat(s, val, info, L, T, key, rawKey) {
     // v2.7.19: 「Stamina +30, Stress -5」처럼 쉼표로 여러 개 — 예전엔 통째로 「Stamina +30, Stress」 게이지 -5로 읽어서 Stamina가 깎였음
-    if (MULTI_RE.test(val)) { for (const part of val.split(MULTI_RE)) if (part.trim()) applyOp(s, 'stat', part.trim(), info); return; }
+    if (MULTI_RE.test(val)) { for (const part of val.split(MULTI_RE)) if (part.trim()) applyPart(s, 'stat', part.trim(), info); return; }
     const st = ensure(s, 'stats');
+    // 「hp: −5」처럼 키가 곧 게이지 이름이고 값이 숫자뿐이면 그 이름으로 읽는다 (예전엔 「−」라는 게이지가 생겼음)
+    if (/^[=+\-−]?\s*[\d.,]+$/.test(val) && !['stat', '수치', '게이지', 'gauge'].includes(norm(rawKey))) val = `${String(rawKey).trim()} ${val}`;
     const m = val.match(/^(.+?)\s*(max|최대)?\s*([=+\-−][\d.,]+|\d[\d.,]*)\s*$/i);
     if (!m) return;
-    let bar = findBy(st.bars, m[1]);
+    let bar = findBy(st.bars, m[1]) ?? aliasBar(st.bars, m[1]);
+    if (!bar && !/\p{L}/u.test(m[1])) return; // 글자가 없는 이름(「−」 「+」)으로는 게이지를 만들지 않는다
     if (!bar) { bar = { name: m[1].trim(), cur: 100, max: 100, color: '', desc: '' }; st.bars.push(bar); }
     let p = parseNum(m[3]);
     if (!p) return;
@@ -574,7 +611,7 @@ function opStat(s, val, info, L, T, key, rawKey) {
     return;
 }
 function opAttr(s, val, info, L, T, key, rawKey) {
-    if (MULTI_RE.test(val)) { for (const part of val.split(MULTI_RE)) if (part.trim()) applyOp(s, 'attr', part.trim(), info); return; }
+    if (MULTI_RE.test(val)) { for (const part of val.split(MULTI_RE)) if (part.trim()) applyPart(s, 'attr', part.trim(), info); return; }
     const st = ensure(s, 'stats');
     const m = val.match(/^(.+?)\s*([=+\-−][\d.]+|\d[\d.]*)\s*$/);
     if (!m) return;
@@ -720,7 +757,7 @@ function opPlace(s, val, info, L, T, key, rawKey) {
 }
 function opAff(s, val, info, L, T, key, rawKey) {
     // 「Leon +2, Mira +3」 → 한 명씩 (v2.7.19 · 예전엔 둘 다 안 올랐음) — 「| 메모」 뒤의 쉼표는 안 나눔
-    { const head = val.split('|')[0]; if (MULTI_RE.test(head) && /\d/.test(head.split(MULTI_RE)[0])) { const parts = head.split(MULTI_RE); const tail = val.slice(head.length); parts.forEach((p0, i) => p0.trim() && applyOp(s, key, p0.trim() + (i === parts.length - 1 ? tail : ''), info)); return; } }
+    { const head = val.split('|')[0]; if (MULTI_RE.test(head) && /\d/.test(head.split(MULTI_RE)[0])) { const parts = head.split(MULTI_RE); const tail = val.slice(head.length); parts.forEach((p0, i) => p0.trim() && applyPart(s, key, p0.trim() + (i === parts.length - 1 ? tail : ''), info)); return; } }
     const rl = ensure(s, 'rel');
     const m = val.match(/^(.+?)\s*([=+\-−]\s*[\d.]+|\d[\d.]*)\s*(?:\|\s*(.*))?$/);
     if (!m) return;

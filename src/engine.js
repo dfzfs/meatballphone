@@ -17,7 +17,8 @@ const legacyOn = () => { try { return settings().legacyStatus !== false; } catch
 // <meatball>을 안 닫았으면: 「키: 값」 모양의 줄이 이어지는 데까지만 (사이의 빈 줄은 허용). 태그로 시작하는 줄(</prose>, <tracker>)이나 이야기 문장에서 멈춘다.
 //   → 예전엔 글 끝까지 다 지웠음. 읽히는 변화(키: 값)는 예전과 같아서 옛 채팅의 숫자는 그대로.
 // 옛 <status>는 예전 규칙 그대로 (안 닫혔으면 글 끝·다음 블록까지) — 옛 채팅 호환. 다른 프리셋 모양(<details>·표)이면 건드리지 않는다.
-const KV_RUN = /^(?:\s*(?:[-*•]\s*|\d+[.)]\s*)?[^<:：\n]{1,24}[:：][^\n]*)*/;
+// 점검 반영: 「레온: "안녕"」 같은 대사 줄(값이 따옴표로 시작)은 변화 줄이 아니다 — 거기서 멈춰서 본문에 남긴다
+const KV_RUN = /^(?:\s*(?:[-*•]\s*|\d+[.)]\s*)?[^<:：\n]{1,24}[:：](?!\s*["“”'‘’「『])[^\n]*)*/;
 function scanBlocks(text) {
     const t = String(text ?? '');
     const out = [];
@@ -1167,7 +1168,9 @@ function recentI(s, n) {
 const LANG_RULE = (lang) => `Values in ${lang} even if the story itself is written in another language: new place, item, person and quest names in ${lang}; existing names exactly as written above.`;
 function outRule(text) {
     const lang = viewTr() ? 'English' : 'Korean';
-    if (/Values in (Korean|English)\.?/i.test(text)) return text.replace(/Values in (Korean|English)\.?/i, LANG_RULE(lang));
+    // 기본 문구의 뒷부분(「, names exactly as above.」)까지 같이 바꾼다 — 예전엔 그 조각이 남아 「…written above., names exactly as above.」가 매 턴 나갔음
+    const OLD = /Values in (Korean|English)(?:, names exactly as above)?\.?/i;
+    if (OLD.test(text)) return text.replace(OLD, LANG_RULE(lang));
     return `${text} ${LANG_RULE(lang)}`;
 }
 // 키 설명의 한국어 자리표시를 영어로 (화면만 번역일 때만 · 키 이름과 문법은 그대로)

@@ -45,7 +45,7 @@ export function pipDiag(i) {
         const list = ops.slice(0, 8).map(([k, v]) => `${k}: ${v}`).join('\n');
         if (unk.length) return { code: 'unknown', title: '읽었지만 모르는 키예요', text: `미트볼이 모르는 키라 아무것도 안 바뀌었어요: ${unk.join(', ')}\n\n${list}`, acts: ['edit'] };
         if (off.length) return { code: 'unknown', title: '꺼 둔 칸의 변화예요', text: `쓸 기능에서 꺼 둔 칸이라 반영하지 않았어요: ${off.join(', ')}`, acts: ['edit'] };
-        return { code: 'nochange', title: '읽었지만 바뀐 게 없어요', text: `변화 줄 ${ops.length}개를 읽었는데, 지금 값과 같아서 칩이 없어요.\n\n${list}`, acts: ['edit'] };
+        return { code: 'nochange', title: '읽었지만 바뀐 게 없어요', text: `변화 줄 ${ops.length}개를 읽었는데 바뀐 게 없어요. 지금 값과 같거나, 값 모양이 달라서 못 읽었을 수 있어요 (이름이 틀렸는지 · 숫자 뒤에 다른 글이 붙었는지 봐 주세요). 틀렸으면 「직접 고치기」로 적어요.\n\n${list}`, acts: ['edit'] };
     }
     if (set.msgCard === 'off') return { code: 'cardoff', title: '칩 표시가 꺼져 있어요', text: `변화 ${labels.length}개는 제대로 반영됐어요. 확장 설정 › 「메시지 변동 칩」이 「숨기기」예요.`, acts: [] };
     const mesEl = document.querySelector(`#chat .mes[mesid="${i}"]`);

@@ -80,6 +80,8 @@
 .ss-scope input[type="checkbox"].ss-switch.ss-switch { background: var(--ss-surface2) !important; background-color: var(--ss-surface2) !important; border: 0 !important; border-radius: 999px !important; width: 34px !important; height: 20px !important; min-width: 34px !important; min-height: 20px !important; padding: 0 !important; box-shadow: none !important; appearance: none !important; -webkit-appearance: none !important; outline: none; }
 .ss-scope input[type="checkbox"].ss-switch.ss-switch:checked { background: var(--ss-hi) !important; background-color: var(--ss-hi) !important; }
 .ss-scope input.ss-switch:focus-visible { outline: 2px solid color-mix(in srgb, var(--ss-hi) 50%, transparent) !important; outline-offset: 2px; }
+/* 점검 반영: 키보드(Tab)로 옮겨 다닐 때 지금 어느 단추에 있는지 보이게 — 마우스 · 터치로 누를 땐 안 나타남 */
+.ss-scope :is(button, [role="button"], select, a[href]):focus-visible { outline: 2px solid color-mix(in srgb, var(--ss-hi) 60%, transparent); outline-offset: 1px; }
 .ss-scope input.ss-switch:checked::before { transform: translateX(14px); }
 .ss-scope input.ss-color { width: 34px; height: 30px; padding: 2px; border: 1px solid var(--ss-line) !important; border-radius: 8px; background: var(--ss-bg); cursor: pointer; flex: none; }
 .ss-scope input[type="range"] { width: 100%; accent-color: var(--ss-hi); background: transparent; }
