@@ -40,6 +40,7 @@ export function applyRetro() {
     const b = document.body; if (!b) return; const [, h, s] = themeOf(), on = settings().hpSkinHud !== false;
     b.classList.toggle('ss-retro', on); b.classList.toggle('ss-retro-dot', on && settings().hpDot !== false);
     b.style.setProperty('--hp-h', String(h)); b.style.setProperty('--hp-s', String(s));
+    b.style.setProperty('--hp-fs', `${FS[fsOf()]}px`); // 다른 창(도우미 등)의 글씨 크기도 같이
 }
 // 창 하나하나의 자리: settings().hpLayout = { l: [왼쪽 줄 순서], r: [오른쪽 줄 순서], off: [숨긴 창], main: 'c'|'l'|'r'(가운데 창 위치), lw · rw: 0~2(줄 폭) }
 export const WINS = { profile: '프로필', intro: '소개', stats: '상태', friends: '일촌', quest: '퀘스트', news: '뉴스', contact: '연락', mind: '속마음', cond: '상태 이상', fate: '저주 · 빚', music: 'BGM', custom: '내 탭', photo: '사진' };

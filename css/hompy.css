@@ -3,12 +3,12 @@
    색은 --hp-h(색상) · --hp-s(채도 배율) 두 값에서 전부 만든다 (🎨 꾸미기 › 색). 같은 색을 HUD · 미니창 스킨(맨 아래)도 쓴다 */
 @font-face { font-family: 'MeatballDot'; src: url("../font/Galmuri11.woff2") format('woff2'); font-weight: 400; font-display: swap; }
 @font-face { font-family: 'MeatballDot'; src: url("../font/Galmuri11-Bold.woff2") format('woff2'); font-weight: 700; font-display: swap; }
-.ss-root.ss-hompy, .ss-root.ss-rt, .ss-hp-pick, body.ss-retro :is(#ss-hud, #ss-side .ss-side-mini, .ss-float) {
+.ss-root.ss-hompy, .ss-root.ss-rt, .ss-hp-pick, body.ss-retro dialog.ss-dlg, body.ss-retro :is(#ss-hud, #ss-side .ss-side-mini, .ss-float) {
     --hp-ol: hsl(var(--hp-h, 340) calc(26% * var(--hp-s, 1)) 44%); --hp-ink: hsl(var(--hp-h, 340) calc(20% * var(--hp-s, 1)) 27%); --hp-dim: hsl(var(--hp-h, 340) calc(14% * var(--hp-s, 1)) 54%);
     --hp-strip: hsl(var(--hp-h, 340) calc(86% * var(--hp-s, 1)) 89%); --hp-soft: hsl(var(--hp-h, 340) calc(80% * var(--hp-s, 1)) 95.5%); --hp-gl: hsl(var(--hp-h, 340) calc(60% * var(--hp-s, 1)) 91%);
     --hp-acc: hsl(var(--hp-h, 340) calc(58% * var(--hp-s, 1)) 62%); --hp-bgc: hsl(var(--hp-h, 340) calc(70% * var(--hp-s, 1)) 97.5%); --hp-paper: #fffefd;
 }
-.ss-root.ss-hompy, .ss-root.ss-rt, body.ss-retro :is(#ss-hud, #ss-side .ss-side-mini) {
+.ss-root.ss-hompy, .ss-root.ss-rt, body.ss-retro dialog.ss-dlg, body.ss-retro dialog.ss-dlg .ss-root, body.ss-retro :is(#ss-hud, #ss-side .ss-side-mini) {
     --ss-bg: var(--hp-paper) !important; --ss-surface: var(--hp-soft) !important; --ss-surface2: var(--hp-strip) !important; --ss-card: var(--hp-paper) !important; --ss-ink: var(--hp-ink) !important; --ss-dim: var(--hp-dim) !important;
     --ss-line: var(--hp-gl) !important; --ss-acc: var(--hp-acc) !important; --ss-accInk: #fff !important; --ss-hi: var(--hp-acc) !important; --ss-r: 7px !important;
 }
@@ -193,3 +193,11 @@ body.ss-retro :is(#ss-hud, #ss-side .ss-side-mini) .ss-tb .ss-t { border-radius:
 .ss-hompy .ss-body :is(.ss-in, textarea.ss-in) { font-size: 1em; padding: 3px 7px; min-height: 0; }
 .ss-hompy .ss-dice .ss-seg { gap: 3px; } .ss-hompy .ss-dice :is(.ss-pills, .ss-row-btns) { gap: 4px; }
 @media (max-width: 860px) { .ss-hompy .ss-dice { grid-template-columns: minmax(0, 1fr); } .ss-hompy .ss-dice > *, .ss-hompy .ss-dice > .ss-dice-stage, .ss-hompy .ss-dice > .ss-btn { grid-column: 1; grid-row: auto; position: static; } }
+
+/* 🪟 도우미 · 프롬프트 · 꾸미기 같은 다른 창들도 같은 모양 (창 틀 + 안쪽 글씨 · 색) */
+body.ss-retro dialog.ss-dlg:not(.ss-full) { background: var(--hp-paper) !important; color: var(--hp-ink) !important; border: 1px solid var(--hp-ol) !important; border-top: 14px solid var(--hp-strip) !important; border-radius: 9px !important; box-shadow: 3px 3px 0 var(--hp-strip) !important; }
+body.ss-retro dialog.ss-dlg .ss-root:not(.ss-hompy) { color: var(--hp-ink); font-size: calc((var(--hp-fs, 11px) + 1.5px) * var(--ss-fs)); }
+body.ss-retro.ss-retro-dot dialog.ss-dlg .ss-root:not(.ss-hompy) { font-family: 'MeatballDot', sans-serif; font-size: calc((var(--hp-fs, 11px) + 1px) * var(--ss-fs)); line-height: 1.5; -webkit-font-smoothing: none; }
+body.ss-retro.ss-retro-dot dialog.ss-dlg .ss-root :is(button, input, textarea, select, summary, b, small, h3, h4, h5) { font-family: inherit; }
+body.ss-retro dialog.ss-dlg .ss-root :is(.ss-in, textarea) { border-color: var(--hp-ol); }
+body.ss-retro dialog.ss-dlg :is(.popup-button-ok, .popup-button-cancel) { border: 1px solid var(--hp-ol); background: var(--hp-soft); color: var(--hp-ink); border-radius: 7px; }
