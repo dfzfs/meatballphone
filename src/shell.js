@@ -19,6 +19,7 @@ import { FATE_ACTIONS } from './fate.js';
 import { EDIT, viewTr, letterMode } from './core.js';
 import { translateSheet, missingTr } from './translate.js';
 import { hintAfterAction } from './tips.js';
+import { storySection } from './story_ui.js';
 import { openPromptWindow, openThemeWindow, openWizard } from './lazy.js';
 import { setBase, startBlank } from './engine.js';
 export { setBase, startBlank, openWizard, openPromptWindow, openThemeWindow }; // 다른 파일은 예전처럼 여기서 받아도 된다 (창은 눌렀을 때 불러옴 — lazy.js)
@@ -111,7 +112,7 @@ export function renderPanel(el) {
     const data = pseudo ? {} : mod === 'core' ? s.core : s.data[mod];
     const editable = !pseudo;
     let body;
-    if (tab === 'manage') body = manageHTML(s, st.ui);
+    if (tab === 'manage') body = manageHTML(s, st.ui) + storySection(tab, st.ui);
     else if (pseudo) body = VIEW[tab](s, null, st.ui);
     else if (st.mode === 'edit') body = `<div class="ss-editor">${editorHTML(st.work, EDIT[mod])}</div>
         <div class="ss-editbar"><button class="ss-btn pri" data-act="save"><i class="fa-solid fa-floppy-disk"></i> 저장</button><button class="ss-btn" data-act="cancel">취소</button></div>`;
@@ -119,7 +120,7 @@ export function renderPanel(el) {
         <div class="ss-editbar"><button class="ss-btn pri" data-act="savejson"><i class="fa-solid fa-floppy-disk"></i> 저장</button><button class="ss-btn" data-act="cancel">취소</button></div>`;
     else if (!data) body = `<div class="ss-empty"><i class="fa-solid ${TAB_INFO(tab).icon}"></i><b>「${esc(TAB_INFO(tab).name)}」 칸이 비어 있어요</b>
         <button class="ss-btn pri" data-act="gen">${ai1} AI로 채우기</button><button class="ss-btn ghost" data-act="genblank"><i class="fa-regular fa-file"></i> 빈 칸으로 시작</button></div>`;
-    else body = VIEW[tab](s, data, st.ui);
+    else body = VIEW[tab](s, data, st.ui) + storySection(tab, st.ui); // 🧭 켠 이야기 장치의 칸 (없으면 빈 글)
 
     const info = TAB_INFO(tab);
     const isFav = (settings().favTabs ?? []).includes(tab);

@@ -5,7 +5,7 @@ try {
     await makeStatus(page);
     await page.evaluate(async () => { await window.__addUser('u'); await window.__addAI('Leon.\n<meatball>\ncash: -5\n</meatball>'); });
     const acts = await page.evaluate(() => [...new Set([...document.querySelectorAll('#ss-settings [data-s-act]')].map(b => b.dataset.sAct))]);
-    check(acts.length > 20 && acts.includes('lab') && acts.includes('partsreset') && acts.includes('trprune'), `settings has ${acts.length} action buttons`);
+    check(acts.length > 20 && acts.includes('partsreset') && acts.includes('trprune'), `settings has ${acts.length} action buttons`);
     const bad = [];
     for (const a of acts) {
         const before = logs.length;

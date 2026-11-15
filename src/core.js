@@ -9,7 +9,7 @@ export const VERSION = '2.7.23';
 export const INJECT_KEY = 'statussim_state';
 export const INJECT_KEY2 = 'statussim_people';
 export const INJECT_KEY3 = 'statussim_romance'; // 로맨스 보정 · 내 주입문 (v2.6)
-export const INJECT_KEY4 = 'statussim_lab'; // 🧪 실험실 (v2.8) — 켠 장치의 안내 줄 (하나도 안 켜면 빈 글)
+export const INJECT_KEY4 = 'statussim_story'; // 🧭 이야기 장치 (v2.8) — 켠 장치의 안내 줄 (하나도 안 켜면 빈 글)
 export const PROMPT_IN_CHAT = 1;
 export const ROLE_SYSTEM = 0;
 
@@ -19,7 +19,7 @@ export const mascotUrl = (n) => new URL(`../img/mascot_${MASCOTS.includes(n) ? n
 // 모듈끼리 서로 부르는 함수·현재 상태를 담는 곳 (순환 import 방지)
 // ── app에 거는 것 전부 (새로 걸면 여기에도 적는다 · 거는 파일이 아직 안 불렸을 수 있으니 부를 땐 app.x?.() 로) ──
 //   addTrPairs       거는 곳: translate.js           부르는 곳: core.js, skeleton.js
-//   labInject · labPeek  거는 곳: lab.js          부르는 곳: engine.js(setInjection), extra.js
+//   storyInject · storyPeek · storyChanged  거는 곳: story.js   부르는 곳: engine.js(setInjection), extra.js, settings_ui.js
 //   askBond          거는 곳: index.js               부르는 곳: (같은 파일)
 //   chipOutWas       거는 곳: index.js               부르는 곳: (같은 파일)
 //   colMenu          거는 곳: views.js               부르는 곳: (같은 파일)
@@ -136,6 +136,24 @@ export const DEFAULTS = Object.freeze({
     sceneFilter: true,       // 최근 대화에 나온 인물만 자세히 주입, 나머지는 이름만
     sceneTurns: 6,           // 장면 판단에 볼 최근 메시지 수
     pinCap: 8,               // 주입할 고정 메모 최대 개수
+    // 🧭 이야기 장치 (v2.8 · 전부 선택 · 기본 끔 — 끄면 AI에게 안 보내고 계산도 안 함 · story.js)
+    loopMode: false,         // 🔁 회귀자 모드 — 다시 생성 · 지운 횟수 = 회차, 여러 번 되돌린 장면에서 기시감
+    swipeGhost: false,       // 👻 버린 스와이프의 유령 — 가끔 꿈 · 환청으로 새어 나옴
+    fateDebt: false,         // 🎲 운명의 빚 — 다시 생성 5번마다 작은 불운
+    tensionOn: false,        // 🎬 긴장도 감독 — 평화가 길면 사건, 사건 뒤엔 쉬는 구간
+    realGap: false,          // 🕰 현실 시간 연동 — 하루 넘게 안 오면 인물이 알아챔
+    glitchView: false,       // 🌫 믿을 수 없는 상태창 — 정신력이 낮거나 취하면 화면이 깨져 보임 (화면만)
+    ledgerKnow: false,       // 🧠 누가 뭘 아는지 장부
+    ledgerPromise: false,    // 🤝 약속 장부
+    ledgerHook: false,       // 🧵 떡밥 장부
+    affMask: false,          // 🎭 겉 호감과 진짜 호감
+    peekCost: false,         // 👁 엿보기엔 대가가 있다 (눈치)
+    relScar: false,          // 🩹 관계의 흉터
+    mirrorSheet: false,      // 🪞 역상태창 (누를 때 AI 1회)
+    memoryDrift: false,      // 🕳 기억 왜곡 (AI 1회 + 주입)
+    meddleOn: false,         // ✍ 인물이 내 상태창에 손댄다
+    tasteBook: false,        // 🎁 취향 도감 (화면만)
+    crossMail: false,        // 📻 채팅 간 우편 (누를 때 AI 1회)
     groupChat: false,        // 👥 단체방 (v2.8 · 선택) — 연락에 인물 여럿이 있는 방. 끄면 단추도 안 보이고 아무 영향 없음
     contactAway: true,       // 🔕 상대가 알아서 연락을 꺼 둘 수 있게 (v2.7.23 · 화남 · 일 · 잠 — 그동안 보낸 말은 안 읽힘 · AI 0회)
     contactStayRemote: true, // 🚫 연락 속 인물이 「갈게 · 만나자」 하지 않기 (v2.7.23 · 만남은 본편에서)

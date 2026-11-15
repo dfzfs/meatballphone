@@ -4,7 +4,7 @@ import { buildInjection, addAdjust, KEYMAP, ssValue } from './engine.js';
 import { instructModule } from './ai.js';
 import { diffHTML, confirmPopup } from './kit.js';
 import { openSheet, openWizard, openRoll, openPromptWindow } from './shell.js';
-import { openHelp, openLab } from './lazy.js';
+import { openHelp } from './lazy.js';
 import { saveSlot, fullBackup, diagnose } from './safe.js';
 import { openReport } from './report.js';
 import { openPip, pipFix, pipDiag } from './pip.js';
@@ -98,7 +98,6 @@ export function registerCommands() {
         namedArgumentList: [SlashCommandNamedArgument.fromProps({ name: 'key', description: 'cash, loc, date, time, weather, season, curse, quest, here_now, aff:이름, trust:이름, stat:체력, item:이름, 게이지 이름…', typeList: ARGUMENT_TYPE.STRING, isRequired: false })],
         helpString: '상태를 텍스트로 돌려준다. key를 주면 그 값 하나만. 예: /ss-get key=cash · /ss-get key=aff:레온',
     });
-    add({ name: 'ss-lab', callback: () => { openLab(); return ''; }, helpString: '🧪 실험실 — 이야기 장치(회귀자 모드 · 장부 · 숨은 수치 …)를 켜고 끄는 창을 연다.' });
     add({ name: 'ss-graph', aliases: ['ss-trend'], callback: () => { openTrend(); return ''; }, helpString: '📈 애정 · 우정 · 돈이 어떻게 변해 왔는지 그래프로 본다 (AI 0회).' });
     add({
         name: 'ss-merge',

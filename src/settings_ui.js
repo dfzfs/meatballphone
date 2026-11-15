@@ -5,7 +5,7 @@ import { listProfiles } from './prompts.js';
 import { popup } from './kit.js';
 import { rerenderPanels, openSheet, openWizard, openPromptWindow, openThemeWindow } from './shell.js';
 import { translateSheet, convertToEnglish } from './translate.js';
-import { openHelp, openLab } from './lazy.js';
+import { openHelp } from './lazy.js';
 import { fullBackup, diagnose } from './safe.js';
 import { PRESETS, applyPreset, REL_SHOW } from './extra.js';
 import { FREQ_MODS } from './engine.js';
@@ -15,7 +15,7 @@ import { hintSetting } from './tips.js';
 
 // ───── 확장 설정 서랍 ─────
 // 바꾸면 화면을 바로 다시 그려야 하는 스위치 (v2.7.3)
-const VIEW_KEYS = new Set(['extraJudge', 'questExpire', 'memoOn', 'albumOn', 'peekOn', 'recordOn', 'freshDot', 'pipCheck', 'questJudge', 'msgCard', 'chipOutside', 'contactSimple', 'contactSimpleReflect', 'relStagesOn', 'relShowMemo', 'relShowWants', 'relShowLife', 'relShowPairs', 'relShowBtns', 'relShowNext', 'relShowUnlock']);
+const VIEW_KEYS = new Set(['loopMode', 'swipeGhost', 'fateDebt', 'tensionOn', 'realGap', 'glitchView', 'ledgerKnow', 'ledgerPromise', 'ledgerHook', 'affMask', 'peekCost', 'relScar', 'mirrorSheet', 'memoryDrift', 'meddleOn', 'tasteBook', 'crossMail', 'groupChat', 'extraJudge', 'questExpire', 'memoOn', 'albumOn', 'peekOn', 'recordOn', 'freshDot', 'pipCheck', 'questJudge', 'msgCard', 'chipOutside', 'contactSimple', 'contactSimpleReflect', 'relStagesOn', 'relShowMemo', 'relShowWants', 'relShowLife', 'relShowPairs', 'relShowBtns', 'relShowNext', 'relShowUnlock']);
 // 「부가 기능 한 번에 끄기」 — 상태 계산 · 본편 롤플에 꼭 필요하지 않은 것만
 const LIGHT_OFF = { memoOn: false, albumOn: false, peekOn: false, recordOn: false, daySummary: false, featureTips: false, showMascot: false, mascotBuddy: false, musicToast: false };
 function profileOptions(sel) {
@@ -99,6 +99,7 @@ export function renderSettings() {
             <label class="checkbox_label"><input type="checkbox" data-s="contactStayRemote" ${s.contactStayRemote !== false ? 'checked' : ''}> <b>⑤ 🚫 연락에서 「갈게 · 만나자」 하지 않기</b> <small>(연락 속 인물이 지금 오겠다 · 만나자 · 데리러 가겠다고 하지 않아요. 만나자고 하면 자기 식으로 받아넘기고, 실제 만남은 본편에 맡겨요 · 끄면 예전처럼)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="contactAway" ${s.contactAway !== false ? 'checked' : ''}> <b>⑥ 🔕 상대가 알아서 연락 꺼 두기</b> <small>(화났거나 · 일하거나 · 자거나 — 상대가 스스로 한동안 연락을 끊을 수 있어요. 그동안 보낸 말은 안 읽히고 AI도 안 불러요(토큰 0). 이야기 시간이 흐르거나 실제 시간으로 한 칸당 10분이 지나면 풀려요 · 급하면 「그래도 불러내기」 · 끄면 예전처럼 늘 답해요)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="groupChat" ${s.groupChat === true ? 'checked' : ''}> <b>⑦ 👥 단체방</b> <small>(연락 목록 위에 「단체방」 단추가 생겨요. 인물 2~6명을 한 방에 넣으면 내 말에 · 서로에게 반응해요 — 인물끼리 호감이 있으면 친한 사이는 편들고 앙숙은 티격태격. 연락과 따로 쌓이고 본편 AI에게 안 가요. 말을 걸 때마다 확장 AI 1회 · 기본 끔)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="crossMail" ${s.crossMail === true ? 'checked' : ''}> <b>⑧ 📻 채팅 간 우편</b> <small>(이 채팅의 인물이 다른 채팅으로 편지를 부치고, 다른 채팅에서 온 편지를 여기 떨어뜨려요. 연락 목록 아래에 칸이 생겨요 · 누를 때 AI 1회 · 기본 끔)</small></label>
             <b class="ss-set-h">📦 채팅을 지우면 같이 되돌릴 칸</b>
             <small><b>체크 안 함 (기본) = 따로 보관</b>: 채팅을 지우거나 다시 생성해도 그 칸은 그대로 남아요. 많이 써도 기록이 안 쌓여요. 「방금 한 일」을 AI에게 알리지 않아요.<br><b>체크 = 채팅에 붙이기</b>: 그 턴을 지우면 그때 한 연락 · 글도 같이 사라져요. 방금 한 일을 AI에게 알려요. 대신 많이 쓰면 기록이 빨리 쌓여요.<br>돈 · 물건이 오간 것(선물 · 송금 · 동봉)은 체크와 상관없이 그 턴을 지우면 되돌아가요.</small>
             <div class="ss-set-inline ss-set-wrap">${[['bindContact', '연락'], ['bindNews', '뉴스'], ['bindGossip', '가십지'], ['bindBoard', '게시판'], ['bindSns', 'SNS']].map(([k, t]) => `<label class="checkbox_label"><input type="checkbox" data-s="${k}" ${s[k] === true ? 'checked' : ''}> ${t}</label>`).join('')}</div>
@@ -160,6 +161,14 @@ export function renderSettings() {
             <label class="checkbox_label"><input type="checkbox" data-s="offscreen" ${s.offscreen ? 'checked' : ''}> 화면 밖 생활 — 날이 지나면 본편 AI가 가끔 다른 사람 근황을 적어요</label>
             <label class="checkbox_label"><input type="checkbox" data-s="peekOn" ${s.peekOn !== false ? 'checked' : ''}> 💗 속마음 엿보기 — 관계 카드의 💗? 단추로 그 사람의 속마음을 봐요 <small>(누를 때만 AI 1회 · 끄면 단추가 사라져요)</small></label>
             <label>속마음 엿보기 하루 횟수 (0 = 무제한)<input type="number" min="0" max="20" class="text_pole" data-s="peekPerDay" value="${s.peekPerDay}"></label>
+            <small>아래는 선택 기능이에요 (기본 끔). 켜면 관계 탭 아래에 칸이 생겨요.</small>
+            <label class="checkbox_label"><input type="checkbox" data-s="affMask" ${s.affMask === true ? 'checked' : ''}> <b>🎭 겉 호감과 진짜 호감</b> <small>(상태창엔 겉 수치만 · 진짜 수치는 관계 탭에서 엿봐야 보여요. 우정이 오를수록 차이가 줄어요 · 매 턴 몇 줄)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="peekCost" ${s.peekCost === true ? 'checked' : ''}> <b>👁 엿보기엔 대가가 있다</b> <small>(속마음 · 진짜 호감을 자주 엿보면 눈치가 쌓여 인물이 의심해요 · 토큰 0~1줄)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="relScar" ${s.relScar === true ? 'checked' : ''}> <b>🩹 관계의 흉터</b> <small>(한 번에 10 넘게 깎였던 일이 흉터로 남아 비슷한 상황에서 더 예민해져요 · 매 턴 1~3줄)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="mirrorSheet" ${s.mirrorSheet === true ? 'checked' : ''}> <b>🪞 역상태창</b> <small>(그 인물이 나를 평가한 상태창 · 누를 때 AI 1회)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="memoryDrift" ${s.memoryDrift === true ? 'checked' : ''}> <b>🕳 기억 왜곡</b> <small>(인물이 지난 일을 자기 식으로 기억하고 본편에서도 그렇게 말해요 · AI 1회 + 매 턴 몇 줄)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="meddleOn" ${s.meddleOn === true ? 'checked' : ''}> <b>✍ 인물이 내 상태창에 손댄다</b> <small>(질투 50↑ · 애정 75↑인 인물이 가끔 낙서 · 이름 바꾸기 · 차단을 해 놔요 (관계 탭에서 되돌려요) · 토큰 0~1줄)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="tasteBook" ${s.tasteBook === true ? 'checked' : ''}> <b>🎁 취향 도감</b> <small>(인물별로 드러난 좋아하는 것 · 싫어하는 것 모아 보기 · 토큰 0)</small></label>
             <b class="ss-set-h">💗 로맨스 보정 <small>(전부 선택 · 기본 꺼짐)</small></b>
             <small>AI가 유저 말에 다 맞춰 주거나, 친구인데 연인처럼 굴거나, 많이 놀았다고 연인 취급하는 걸 줄여요. 숫자를 바꾸는 기능(①②③)은 <b>켠 뒤에 오는 답부터</b> 적용돼서 옛 채팅의 숫자는 그대로예요.</small>
             <label class="checkbox_label"><input type="checkbox" data-s="romBond" ${s.romBond ? 'checked' : ''}> ① 연인은 고백으로만 — 맨 위 단계는 숫자만 차선 안 올라가요. 고백이 오가면 관계 탭에서 「💍 연인 확정」 <small>(토큰 거의 0)</small></label>
@@ -178,6 +187,19 @@ export function renderSettings() {
             <label class="checkbox_label"><input type="checkbox" data-s="romSpark" ${s.romSpark ? 'checked' : ''}> ✨ 설렘 한 스푼 — 장면 속 인물이 지금 단계에 맞는 설레는 한 순간을 스스로 <small>(애정 꺼 둔 사람은 우정 표현만)</small></label>
             <label>설렘 확률 % (AI 답 1번마다 · 걸린 뒤 3턴은 쉬어서 최대 4턴에 한 번)<input type="number" min="0" max="100" class="text_pole" data-s="romSparkPct" value="${s.romSparkPct}"></label>
             <small>문구는 「프롬프트 · 토큰」 창에서 고칠 수 있어요. 걸린 턴은 그 창의 「지금 보내는 글」에서 볼 수 있어요.</small>
+            <b class="ss-set-h">🧭 이야기 흐름 <small>(전부 선택 · 기본 꺼짐)</small></b>
+            <small>켜면 운명 탭(운명 칸을 안 쓰면 관리 탭) 아래에 칸이 생겨요. 끈 것은 AI에게 아무것도 보내지 않아요.</small>
+            <label class="checkbox_label"><input type="checkbox" data-s="loopMode" ${s.loopMode === true ? 'checked' : ''}> <b>🔁 회귀자 모드</b> <small>(다시 생성 · 지운 횟수를 회차로 세고, 같은 장면을 여러 번 되돌리면 인물이 기시감을 느껴요 · 토큰 0~1줄)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="swipeGhost" ${s.swipeGhost === true ? 'checked' : ''}> <b>👻 버린 스와이프의 유령</b> <small>(버려진 스와이프의 한 토막이 가끔 꿈 · 환청 · 말실수로 새어 나와요 · 가끔 100토큰쯤)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="fateDebt" ${s.fateDebt === true ? 'checked' : ''}> <b>🎲 운명의 빚</b> <small>(다시 생성할 때마다 빚 1, 5가 되면 다음 답에서 작은 불운 · 토큰 0~1줄)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="tensionOn" ${s.tensionOn === true ? 'checked' : ''}> <b>🎬 긴장도 감독</b> <small>(평화가 길면 긴장이 차올라 사건을 부르고, 사건 뒤엔 쉬는 구간 · 토큰 0~1줄)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="realGap" ${s.realGap === true ? 'checked' : ''}> <b>🕰 현실 시간 연동</b> <small>(실제로 하루 넘게 안 오면 인물이 「어디 갔었어」로 반응 · 토큰 0~1줄)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="glitchView" ${s.glitchView === true ? 'checked' : ''}> <b>🌫 믿을 수 없는 상태창</b> <small>(정신력 · 이성이 낮거나 취하면 상태창 화면이 떨리고 깨져 보여요 (계산은 그대로) · 토큰 0)</small></label>
+            <b class="ss-set-h">📒 장부 <small>(전부 선택 · 기본 꺼짐)</small></b>
+            <small>켜면 메모 탭 아래에 칸이 생겨요. 직접 적거나 「지금 정리」(AI 1회) · 자동 정리로 채워요. 적힌 것은 매 턴 몇 줄씩 AI에게 가요.</small>
+            <label class="checkbox_label"><input type="checkbox" data-s="ledgerKnow" ${s.ledgerKnow === true ? 'checked' : ''}> <b>🧠 누가 뭘 아는지</b> <small>(사실마다 아는 사람을 적어 두고, 모르는 인물이 아는 척하지 않게 해요)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="ledgerPromise" ${s.ledgerPromise === true ? 'checked' : ''}> <b>🤝 약속 장부</b> <small>(내가 한 약속 · 거짓말. 지킴 우정 +2 · 어김 −4)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="ledgerHook" ${s.ledgerHook === true ? 'checked' : ''}> <b>🧵 떡밥 장부</b> <small>(던져 놓고 잊힌 복선을 적어 두고, 오래되면 회수하라고 다시 보내요)</small></label>
             <b class="ss-set-h">데이터 · 화면</b>
             <label class="checkbox_label"><input type="checkbox" data-s="updateNotice" ${s.updateNotice !== false ? 'checked' : ''}> 📣 업데이트하면 「바뀐 점」을 한 번 알려 주기</label>
             <div class="ss-set-btns"><button class="menu_button" data-s-act="whatsnew"><i class="fa-solid fa-bullhorn"></i> 업데이트 내역</button></div>
@@ -189,7 +211,7 @@ export function renderSettings() {
             <label>마스코트 누르면 나는 소리<select class="text_pole" data-s="mascotSound">${MASCOT_SOUNDS.map(([v, t]) => o('mascotSound', v, t)).join('')}</select></label>
             <label>효과음 크기 <small class="ss-mvol">${s.mascotVolume}</small><input type="range" min="0" max="100" step="5" data-s="mascotVolume" value="${s.mascotVolume}"></label>
             <div class="ss-set-btns"><button class="menu_button" data-s-act="mascotsound"><i class="fa-solid fa-volume-high"></i> 소리 미리 듣기</button></div>
-            <div class="ss-set-btns"><button class="menu_button" data-s-act="lab"><i class="fa-solid fa-flask"></i> 🧪 실험실 (이야기 장치)</button><button class="menu_button" data-s-act="diag"><i class="fa-solid fa-stethoscope"></i> 자가 진단 · 고치기</button><button class="menu_button" data-s-act="report"><i class="fa-solid fa-bug"></i> 오류 보고문</button><button class="menu_button" data-s-act="copydump" title="최근 메시지 원문 · 상태 전체 · 편집 기록 · 주입문 (가리지 않음 · 고쳐 달라고 붙여 넣는 용)"><i class="fa-solid fa-clipboard"></i> 지금 상태 복사</button><button class="menu_button" data-s-act="backup"><i class="fa-solid fa-box-archive"></i> 이 채팅 전체 백업</button></div>
+            <div class="ss-set-btns"><button class="menu_button" data-s-act="diag"><i class="fa-solid fa-stethoscope"></i> 자가 진단 · 고치기</button><button class="menu_button" data-s-act="report"><i class="fa-solid fa-bug"></i> 오류 보고문</button><button class="menu_button" data-s-act="copydump" title="최근 메시지 원문 · 상태 전체 · 편집 기록 · 주입문 (가리지 않음 · 고쳐 달라고 붙여 넣는 용)"><i class="fa-solid fa-clipboard"></i> 지금 상태 복사</button><button class="menu_button" data-s-act="backup"><i class="fa-solid fa-box-archive"></i> 이 채팅 전체 백업</button></div>
             <b class="ss-set-h">다른 확장과 같이 쓰기</b>
             <label class="checkbox_label"><input type="checkbox" data-s="stashTags" ${s.stashTags ? 'checked' : ''}> &lt;meatball&gt;을 읽은 뒤 본문에서 떼어 보관 <small>(추천 · 요약·번역·로그 복사 확장에 변화량 줄이 안 보여요. 고칠 땐 변동 칩의 ✏️)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="legacyStatus" ${s.legacyStatus !== false ? 'checked' : ''}> 옛 &lt;status&gt; 태그도 미트볼 것으로 읽고 숨기기 <small>(v2.5 이전 채팅용 · <b>다른 프리셋이 &lt;status&gt;를 쓰면 끄세요</b> — 끄면 &lt;meatball&gt;만 건드려요)</small></label>
@@ -214,6 +236,7 @@ export function renderSettings() {
         if (/^bind[A-Z]/.test(k)) { app.refreshNow(); app.sideSweep?.(); } // 📦 따로 보관으로 돌린 칸은 쌓인 기록을 덩어리 하나로
         if (k === 'ssGenLang' && e.target.value === 'enview') toastr.info('이제부터 만드는 상태창은 영어로 저장되고 화면에만 번역돼요. 이미 한국어로 저장된 칸은 그대로예요.', TITLE);
         if (k === 'mascotSound' || k === 'mascotVolume') playMascotSound(); // 고르면 바로 들려주기
+        app.storyChanged?.(); // 🧭 이야기 장치를 켜고 껐을 수 있음 (화면 깨짐 표시 맞추기)
         if (VIEW_KEYS.has(k)) { app.redecorate(); app.refreshNow(); rerenderPanels(true); return; } // 화면 모양이 바뀌는 스위치는 바로 다시 그림
         app.refreshNow();
     });
@@ -235,7 +258,6 @@ export function renderSettings() {
         if (a === 'partsreset') { const { resetParts, partsCount } = await import('./parts.js'); const n = partsCount(); resetParts(); toastr.info(n ? `숨겨 둔 ${n}개를 다시 보이게 했어요. (관계 탭의 「보일 것」은 관계 칸에서 따로 켜요)` : '숨긴 게 없어요.', TITLE); return; }
         if (a === 'whatsnew') return app.showWhatsNew(true);
         if (a === 'help') return openHelp();
-        if (a === 'lab') return openLab();
         if (a === 'toenglish') return convertToEnglish(e.target.closest('button'));
         if (a === 'trprune') { const { pruneTr } = await import('./translate.js'); return pruneTr(); }
         if (a === 'romrec' || a === 'romoff') {

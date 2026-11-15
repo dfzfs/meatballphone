@@ -1684,8 +1684,8 @@ export function setInjection(inj) {
     c.setExtensionPrompt(INJECT_KEY2, inj?.people ?? '', PROMPT_IN_CHAT, depth, false, ROLE_SYSTEM);
     const rd = clamp(parseInt(settings().romDepth, 10) || 0, 0, 20);
     c.setExtensionPrompt(INJECT_KEY3, inj?.romance ?? '', PROMPT_IN_CHAT, rd, false, ROLE_SYSTEM);
-    // 🧪 실험실 (v2.8): 켠 장치가 하나도 없으면 빈 글 → 아무 영향 없음
-    let lab = ''; try { lab = inj ? (app.labInject?.() ?? '') : ''; } catch (e) { ssNote('lab inject', e); }
+    // 🧭 이야기 장치 (v2.8): 켠 장치가 하나도 없으면 빈 글 → 아무 영향 없음
+    let lab = ''; try { lab = inj ? (app.storyInject?.() ?? '') : ''; } catch (e) { ssNote('story inject', e); }
     c.setExtensionPrompt(INJECT_KEY4, lab, PROMPT_IN_CHAT, depth, false, ROLE_SYSTEM);
 }
 
