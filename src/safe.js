@@ -35,6 +35,7 @@ export function restoreFile(setBase) {
                 m.base = { ...m.base, core: NORM.core(m.base.core ?? {}), data: Object.fromEntries(MOD_IDS.map(id => [id, m.base.data?.[id] ? normalize(id, m.base.data[id]) : null])) };
                 m.adjust = arr(m.adjust).filter(a => a && typeof a === 'object').map(a => (a.set?.data && (a.set.mod === 'core' || NORM[a.set.mod]) ? { ...a, set: { ...a.set, data: a.set.mod === 'core' ? NORM.core(a.set.data) : normalize(a.set.mod, a.set.data) } } : a));
                 if ((m.startAt ?? 0) > chatLen()) { m.startAt = chatLen(); m.startKey = lastKey(); } // 다른 채팅에 넣을 때: 지금부터 이어서
+                for (const a of arr(m.adjust)) if (a?.side && (a.at ?? 0) > chatLen()) { a.at = chatLen(); delete a.an0; } // 📦 따로 보관 덩어리는 지우지 않고 끝으로
                 m.adjust = arr(m.adjust).filter(a => (a.at ?? 0) <= chatLen());
                 // 묶인 행동(구매 · 이동 …)은 묶인 메시지가 이 채팅에 있을 때만 계산된다 → 다른 채팅에 넣으면 조용히 빠졌음
                 // → 이 채팅에 없는 메시지에 묶인 것은 묶음을 풀어 그대로 계산되게 (같은 채팅이면 묶음 유지)
@@ -175,6 +176,7 @@ export async function followBranch() {
         else { meta.startAt = n; meta.startKey = c.chat?.at(-1)?.send_date ?? null; }
     }
     const before = arr(meta.adjust).length;
+    for (const a of arr(meta.adjust)) if (a?.side && (a.at ?? 0) > n) { a.at = n; delete a.an0; } // 📦 따로 보관 덩어리는 분기해도 그대로 (채팅과 따로라서)
     meta.adjust = arr(meta.adjust).filter(a => (a.at ?? 0) <= n);
     if (meta.adjust.length !== before) fixed = true;
     meta.notes = arr(meta.notes).slice(); // 알림함은 그대로

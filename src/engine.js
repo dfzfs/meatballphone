@@ -567,7 +567,7 @@ export function compute(limit, opts = {}) {
             }
         } else if (a.set) {
             // 옛 채팅 줄이기 (v2.7.10): 예전에 칸 통째로 적힌 연락 · 피드 기록을 「그때 상태와 달라진 부분」으로 바꿔 둔다 (이번 계산 결과는 그대로)
-            if (opts.slim && a.set.data && DELTA_MODS.has(a.set.mod) && isPlain(s.data[a.set.mod])) {
+            if (opts.slim && !a.side && a.set.data && DELTA_MODS.has(a.set.mod) && isPlain(s.data[a.set.mod])) {
                 try { const p = deltaOf(normalize(a.set.mod, clone(s.data[a.set.mod])), a.set.data); slimmed.push([a, p]); } catch (e) { ssWarn(LOG, 'slim', e); }
             }
             if (a.set.mod === 'core') s.core = clone(a.set.data);
@@ -575,6 +575,8 @@ export function compute(limit, opts = {}) {
                 const al = a.set.mod === 'rel' ? s.data.rel?.alias : null;
                 s.data[a.set.mod] = clone(a.set.data);
                 if (al && s.data.rel && !s.data.rel.alias) s.data.rel.alias = al; // 🔗 관계 칸을 통째로 저장해도 합친 이름 표는 안 풀림
+                // 📦 덩어리를 만든 뒤 바로 앞 답을 다시 생성했으면, 새 답이 이 칸에 적은 변화는 덩어리 위에 다시 더한다 (안 그러면 새 답의 연락 · 기사가 덮여 사라짐)
+                if (a.side && a.an0 && a.at >= 1 && a.at <= n) { const pm = chat[a.at - 1]; if (pm && isStoryAI(pm) && anchorOf(pm) !== a.an0) { const inf2 = { seed: `${seed}:${a.at - 1}`, labels: [], alerts: [], mods: meta.mods, meta, cut: 0, ai: true }; dropFromMsg(s, a.side, `${seed}:${a.at - 1}:`); for (const [k, v] of msgOps(pm)) if (opMod(s, k) === a.side) applyOp(s, k, v, inf2); } }
                 if (a.set.mod === 'rel') for (const r of s.data.rel.user) { if (s.bonds && Object.hasOwn(s.bonds, norm(r.name))) r.bond = s.bonds[norm(r.name)]; if (s.nolove && Object.hasOwn(s.nolove, norm(r.name))) { if (s.nolove[norm(r.name)]) r.noLove = true; else delete r.noLove; } updateStage(s, r, info, true); }
                 if (a.set.mod === 'calendar' && s.day0 === null) s.day0 = dayIndex(s.data.calendar);
             }
@@ -625,7 +627,7 @@ export function compute(limit, opts = {}) {
 // 옛 채팅(v2.7.6 이하)에 쌓인 연락 · 피드 통째 기록을 한 번 줄인다 → 줄인 개수
 export function slimLegacy(meta = getMeta()) {
     if (!meta?.base || meta.slim277) return 0;
-    const fat = (meta.adjust ?? []).filter(a => a.set?.data && DELTA_MODS.has(a.set.mod)).length;
+    const fat = (meta.adjust ?? []).filter(a => !a.side && a.set?.data && DELTA_MODS.has(a.set.mod)).length;
     if (fat < 2) { meta.slim277 = true; return 0; }
     const r = compute(undefined, { slim: true });
     meta.slim277 = true;
@@ -701,6 +703,20 @@ export function isFresh(fr, mod, k, name) {
 export async function addAdjust(entry) {
     const meta = getMeta(true);
     meta.adjust ??= [];
+    // 📦 따로 보관하는 칸만 건드리는 행동(읽음 표시 등)은 지금 상태에 바로 반영하고 덩어리만 바꾼다
+    if (entry?.ops?.length && !entry.set && app.current?.state) {
+        const s = app.current.state;
+        const mods = [...new Set(entry.ops.map(([k]) => opMod(s, k)))];
+        if (mods.every(m => m && sideOn(m) && s.data[m])) {
+            const info = { seed: `side:${Date.now()}`, labels: [], alerts: [], mods: meta.mods, meta, cut: 0 };
+            for (const [k, v] of entry.ops) applyOp(s, k, v, info);
+            for (const m of mods) writeSide(meta, m, s.data[m]);
+            await saveMeta();
+            app.refreshNow?.();
+            for (const t of info.alerts) app.notify ? app.notify(t) : toastr.info(esc(typeof t === 'string' ? t : t.text ?? ''), TITLE);
+            return;
+        }
+    }
     // 순서 보장: 같은 밀리초에 두 번 눌러도 누른 순서대로 다시 계산되게 (전에는 난수라 순서가 뒤바뀔 수 있었음)
     let t = Date.now();
     for (const e of meta.adjust) if (e.t >= t) t = e.t + 0.001;
@@ -832,7 +848,7 @@ export async function undoLast() {
     const meta = getMeta();
     // 완전 삭제로 바꿔 쓴 기록은 건너뛴다 (되돌리기로 지운 물건이 창고에 되살아나지 않게)
     const isPurge = (e) => e?.silent && (e.ops ?? []).length && e.ops.every(([k]) => k === '_purge');
-    const idx = (meta?.adjust ?? []).findLastIndex(e => !isPurge(e) && !e._off); // 지금 안 보이는(다른 스와이프의) 편집은 건너뜀
+    const idx = (meta?.adjust ?? []).findLastIndex(e => !isPurge(e) && !e._off && !e.side); // 📦 따로 보관 덩어리는 되돌리기 대상이 아님 // 지금 안 보이는(다른 스와이프의) 편집은 건너뜀
     if (idx < 0) return null;
     const a = meta.adjust.splice(idx, 1)[0];
     await saveMeta();
@@ -853,6 +869,46 @@ export async function undoAt(t) {
 // 연락 · 뉴스 · 소문 · 게시판 · SNS는 버튼 한 번마다 칸 전체(모든 대화방)를 편집 기록에 통째로 복사했다 → 오래 쓰면 채팅 파일이 MB 단위.
 // 이제 지금 상태와 비교해 바뀐 칸(대화방은 그 사람 것만)만 적는다. 계산할 땐 그 시점 상태 위에 덮어쓴다.
 export const DELTA_MODS = new Set(['contact', 'news', 'gossip', 'board', 'sns']);
+// ───── 📦 따로 보관 (v2.7.23) ─────
+// 연락 · 뉴스 · 가십지 · 게시판 · SNS에서 「내가 상태창으로 한 것」은 기록장에 줄줄이 쌓지 않고, 칸마다 「지금 내용」 한 덩어리만 둔다.
+//   → 연락을 아무리 해도 기록이 안 불어나고(전부 굳히기 · 파일 비대 없음), 「방금 한 일」로 AI에게 새지 않고, 채팅을 지우거나 다시 생성해도 그대로 남는다.
+// 「채팅에 붙이기」(설정 bind○○)를 켠 칸만 예전처럼 기록장에 적는다 (되감기 · 「방금 한 일」 알림).
+// 덩어리는 기록장 맨 앞의 한 줄(side: 칸 이름 · 칸 통째 · 묶지 않음)이라 계산 방식은 그대로다 — 그 뒤에 온 AI 답의 변화는 평소처럼 그 위에 더해진다.
+const BIND_KEY = { contact: 'bindContact', news: 'bindNews', gossip: 'bindGossip', board: 'bindBoard', sns: 'bindSns' };
+export const sideOn = (mod) => DELTA_MODS.has(mod) && settings()[BIND_KEY[mod]] !== true;
+// 그 답(옛 스와이프)이 만들어 넣은 항목 빼기 — AI 답이 만든 연락 · 기사 · 글의 번호는 「채팅:메시지번호:…」로 시작한다
+function dropFromMsg(s, mod, pre) {
+    const d = s.data[mod]; if (!d) return;
+    const keep = (x) => !String(x?.id ?? '').startsWith(pre);
+    if (mod === 'contact') { for (const who of Object.keys(d.threads ?? {})) d.threads[who] = d.threads[who].filter(keep); return; }
+    const lk = FEED_LISTS[mod];
+    if (lk && Array.isArray(d[lk])) d[lk] = d[lk].filter(keep);
+}
+const onlyMod = (s, a, mod) => !!a.ops?.length && !!s && a.ops.every(([k]) => opMod(s, k) === mod);
+function writeSide(meta, mod, data) {
+    const chat = ctx().chat ?? [], s = app.current?.state;
+    // 이 칸의 옛 기록은 새 덩어리가 통째로 덮으니 지운다 (다른 칸 변화가 섞인 줄은 그 부분만 남김)
+    meta.adjust = (meta.adjust ?? []).filter(a => {
+        if (a.side === mod) return false;
+        if (a.set?.mod === mod) { if (!a.ops?.length || onlyMod(s, a, mod)) return false; delete a.set; return true; }
+        return !(!a.set && onlyMod(s, a, mod));
+    });
+    let t = Date.now();
+    for (const e of meta.adjust) if (e.t >= t) t = e.t + 0.001;
+    const last = chat.at(-1);
+    meta.adjust.unshift({ at: chat.length, t, set: { mod, data: normalize(mod, clone(data)) }, side: mod, keep: true, ...(last && !last.is_user ? { an0: anchorOf(last) } : {}) });
+}
+// 예전 방식으로 쌓인 기록을 덩어리 하나로 (채팅을 열 때 · 설정을 바꿀 때) → 바꾼 칸 수
+export function sideSweep(meta = getMeta()) {
+    const s = app.current?.state;
+    if (!meta?.base || !s) return 0;
+    let n = 0;
+    for (const mod of DELTA_MODS) {
+        if (!sideOn(mod) || !s.data[mod]) continue;
+        if ((meta.adjust ?? []).some(a => a.side !== mod && (a.set?.mod === mod || (!a.set && onlyMod(s, a, mod))))) { writeSide(meta, mod, s.data[mod]); n++; }
+    }
+    return n;
+}
 const isPlain = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
 const same = (x, y) => x === y || JSON.stringify(x) === JSON.stringify(y);
 // 목록은 「앞에서 d개 빼고 · 뒤에 몇 개 붙임」으로 적을 수 있으면 그렇게 (대화방에 한 줄 보내면 그 한 줄만)
@@ -896,6 +952,14 @@ export function applyDelta(d, p) {
     return d;
 }
 export function commit(mod, data, label, extra = {}) {
+    if (sideOn(mod)) { // 📦 따로 보관: 기록을 쌓지 않고 덩어리만 바꾼다
+        const meta = getMeta(true);
+        const cur0 = app.current?.state?.data?.[mod];
+        // 바뀐 게 없고 이미 덩어리가 있으면 아무것도 안 한다 (읽음 표시 등으로 매번 저장하지 않게)
+        try { if (cur0 && (meta.adjust ?? []).some(a => a.side === mod) && JSON.stringify(normalize(mod, clone(cur0))) === JSON.stringify(normalize(mod, clone(data)))) return Promise.resolve(); } catch (e) { ssNote('따로 보관 비교 실패', e); }
+        writeSide(meta, mod, data);
+        return saveMeta().then(() => { app.refreshNow?.(); });
+    }
     const nd = mod === 'core' ? NORM.core(data) : normalize(mod, data);
     const cur = DELTA_MODS.has(mod) ? app.current?.state?.data?.[mod] : null;
     if (isPlain(cur)) {

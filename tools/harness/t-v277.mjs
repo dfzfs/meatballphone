@@ -1,6 +1,6 @@
 // v2.7.7: 연락 · 피드는 바뀐 부분만 기록 (채팅 파일 비대 방지) · 대화방 50개 · 생성 직전 계산 재사용
 import { open, makeStatus, sleep, check } from './lib.mjs';
-const { page, logs, close } = await open();
+const { page, logs, close } = await open({ bind: true }); // 기록 · 되감기를 보는 시나리오 → 「채팅에 붙이기」 모드
 const S = (f, a) => page.evaluate(f, a);
 const st = () => S(() => window.__SS_TEST__.api.app.current.state);
 try {

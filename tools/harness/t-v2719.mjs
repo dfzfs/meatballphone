@@ -1,6 +1,6 @@
 // v2.7.19: 👁 보일 것 — 관계 탭에만 있던 「보일 것」을 모든 탭에 (화면에서만 숨김 · 다시 켜면 그대로)
 import { open, makeStatus, sleep, check } from './lib.mjs';
-const { page, logs, close } = await open();
+const { page, logs, close } = await open({ bind: true }); // 기록 · 되감기를 보는 시나리오 → 「채팅에 붙이기」 모드
 try {
     const ids = await page.evaluate(async () => (await import('/ext/src/core.js')).MOD_IDS);
     await makeStatus(page, ids);

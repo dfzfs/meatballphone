@@ -7,7 +7,7 @@ import {
 import { opInfo } from './src/engine.js';
 import {
     shiftSwipeAnchors, clampAdjust, noteGeneration, compute, buildInjection, setInjection, addAdjust, stashStatus, stashAllSwipes,
-    bakedLabels, rebindToUser, shiftSwipeKeys, drawerOps, setDrawer, extractOps, ssValue, undoLast, hasStatus, autoBake, slimLegacy,
+    sideSweep, bakedLabels, rebindToUser, shiftSwipeKeys, drawerOps, setDrawer, extractOps, ssValue, undoLast, hasStatus, autoBake, slimLegacy,
 } from './src/engine.js';
 import { analyzeMessage } from './src/ai.js';
 import { mainBusy } from './src/prompts.js';
@@ -248,6 +248,7 @@ const CHANGELOG = [
         ['⚠ 못 읽은 줄 표시', '그래도 못 읽은 줄이 있으면 칩 옆에 ⚠ 숫자가 떠요. 누르면 어떤 줄인지 보여 줘요.'],
         ['🔗 인물 합치기', '같은 사람이 이름만 달라 둘로 생겼을 때(Leon · 레온) 관계 카드의 🔗 단추로 합쳐요. 수치는 더해지고, 그 뒤로는 어느 이름으로 적어도 한 사람에게 반영돼요.'],
         ['📈 변화 그래프', '관계 탭의 「변화 그래프」 또는 /ss-graph — 애정 · 우정 · 돈이 어떻게 변해 왔는지 선으로 보여 줘요 (AI 0회).'],
+        ['📦 부가 기능은 따로 보관', '연락 · 뉴스 · 가십지 · 게시판 · SNS에서 한 일은 기록으로 쌓이지 않아요. 연락을 많이 해도 답이 통째로 합쳐지지 않고 파일이 작아져요. 대신 채팅을 지워도 연락 · 게시물은 남아요. 예전처럼 채팅과 같이 되감기게 하려면 확장 설정 › 「부가 기능 — 채팅에 붙이기」에서 칸마다 켜요.'],
         ['⏪ 지우면 되돌아가게', '상태창에서 아이템을 쓰거나 물건을 사고 메시지를 보낸 뒤, 그 메시지를 지우면 썼던 물건 · 돈이 돌아와요. 예전엔 안 돌아왔어요.'],
         ['📱 연락 — 지우기', '내가 보낸 말풍선을 지우면 본편 AI에게 가던 「방금 보냄」 기록도 같이 빠져요. 보낸 선물 · 송금을 지울 땐 「돌려받고 지우기」를 고를 수 있어요.'],
         ['🩹 그 밖에', 'AI에게 보내는 출력 규칙 문구가 깨져 나가던 것 · 안 닫힌 <meatball> 뒤의 대사가 본문에서 잘리던 것 · 키보드로 옮겨 다닐 때 단추 테두리 표시.'],
@@ -785,14 +786,17 @@ async function onChatChanged() {
     try { if (isActive() && ready()) { const n = slimLegacy(); if (n) { saveMeta(); console.log(LOG, `옛 연락 · 피드 기록 ${n}개를 줄였어요`); } } } catch (e) { ssWarn(LOG, 'slim', e); }
     refreshNow();
     try { if (sweepSent()) { saveMeta(); refreshNow(); } } catch (e) { ssNote('지운 연락 기록 정리 실패', e); } // 업데이트 전에 지운 말풍선의 기록
+    try { app.sideSweep(); } catch (e) { ssNote('따로 보관 옮기기 실패', e); } // 📦 예전 방식으로 쌓인 연락 · 피드 기록을 덩어리 하나로
     // 카드에 상태창이 들어 있으면 (이 채팅에 아직 없을 때) 한 번 물어본다
     setTimeout(() => { offerCard(setBase).catch(e => ssWarn(LOG, 'card', e)); }, 400);
 }
 
+// 📦 따로 보관 (v2.7.23): 쌓인 연락 · 피드 기록을 덩어리 하나로 → 바꿨으면 저장하고 다시 계산
+app.sideSweep = () => { const meta = getMeta(); if (!meta?.base || !app.current) return 0; const n = sideSweep(meta); if (n) { saveMeta(); refreshNow(); } return n; };
 // 마지막 편집 되돌리기 (관리 탭 버튼 · /ss-undo)
 app.undoLast = async () => {
     const meta = getMeta();
-    const a = meta?.adjust?.at(-1);
+    const a = meta?.adjust?.findLast(e => !e.side && !e._off);
     if (!a) { toastr.info('되돌릴 편집이 없어요.', TITLE); return; }
     if (!(await ctx().Popup.show.confirm(TITLE, `「${esc(a.label || '이름 없는 편집')}」을(를) 되돌릴까요?`))) return;
     await undoLast();

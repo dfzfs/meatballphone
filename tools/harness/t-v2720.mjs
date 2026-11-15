@@ -1,6 +1,6 @@
 // v2.7.20: 편집 기록 차례 · 메시지 지우기 · 분기 채팅 · 다시 생성 후 옛 소문 · 영어 저장 연락 열쇠 · 빈 기록 · 짧은 주입문
 import { open, makeStatus, sleep, check } from './lib.mjs';
-const { page, logs, close } = await open();
+const { page, logs, close } = await open({ bind: true }); // 기록 · 되감기를 보는 시나리오 → 「채팅에 붙이기」 모드
 const S = (f, a) => page.evaluate(f, a);
 const ai = async (body, user = 'go') => { await S((u) => window.__addUser(u), user); await S((b) => window.__addAI(b), body); await sleep(120); };
 const st = () => S(() => { window.__SS_TEST__.api.refreshNow(); return JSON.parse(JSON.stringify(window.__SS_TEST__.api.app.current.state)); });

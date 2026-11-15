@@ -88,6 +88,9 @@ export function renderSettings() {
             <label class="checkbox_label"><input type="checkbox" data-s="skipQuiet" ${s.skipQuiet ? 'checked' : ''}> 조용한 생성·퀵리플라이(/gen 등)엔 안 보냄</label>
             <label>OOC로 볼 내 메시지 시작 (정규식 · 고급)<input class="text_pole" data-s="oocPattern" value="${esc(s.oocPattern)}" placeholder="^\\s*(\\(\\(|//)"></label>
             <small>퀵리플라이에서는 <code>/ss-pause</code> · <code>/ss-resume</code> · <code>/ss-skip</code> (다음 1번만)</small>
+            <b class="ss-set-h">📦 부가 기능 — 채팅에 붙이기</b>
+            <small>연락 · 뉴스 · 가십지 · 게시판 · SNS는 기본으로 <b>따로 보관</b>해요: 여기서 한 일은 기록으로 쌓이지 않고, 채팅을 지우거나 다시 생성해도 그대로 남고, 「방금 한 일」로 AI에게 가지 않아요. 체크한 칸만 예전처럼 <b>채팅에 붙어요</b> (그 턴을 지우면 같이 되돌아가고, 방금 한 일을 AI에게 알려요 · 많이 쓰면 기록이 빨리 쌓여요). AI에게 내용을 보여 줄지는 아래 「연락 내용을 본편 AI에게」 · 칸별 보내는 때 설정을 따라요.</small>
+            <div class="ss-set-inline ss-set-wrap">${[['bindContact', '연락'], ['bindNews', '뉴스'], ['bindGossip', '가십지'], ['bindBoard', '게시판'], ['bindSns', 'SNS']].map(([k, t]) => `<label class="checkbox_label"><input type="checkbox" data-s="${k}" ${s[k] === true ? 'checked' : ''}> ${t}</label>`).join('')}</div>
             <b class="ss-set-h">연락</b>
             <label class="checkbox_label"><input type="checkbox" data-s="contactSimple" ${s.contactSimple === true ? 'checked' : ''}> 📱 간단 모드 — 잠깐 가볍게 놀 때 <small>(편지도 바로 와요 · AI는 대화 최근 4줄 · 이야기 3줄만 기억 · 대화는 최근 20개만 남아요 · 첨부 · 반응 같은 기능은 그대로. 끄면 <b>자세히</b> = 원래대로: 배달 · 도착 시간 · 급행 · 대화 길게 기억)</small></label>
             <label>　└ 간단 모드일 때 연락 내용을 본편 AI에게<select class="text_pole" data-s="contactSimpleReflect">${o('contactSimpleReflect', 'off', '안 보냄 (기본 · 가장 가벼움)')}${o('contactSimpleReflect', 'recent', '가장 최근 연락 한두 줄만 짧게')}</select></label>
@@ -204,6 +207,7 @@ export function renderSettings() {
         hintSetting(k, settings()[k]); // 방금 바꾼 설정에 주의할 게 있으면 한 번
         if (k === 'autoRegex' && e.target.checked) app.installRegex();
         if (k === 'legacyStatus') app.installRegex(); // 정규식도 같이 바꾼다
+        if (/^bind[A-Z]/.test(k)) { app.refreshNow(); app.sideSweep?.(); } // 📦 따로 보관으로 돌린 칸은 쌓인 기록을 덩어리 하나로
         if (k === 'ssGenLang' && e.target.value === 'enview') toastr.info('이제부터 만드는 상태창은 영어로 저장되고 화면에만 번역돼요. 이미 한국어로 저장된 칸은 그대로예요.', TITLE);
         if (k === 'mascotSound' || k === 'mascotVolume') playMascotSound(); // 고르면 바로 들려주기
         if (VIEW_KEYS.has(k)) { app.redecorate(); app.refreshNow(); rerenderPanels(true); return; } // 화면 모양이 바뀌는 스위치는 바로 다시 그림

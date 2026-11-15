@@ -1,6 +1,6 @@
 // v2.7.10: 밤샘 점검 — 메인 연결 대기 · 채팅 바뀜 · 답 고침 · 칩 복구 · 분기 + 바뀐 부분 기록
 import { open, makeStatus, sleep, check } from './lib.mjs';
-const { page, logs, close } = await open();
+const { page, logs, close } = await open({ bind: true }); // 기록 · 되감기를 보는 시나리오 → 「채팅에 붙이기」 모드
 const S = (f, a) => page.evaluate(f, a);
 const st = () => S(() => window.__SS_TEST__.api.app.current.state);
 try {
@@ -56,6 +56,7 @@ try {
         const { commit } = await import('/ext/src/engine.js');
         const add = async (who, text) => { const ct = structuredClone(window.__SS_TEST__.api.app.current.state.data.contact); (ct.threads[who] ??= []).push({ id: text, from: 'me', text, at: 1 }); if (!ct.contacts.some(c => c.name === who)) ct.contacts.push({ name: who }); await commit('contact', ct, text); };
         await add('Mina', 'before-branch');
+        await window.__addUser('mid'); await window.__addAI('ok'); // v2.7.23: 답을 보고 한 행동은 그 다음 내 메시지에 묶인다 → 분기 지점 앞에 그 턴이 통째로 있어야 남는다
         await window.__addUser('more'); await window.__addAI('fine');
         await add('Mina', 'after-branch');
     });
