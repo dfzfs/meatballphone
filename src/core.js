@@ -1038,6 +1038,8 @@ export function dayFrac(cal) {
     for (const [re, f] of SLOT_HINT) if (re.test(raw)) return f;
     return 0;
 }
+// 바로 오가는 메시지(메신저 · 선톡 · AI가 보낸 연락)의 시각 = 그날(또는 그 턴). 시간대까지 재는 것은 편지 답장 기다리기뿐
+export function wholeTick(s, meta = getMeta()) { return useDays(s, meta) ? dayIndex(s.data.calendar) : (s?.turn ?? 0); }
 export const slotsPerDay = (s) => Math.max(1, s?.data?.calendar?.times?.length || 6);
 // 기다리는 시간을 글로: 「2일」 「3시간대」 「1일 2시간대」 「곧」 (달력이 없으면 턴)
 export function waitText(delta, s, meta = getMeta()) {

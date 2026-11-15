@@ -1,6 +1,6 @@
 // 규칙 · 변화량 처리 — <meatball> 한 줄(키=값)을 상태에 반영 (engine.js에서 떼어 냄)
 import { setAlias } from './core.js';
-import { letterMode, ctx, settings, EMPTY, DIFFS, GLOBAL_OFF, clamp, num, norm, findBy, parseNum, splitBar, signed, fmtNum, short, dayIndex, addDays, dateStr, eventsOn, parseDate, nowTick, stamp, viewTr, diffOf, loveIndex, touchContact, THREAD_MAX, dateShort, DEFAULT_STAGES, relAxes, romanceStart, ssNote } from './core.js';
+import { letterMode, ctx, settings, EMPTY, DIFFS, GLOBAL_OFF, clamp, num, norm, findBy, parseNum, splitBar, signed, fmtNum, short, dayIndex, addDays, dateStr, eventsOn, parseDate, nowTick, wholeTick, stamp, viewTr, diffOf, loveIndex, touchContact, THREAD_MAX, dateShort, DEFAULT_STAGES, relAxes, romanceStart, ssNote } from './core.js';
 import { enStr } from './skeleton_en.js';
 
 export const KEYMAP = {
@@ -83,13 +83,14 @@ const MULTI_RE = /\s*,\s*(?=[^\d\s,])/;
 // 점검 반영: AI가 숫자 뒤에 이유를 붙이면(「Leon +2 (he smiled)」 · 「체력 -12 — 맞음」) 줄이 통째로 버려졌다 → 숫자 뒤의 괄호 · 줄표 설명은 떼고 읽는다
 // 「| 메모」 뒤는 안 건드리고, 이름 안의 괄호(「체력(HP) -12」)나 이름 끝 숫자(「R2 - D2 +3」)도 그대로
 const NOTE_KEYS = new Set(['stat', 'attr', 'aff', 'trust', 'jealous', 'pairaff']);
-const NUM_END = '(?<=(?:^|[\\s+\\-−=])\\d[\\d.,]*)';
-const NOTE_PAREN = new RegExp(`${NUM_END}\\s*[(（\\[][^()（）\\[\\]]*[)）\\]]`, 'g');
-const NOTE_DASH = new RegExp(`${NUM_END}\\s*(?:[—–]|\\s-\\s)\\s*[^\\d\\s,][^,]*`, 'g');
+// (lookbehind 정규식은 쓰지 않는다 — 옛 사파리에서 정규식 자체가 오류라 확장이 통째로 안 켜짐 → 숫자를 묶어서 되살린다)
+const NUM_TOK = '((?:^|[\\s+\\-−=])\\d[\\d.,]*)';
+const NOTE_PAREN = new RegExp(`${NUM_TOK}\\s*[(（\\[][^()（）\\[\\]]*[)）\\]]`, 'g');
+const NOTE_DASH = new RegExp(`${NUM_TOK}\\s*(?:[—–]|\\s-\\s)\\s*[^\\d\\s,][^,]*`, 'g');
 export function dropNote(val) {
     const cut = val.indexOf('|');
     const head = cut < 0 ? val : val.slice(0, cut), tail = cut < 0 ? '' : val.slice(cut);
-    const h = head.replace(NOTE_PAREN, '').replace(NOTE_DASH, '').trimEnd();
+    const h = head.replace(NOTE_PAREN, '$1').replace(NOTE_DASH, '$1').trimEnd();
     return h === head.trimEnd() || !/\d$/.test(h) ? val : (tail ? `${h} ${tail}` : h);
 }
 // 「aff: Leon +2, trust: Leon +1」처럼 한 줄에 다른 키를 섞어 쓰면 그 키로 보낸다 (예전엔 우정 +1이 애정에 더해졌음)
@@ -926,7 +927,7 @@ function opMsg(s, val, info, L, T, key, rawKey) {
     const ct = ensure(s, 'contact');
     const who = findBy(ct.contacts, nm)?.name ?? nm.trim();
     if (!findBy(ct.contacts, who)) ct.contacts.push({ name: who, handle: '', status: '', courier: '' });
-    const t = nowTick(s, info.meta);
+    const t = wholeTick(s, info.meta);
     const letter = letterMode(ct);
     const cour = letter ? (findBy(ct.couriers, findBy(ct.contacts, who)?.courier)?.name ?? ct.couriers[0]?.name ?? '') : '';
     (ct.threads[who] ??= []).push({ id: `${info.seed}:m${ct.threads[who].length}`, from: 'them', text, date: stamp(s), at: t, arrive: t, courier: cour, express: false, rush: false, pending: false, fee: 0, edited: false, ping: true });

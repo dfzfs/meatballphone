@@ -50,8 +50,30 @@ try {
         set.bindContact = false; core.saveSettings(); app.refreshNow(); await wait(100);
         out.sweep = app.sideSweep() === 1; await wait(200);
         out.sweptOne = nCt() === 1 && th().includes('bound2') && !/Since the last reply[^\n]*bound2/.test(inj());
+        // ── 검수에서 더한 것 ──
+        // 굳혀도(이월) 연락은 그대로 · 그 뒤 연락도 덩어리 하나
+        eng.squash(meta(), 0); await core.saveMeta(); app.refreshNow(); await wait(200);
+        out.bakeKeeps = th().includes('bound2') && meta().adjust.filter(a => a.set?.mod === 'contact').length === 0;
+        await send('after-bake');
+        out.afterBakeOne = nCt() === 1 && th().at(-1) === 'after-bake';
+        // 마지막 답을 이리저리 넘겨도 그 답이 올린 소문이 겹치지 않는다
+        await window.__addUser('u5'); await window.__addAI('s5\n<meatball>\nrumor: Swipe A | a\n</meatball>'); await wait(250);
+        { const nd = core.clone(st().data.gossip); nd.name = 'Tabloid 2'; await eng.commit('gossip', nd, ''); await wait(150); }
+        const swipeTo = async (sid, text) => { const m = ctx.chat.at(-1); if (!m.swipes) { m.swipes = [m.mes]; m.swipe_info = [{ extra: structuredClone(m.extra ?? {}), gen_started: m.gen_started, send_date: m.send_date }]; } m.swipe_info[m.swipe_id ?? 0].extra = structuredClone(m.extra ?? {}); m.swipes[m.swipe_id ?? 0] = m.mes; if (m.swipes[sid] === undefined) { m.swipes[sid] = text; m.swipe_info[sid] = { extra: {}, gen_started: new Date(Date.now() + 9000 * sid).toISOString(), send_date: m.send_date }; } m.swipe_id = sid; m.mes = m.swipes[sid]; m.extra = structuredClone(m.swipe_info[sid].extra ?? {}); await ctx.eventSource.emit(ctx.event_types.MESSAGE_SWIPED, ctx.chat.length - 1); await wait(350); };
+        await swipeTo(1, 's5b\n<meatball>\nrumor: Swipe B | b\n</meatball>');
+        const t1 = titles().filter(x => x.startsWith('Swipe')).join(',');
+        await swipeTo(0); const t0 = titles().filter(x => x.startsWith('Swipe')).join(',');
+        await swipeTo(1); const t2 = titles().filter(x => x.startsWith('Swipe')).join(',');
+        out.swipeNoDup = t1 === 'Swipe B' && t0 === 'Swipe A' && t2 === 'Swipe B';
+        out._swipes = `${t1} / ${t0} / ${t2}`;
+        // 메신저 말은 시간대가 모르는 말로 바뀌어도(시계가 뒤로 가도) 안 숨는다
+        { const nd = core.clone(st().data.contact); nd.mode = 'phone'; await eng.commit('contact', nd, ''); await wait(120); }
+        await window.__addUser('u6'); await window.__addAI('s6\n<meatball>\nperiod: 저녁\n</meatball>'); await wait(200);
+        { const s0 = st(); const nd = core.clone(s0.data.contact); (nd.threads.Leon ??= []).push({ id: 'vis1', from: 'me', text: 'evening-msg', date: '', at: core.wholeTick(s0), arrive: core.wholeTick(s0), kind: 'text', read: false }); await eng.commit('contact', nd, ''); await wait(120); }
+        await window.__addUser('u7'); await window.__addAI('s7\n<meatball>\nperiod: 알수없는때\n</meatball>'); await wait(200);
+        { const m = st().data.contact.threads.Leon.find(x => x.id === 'vis1'); out.stillVisible = !!m && m.arrive <= core.nowTick(st()) && Number.isInteger(m.arrive); }
         return out;
     });
-    for (const [k, v] of Object.entries(r)) if (!k.startsWith('_')) check(v === true, k, k === 'regenWins' ? r._titles : '');
+    for (const [k, v] of Object.entries(r)) if (!k.startsWith('_')) check(v === true, k, k === 'regenWins' ? r._titles : k === 'swipeNoDup' ? r._swipes : '');
     check(!logs.length, '콘솔 오류 없음', logs.slice(0, 3).join(' / '));
 } finally { await close(); }

@@ -34,6 +34,8 @@ try {
         const t = 'story\n<meatball>\ncash: -5\n레온: "안녕"\n끝.';
         out.unclosedOps = JSON.stringify(eng.extractOps(t)) === '[["cash","-5"]]';
         out.unclosedKeep = eng.removeStatus(t).includes('레온: "안녕"');
+        // 아는 키면 값이 따옴표로 시작해도 변화 줄 (안 닫힌 블록)
+        out.unclosedQuoted = JSON.stringify(eng.extractOps('s <meatball>\nloc: "Tavern"\ncash: -5\n미라: "어서 와"')) === '[["loc","\\"Tavern\\""],["cash","-5"]]';
         // 출력 규칙 문구가 깨지지 않는다
         const inj = eng.buildInjection(app.current, { full: true }).main;
         out.rule = !inj.includes('above., names') && /existing names exactly as written above\./.test(inj);
@@ -60,5 +62,10 @@ try {
         return out;
     });
     for (const [k, v] of Object.entries(r)) check(v === true, k);
+    // 옛 사파리(iOS 16.3 이하)는 lookbehind 정규식이 있으면 확장이 통째로 안 켜진다 → 소스에 없어야 한다
+    { const fs = await import('node:fs'); const path = await import('node:path'); const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
+      const files = ['index.js', ...fs.readdirSync(path.join(root, 'src')).filter(f => f.endsWith('.js')).map(f => `src/${f}`)];
+      const bad = files.filter(f => /\(\?<[=!]/.test(fs.readFileSync(path.join(root, f), 'utf8')));
+      check(!bad.length, 'lookbehind 정규식 없음', bad.join(', ')); }
     check(!logs.length, '콘솔 오류 없음', logs.slice(0, 3).join(' / '));
 } finally { await close(); }

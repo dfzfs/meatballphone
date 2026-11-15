@@ -1,5 +1,5 @@
 // 📱/✉️ 연락: 메신저 · 즉시 통신 · 편지 (배달 수단 · 도착 시간 · 급행)
-import { letterMode, contactSimple, instantLetter, SIMPLE_THREAD, app, settings, getMeta, modOn, esc, short, clone, findBy, norm, uid, randInt, rand, clamp, num, fmtNum, nowTick, tickUnit, waitText, slotsPerDay, useDays, saveSettings, stamp, CONTACT_MODES, TITLE, COURIER_PRESETS, touchContact, msgText, ssErr, ssWarn } from './core.js';
+import { letterMode, contactSimple, instantLetter, SIMPLE_THREAD, app, settings, getMeta, modOn, esc, short, clone, findBy, norm, uid, randInt, rand, clamp, num, fmtNum, nowTick, wholeTick, tickUnit, waitText, slotsPerDay, useDays, saveSettings, stamp, CONTACT_MODES, TITLE, COURIER_PRESETS, touchContact, msgText, ssErr, ssWarn } from './core.js';
 import { commit, addAdjust, dueLetters, inTransit, affMul, PIN_LINES } from './engine.js';
 import { phoneReply, letterReply, pingMessage, summarizeThread } from './ai.js';
 import { avatar, ai1, emptyBox, askInput, askConfirm, busyBtn, choosePopup } from './kit.js';
@@ -220,7 +220,7 @@ function redraw(el) {
 async function sendPhone(el, s, who, text, extra = {}) {
     const ui = el._ss.ui;
     const nd = clone(s.data.contact);
-    const m = { id: uid(), from: 'me', text, date: stamp(s), at: nowTick(s), arrive: nowTick(s), kind: 'text', read: false, ...extra };
+    const m = { id: uid(), from: 'me', text, date: stamp(s), at: wholeTick(s), arrive: wholeTick(s), kind: 'text', read: false, ...extra };
     (nd.threads[who] ??= []).push(m);
     trimSimple(nd, who);
     touchContact(nd, who);
@@ -252,7 +252,7 @@ async function maybeSummarize(who, force = false) {
 }
 // 💸 상대가 보낸 돈 · 선물 (v2.7.19): 말풍선(💸 · 🎁)으로 보이고, 소지금 · 소지품에 실제로 들어와요
 function sendBubbles(th, sends, s, letter) {
-    const now = nowTick(s);
+    const now = wholeTick(s);
     for (const x of sends) th.push({ id: uid(), from: 'them', kind: x.kind, text: x.kind === 'money' ? (letter ? '동봉한 돈' : '송금') : x.name, amount: x.amount, date: stamp(s), at: now, arrive: now });
 }
 async function payOut(who, sends) {
@@ -284,7 +284,7 @@ async function getPhoneReply(el, who, replaceId = null) {
         }
         const th = nd.threads[who] ??= [];
         readAll(th);
-        const msgs = lines.map(l => ({ id: uid(), from: 'them', text: l, date: stamp(s), at: nowTick(s), arrive: nowTick(s) }));
+        const msgs = lines.map(l => ({ id: uid(), from: 'them', text: l, date: stamp(s), at: wholeTick(s), arrive: wholeTick(s) }));
         if (replaceId) { const k = th.findIndex(m => m.id === replaceId); if (k >= 0) th.splice(k, 1, ...msgs); else th.push(...msgs); } else th.push(...msgs);
         sendBubbles(th, sends, s, ltr);
         trimSimple(nd, who);
@@ -311,7 +311,7 @@ async function sendLetter(el, s, who, text) {
     if (enc.length) text = `${text}\n\n${enc.map(x => x.kind === 'photo' ? `[동봉한 사진·그림: ${x.text}]` : x.kind === 'gift' ? `[동봉한 선물: ${x.text}]` : `[동봉한 돈: ${fmtNum(x.amount)} ${w?.currency ?? ''}]`).join('\n')}`;
     const custom = wantReply ? replyDelay(settings().letterReplyIn ?? '', s) : null; // ✉ 답장 도착을 직접 골랐으면: 내 편지는 바로 도착 · 답장은 고른 만큼 뒤
     // 배달 수단(하루 단위)은 예전처럼 「그날이 되면」 도착 — 지금이 저녁이어도 1일짜리는 내일 날짜가 되면 옴
-    const arrive = custom !== null ? now : Math.floor(now) + (express ? 0 : randInt(c.min, c.max));
+    const arrive = custom !== null ? Math.floor(now) : Math.floor(now) + (express ? 0 : randInt(c.min, c.max));
     const mid = uid();
     const encKeep = enc.filter(x => x.kind === 'gift' || x.kind === 'money').map(x => ({ kind: x.kind, text: x.text ?? '', amount: x.amount ?? 0 }));
     (nd.threads[who] ??= []).push({ id: mid, from: 'me', text, date: stamp(s), at: now, arrive, courier: c.name, express, fee, rush: false, ...(encKeep.length ? { enc: encKeep } : {}) });
@@ -388,6 +388,7 @@ export const CONTACT_ACTIONS = {
         if (!ids.size) return done();
         if (arg === 'del') {
             if (!(await askConfirm(`고른 말풍선 ${ids.size}개를 지울까요?`))) return;
+            for (const m of th) if (ids.has(m.id) && m.from === 'me' && ['gift', 'money'].includes(m.kind)) ids.delete(m.id); // 🎁 💸 은 남긴다 — 하나씩 지워야 돌려받을지 고를 수 있어요
             for (const m of th) if (ids.has(m.id)) hushSent(m, who);
             nd.threads[who] = th.filter(m => !ids.has(m.id));
         } else {
@@ -641,7 +642,7 @@ export async function receivePing(who, auto) {
     const lines = await pingMessage(who, s, auto, sends);
     if (!lines.length && !sends.length) return;
     const nd = clone(curState().data.contact);
-    const now = nowTick(s);
+    const now = wholeTick(s);
     const letter = isLetter(nd) || instantLetter(nd);
     const c = courierOf(nd, who);
     const th = nd.threads[who] ??= [];

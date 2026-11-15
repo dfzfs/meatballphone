@@ -17,8 +17,19 @@ const legacyOn = () => { try { return settings().legacyStatus !== false; } catch
 // <meatball>을 안 닫았으면: 「키: 값」 모양의 줄이 이어지는 데까지만 (사이의 빈 줄은 허용). 태그로 시작하는 줄(</prose>, <tracker>)이나 이야기 문장에서 멈춘다.
 //   → 예전엔 글 끝까지 다 지웠음. 읽히는 변화(키: 값)는 예전과 같아서 옛 채팅의 숫자는 그대로.
 // 옛 <status>는 예전 규칙 그대로 (안 닫혔으면 글 끝·다음 블록까지) — 옛 채팅 호환. 다른 프리셋 모양(<details>·표)이면 건드리지 않는다.
-// 점검 반영: 「레온: "안녕"」 같은 대사 줄(값이 따옴표로 시작)은 변화 줄이 아니다 — 거기서 멈춰서 본문에 남긴다
-const KV_RUN = /^(?:\s*(?:[-*•]\s*|\d+[.)]\s*)?[^<:：\n]{1,24}[:：](?!\s*["“”'‘’「『])[^\n]*)*/;
+// 「키: 값」 줄이 이어지는 데까지 — 값이 따옴표로 시작하면 대사(「레온: "안녕"」)로 보고 멈추되, 아는 키(「loc: "Tavern"」)면 변화 줄로 읽는다
+const KV_LINE = /^\s*(?:[-*•]\s*|\d+[.)]\s*)?([^<:：\n]{1,24})[:：]([^\n]*)$/;
+function kvRun(rest) {
+    let len = 0;
+    for (const part of rest.split(/(\n)/)) {
+        if (part === '\n' || !part.trim()) { len += part.length; continue; }
+        const m = KV_LINE.exec(part);
+        if (!m) break;
+        if (/^\s*["“”'‘’「『]/.test(m[2]) && !KEYMAP[m[1].replace(/\*\*|__|`/g, '').trim().toLowerCase()]) break;
+        len += part.length;
+    }
+    return rest.slice(0, len).replace(/\s+$/, '');
+}
 function scanBlocks(text) {
     const t = String(text ?? '');
     const out = [];
@@ -33,7 +44,7 @@ function scanBlocks(text) {
         if (closed) { body = t.slice(from, close); end = close + tag.length + 3; }
         else if (tag === 'meatball') {
             const rest = nx < 0 ? t.slice(from) : t.slice(from, nx);
-            body = rest.match(KV_RUN)?.[0] ?? ''; end = from + body.length;
+            body = kvRun(rest); end = from + body.length;
         } else { body = nx < 0 ? t.slice(from) : t.slice(from, nx); end = from + body.length; } // 옛 <status>: 예전 그대로
         let start = m.index; while (start > 0 && /\s/.test(t[start - 1])) start--;
         const ours = tag === 'meatball' || (legacyOn() && !FOREIGN_RE.test(body));
@@ -72,13 +83,14 @@ export function drawerOps(m) {
 }
 // 실리는 왼쪽으로 스와이프할 때 지금 답(mes · extra)을 스와이프 칸에 저장하지 않아요 → 고친 것을 직접 같이 적어 둔다
 // 굳힌 답에 보일 칩: 굳힐 때 적어 둔 글 → 없으면(예전에 굳힌 답) 보관된 변화 줄을 그대로 (속마음 줄은 숨김)
+const RAW_CHIP = new Set(['stat', 'attr', 'cond', 'cash', 'item', 'loc', 'aff', 'trust', 'date', 'time', 'weather']); // 속마음 · 기사 본문 같은 긴 글 · 숨긴 정보는 안 보임
 export function bakedLabels(m) {
     if (!m || m.is_user) return null;
     const saved = m.extra?.[MODULE]?.chips?.[m.swipe_id ?? 0];
     if (Array.isArray(saved) && saved.length) return saved.map(String);
     const ops = drawerOps(m);
     if (!ops?.length) return null;
-    const out = ops.filter(([k]) => KEYMAP[String(k).trim().toLowerCase()] !== 'mind' && !String(k).startsWith('_')).map(([k, v]) => `${String(k).trim()} ${String(v).trim()}`.slice(0, 60));
+    const out = ops.filter(([k]) => RAW_CHIP.has(KEYMAP[String(k).trim().toLowerCase()])).map(([k, v]) => `${String(k).trim()} ${String(v).trim()}`.slice(0, 60));
     return out.length ? out.slice(0, 14) : null;
 }
 export function syncSwipe(m) {
