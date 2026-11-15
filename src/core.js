@@ -131,7 +131,9 @@ export const DEFAULTS = Object.freeze({
     profFeeds: '',
     profAnalyze: '',
     hpSkinHud: true,         // 🪟 HUD · 미니창도 미니홈피와 같은 색 · 얇은 테두리로 (화면만)
-    hpTheme: 0,              // 📒 미니홈피 색 (hompy.js THEMES의 번호)
+    hpTheme: 0,              // 📒 미니홈피 포인트 색 (hompy.js THEMES의 번호 · 'c' = 직접 고른 색 hpHue · hpSat)
+    hpDark: 'light',         // 📒 밝기: light · dark · auto(기기 따라)
+    hpSets: [],              // 📒 저장한 꾸밈 세트 [{ name, data }] — 채팅에 묶으면 meta.hpSet = 이름
     hpWins: {},              // 📒 미니홈피에서 끈 창 ({ stats: false } …)
     hpFace: 'auto',          // 📒 미니홈피 프로필 그림: auto(기분 따라) · con:이름 · my:번호
     hpFaces: [],             // 📒 내가 올린 프로필 그림 (최대 12장 · 긴 변 320px)

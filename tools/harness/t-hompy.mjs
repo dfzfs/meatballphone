@@ -40,7 +40,7 @@ for (const width of [1300, 390]) {
             core.settings().hpTheme = 2; core.settings().hpLayout = { off: ['stats'] }; shell.rerenderPanels(true); await wait(200);
             { const r = el.querySelector('.ss-hompy'); out.customize = r.style.getPropertyValue('--hp-h') === '215' && !el.querySelector('.ss-hp-win[data-win="stats"]'); }
             el.querySelector('[data-hp="deco"]').click(); await wait(400);
-            { const pk = document.querySelector('.ss-hp-pick'); out.decoOpens = !!pk && pk.querySelectorAll('.ss-hp-sw').length === 8 && !!pk.querySelector('[data-choice="win:stats"]') && !!pk.querySelector('[data-choice="skin:1"]');
+            { const pk = document.querySelector('.ss-hp-pick'); out.decoOpens = !!pk && pk.querySelectorAll('.ss-hp-sw').length === 9 && !!pk.querySelector('[data-hpr="hue"]') && !!pk.querySelector('[data-choice="dark:dark"]') && !!pk.querySelector('[data-choice="setsave:1"]') && !!pk.querySelector('[data-choice="win:stats"]') && !!pk.querySelector('[data-choice="skin:1"]');
               pk?.querySelector('[data-choice="theme:0"]')?.click(); await wait(400); out.decoSets = core.settings().hpTheme === 0 && document.body.style.getPropertyValue('--hp-h') === '340' && document.body.classList.contains('ss-retro');
               document.querySelectorAll('dialog').forEach(d => { if (d.querySelector('.ss-hp-pick')) d.querySelector('.popup-button-ok')?.click(); }); await wait(300); }
             core.settings().hpLayout = {}; shell.rerenderPanels(true); await wait(200);
@@ -61,6 +61,18 @@ for (const width of [1300, 390]) {
               core.settings().hpLayout = {}; shell.rerenderPanels(true); await wait(200);
             }
             out.cleanFont = !getComputedStyle(el.querySelector('.ss-hp-wt b')).fontFamily.includes('MeatballDot') && !el.querySelector('.ss-hompy').classList.contains('ss-hp-dot');
+            { // 꾸미기: 직접 고른 색 · 어둡게 · 모서리 · 글꼴 · 움직임 끔 · 세트 코드 · 채팅에 묶은 세트
+              const hpm = await import('/ext/src/hompy.js'), S0 = core.settings(), B = document.body;
+              Object.assign(S0, { hpTheme: 'c', hpHue: 123, hpSat: 0.5, hpDark: 'dark', hpCorner: 2, hpGap: 0, hpFont: 'r', hpMotion: false }); hpm.applyRetro(); shell.rerenderPanels(true); await wait(200);
+              const r = el.querySelector('.ss-hompy');
+              out.customLook = (r.style.getPropertyValue('--hp-h') === '123' && B.classList.contains('ss-hp-dark') && B.classList.contains('ss-hp-r-2') && B.classList.contains('ss-hp-g-0') && B.classList.contains('ss-hp-f-r') && B.classList.contains('ss-hp-still') && getComputedStyle(r).getPropertyValue('--hp-paper').trim() !== '#fff') || [r.style.cssText, B.className].join(' | ');
+              const code = hpm.toCode('테스트 <b>', { hpTheme: 'c', hpHue: 200, hpFace: 'my:0', evil: '<img onerror=1>', hpFont: 's' }), back = hpm.fromCode(code);
+              out.setCode = (code.startsWith('MBH1:') && back?.data.hpHue === 200 && back.data.hpFont === 's' && !('evil' in back.data) && !('hpFace' in back.data) && hpm.fromCode('엉터리') === null) || JSON.stringify(back);
+              Object.assign(S0, { hpTheme: 0, hpDark: 'light', hpCorner: 1, hpGap: 1, hpFont: 'g', hpMotion: true, hpSets: [{ name: '밤', data: { hpTheme: 2, hpDark: 'dark' } }] }); core.getMeta().hpSet = '밤'; hpm.applyRetro(); shell.rerenderPanels(true); await wait(200);
+              out.boundSet = (el.querySelector('.ss-hompy').style.getPropertyValue('--hp-h') === '215' && B.classList.contains('ss-hp-dark') && S0.hpTheme === 0) || B.className;
+              delete core.getMeta().hpSet; S0.hpSets = []; hpm.applyRetro(); shell.rerenderPanels(true); await wait(200);
+              out.setUnbound = !B.classList.contains('ss-hp-dark') && el.querySelector('.ss-hompy').style.getPropertyValue('--hp-h') === '340';
+              out.profileCard = !!el.querySelector('.ss-hp-badges') || innerWidth <= 640 && !el.querySelector('.ss-hompy.ss-hp-athome') ; }
             out.closeButton = !!el.querySelector('.ss-hp-url [data-hp="close"]');
             // 🖼 홈의 큰 사진: 없으면 단추만 · 넣으면 보임 · 한마디 · 빼기 · 다른 탭엔 없음
             out.photoEmpty = !!el.querySelector('.ss-hp-right .ss-hp-addphoto [data-hp="photo"]') && !el.querySelector('.ss-hp-main');
