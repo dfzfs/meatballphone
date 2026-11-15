@@ -1,24 +1,17 @@
 /* 📒 미니홈피 화면 (v2.8 · 두 번째 판) — 상태창을 전체화면으로 열었을 때만.
    얇은 테두리의 작은 「창」들을 바탕 위에 빽빽하게 놓는다: 주소창 → 즐겨찾기 줄(묶음) → [프로필 · 상태 · 일촌] [지금 탭] [소식 창들 · 사진]
    색은 --hp-h(색상) · --hp-s(채도 배율) 두 값에서 전부 만든다 (🎨 꾸미기 › 색). 같은 색을 HUD · 미니창 스킨(맨 아래)도 쓴다 */
-@font-face { font-family: 'MeatballDot'; src: url("../font/Galmuri11.woff2") format('woff2'); font-weight: 400; font-display: swap; }
-@font-face { font-family: 'MeatballDot'; src: url("../font/Galmuri11-Bold.woff2") format('woff2'); font-weight: 700; font-display: swap; }
 .ss-root.ss-hompy, .ss-root.ss-rt, .ss-hp-pick, body.ss-retro dialog.ss-dlg, body.ss-retro :is(#ss-hud, #ss-side .ss-side-mini, .ss-float) {
-    --hp-ol: hsl(var(--hp-h, 340) calc(26% * var(--hp-s, 1)) 44%); --hp-ink: hsl(var(--hp-h, 340) calc(20% * var(--hp-s, 1)) 27%); --hp-dim: hsl(var(--hp-h, 340) calc(14% * var(--hp-s, 1)) 54%);
-    --hp-strip: hsl(var(--hp-h, 340) calc(86% * var(--hp-s, 1)) 89%); --hp-soft: hsl(var(--hp-h, 340) calc(80% * var(--hp-s, 1)) 95.5%); --hp-gl: hsl(var(--hp-h, 340) calc(60% * var(--hp-s, 1)) 91%);
-    --hp-ln: hsl(var(--hp-h, 340) calc(32% * var(--hp-s, 1)) 70%); --hp-acc: hsl(var(--hp-h, 340) calc(58% * var(--hp-s, 1)) 62%); --hp-bgc: hsl(var(--hp-h, 340) calc(70% * var(--hp-s, 1)) 97.5%); --hp-paper: #fffefd;
+    /* 깔끔한 블로그 모양: 흰 바탕 · 옅은 회색 선 · 포인트 색 하나 (--hp-h 색상 · --hp-s 채도 배율) */
+    --hp-ol: hsl(var(--hp-h, 340) calc(8% * var(--hp-s, 1)) 84%); --hp-ink: #24262b; --hp-dim: #8b9099;
+    --hp-strip: hsl(var(--hp-h, 340) calc(60% * var(--hp-s, 1)) 95%); --hp-soft: hsl(var(--hp-h, 340) calc(14% * var(--hp-s, 1)) 97%); --hp-gl: hsl(var(--hp-h, 340) calc(8% * var(--hp-s, 1)) 92%);
+    --hp-ln: hsl(var(--hp-h, 340) calc(8% * var(--hp-s, 1)) 88%); --hp-acc: hsl(var(--hp-h, 340) calc(62% * var(--hp-s, 1)) 56%); --hp-bgc: hsl(var(--hp-h, 340) calc(10% * var(--hp-s, 1)) 97.5%); --hp-paper: #fff;
 }
 .ss-root.ss-hompy, .ss-root.ss-rt, body.ss-retro dialog.ss-dlg, body.ss-retro dialog.ss-dlg .ss-root, body.ss-retro :is(#ss-hud, #ss-side .ss-side-mini) {
     --ss-bg: var(--hp-paper) !important; --ss-surface: var(--hp-soft) !important; --ss-surface2: var(--hp-strip) !important; --ss-card: var(--hp-paper) !important; --ss-ink: var(--hp-ink) !important; --ss-dim: var(--hp-dim) !important;
     --ss-line: var(--hp-ln) !important; --ss-acc: var(--hp-acc) !important; --ss-accInk: #fff !important; --ss-hi: var(--hp-acc) !important; --ss-r: 7px !important;
 }
-.ss-root.ss-hompy { position: fixed; inset: 0; z-index: 5; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; padding: 0 !important; border-radius: 0; color: var(--hp-ink); background-color: var(--hp-bgc); font-size: calc((var(--hp-fs, 11px) + 1.5px) * var(--ss-fs)); }
-.ss-hompy.ss-hp-p-grid { background-image: linear-gradient(var(--hp-gl) 1px, transparent 1px), linear-gradient(90deg, var(--hp-gl) 1px, transparent 1px); background-size: 16px 16px; }
-.ss-hompy.ss-hp-p-dot { background-image: radial-gradient(var(--hp-gl) 1.6px, transparent 2.2px); background-size: 14px 14px; }
-.ss-hompy.ss-hp-p-stripe { background-image: repeating-linear-gradient(90deg, var(--hp-soft) 0 14px, transparent 14px 28px); }
-.ss-root.ss-hompy.ss-hp-dot, body.ss-retro.ss-retro-dot .ss-root.ss-rt, body.ss-retro.ss-retro-dot :is(#ss-hud, #ss-side .ss-side-mini) { font-family: 'MeatballDot', sans-serif; letter-spacing: 0; -webkit-font-smoothing: none; }
-.ss-root.ss-hompy.ss-hp-dot { font-size: calc(var(--hp-fs, 11px) * var(--ss-fs)); line-height: 1.45; }
-:is(.ss-hp-dot, .ss-rt) :is(button, input, textarea, select, summary, b, small, h3, h4, h5) { font-family: inherit; }
+.ss-root.ss-hompy { position: fixed; inset: 0; z-index: 5; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; padding: 0 !important; border-radius: 0; color: var(--hp-ink); background-color: var(--hp-bgc); font-size: calc(var(--hp-fs, 13px) * var(--ss-fs)); line-height: 1.55; }
 /* 주소창 */
 .ss-hp-url { position: relative; flex: 0 0 auto; display: flex; align-items: center; gap: 6px; padding: 3px 8px; background: var(--hp-strip); border-bottom: 1px solid var(--hp-ol); min-width: 0; }
 .ss-hp-url > i { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--hp-paper); border: 1px solid var(--hp-ol); }
@@ -148,7 +141,6 @@
 }
 /* 🪟 보통 상태창(창 · 사이드 펼침)도 같은 모양: 얇은 테두리 · 작은 글씨 · 알약 모양 묶음 · 색 띠 머리 */
 .ss-root.ss-rt:not(.ss-hompy) { color: var(--hp-ink); background: var(--hp-paper); font-size: calc(12.5px * var(--ss-fs)); border: 1px solid var(--hp-ol); border-radius: 8px; overflow: hidden; padding: 0 !important; box-shadow: 2px 2px 0 var(--hp-strip); }
-body.ss-retro.ss-retro-dot .ss-root.ss-rt:not(.ss-hompy) { font-size: calc(11px * var(--ss-fs)); line-height: 1.5; -webkit-font-smoothing: none; }
 .ss-rt:not(.ss-hompy) > .ss-head { padding: 4px 8px; margin: 0; gap: 6px; background: var(--hp-strip); border-bottom: 1px solid var(--hp-ol); }
 .ss-rt:not(.ss-hompy) .ss-head-t b { font-size: 1.05em; } .ss-rt:not(.ss-hompy) .ss-head-t small { font-size: .92em; color: var(--hp-dim); }
 .ss-rt:not(.ss-hompy) .ss-head-cat .ss-mascot { width: 28px; height: 28px; }
@@ -188,9 +180,7 @@ body.ss-retro :is(#ss-hud, #ss-side .ss-side-mini) .ss-tb .ss-t { border-radius:
 
 /* 🪟 도우미 · 프롬프트 · 꾸미기 같은 다른 창들도 같은 모양 (창 틀 + 안쪽 글씨 · 색) */
 body.ss-retro dialog.ss-dlg:not(.ss-full) { background: var(--hp-paper) !important; color: var(--hp-ink) !important; border: 1px solid var(--hp-ol) !important; border-top: 14px solid var(--hp-strip) !important; border-radius: 9px !important; box-shadow: 3px 3px 0 var(--hp-strip) !important; }
-body.ss-retro dialog.ss-dlg .ss-root:not(.ss-hompy) { color: var(--hp-ink); font-size: calc((var(--hp-fs, 11px) + 1.5px) * var(--ss-fs)); }
-body.ss-retro.ss-retro-dot dialog.ss-dlg .ss-root:not(.ss-hompy) { font-family: 'MeatballDot', sans-serif; font-size: calc((var(--hp-fs, 11px) + 1px) * var(--ss-fs)); line-height: 1.5; -webkit-font-smoothing: none; }
-body.ss-retro.ss-retro-dot dialog.ss-dlg .ss-root :is(button, input, textarea, select, summary, b, small, h3, h4, h5) { font-family: inherit; }
+body.ss-retro dialog.ss-dlg .ss-root:not(.ss-hompy) { color: var(--hp-ink); font-size: calc(var(--hp-fs, 13px) * var(--ss-fs)); line-height: 1.55; }
 body.ss-retro dialog.ss-dlg .ss-root :is(.ss-in, textarea) { border-color: var(--hp-ol); }
 body.ss-retro dialog.ss-dlg :is(.popup-button-ok, .popup-button-cancel) { border: 1px solid var(--hp-ol); background: var(--hp-soft); color: var(--hp-ink); border-radius: 7px; }
 
@@ -219,3 +209,45 @@ body.ss-retro dialog.ss-dlg :is(.popup-button-ok, .popup-button-cancel) { border
 .ss-hp-all > .ss-hp-win.sub.shut > .ss-hp-wt { border-bottom: 0; padding: 4px 9px; gap: 8px; } .ss-hp-all .ss-hp-wt { cursor: pointer; }
 /* 📰 뉴스 제목 · 기사 제목은 명조(궁서)체 그대로 */
 :is(.ss-hompy, .ss-rt, dialog.ss-dlg .ss-root) :is(.ss-mast b, .ss-article .ss-art-h b, .ss-art-b, .ss-letter-body) { font-family: 'Gungsuh', '궁서', 'GungSeo', var(--ss-serif) !important; -webkit-font-smoothing: auto; }
+
+/* ✨ 깔끔한 블로그 모양 (티스토리풍) — 그림자 · 색 띠 · 무늬 · 도트 글꼴 없이: 흰 카드, 옅은 선, 넉넉한 여백, 포인트 색은 고른 칸 · 숫자에만 */
+.ss-root.ss-hompy, .ss-root.ss-rt { font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif; letter-spacing: -.01em; -webkit-font-smoothing: antialiased; }
+:is(.ss-hompy, .ss-rt) :is(button, input, textarea, select, summary) { font-family: inherit; }
+.ss-hp-url { padding: 8px 16px; background: var(--hp-paper); border-bottom: 1px solid var(--hp-ln); gap: 10px; }
+.ss-hp-addr { padding: 0; border: 0; background: none; border-radius: 0; font-size: 1.15em; } .ss-hp-addr b { font-weight: 800; letter-spacing: -.02em; }
+.ss-hompy .ss-head-a { gap: 2px; } .ss-hompy .ss-head-a .ss-ib { width: 28px; height: 28px; color: var(--hp-dim); border-radius: 8px; } .ss-hompy .ss-head-a .ss-ib:hover { background: var(--hp-soft); color: var(--hp-ink); }
+.ss-hompy .ss-head-a :is(.ss-chip, .ss-helpchip) { height: 26px; padding: 0 10px; border: 1px solid var(--hp-ln); border-radius: 999px; }
+.ss-hp-x { width: 28px; height: 28px; border: 0; border-radius: 8px; color: var(--hp-dim); }
+.ss-hp-marks { padding: 0 16px; gap: 12px; border-bottom: 1px solid var(--hp-ln); }
+:is(.ss-hompy, .ss-rt) .ss-groups { gap: 2px; }
+:is(.ss-hompy, .ss-rt) .ss-groups > button { padding: 8px 12px; border: 0; border-radius: 0; background: none; box-shadow: none; color: var(--hp-dim); border-bottom: 2px solid transparent; font-weight: 600; }
+:is(.ss-hompy, .ss-rt) .ss-groups > button i { color: inherit; opacity: .8; }
+:is(.ss-hompy, .ss-rt) .ss-groups > button:hover { background: none; color: var(--hp-ink); }
+:is(.ss-hompy, .ss-rt) .ss-groups > button.on { background: none; color: var(--hp-ink); border-bottom-color: var(--hp-acc); font-weight: 700; }
+:is(.ss-hompy, .ss-rt) .ss-groups > button > :is(.ss-dot, .ss-fresh, .ss-badge) { top: 4px; right: 2px; }
+.ss-hp-count { font-size: .85em; letter-spacing: .02em; } .ss-hp-deco-b { padding: 3px 10px; border-radius: 999px; border: 1px solid var(--hp-ln); background: var(--hp-paper); color: var(--hp-ink); font-size: .92em; } .ss-hp-deco-b:hover { background: var(--hp-soft); }
+.ss-hp-book { gap: 12px; padding: 12px 16px 14px; } .ss-hp-col-in { gap: 12px; } .ss-hp-col { padding: 0; } .ss-hp-win.main { margin: 0; }
+.ss-hp-win, .ss-hp-win.sub { border: 1px solid var(--hp-ln); border-radius: 12px; box-shadow: none; }
+.ss-hp-wt { background: none; border-bottom: 0; padding: 10px 12px 2px; line-height: 1.4; } .ss-hp-wt b { font-size: .82em; font-weight: 700; color: var(--hp-dim); letter-spacing: .04em; text-transform: uppercase; }
+.ss-hp-win.main > .ss-hp-wt { padding: 12px 14px 0; } .ss-hp-win.main > .ss-hp-wt b { font-size: 1.1em; color: var(--hp-ink); text-transform: none; letter-spacing: -.02em; font-weight: 800; }
+.ss-hp-wb { padding: 6px 12px 12px; gap: 6px; } .ss-hp-right { padding: 8px 14px 14px; }
+.ss-hp-photo { border: 0; border-radius: 12px; background: var(--hp-soft); } .ss-hp-today { border: 0; background: var(--hp-soft); border-radius: 8px; padding: 4px 8px; }
+.ss-hp-bars i { border: 0; height: 6px; background: var(--hp-gl); }
+:is(.ss-hompy, .ss-rt) .ss-tabs > button { border: 0 !important; background: none !important; box-shadow: none !important; border-radius: 0 !important; border-bottom: 2px solid transparent !important; color: var(--hp-dim); padding: 5px 9px; }
+:is(.ss-hompy, .ss-rt) .ss-tabs > button.on { color: var(--hp-ink); border-bottom-color: var(--hp-ink) !important; font-weight: 700; }
+:is(.ss-hompy, .ss-rt) .ss-tabs { border-bottom: 1px solid var(--hp-ln); gap: 2px; }
+:is(.ss-hompy, .ss-rt) .ss-body :is(.ss-card, .ss-mini-w, .ss-item, .ss-rtile, .ss-attr, .ss-callout, .ss-prof, .ss-loan, .ss-reg, .ss-st-f, .ss-st-card, .ss-ct-row, .ss-prices > *, .ss-in, textarea, select) { border: 1px solid var(--hp-ln); border-radius: 10px; box-shadow: none; }
+:is(.ss-hompy, .ss-rt) .ss-body :is(.ss-card, .ss-mini-w, .ss-callout, .ss-st-f) { background: var(--hp-paper); }
+:is(.ss-hompy, .ss-rt) :is(.ss-btn, .ss-pill, .ss-chip) { box-shadow: none !important; }
+.ss-hp-all > .ss-hp-win.sub.shut > .ss-hp-wt { padding: 7px 12px; } .ss-hp-all > .ss-hp-win.sub.shut > .ss-hp-wt b { color: var(--hp-ink); text-transform: none; font-size: .95em; letter-spacing: 0; }
+.ss-hp-all > .ss-hp-win.sub.shut:hover { background: var(--hp-soft); }
+/* 보통 상태창 · 다른 창 · HUD · 미니창도 같은 깔끔한 모양 */
+.ss-root.ss-rt:not(.ss-hompy) { border: 1px solid var(--hp-ln); border-radius: 14px; box-shadow: 0 8px 28px rgba(20, 22, 30, .10); font-size: calc(var(--hp-fs, 13px) * var(--ss-fs)); }
+.ss-rt:not(.ss-hompy) > .ss-head { background: var(--hp-paper); border-bottom: 1px solid var(--hp-ln); padding: 8px 12px; } .ss-rt:not(.ss-hompy) > .ss-groups { padding: 0 10px; border-bottom: 1px solid var(--hp-ln); }
+.ss-rt:not(.ss-hompy) .ss-head-a .ss-ib { color: var(--hp-dim); width: 26px; height: 26px; } .ss-rt:not(.ss-hompy) > .ss-body { padding: 8px 12px 12px; }
+body.ss-retro dialog.ss-dlg:not(.ss-full) { border: 1px solid var(--hp-ln) !important; border-radius: 14px !important; box-shadow: 0 12px 40px rgba(20, 22, 30, .14) !important; }
+body.ss-retro dialog.ss-dlg .ss-root:not(.ss-hompy) { font-family: 'Pretendard Variable', Pretendard, -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif; font-size: calc(var(--hp-fs, 13px) * var(--ss-fs)); }
+body.ss-retro :is(#ss-hud, #ss-side .ss-side-mini) { border: 1px solid var(--hp-ln) !important; outline: 0; border-radius: 12px !important; box-shadow: 0 4px 16px rgba(20, 22, 30, .08) !important; }
+body.ss-retro :is(#ss-hud, #ss-side .ss-side-mini):not(.ss-own-bg) { --h-bg: var(--hp-paper) !important; --h-img: none !important; }
+body.ss-retro #ss-side .ss-side-handle, body.ss-retro .ss-float { background: var(--hp-paper) !important; color: var(--hp-dim) !important; border: 1px solid var(--hp-ln) !important; box-shadow: 0 4px 14px rgba(20, 22, 30, .10) !important; }
+body.ss-retro #ss-side .ss-mini-head { border-bottom: 1px solid var(--hp-ln); } body.ss-retro :is(#ss-hud, #ss-side .ss-side-mini) .ss-tb .ss-t { border-radius: 10px; box-shadow: none; }

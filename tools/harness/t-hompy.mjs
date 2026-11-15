@@ -37,13 +37,13 @@ for (const width of [1300, 390]) {
             // 홈의 소식 줄: 왼쪽 쪽과 겹치는 칸은 숨김 · 도트 글꼴 (끄면 실리 글꼴)
             // 창들: 프로필 · 상태 · 가운데 · 꾸미기 단추 · 색 값
             out.windows = ['.ss-hp-win[data-win="profile"]', '.ss-hp-win[data-win="stats"]', '.ss-hp-win.main', '.ss-hp-marks [data-hp="deco"]'].filter(q => !el.querySelector(q)).join(' ') || true;
-            core.settings().hpTheme = 2; core.settings().hpPattern = 'dot'; core.settings().hpLayout = { off: ['stats'] }; shell.rerenderPanels(true); await wait(200);
-            { const r = el.querySelector('.ss-hompy'); out.customize = r.style.getPropertyValue('--hp-h') === '215' && r.classList.contains('ss-hp-p-dot') && !el.querySelector('.ss-hp-win[data-win="stats"]'); }
+            core.settings().hpTheme = 2; core.settings().hpLayout = { off: ['stats'] }; shell.rerenderPanels(true); await wait(200);
+            { const r = el.querySelector('.ss-hompy'); out.customize = r.style.getPropertyValue('--hp-h') === '215' && !el.querySelector('.ss-hp-win[data-win="stats"]'); }
             el.querySelector('[data-hp="deco"]').click(); await wait(400);
-            { const pk = document.querySelector('.ss-hp-pick'); out.decoOpens = !!pk && pk.querySelectorAll('.ss-hp-sw').length === 8 && !!pk.querySelector('[data-choice="pat:grid"]') && !!pk.querySelector('[data-choice="win:stats"]') && !!pk.querySelector('[data-choice="skin:1"]');
+            { const pk = document.querySelector('.ss-hp-pick'); out.decoOpens = !!pk && pk.querySelectorAll('.ss-hp-sw').length === 8 && !!pk.querySelector('[data-choice="win:stats"]') && !!pk.querySelector('[data-choice="skin:1"]');
               pk?.querySelector('[data-choice="theme:0"]')?.click(); await wait(400); out.decoSets = core.settings().hpTheme === 0 && document.body.style.getPropertyValue('--hp-h') === '340' && document.body.classList.contains('ss-retro');
               document.querySelectorAll('dialog').forEach(d => { if (d.querySelector('.ss-hp-pick')) d.querySelector('.popup-button-ok')?.click(); }); await wait(300); }
-            core.settings().hpPattern = 'grid'; core.settings().hpLayout = {}; shell.rerenderPanels(true); await wait(200);
+            core.settings().hpLayout = {}; shell.rerenderPanels(true); await wait(200);
             // 창 하나하나 옮기기: 꾸미기 › 창 옮기기 → ▼(순서) · ⇄(반대쪽 줄) · ✕(숨김) · 가운데 창 위치
             if (innerWidth > 860) {
               const hpm = await import('/ext/src/hompy.js'); const keys = (sel) => [...el.querySelectorAll(`${sel} [data-win]`)].map(x => x.dataset.win).join();
@@ -60,8 +60,7 @@ for (const width of [1300, 390]) {
               out.mainMoves = el.querySelector('.ss-hp-book').lastElementChild.classList.contains('main');
               core.settings().hpLayout = {}; shell.rerenderPanels(true); await wait(200);
             }
-            await document.fonts.ready; out.dotFont = el.querySelector('.ss-hompy').classList.contains('ss-hp-dot') && getComputedStyle(el.querySelector('.ss-hp-wt b')).fontFamily.includes('MeatballDot') && [...document.fonts].some(f => f.family.includes('MeatballDot') && f.status === 'loaded');
-            core.settings().hpDot = false; shell.rerenderPanels(true); await wait(150); out.dotOff = !el.querySelector('.ss-hompy').classList.contains('ss-hp-dot'); core.settings().hpDot = true; shell.rerenderPanels(true); await wait(150);
+            out.cleanFont = !getComputedStyle(el.querySelector('.ss-hp-wt b')).fontFamily.includes('MeatballDot') && !el.querySelector('.ss-hompy').classList.contains('ss-hp-dot');
             out.closeButton = !!el.querySelector('.ss-hp-url [data-hp="close"]');
             // 🖼 홈의 큰 사진: 없으면 단추만 · 넣으면 보임 · 한마디 · 빼기 · 다른 탭엔 없음
             out.photoEmpty = !!el.querySelector('.ss-hp-right .ss-hp-addphoto [data-hp="photo"]') && !el.querySelector('.ss-hp-main');

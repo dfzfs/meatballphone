@@ -30,22 +30,20 @@ async function pickFace(redraw) {
     }
     set.hpFace = pick; saveSettings(); redraw();
 }
-// 🎨 꾸미기 (모든 채팅 공통): 색 · 바탕 무늬 · 글꼴 · 보일 창
+// 🎨 꾸미기 (모든 채팅 공통): 포인트 색 · 글씨 크기 · 창 자리 · 보일 창 (깔끔한 블로그 모양 — 무늬 · 도트 글꼴은 뺐다)
 export const THEMES = [['분홍', 340, 1], ['회색', 260, 0.08], ['하늘', 215, 1], ['민트', 150, 0.8], ['빨강', 2, 1], ['살구', 22, 1], ['노랑', 46, 1], ['보라', 268, 1]];
-export const PATTERNS = { grid: '모눈', dot: '물방울', stripe: '줄무늬', none: '없음' };
 const themeOf = () => THEMES[Number(settings().hpTheme) || 0] ?? THEMES[0];
-const patOf = () => (PATTERNS[settings().hpPattern] ? settings().hpPattern : 'grid');
 // 🪟 HUD · 미니창 · 보통 상태창에도 같은 색 · 테두리 (설정 hpSkinHud · 기본 켬): body에 색 값과 표시를 걸어 둔다
 export function applyRetro() {
     const b = document.body; if (!b) return; const [, h, s] = themeOf(), on = settings().hpSkinHud !== false;
-    b.classList.toggle('ss-retro', on); b.classList.toggle('ss-retro-dot', on && settings().hpDot !== false);
+    b.classList.toggle('ss-retro', on);
     b.style.setProperty('--hp-h', String(h)); b.style.setProperty('--hp-s', String(s));
     b.style.setProperty('--hp-fs', `${FS[fsOf()]}px`); // 다른 창(도우미 등)의 글씨 크기도 같이
 }
 // 창 하나하나의 자리: settings().hpLayout = { l: [왼쪽 줄 순서], r: [오른쪽 줄 순서], off: [숨긴 창], main: 'c'|'l'|'r'(가운데 창 위치), lw · rw: 0~2(줄 폭) }
 export const WINS = { profile: '프로필', intro: '소개', stats: '상태', friends: '일촌', quest: '퀘스트', news: '뉴스', contact: '연락', mind: '속마음', cond: '상태 이상', fate: '저주 · 빚', music: 'BGM', custom: '내 탭', photo: '사진' };
 const WIN_T = { profile: 'profile', intro: 'about', stats: 'status', photo: 'photo' };
-const FS = { s: 9.5, m: 11, l: 12.5 }; // 글씨 크기(px) — 고르지 않았으면 화면 배율이 큰 기기(노트북 150%↑)는 작게
+const FS = { s: 11.5, m: 13, l: 14.5 }; // 글씨 크기(px) — 고르지 않았으면 화면 배율이 큰 기기(노트북 150%↑)는 작게
 const fsOf = () => (FS[settings().hpFs] ? settings().hpFs : (window.devicePixelRatio || 1) >= 1.5 ? 's' : 'm');
 const COLW = ['130px', 'clamp(150px, 15%, 200px)', 'clamp(210px, 23%, 320px)'];
 let editWins = false; // 창 옮기기 중 (창마다 ▲▼⇄✕ 단추)
@@ -67,14 +65,12 @@ function moveWin(key, how, shown) {
     saveLayout(L);
 }
 const winOn = (k) => !hpLayout().off.includes(k);
-const win = (key, title, body, cls = '') => (body ? `<section class="ss-hp-win ${cls}" data-win="${key}"><div class="ss-hp-wt"><b>${title}</b>${editWins ? `<span class="ss-hp-wtools"><button data-hp="mv" data-arg="${key}:up" title="위로">▲</button><button data-hp="mv" data-arg="${key}:down" title="아래로">▼</button><button data-hp="mv" data-arg="${key}:side" title="반대쪽 줄로">⇄</button><button data-hp="mv" data-arg="${key}:off" title="숨기기 (꾸미기에서 다시 켜요)">✕</button></span>` : '<i>♡♡♡</i>'}</div><div class="ss-hp-wb">${body}</div></section>` : '');
+const win = (key, title, body, cls = '') => (body ? `<section class="ss-hp-win ${cls}" data-win="${key}"><div class="ss-hp-wt"><b>${title}</b>${editWins ? `<span class="ss-hp-wtools"><button data-hp="mv" data-arg="${key}:up" title="위로">▲</button><button data-hp="mv" data-arg="${key}:down" title="아래로">▼</button><button data-hp="mv" data-arg="${key}:side" title="반대쪽 줄로">⇄</button><button data-hp="mv" data-arg="${key}:off" title="숨기기 (꾸미기에서 다시 켜요)">✕</button></span>` : ''}</div><div class="ss-hp-wb">${body}</div></section>` : '');
 async function openDeco(redraw) {
     for (;;) {
         const set = settings(), ti = Number(set.hpTheme) || 0, L = hpLayout(), box = document.createElement('div'); box.className = 'ss-root ss-scope ss-hp-pick';
         const seg = (k, cur, opts) => opts.map(([v, n]) => `<button class="ss-btn sm ${cur === v ? 'pri' : 'ghost'}" data-choice="${k}:${v}">${n}</button>`).join('');
         box.innerHTML = `<h3>🎨 꾸미기</h3><h4>색</h4><div class="ss-hp-faces">${THEMES.map(([n, h, s], i) => `<button class="ss-hp-sw ${ti === i ? 'on' : ''}" data-choice="theme:${i}" title="${n}" style="background:hsl(${h} ${Math.round(85 * s)}% 86%)"></button>`).join('')}</div>
-            <h4>바탕 무늬</h4><div class="ss-row-btns">${seg('pat', patOf(), Object.entries(PATTERNS))}</div>
-            <h4>글꼴</h4><div class="ss-row-btns">${seg('font', set.hpDot !== false ? '1' : '0', [['1', '도트 글꼴'], ['0', '실리 글꼴']])}</div>
             <div class="ss-row-btns"><small>글씨 크기</small>${seg('fs', fsOf(), [['s', '작게'], ['m', '보통'], ['l', '크게']])}</div>
             <h4>창 자리</h4><div class="ss-row-btns"><button class="ss-btn sm pri" data-choice="edit:1"><i class="fa-solid fa-up-down-left-right"></i> 창 옮기기 ${editWins ? '끝내기' : '시작'}</button><small class="ss-hint">창마다 ▲▼(순서) · ⇄(반대쪽 줄) · ✕(숨기기) 단추가 생겨요.</small></div>
             <div class="ss-row-btns"><small>가운데 창 위치</small>${seg('main', L.main, [['l', '왼쪽'], ['c', '가운데'], ['r', '오른쪽']])}</div>
@@ -85,7 +81,7 @@ async function openDeco(redraw) {
             <h4>HUD · 미니창 · 보통 상태창</h4><div class="ss-row-btns"><button class="ss-btn sm ${set.hpSkinHud !== false ? 'pri' : 'ghost'}" data-choice="skin:1">${set.hpSkinHud !== false ? '✓ ' : ''}같은 모양으로</button><button class="ss-btn sm ghost" data-choice="reset:1">창 자리 처음으로</button></div>`;
         const pick = await choosePopup(box, '닫기'); if (!pick) return;
         const [k, v] = pick.split(':');
-        if (k === 'theme') set.hpTheme = Number(v); if (k === 'pat') set.hpPattern = v; if (k === 'font') set.hpDot = v === '1';
+        if (k === 'theme') set.hpTheme = Number(v);
         if (k === 'win') saveLayout({ ...L, off: L.off.includes(v) ? L.off.filter(x => x !== v) : [...L.off, v] });
         if (k === 'main') saveLayout({ ...L, main: v }); if (k === 'lw' || k === 'rw') saveLayout({ ...L, [k]: Number(v) });
         if (k === 'reset') set.hpLayout = {};
@@ -203,12 +199,12 @@ export function hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, 
     const LY = hpLayout(), mk = (k) => (LY.off.includes(k) ? '' : win(k, WIN_T[k] ?? WINS[k], BODY[k] ? BODY[k]() : miniWidgets(s, [k]), BODY[k] ? '' : 'x'));
     const L = LY.l.map(mk).join(''), R = LY.r.map(mk).join('');
     const mainBody = restHTML;
-    return `<div class="${rootCls} ss-hompy ss-hp-p-${patOf()} ${settings().hpDot !== false ? 'ss-hp-dot' : ''} ${enter ? 'ss-hp-enter' : ''}" style="--hp-h:${hue};--hp-s:${sat};--hp-fs:${FS[fsOf()]}px">
-        <div class="ss-hp-url ss-hp-top"><i></i><i></i><i></i><span class="ss-hp-nav" aria-hidden="true">‹ › ⟳</span><span class="ss-hp-addr">meatball.home/<b>${esc(short(c.title || TITLE, 30))}</b></span>${headHTML}<button class="ss-hp-x" data-hp="close" title="닫기"><i class="fa-solid fa-xmark"></i></button><em></em></div>
-        <div class="ss-hp-marks"><div class="ss-hp-index">${groupsHTML}</div><span class="ss-hp-count">TURN <b>${s.turn ?? 0}</b> · TOTAL <b>${total}</b></span>${editWins ? '<button class="ss-hp-deco-b on" data-hp="editdone">✓ 창 옮기기 끝</button>' : ''}<button class="ss-hp-deco-b" data-hp="deco" title="색 · 무늬 · 글꼴 · 창 자리 · 보일 창">🎨 꾸미기</button></div>
+    return `<div class="${rootCls} ss-hompy ${enter ? 'ss-hp-enter' : ''}" style="--hp-h:${hue};--hp-s:${sat};--hp-fs:${FS[fsOf()]}px">
+        <div class="ss-hp-url ss-hp-top"><span class="ss-hp-addr"><b>${esc(short(c.title || TITLE, 30))}</b></span>${headHTML}<button class="ss-hp-x" data-hp="close" title="닫기"><i class="fa-solid fa-xmark"></i></button><em></em></div>
+        <div class="ss-hp-marks"><div class="ss-hp-index">${groupsHTML}</div><span class="ss-hp-count">TURN <b>${s.turn ?? 0}</b> · TOTAL <b>${total}</b></span>${editWins ? '<button class="ss-hp-deco-b on" data-hp="editdone">✓ 창 옮기기 끝</button>' : ''}<button class="ss-hp-deco-b" data-hp="deco" title="색 · 글씨 크기 · 창 자리 · 보일 창"><i class="fa-solid fa-palette"></i> 꾸미기</button></div>
         ${(() => {
             const lcol = L ? `<aside class="ss-hp-col ss-hp-left"><div class="ss-hp-col-in ss-hp-left-in">${L}</div></aside>` : '', rcol = R ? `<aside class="ss-hp-col ss-hp-rcol"><div class="ss-hp-col-in">${R}</div></aside>` : '';
-            const main = `<section class="ss-hp-win main"><div class="ss-hp-wt"><b>${esc(c.title || TITLE)}</b><i>♡♡♡</i></div><div class="ss-hp-right">${pauseHTML}${mainBody}</div></section>`;
+            const main = `<section class="ss-hp-win main"><div class="ss-hp-wt"><b>${esc(c.title || TITLE)}</b></div><div class="ss-hp-right">${pauseHTML}${mainBody}</div></section>`;
             const order = LY.main === 'l' ? [['m', main], ['l', lcol], ['r', rcol]] : LY.main === 'r' ? [['l', lcol], ['r', rcol], ['m', main]] : [['l', lcol], ['m', main], ['r', rcol]];
             const cols = order.filter(([, h]) => h).map(([k]) => (k === 'm' ? 'minmax(0, 1fr)' : COLW[k === 'l' ? LY.lw : LY.rw])).join(' ');
             return `<div class="ss-hp-book ${editWins ? 'ss-hp-editing' : ''}" style="grid-template-columns:${cols}">${order.map(([, h]) => h).join('')}</div>`;
