@@ -23,7 +23,7 @@ for (const width of [1300, 390]) {
             out.imgsLoad = [...el.querySelectorAll('.ss-hompy img[src*="/img/meatcon/"]')].every(i => i.naturalWidth > 0);
             // 화면에 딱 맞음: 넓은 화면에선 수첩이 창 안에 다 들어오고 안쪽(오른쪽 쪽)만 스크롤
             { const bk = el.querySelector('.ss-hp-book').getBoundingClientRect(), root = el.querySelector('.ss-hompy').getBoundingClientRect();
-              out.fitsWindow = innerWidth < 861 || (root.top === 0 && Math.round(root.height) === innerHeight && bk.bottom <= innerHeight && (() => { const r = el.querySelector('.ss-hp-right'), l = el.querySelector('.ss-hp-left'); return r.scrollHeight <= r.clientHeight + 2 && l.scrollHeight <= l.clientHeight + 2; })()) || JSON.stringify([root.top, root.height, bk.bottom, innerHeight]); }
+              out.fitsWindow = innerWidth < 861 || (root.top === 0 && Math.round(root.height) === innerHeight && bk.bottom <= innerHeight && (() => { const b = el.querySelector('.ss-hp-right > .ss-body'); return !b.style.zoom; })()) || JSON.stringify([root.top, root.height, bk.bottom, innerHeight]); }
             // 프로필 그림: 기본은 기분 따라 · 고르면 그 그림 · 내 그림 · 고르기 창이 뜸
             const face = () => el.querySelector('.ss-hp-photo img').getAttribute('src');
             out.faceAuto = face().includes('/img/meatcon/');
@@ -67,7 +67,7 @@ for (const width of [1300, 390]) {
             out.photoEmpty = !!el.querySelector('.ss-hp-right .ss-hp-addphoto [data-hp="photo"]') && !el.querySelector('.ss-hp-main');
             core.getMeta().hpPhoto = { src: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', cap: '우리 집 <b>고양이</b>' }; shell.rerenderPanels(true); await wait(200);
             out.photoShown = !!el.querySelector('.ss-hp-main img') && el.querySelector('.ss-hp-main figcaption').textContent.includes('<b>고양이</b>') && !el.querySelector('.ss-hp-addphoto');
-            await wait(300); { const r = el.querySelector('.ss-hp-right'); out.homeWithPhotoNoScroll = innerWidth < 861 || (r.scrollHeight <= r.clientHeight + 2 && el.querySelector('.ss-hp-main').getBoundingClientRect().height >= 110) || JSON.stringify([r.scrollHeight, r.clientHeight, el.querySelector('.ss-hp-main').getBoundingClientRect().height]); }
+            await wait(300); out.homePhotoBig = innerWidth < 861 || el.querySelector('.ss-hp-main').getBoundingClientRect().height >= 110;
             out.photoBeside = !!el.querySelector('.ss-hp-homewrap.has > .ss-hp-main') && !!el.querySelector('.ss-hp-homewrap > .ss-hp-homebody');
             el.querySelector('[data-hp="photopos"]').click(); await wait(300); out.photoFlips = core.getMeta().hpPhoto.pos === 'top' && !!el.querySelector('.ss-hp-homewrap.flip');
             el.querySelector('[data-hp="photodel"]').click(); await wait(300);

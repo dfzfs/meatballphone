@@ -118,7 +118,7 @@ export function photoHTML(meta) {
 }
 // 📐 한 화면에 다 보이게 (넓은 화면): 홈 쪽은 스크롤 없이 — 사진이 남는 높이를 차지하고, 본문이 넘치면 본문을 줄여(zoom) 맞춘다.
 //   왼쪽 프로필 쪽도 넘치면 줄인다. 다른 탭은 내용이 길어서 오른쪽 쪽 안에서 스크롤. 좁은 화면(폰)은 그냥 아래로 스크롤.
-const MINZ = 0.5;
+const MINZ = 0.92;
 function shrinkToFit(box, room, nat) {
     box.style.zoom = '';
     if (room <= 0 || nat() <= room + 1) return true;
@@ -145,7 +145,7 @@ export function fitHompy(el, tries = 0) {
     const room = right.clientHeight - pad(right) - used - 8;
     const hb = body.querySelector(':scope > .ss-hp-homewrap > .ss-hp-homebody'), target = hb ?? body;
     if (hb) { body.style.height = `${room}px`; }
-    if (!shrinkToFit(target, room, () => target.scrollHeight)) right.classList.add('ss-hp-over');
+    right.classList.add('ss-hp-over'); // 가운데 창은 글씨를 줄이지 않고, 넘치면 창 안에서 스크롤 (칸은 여러 단으로 쌓여 있음)
 }
 // 사진 단추 (패널마다 걸지 않고 문서에 한 번)
 export function initHompy() {
