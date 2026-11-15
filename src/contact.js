@@ -549,7 +549,7 @@ export const CONTACT_ACTIONS = {
     // 🕵 연락 ↔ 최면 어플
     ctruth: (el) => { el._ss.ui = el._ss.ui?.truth ? {} : { truth: true }; app.renderPanel(el); },
     ctruthclear: async (el, arg, btn, s) => {
-        if (!(s.data.contact.truth?.[arg]?.length) || !(await askConfirm(`${arg}와(과)의 최면 어플 대화를 비울까요?`))) return;
+        if (!(s.data.contact.truth?.[arg]?.length) || !(await askConfirm(`${esc(arg)}와(과)의 최면 어플 대화를 비울까요?`))) return;
         const nd = clone(s.data.contact); delete nd.truth[arg];
         await commit('contact', nd, ''); redraw(el);
     },
