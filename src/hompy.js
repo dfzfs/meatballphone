@@ -47,8 +47,8 @@ export const THEMES = [['분홍', 340, 1], ['회색', 260, 0.08], ['하늘', 215
 const themeOf = () => { const d = D(); return d.hpTheme === 'c' ? ['직접', Math.max(0, Math.min(360, Number(d.hpHue) || 0)), Math.max(0, Math.min(1.2, Number(d.hpSat ?? 1)))] : THEMES[Number(d.hpTheme) || 0] ?? THEMES[0]; };
 const FONTS = { g: '고딕', s: '명조', r: '둥근 글꼴', m: '고정폭', u: '내 글꼴' }, CORNERS = ['각지게', '보통', '둥글게'], GAPS = ['촘촘', '보통', '넉넉'], DARKS = { light: '밝게', dark: '어둡게', auto: '기기 따라' };
 const pick3 = (v) => ([0, 1, 2].includes(Number(v)) && v !== null && v !== undefined && v !== '' ? Number(v) : 1);
-const SKIN_DEF = { paper: ['s', 'light'], ink: ['s', 'light'], term: ['g', 'dark'], gothic: ['s', 'dark'], phone: ['g', 'light'], clean: ['g', 'light'], dot: ['g', 'light'] }; // 모양을 고르면 따라오는 글꼴 · 밝기
-export const SKINS = { clean: '깔끔', dot: '도트', paper: '판타지', ink: '수묵', term: '사이버', gothic: '고딕', phone: '폰' }, PATTERNS = { grid: '모눈', dot: '물방울', stripe: '줄무늬', none: '없음' };
+const SKIN_DEF = { note: ['g', 'light'], term: ['g', 'dark'], phone: ['g', 'light'], clean: ['g', 'light'], dot: ['g', 'light'] }; // 모양을 고르면 따라오는 글꼴 · 밝기
+export const SKINS = { clean: '깔끔', dot: '도트', note: '노트', term: '사이버', phone: '폰' }, PATTERNS = { grid: '모눈', dot: '물방울', stripe: '줄무늬', none: '없음' };
 export const skinOf = () => (SKINS[D().hpSkin] ? D().hpSkin : 'clean'); // 고르지 않았으면 깔끔 (처음 열 때 고르는 줄이 뜬다)
 const patOf = () => (PATTERNS[D().hpPattern] ? D().hpPattern : 'grid');
 const hex = (v) => (/^#[0-9a-f]{6}$/i.test(String(v ?? '')) ? String(v) : '');
@@ -139,10 +139,8 @@ const LOOK_KEYS = ['hpParts', 'hpInk', 'hpBg', 'hpPaper', 'hpFsPx', 'hpCorner', 
 const PRESETS = [['깔끔 밝게', { hpSkin: 'clean', hpDark: 'light', hpTheme: 0 }], ['깔끔 어둡게', { hpSkin: 'clean', hpDark: 'dark', hpTheme: 2 }], ['도트 분홍', { hpSkin: 'dot', hpDark: 'light', hpTheme: 0, hpPattern: 'grid' }], ['도트 밤', { hpSkin: 'dot', hpDark: 'dark', hpTheme: 7, hpPattern: 'dot' }]];
 // 🎭 분위기 세트: 모양 · 색 · 글꼴 · 모서리에 창 제목 · 메뉴 이름(용어)까지 한 묶음 — 중세 · 무협 · SF처럼 분위기가 다른 채팅용
 export const VIBES = {
-    fantasy: ['중세 · 판타지', { hpSkin: 'paper', hpDark: 'light', hpTheme: 'c', hpHue: 40, hpSat: 1, hpFont: 's', hpCorner: 0, hpTitles: { profile: '모험가', intro: '세계', stats: '상태', friends: '동료', quest: '의뢰', news: '소문', contact: '전갈' }, hpGroupNames: { people: '동료', feed: '소문' } }, /중세|판타지|왕국|기사|마법|용사|길드|마왕|엘프|드래곤|금화|은화|골드|던전|성기사|마탑|fantasy|kingdom|guild|dungeon/gi],
-    wuxia: ['무협 · 동양', { hpSkin: 'ink', hpDark: 'light', hpTheme: 'c', hpHue: 6, hpSat: 0.9, hpFont: 's', hpCorner: 0, hpTitles: { profile: '협객', intro: '강호', stats: '기혈', friends: '인연', quest: '임무', news: '강호 소식', contact: '서신' }, hpGroupNames: { people: '인연', feed: '풍문' } }, /무협|강호|문파|무림|내공|협객|사파|정파|검객|황궁|조선|사극|궁중|은자|냥|wuxia/gi],
+    note: ['노트 · 신문', { hpSkin: 'note', hpDark: 'light', hpTheme: 'c', hpHue: 48, hpSat: 1, hpFont: 'g', hpCorner: 1, hpTitles: { profile: '나', intro: '줄거리', stats: '오늘의 상태', friends: '사람들', quest: '할 일', news: '오늘의 소식', contact: '쪽지' }, hpGroupNames: {} }, null],
     scifi: ['SF · 사이버', { hpSkin: 'term', hpDark: 'dark', hpTheme: 'c', hpHue: 54, hpSat: 1, hpFont: 'g', hpCorner: 0, hpTitles: { profile: 'ID', intro: 'LOG', stats: 'STATUS', friends: 'CONTACTS', quest: 'MISSIONS', news: 'FEED', contact: 'COMMS' }, hpGroupNames: {} }, /SF|사이버|우주|안드로이드|로봇|해커|크레딧|함선|디스토피아|미래 ?도시|네온|인공지능|cyber|space|android|credit/gi],
-    gothic: ['호러 · 고딕', { hpSkin: 'gothic', hpDark: 'dark', hpTheme: 'c', hpHue: 352, hpSat: 0.9, hpFont: 's', hpCorner: 0, hpTitles: { friends: '곁에 남은 사람', quest: '해야 할 일', news: '불길한 소식' }, hpGroupNames: {} }, /호러|공포|괴담|저주|유령|귀신|좀비|고딕|흡혈|오컬트|악령|폐가|horror|gothic|vampire/gi],
     school: ['학원 · 로맨스', { hpSkin: 'phone', hpDark: 'light', hpTheme: 'c', hpHue: 338, hpSat: 1, hpFont: 'g', hpCorner: 2, hpTitles: { friends: '친구들', quest: '할 일', news: '소식', contact: '메시지' }, hpGroupNames: {} }, /학원|학교|고등학교|대학교|동아리|교실|기숙사|로맨스|연애|아이돌|school|romance/gi],
     modern: ['현대 · 일상', { hpSkin: 'clean', hpDark: 'light', hpTheme: 'c', hpHue: 214, hpSat: 0.9, hpFont: 'g', hpCorner: 1, hpTitles: {}, hpGroupNames: {} }, null],
 };
@@ -452,7 +450,7 @@ export function hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, 
         ${settings().hpSkin === undefined ? `<div class="ss-hp-choose"><b>어떤 모양으로 볼까요?</b><small>나중에 「꾸미기」에서 언제든 바꿀 수 있어요.</small>
             <button data-hp="skinpick" data-arg="clean" class="${skinOf() === 'clean' ? 'on' : ''}"><span class="ss-hp-pv clean"><i></i><i></i><i></i></span>깔끔</button>
             <button data-hp="skinpick" data-arg="dot" class="${skinOf() === 'dot' ? 'on' : ''}"><span class="ss-hp-pv dot"><i></i><i></i><i></i></span>도트</button>
-<button data-hp="deco" title="판타지 · 수묵 · 사이버 · 고딕 · 폰">다른 분위기 더 보기 ›</button>
+<button data-hp="deco" title="노트 · 사이버 · 폰">다른 모양 더 보기 ›</button>
             <button data-hp="skinpick" data-arg="" class="x" title="지금 모양 그대로">✕</button></div>` : ''}
         ${(() => { // 채팅 분위기에 맞는 모양 권하기 (모양을 이미 고른 뒤 · 이 채팅에서 아직 안 물었고 · 묶인 세트가 없을 때 한 번)
             if (settings().hpSkin === undefined || settings().hpSuggest === false || meta.hpAsked || meta.hpSet || picking) return '';

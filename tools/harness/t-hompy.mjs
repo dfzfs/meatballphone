@@ -115,16 +115,17 @@ for (const width of [1300, 390]) {
               Object.assign(S0, { hpSkin: 'clean', hpDark: 'light', hpTheme: 0, hpPattern: 'grid' }); hpm.applyRetro(); shell.rerenderPanels(true); await wait(200);
               // 분위기: 세계관 글로 어림 → 권하는 줄 → 「이 채팅에 적용」이면 이 채팅에만 양피지 + 용어. 모양 넷 다 색이 제대로
               { const st0 = window.__SS_TEST__.api.app.current.state;
-                out.vibeGuess = (hpm.guessVibe({ core: { summary: '검과 마법의 판타지 왕국. 길드와 던전.' }, data: {} }) === 'fantasy' && hpm.guessVibe({ core: { summary: '우주 함선의 안드로이드 해커' }, data: {} }) === 'scifi' && hpm.guessVibe({ core: { summary: '평범한 회사원의 하루' }, data: {} }) === null && hpm.guessVibe({ core: { summary: '마법' }, data: {} }) === null) || 'guess';
-                const want = hpm.guessVibe(st0); S0.hpSuggest = true; delete core.getMeta().hpAsked; shell.rerenderPanels(true); await wait(300);
+                out.vibeGuess = (hpm.guessVibe({ core: { summary: '검과 마법의 판타지 왕국. 길드와 던전.' }, data: {} }) === null && hpm.guessVibe({ core: { summary: '고등학교 동아리 교실 로맨스' }, data: {} }) === 'school' && hpm.guessVibe({ core: { summary: '우주 함선의 안드로이드 해커' }, data: {} }) === 'scifi' && hpm.guessVibe({ core: { summary: '평범한 회사원의 하루' }, data: {} }) === null && hpm.guessVibe({ core: { summary: '마법' }, data: {} }) === null) || 'guess';
+                const sum0 = st0.core.summary; st0.core.summary = '우주 함선의 안드로이드 해커가 크레딧을 번다'; const want = hpm.guessVibe(st0); S0.hpSuggest = true; delete core.getMeta().hpAsked; shell.rerenderPanels(true); await wait(300);
                 const bar = el.querySelector('.ss-hp-choose.vibe');
                 if (want && bar) { bar.querySelector('[data-arg^="yes:"]').click(); await wait(500);
                   const gb = el.querySelector(`.ss-groups > button[data-arg="feed"] span`);
                   out.vibeApply = (core.getMeta().hpSet === `분위기 · ${hpm.VIBES[want][0]}` && core.getMeta().hpAsked === true && S0.hpSkin === 'clean' && B.classList.contains(`ss-skin-${hpm.VIBES[want][1].hpSkin}`) && !el.querySelector('.ss-hp-choose.vibe') && (!gb || !hpm.VIBES[want][1].hpGroupNames.feed || gb.textContent === hpm.VIBES[want][1].hpGroupNames.feed)) || [core.getMeta().hpSet, B.className].join('|');
                   delete core.getMeta().hpSet; S0.hpSets = []; hpm.applyRetro(); shell.rerenderPanels(true); await wait(200);
                 } else out.vibeApply = `no suggestion (${want})`;
+                st0.core.summary = sum0;
                 const looks = {}; for (const k of Object.keys(hpm.SKINS)) { S0.hpSkin = k; hpm.applyRetro(); shell.rerenderPanels(true); await wait(120); const cs = getComputedStyle(el.querySelector('.ss-hompy')); looks[k] = `${cs.getPropertyValue('--hp-paper').trim()}/${cs.fontFamily.slice(0, 12)}`; }
-                out.fourSkins = (new Set(Object.values(looks).map(x => x.split('/')[0])).size >= 5 && Object.keys(looks).length === 7) || JSON.stringify(looks);
+                out.fourSkins = (new Set(Object.values(looks).map(x => x.split('/')[0])).size >= 4 && Object.keys(looks).length === 5) || JSON.stringify(looks);
                 Object.assign(S0, { hpSkin: 'clean', hpFont: 'g', hpDark: 'light', hpSuggest: false }); hpm.applyRetro(); shell.rerenderPanels(true); await wait(200); }
               out.profileCard = !!el.querySelector('.ss-hp-badges') || innerWidth <= 640 && !el.querySelector('.ss-hompy.ss-hp-athome') ; }
             out.closeButton = !!el.querySelector('.ss-hp-url [data-hp="close"]');
