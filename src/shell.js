@@ -20,7 +20,7 @@ import { EDIT, viewTr, letterMode } from './core.js';
 import { translateSheet, missingTr } from './translate.js';
 import { hintAfterAction } from './tips.js';
 import { storySection } from './story_ui.js';
-import { hompyHTML } from './hompy.js';
+import { hompyHTML, fitHompy } from './hompy.js';
 import { openPromptWindow, openThemeWindow, openWizard } from './lazy.js';
 import { setBase, startBlank } from './engine.js';
 export { setBase, startBlank, openWizard, openPromptWindow, openThemeWindow }; // 다른 파일은 예전처럼 여기서 받아도 된다 (창은 눌렀을 때 불러옴 — lazy.js)
@@ -172,6 +172,7 @@ export function renderPanel(el) {
     el.innerHTML = hp ? hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, s, meta, nNew, enter, tab: st.mode === 'view' ? tab : '' })
         : `<div class="${rootCls}">${headHTML}${pauseHTML}${groupsHTML}${restHTML}</div>`;
     if (st.mode !== 'edit' && st.mode !== 'json' && tab !== 'manage' && (pseudo || data)) applyParts(el, tab); // 👁 보일 것 (v2.7.19)
+    if (hp) fitHompy(el); // 📐 미니홈피: 홈 쪽 · 프로필 쪽을 한 화면에 맞춘다
     if (st.mode === 'edit') bindEditor(el.querySelector('.ss-editor'), st.work, EDIT[mod], () => {
         const box = el.querySelector('.ss-editor'); const all0 = [...box.querySelectorAll('details')]; const open = all0.filter(d => d.open).map(d => all0.indexOf(d));
         box.innerHTML = editorHTML(st.work, EDIT[mod]);

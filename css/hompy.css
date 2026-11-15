@@ -32,7 +32,7 @@
 .ss-hp-title { flex: 1 1 0; min-width: 3em; font-size: 1.15em; color: var(--hp-mint-d); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* 왼쪽 쪽: 프로필 */
 .ss-hp-left, .ss-hp-right { position: relative; background: var(--hp-paper); border: 1.5px solid var(--hp-line); border-radius: 14px; }
-.ss-hp-left { grid-column: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; padding: 10px; display: grid; gap: 8px; align-content: start; }
+.ss-hp-left { grid-column: 1; min-height: 0; overflow: hidden; padding: 10px; }
 .ss-hp-left::-webkit-scrollbar { display: none; }
 .ss-hp-today { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 9px; border: 1.5px solid var(--hp-line); border-radius: 8px; background: #fff; }
 .ss-hp-today small { font-size: .68em; letter-spacing: .1em; color: var(--hp-mint-d); }
@@ -81,6 +81,16 @@
 .ss-hompy .ss-tool span { display: none; } .ss-hompy .ss-tool { padding: 0 7px; height: 28px; }
 .ss-hompy .ss-tabs > button { padding-top: 5px; padding-bottom: 5px; }
 .ss-hp-right > .ss-body { margin-top: 8px; }
+/* 📐 홈 쪽: 스크롤 없이 한 화면에 — 사진이 남는 높이를 채우고, 본문은 넘치면 줄어든다 (hompy.js fitHompy) */
+.ss-hp-right.ss-hp-fit { display: flex; flex-direction: column; overflow: hidden; }
+.ss-hp-right.ss-hp-fit.ss-hp-over { overflow-y: auto; }
+.ss-hp-fit > * { flex: 0 0 auto; }
+.ss-hp-fit > .ss-toolrow { position: absolute; top: 6px; right: 10px; margin: 0; padding: 0; border: 0; } .ss-hp-fit > .ss-toolrow .ss-toolrow-t { display: none; }
+.ss-hp-fit > .ss-tabs { padding-right: 150px; justify-content: flex-start; margin-top: 0; }
+.ss-hp-fit > .ss-hp-main { flex: 1 1 0; min-height: 120px; display: flex; flex-direction: column; }
+.ss-hp-fit > .ss-hp-main img { flex: 1 1 0; min-height: 0; height: 0; max-height: none; }
+.ss-hp-fit .ss-hero, .ss-hp-fit .ss-callout.help { display: none; } /* 제목 · 소개는 왼쪽 쪽에 있고, 도우미는 윗줄 단추에 있음 */
+.ss-hp-left-in { display: grid; gap: 8px; align-content: start; }
 /* 🖼 홈의 큰 사진 — 기본은 홈 본문 바로 위 (↓ 단추로 맨 아래) */
 .ss-hp-addphoto { margin-top: 14px; display: flex; justify-content: center; padding: 8px; border: 1.5px dashed var(--hp-line); border-radius: 12px; }
 .ss-hp-main { position: relative; margin: 10px 0 0; padding: 6px; background: #fff; border: 1.5px solid var(--hp-line); border-radius: 12px; box-shadow: 3px 3px 0 #efe3cc; }
@@ -111,7 +121,7 @@
 @media (max-height: 760px) {
     .ss-hp-url { padding: 4px 12px; } .ss-hp-book { margin: 8px auto 10px; padding: 8px 12px 10px; row-gap: 4px; }
     .ss-hp-top { padding: 2px 10px 0; } .ss-hp-title { font-size: 1.08em; }
-    .ss-hp-left { padding: 9px; gap: 7px; } .ss-hp-photo { width: min(100%, 22dvh); } .ss-hp-deco { display: none; }
+    .ss-hp-left { padding: 9px; } .ss-hp-left-in { gap: 6px; } .ss-hp-photo { width: min(100%, 22dvh); } .ss-hp-deco { display: none; }
     .ss-hp-right { padding: 8px 10px 12px; } .ss-hp-index { padding-top: 10px; }
     .ss-hompy .ss-groups > button { padding: 5px 8px 5px 7px; min-width: 58px; }
     .ss-hp-main img { max-height: 42dvh; }
@@ -128,7 +138,8 @@
     .ss-hompy .ss-head { flex: 1 1 100%; } .ss-hompy .ss-head-a { flex-wrap: wrap; overflow: visible; }
     .ss-hp-book { font-size: 1em; }
     .ss-hp-left, .ss-hp-right, .ss-hp-index { grid-column: 1; }
-    .ss-hp-left { grid-template-columns: 64px minmax(0, 1fr); align-items: center; padding: 8px 10px; gap: 4px 10px; }
+    .ss-hp-left { padding: 8px 10px; } .ss-hp-left-in { grid-template-columns: 64px minmax(0, 1fr); align-items: center; gap: 4px 10px; }
+    .ss-hp-right.ss-hp-fit { display: block; overflow: visible; } .ss-hp-fit > .ss-toolrow { position: static; } .ss-hp-fit > .ss-tabs { padding-right: 0; } .ss-hp-fit > .ss-hp-main img { height: auto; max-height: 60dvh; }
     .ss-hp-photo { grid-row: 1 / span 2; } .ss-hp-tape { display: none; }
     .ss-hp-index { order: 2; margin: 0; padding: 0; } .ss-hp-right { order: 3; padding: 8px 8px 12px; }
     .ss-hompy .ss-groups { flex-direction: row; overflow-x: auto; gap: 4px; padding: 0 6px; scrollbar-width: none; }

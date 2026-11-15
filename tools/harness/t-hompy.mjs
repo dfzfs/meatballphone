@@ -22,7 +22,7 @@ for (const width of [1300, 390]) {
             out.imgsLoad = [...el.querySelectorAll('.ss-hompy img[src*="/img/meatcon/"]')].every(i => i.naturalWidth > 0);
             // 화면에 딱 맞음: 넓은 화면에선 수첩이 창 안에 다 들어오고 안쪽(오른쪽 쪽)만 스크롤
             { const bk = el.querySelector('.ss-hp-book').getBoundingClientRect(), root = el.querySelector('.ss-hompy').getBoundingClientRect();
-              out.fitsWindow = innerWidth < 861 || (root.top === 0 && Math.round(root.height) === innerHeight && bk.bottom <= innerHeight && getComputedStyle(el.querySelector('.ss-hp-right')).overflowY === 'auto') || JSON.stringify([root.top, root.height, bk.bottom, innerHeight]); }
+              out.fitsWindow = innerWidth < 861 || (root.top === 0 && Math.round(root.height) === innerHeight && bk.bottom <= innerHeight && (() => { const r = el.querySelector('.ss-hp-right'), l = el.querySelector('.ss-hp-left'); return r.classList.contains('ss-hp-fit') && r.scrollHeight <= r.clientHeight + 2 && l.scrollHeight <= l.clientHeight + 2; })()) || JSON.stringify([root.top, root.height, bk.bottom, innerHeight]); }
             // 프로필 그림: 기본은 기분 따라 · 고르면 그 그림 · 내 그림 · 고르기 창이 뜸
             const face = () => el.querySelector('.ss-hp-photo img').getAttribute('src');
             out.faceAuto = face().includes('/img/meatcon/');
@@ -38,6 +38,7 @@ for (const width of [1300, 390]) {
             out.photoEmpty = !!el.querySelector('.ss-hp-right .ss-hp-addphoto [data-hp="photo"]') && !el.querySelector('.ss-hp-main');
             core.getMeta().hpPhoto = { src: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', cap: '우리 집 <b>고양이</b>' }; shell.rerenderPanels(true); await wait(200);
             out.photoShown = !!el.querySelector('.ss-hp-main img') && el.querySelector('.ss-hp-main figcaption').textContent.includes('<b>고양이</b>') && !el.querySelector('.ss-hp-addphoto');
+            await wait(300); { const r = el.querySelector('.ss-hp-right'); out.homeWithPhotoNoScroll = innerWidth < 861 || (r.scrollHeight <= r.clientHeight + 2 && el.querySelector('.ss-hp-main').getBoundingClientRect().height >= 110) || JSON.stringify([r.scrollHeight, r.clientHeight, el.querySelector('.ss-hp-main').getBoundingClientRect().height]); }
             { const fig = el.querySelector('.ss-hp-main'), body = el.querySelector('.ss-hp-right .ss-body'); out.photoOnTop = !!(fig.compareDocumentPosition(body) & Node.DOCUMENT_POSITION_FOLLOWING);
               el.querySelector('[data-hp="photopos"]').click(); await wait(300); const f2 = el.querySelector('.ss-hp-main'), b2 = el.querySelector('.ss-hp-right .ss-body');
               out.photoMovesDown = core.getMeta().hpPhoto.pos === 'bottom' && !!(b2.compareDocumentPosition(f2) & Node.DOCUMENT_POSITION_FOLLOWING); }
@@ -48,6 +49,7 @@ for (const width of [1300, 390]) {
             out.groupMoves = !!el.querySelector('.ss-hompy') && el.querySelector('.ss-hp-index .ss-groups > button.on')?.dataset.arg === g.dataset.arg;
             out.enterOnce = !el.querySelector('.ss-hompy').classList.contains('ss-hp-enter');
             el.querySelector('.ss-hp-links [data-arg="manage"]').click(); await wait(300);
+            out.otherTabsScrollInside = innerWidth < 861 || (!el.querySelector('.ss-hp-right').classList.contains('ss-hp-fit') && getComputedStyle(el.querySelector('.ss-hp-right')).overflowY === 'auto');
             out.linkMoves = el._ss.tab === 'manage' && !!el.querySelector('.ss-hompy') && !el.querySelector('.ss-hp-addphoto');
             out.noOverflow = document.documentElement.scrollWidth <= innerWidth + 1 && el.querySelector('.ss-hompy').scrollWidth <= innerWidth + 1 || `${el.querySelector('.ss-hompy').scrollWidth} > ${innerWidth}`;
             // 설정에서 끄면 예전 전체화면
