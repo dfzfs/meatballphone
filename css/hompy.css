@@ -1,3 +1,10 @@
+/* 도트 글꼴: 갈무리11 (SIL OFL 1.1 · font/Galmuri-LICENSE.txt) — 미니홈피를 열 때만 내려받는다 */
+@font-face { font-family: 'MeatballDot'; src: url("../font/Galmuri11.woff2") format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'MeatballDot'; src: url("../font/Galmuri11-Bold.woff2") format('woff2'); font-weight: 700; font-display: swap; }
+.ss-root.ss-hompy.ss-hp-dot { font-family: 'MeatballDot', 'Galmuri11', sans-serif; font-size: calc(12px * var(--ss-fs)); line-height: 1.55; letter-spacing: 0; -webkit-font-smoothing: none; }
+.ss-hp-dot :is(button, input, textarea, select, summary, b, small, h3, h4, h5) { font-family: inherit; }
+.ss-hp-dot .ss-hp-book { font-size: 1em; }
+.ss-hp-dot :is(b, strong, h3, h4, h5, .ss-hp-title) { font-weight: 700; }
 /* 📒 미니홈피 화면 (v2.8) — 상태창을 전체화면으로 열었을 때만. 수첩 틀을 씌우고 안쪽은 평소 상태창 그대로
    색은 미트볼콘(크림 털 · 민트 목걸이 · 노란 별 · 복숭아 귀)에서 가져옴. 테마와 상관없이 이 화면만의 종이 색을 쓴다 */
 .ss-root.ss-hompy {
@@ -27,7 +34,7 @@
     background: var(--hp-cover); border-radius: 22px; box-shadow: 0 0 0 2px var(--hp-line), 0 10px 0 -4px #e9d9bd, 0 18px 30px rgba(120, 90, 60, .18); }
 .ss-hp-book::before { content: ''; position: absolute; inset: 6px; border: 2px dashed var(--hp-line); border-radius: 17px; pointer-events: none; }
 .ss-hp-top { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; padding: 2px 10px 0; position: relative; min-width: 0; }
-.ss-hp-count { font-size: .72em; letter-spacing: .08em; color: var(--hp-dim); white-space: nowrap; }
+.ss-hp-count { font-size: .9em; letter-spacing: .04em; color: var(--hp-dim); white-space: nowrap; }
 .ss-hp-count b { color: #e2664f; } .ss-hp-count i { font-style: normal; opacity: .5; margin: 0 4px; }
 .ss-hp-title { flex: 1 1 0; min-width: 3em; font-size: 1.15em; color: var(--hp-mint-d); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* 왼쪽 쪽: 프로필 */
@@ -35,31 +42,32 @@
 .ss-hp-left { grid-column: 1; min-height: 0; overflow: hidden; padding: 10px; }
 .ss-hp-left::-webkit-scrollbar { display: none; }
 .ss-hp-today { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 9px; border: 1.5px solid var(--hp-line); border-radius: 8px; background: #fff; }
-.ss-hp-today small { font-size: .68em; letter-spacing: .1em; color: var(--hp-mint-d); }
+.ss-hp-today small { font-size: .85em; letter-spacing: .04em; color: var(--hp-mint-d); }
 .ss-hp-today b { font-size: .9em; }
 .ss-hp-photo { position: relative; aspect-ratio: 1; width: min(100%, 24dvh); justify-self: center; border: 1.5px solid var(--hp-line); border-radius: 10px; cursor: pointer; display: grid; place-items: center;
     background: radial-gradient(circle at 50% 62%, #fff 0 46%, transparent 47%), repeating-linear-gradient(45deg, #fdf0e6 0 10px, #fff7ee 10px 20px); }
 .ss-hp-photo img { width: 82%; height: 82%; object-fit: contain; }
+.ss-hp-photo.mine { background: #fff; padding: 5px; } .ss-hp-photo.mine img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
 .ss-hp-tape { position: absolute; top: -9px; left: 50%; width: 64px; height: 18px; transform: translateX(-50%) rotate(-3deg); background: rgba(95, 189, 180, .55); border-left: 2px dotted rgba(255, 255, 255, .8); border-right: 2px dotted rgba(255, 255, 255, .8); }
-.ss-hp-intro { margin: 0; font-size: .86em; line-height: 1.55; color: var(--hp-mint-d); text-align: center; overflow-wrap: anywhere; }
+.ss-hp-intro { margin: 0; padding-bottom: 7px; border-bottom: 1px dashed var(--hp-line); font-size: .9em; line-height: 1.5; color: var(--hp-dim); overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
 .ss-hp-links { display: flex; flex-wrap: wrap; gap: 2px 10px; padding-bottom: 6px; border-bottom: 1px dashed var(--hp-line); }
 .ss-hp-links button, .ss-hp-friends button { all: unset; cursor: pointer; }
 .ss-hp-links button { font-size: .7em; font-weight: 700; letter-spacing: .06em; color: var(--hp-dim); }
 .ss-hp-links button:hover { color: var(--hp-mint-d); }
 .ss-hp-links button:focus { outline: none; } .ss-hp-links button:focus-visible { text-decoration: underline; color: var(--hp-mint-d); }
-.ss-hp-mini { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 3px 8px; font-size: .82em; }
+.ss-hp-mini { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 2px 8px; font-size: .9em; }
 .ss-hp-mini dt { color: var(--hp-dim); } .ss-hp-mini dd { margin: 0; overflow-wrap: anywhere; }
-.ss-hp-bars { display: grid; gap: 5px; font-size: .78em; }
-.ss-hp-bars > div { display: grid; grid-template-columns: 3.4em 1fr max-content; align-items: center; gap: 6px; }
+.ss-hp-bars { display: grid; gap: 4px; font-size: .88em; }
+.ss-hp-bars > div { display: grid; grid-template-columns: 4.6em 1fr max-content; align-items: center; gap: 6px; }
 .ss-hp-bars span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--hp-dim); }
 .ss-hp-bars i { height: 8px; border-radius: 8px; background: #f1e6d2; overflow: hidden; }
 .ss-hp-bars i b { display: block; height: 100%; border-radius: 8px; background: var(--hp-mint); }
 .ss-hp-bars > div:nth-child(2) i b { background: var(--hp-star); } .ss-hp-bars > div:nth-child(3) i b { background: var(--hp-peach); }
 .ss-hp-friends { display: grid; gap: 5px; }
-.ss-hp-friends h5 { margin: 0; font-size: .72em; letter-spacing: .1em; color: var(--hp-mint-d); }
+.ss-hp-friends h5 { margin: 0; font-size: .9em; color: var(--hp-mint-d); }
 .ss-hp-friends button { display: flex; align-items: center; gap: 7px; padding: 3px 4px; border-radius: 8px; }
 .ss-hp-friends button:hover { background: #f6efe0; }
-.ss-hp-friends span { display: grid; min-width: 0; line-height: 1.25; } .ss-hp-friends b { font-size: .86em; } .ss-hp-friends small { color: var(--hp-dim); font-size: .74em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ss-hp-friends span { display: grid; min-width: 0; line-height: 1.25; } .ss-hp-friends b { font-size: .95em; } .ss-hp-friends small { color: var(--hp-dim); font-size: .85em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ss-hp-friends :is(img, .ss-av) { width: 28px; height: 28px; flex: 0 0 auto; }
 .ss-hp-deco { display: flex; justify-content: space-between; align-items: flex-end; margin: 2px -4px -8px; }
 .ss-hp-deco img { width: 64px; height: 64px; object-fit: contain; } .ss-hp-deco img:last-child { transform: scaleX(-1); }
@@ -79,24 +87,42 @@
 .ss-hp-right > .ss-tabs + .ss-toolrow .ss-toolrow-t { display: none; }
 .ss-hp-right > .ss-toolrow { margin-top: 0; padding-bottom: 6px; }
 .ss-hompy .ss-tool span { display: none; } .ss-hompy .ss-tool { padding: 0 7px; height: 28px; }
-.ss-hompy .ss-tabs > button { padding-top: 5px; padding-bottom: 5px; }
+.ss-hompy .ss-tabs > button { padding: 4px 10px; font-size: .95em; }
 .ss-hp-right > .ss-body { margin-top: 8px; }
 /* 📐 홈 쪽: 스크롤 없이 한 화면에 — 사진이 남는 높이를 채우고, 본문은 넘치면 줄어든다 (hompy.js fitHompy) */
 .ss-hp-right.ss-hp-fit { display: flex; flex-direction: column; overflow: hidden; }
 .ss-hp-right.ss-hp-fit.ss-hp-over { overflow-y: auto; }
 .ss-hp-fit > * { flex: 0 0 auto; }
 .ss-hp-fit > .ss-toolrow { position: absolute; top: 6px; right: 10px; margin: 0; padding: 0; border: 0; } .ss-hp-fit > .ss-toolrow .ss-toolrow-t { display: none; }
-.ss-hp-fit > .ss-tabs { padding-right: 150px; justify-content: flex-start; margin-top: 0; }
+.ss-hompy .ss-tabs { justify-content: flex-start !important; }
+.ss-hp-fit > .ss-tabs { padding-right: 150px; margin-top: 0; }
 .ss-hp-fit > .ss-hp-main { flex: 1 1 0; min-height: 120px; display: flex; flex-direction: column; }
 .ss-hp-fit > .ss-hp-main img { flex: 1 1 0; min-height: 0; height: 0; max-height: none; }
 .ss-hp-fit .ss-hero, .ss-hp-fit .ss-callout.help { display: none; } /* 제목 · 소개는 왼쪽 쪽에 있고, 도우미는 윗줄 단추에 있음 */
 .ss-hp-left-in { display: grid; gap: 8px; align-content: start; }
-/* 🖼 홈의 큰 사진 — 기본은 홈 본문 바로 위 (↓ 단추로 맨 아래) */
+/* 홈 쪽 본문 = 「Updated news」 줄 목록: 왼쪽 쪽에 이미 있는 칸은 숨기고, 남은 칸(퀘스트 · 뉴스 · 연락 …)을 꼬리표 달린 한 줄씩으로 */
+.ss-hp-fit .ss-partbar, .ss-hp-fit .ss-home-grid > :is([data-w="bars"], [data-w="date"], [data-w="loc"], [data-w="cash"], [data-w="rel"], [data-w="diff"]) { display: none; }
+.ss-hp-fit .ss-home-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; align-items: start; }
+.ss-hp-fit .ss-home-grid.ss-hp-nonews { display: none; }
+.ss-hp-fit .ss-home-grid::before { content: 'Updated news'; grid-column: 1 / -1; font-weight: 700; color: var(--hp-mint-d); padding-bottom: 3px; margin-bottom: 2px; border-bottom: 1.5px solid var(--hp-line); }
+.ss-hp-fit .ss-mini-w { display: flex; align-items: baseline; gap: 7px; padding: 4px 0; border: 0; border-bottom: 1px dotted var(--hp-line); border-radius: 0; background: none !important; min-width: 0; }
+.ss-hp-fit .ss-mini-w::before { flex: 0 0 auto; padding: 0 5px; border-radius: 3px; color: #fff; background: var(--hp-mint); font-size: .86em; line-height: 1.5; content: '소식'; }
+.ss-hp-fit .ss-mini-w:is([data-w="quest"], [data-w="fate"], [data-w="cond"])::before { background: #ef8f7a; }
+.ss-hp-fit .ss-mini-w:is([data-w="contact"], [data-w="mind"])::before { background: #7ba7dd; }
+.ss-hp-fit .ss-mini-w[data-w="quest"]::before { content: '퀘스트'; } .ss-hp-fit .ss-mini-w[data-w="news"]::before { content: '뉴스'; } .ss-hp-fit .ss-mini-w[data-w="contact"]::before { content: '연락'; }
+.ss-hp-fit .ss-mini-w[data-w="mind"]::before { content: '속마음'; } .ss-hp-fit .ss-mini-w[data-w="cond"]::before { content: '상태'; } .ss-hp-fit .ss-mini-w[data-w="fate"]::before { content: '운명'; }
+.ss-hp-fit .ss-mini-w[data-w="music"]::before { content: '음악'; } .ss-hp-fit .ss-mini-w[data-w="custom"]::before { content: '내 탭'; }
+.ss-hp-fit .ss-mini-w > * { flex: 1 1 0; min-width: 0; }
+.ss-hp-fit .ss-mini-w :is(.ss-mini-line, .ss-mini-quests) > i:first-child, .ss-hp-fit .ss-mini-w .ss-mini-line > i { display: none; }
+.ss-hp-fit .ss-mini-w .ss-mini-line { gap: 0; } .ss-hp-fit .ss-mini-w .ss-mini-line > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ss-hp-fit > .ss-body { margin-top: 6px; }
+/* 🖼 홈의 큰 사진 — 기본은 소식 아래 (↑ 단추로 맨 위) · 틀을 꽉 채운다 */
 .ss-hp-addphoto { margin-top: 14px; display: flex; justify-content: center; padding: 8px; border: 1.5px dashed var(--hp-line); border-radius: 12px; }
-.ss-hp-main { position: relative; margin: 10px 0 0; padding: 6px; background: #fff; border: 1.5px solid var(--hp-line); border-radius: 12px; box-shadow: 3px 3px 0 #efe3cc; }
+.ss-hp-main { position: relative; margin: 10px 0 0; padding: 5px; background: #fff; border: 1.5px solid var(--hp-line); border-radius: 12px; box-shadow: 3px 3px 0 #efe3cc; }
 .ss-hp-main.top { margin-top: 8px; }
-.ss-hp-main img { display: block; width: 100%; max-height: min(46dvh, 440px); object-fit: contain; border-radius: 7px; background: #faf4e8; }
-.ss-hp-main figcaption { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 2px 0; }
+.ss-hp-main img { display: block; width: 100%; max-height: min(46dvh, 440px); object-fit: cover; object-position: center 35%; border-radius: 7px; background: #faf4e8; }
+.ss-hp-main figcaption { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 3px 3px 0; }
+.ss-hp-main figcaption .ss-ib { width: 24px; height: 24px; }
 .ss-hp-main figcaption > button { all: unset; cursor: pointer; flex: 1; min-width: 0; color: var(--hp-mint-d); font-size: .9em; overflow-wrap: anywhere; }
 .ss-hp-main figcaption > button i { color: var(--hp-dim); }
 .ss-hp-main figcaption > span { display: flex; gap: 2px; flex: 0 0 auto; opacity: .55; } .ss-hp-main figcaption > span:hover { opacity: 1; }

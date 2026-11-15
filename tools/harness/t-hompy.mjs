@@ -33,22 +33,27 @@ for (const width of [1300, 390]) {
             { const pk = document.querySelector('.ss-hp-pick'); out.pickerOpens = !!pk && pk.querySelectorAll('.ss-hp-face').length >= 16 && !!pk.querySelector('[data-choice="upload"]') && !!pk.querySelector('[data-choice="del:0"]');
               pk?.querySelector('[data-choice="con:heart"]')?.click(); await wait(400); out.pickerSets = core.settings().hpFace === 'con:heart' && face().endsWith('/heart.webp'); }
             core.settings().hpFace = 'auto'; core.settings().hpFaces = []; shell.rerenderPanels(true); await wait(150);
+            // 홈의 소식 줄: 왼쪽 쪽과 겹치는 칸은 숨김 · 도트 글꼴 (끄면 실리 글꼴)
+            if (innerWidth > 860) { const vis = (k) => { const w = el.querySelector(`.ss-hp-fit .ss-home-grid [data-w="${k}"]`); return !!w && w.offsetParent !== null; };
+              out.dupesHidden = !vis('bars') && !vis('date') && !vis('loc') && !vis('cash') && !vis('rel') && !el.querySelector('.ss-hp-links'); }
+            await document.fonts.ready; out.dotFont = el.querySelector('.ss-hompy').classList.contains('ss-hp-dot') && getComputedStyle(el.querySelector('.ss-hp-title')).fontFamily.includes('MeatballDot') && [...document.fonts].some(f => f.family.includes('MeatballDot') && f.status === 'loaded');
+            core.settings().hpDot = false; shell.rerenderPanels(true); await wait(150); out.dotOff = !el.querySelector('.ss-hompy').classList.contains('ss-hp-dot'); core.settings().hpDot = true; shell.rerenderPanels(true); await wait(150);
             out.closeButton = !!el.querySelector('.ss-hp-url [data-hp="close"]');
             // 🖼 홈의 큰 사진: 없으면 단추만 · 넣으면 보임 · 한마디 · 빼기 · 다른 탭엔 없음
             out.photoEmpty = !!el.querySelector('.ss-hp-right .ss-hp-addphoto [data-hp="photo"]') && !el.querySelector('.ss-hp-main');
             core.getMeta().hpPhoto = { src: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', cap: '우리 집 <b>고양이</b>' }; shell.rerenderPanels(true); await wait(200);
             out.photoShown = !!el.querySelector('.ss-hp-main img') && el.querySelector('.ss-hp-main figcaption').textContent.includes('<b>고양이</b>') && !el.querySelector('.ss-hp-addphoto');
             await wait(300); { const r = el.querySelector('.ss-hp-right'); out.homeWithPhotoNoScroll = innerWidth < 861 || (r.scrollHeight <= r.clientHeight + 2 && el.querySelector('.ss-hp-main').getBoundingClientRect().height >= 110) || JSON.stringify([r.scrollHeight, r.clientHeight, el.querySelector('.ss-hp-main').getBoundingClientRect().height]); }
-            { const fig = el.querySelector('.ss-hp-main'), body = el.querySelector('.ss-hp-right .ss-body'); out.photoOnTop = !!(fig.compareDocumentPosition(body) & Node.DOCUMENT_POSITION_FOLLOWING);
+            { const fig = el.querySelector('.ss-hp-main'), body = el.querySelector('.ss-hp-right .ss-body'); out.photoBelowNews = !!(body.compareDocumentPosition(fig) & Node.DOCUMENT_POSITION_FOLLOWING);
               el.querySelector('[data-hp="photopos"]').click(); await wait(300); const f2 = el.querySelector('.ss-hp-main'), b2 = el.querySelector('.ss-hp-right .ss-body');
-              out.photoMovesDown = core.getMeta().hpPhoto.pos === 'bottom' && !!(b2.compareDocumentPosition(f2) & Node.DOCUMENT_POSITION_FOLLOWING); }
+              out.photoMovesUp = core.getMeta().hpPhoto.pos === 'top' && !!(f2.compareDocumentPosition(b2) & Node.DOCUMENT_POSITION_FOLLOWING); }
             el.querySelector('[data-hp="photodel"]').click(); await wait(300);
             out.photoRemoved = !core.getMeta().hpPhoto && !!el.querySelector('.ss-hp-addphoto');
             // 틀 안에서 묶음 · 탭 이동
             const g = [...el.querySelectorAll('.ss-hp-index .ss-groups > button')].find(b => !b.classList.contains('on')); g.click(); await wait(300);
             out.groupMoves = !!el.querySelector('.ss-hompy') && el.querySelector('.ss-hp-index .ss-groups > button.on')?.dataset.arg === g.dataset.arg;
             out.enterOnce = !el.querySelector('.ss-hompy').classList.contains('ss-hp-enter');
-            el.querySelector('.ss-hp-links [data-arg="manage"]').click(); await wait(300);
+            el.querySelector('.ss-hp-top [data-act="tab"][data-arg="manage"]').click(); await wait(300);
             out.otherTabsScrollInside = innerWidth < 861 || (!el.querySelector('.ss-hp-right').classList.contains('ss-hp-fit') && getComputedStyle(el.querySelector('.ss-hp-right')).overflowY === 'auto');
             out.linkMoves = el._ss.tab === 'manage' && !!el.querySelector('.ss-hompy') && !el.querySelector('.ss-hp-addphoto');
             out.noOverflow = document.documentElement.scrollWidth <= innerWidth + 1 && el.querySelector('.ss-hompy').scrollWidth <= innerWidth + 1 || `${el.querySelector('.ss-hompy').scrollWidth} > ${innerWidth}`;

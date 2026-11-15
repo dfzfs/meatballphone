@@ -15,7 +15,7 @@ import { hintSetting } from './tips.js';
 
 // ───── 확장 설정 서랍 ─────
 // 바꾸면 화면을 바로 다시 그려야 하는 스위치 (v2.7.3)
-const VIEW_KEYS = new Set(['hompyFull', 'loopMode', 'swipeGhost', 'fateDebt', 'tensionOn', 'realGap', 'glitchView', 'ledgerKnow', 'ledgerPromise', 'ledgerHook', 'affMask', 'peekCost', 'relScar', 'mirrorSheet', 'memoryDrift', 'meddleOn', 'tasteBook', 'crossMail', 'groupChat', 'extraJudge', 'questExpire', 'memoOn', 'albumOn', 'peekOn', 'recordOn', 'freshDot', 'pipCheck', 'questJudge', 'msgCard', 'chipOutside', 'contactSimple', 'contactSimpleReflect', 'relStagesOn', 'relShowMemo', 'relShowWants', 'relShowLife', 'relShowPairs', 'relShowBtns', 'relShowNext', 'relShowUnlock']);
+const VIEW_KEYS = new Set(['hpDot', 'hompyFull', 'loopMode', 'swipeGhost', 'fateDebt', 'tensionOn', 'realGap', 'glitchView', 'ledgerKnow', 'ledgerPromise', 'ledgerHook', 'affMask', 'peekCost', 'relScar', 'mirrorSheet', 'memoryDrift', 'meddleOn', 'tasteBook', 'crossMail', 'groupChat', 'extraJudge', 'questExpire', 'memoOn', 'albumOn', 'peekOn', 'recordOn', 'freshDot', 'pipCheck', 'questJudge', 'msgCard', 'chipOutside', 'contactSimple', 'contactSimpleReflect', 'relStagesOn', 'relShowMemo', 'relShowWants', 'relShowLife', 'relShowPairs', 'relShowBtns', 'relShowNext', 'relShowUnlock']);
 // 「부가 기능 한 번에 끄기」 — 상태 계산 · 본편 롤플에 꼭 필요하지 않은 것만
 const LIGHT_OFF = { memoOn: false, albumOn: false, peekOn: false, recordOn: false, daySummary: false, featureTips: false, showMascot: false, mascotBuddy: false, musicToast: false };
 function profileOptions(sel) {
@@ -202,6 +202,7 @@ export function renderSettings() {
             <label class="checkbox_label"><input type="checkbox" data-s="ledgerHook" ${s.ledgerHook === true ? 'checked' : ''}> <b>🧵 떡밥 장부</b> <small>(던져 놓고 잊힌 복선을 적어 두고, 오래되면 회수하라고 다시 보내요)</small></label>
             <b class="ss-set-h">데이터 · 화면</b>
             <label class="checkbox_label"><input type="checkbox" data-s="hompyFull" ${s.hompyFull !== false ? 'checked' : ''}> <b>📒 전체화면은 미니홈피 모양으로</b> <small>(상태창의 전체화면 단추를 누르면 수첩 모양 홈피로 열려요 — 왼쪽은 프로필 쪽, 오른쪽은 평소 상태창, 옆에 색인 탭. 화면만 바뀌고 계산 · 토큰은 그대로예요)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="hpDot" ${s.hpDot !== false ? 'checked' : ''}> 미니홈피는 도트 글꼴로 <small>(갈무리11 · 끄면 쓰던 실리 글꼴 그대로)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="updateNotice" ${s.updateNotice !== false ? 'checked' : ''}> 📣 업데이트하면 「바뀐 점」을 한 번 알려 주기</label>
             <div class="ss-set-btns"><button class="menu_button" data-s-act="whatsnew"><i class="fa-solid fa-bullhorn"></i> 업데이트 내역</button></div>
             <label class="checkbox_label"><input type="checkbox" data-s="cardOffer" ${s.cardOffer ? 'checked' : ''}> 카드에 상태창이 들어 있으면 새 채팅에서 불러올지 물어보기</label>

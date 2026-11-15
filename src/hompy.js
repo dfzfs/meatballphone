@@ -46,7 +46,7 @@ function mood(s, meta, nNew) {
 function photoHTML(meta) {
     const p = meta.hpPhoto;
     if (!p?.src) return '<div class="ss-hp-addphoto"><button class="ss-btn sm ghost" data-hp="photo"><i class="fa-solid fa-image"></i> 여기에 큰 사진 넣기</button></div>';
-    const top = p.pos !== 'bottom';
+    const top = p.pos === 'top'; // 기본은 소식 아래 (미니홈피처럼) · ↑ 단추로 맨 위
     return `<figure class="ss-hp-main ${top ? 'top' : ''}"><img src="${esc(p.src)}" alt=""><figcaption><button data-hp="cap" title="눌러서 한마디 고치기">${p.cap ? esc(p.cap) : '<i>한마디 적기…</i>'}</button>
         <span><button class="ss-ib" data-hp="photopos" title="${top ? '사진을 홈 맨 아래로' : '사진을 홈 맨 위로'}"><i class="fa-solid ${top ? 'fa-arrow-down' : 'fa-arrow-up'}"></i></button><button class="ss-ib" data-hp="photo" title="사진 바꾸기"><i class="fa-solid fa-image"></i></button><button class="ss-ib" data-hp="photodel" title="사진 빼기"><i class="fa-solid fa-trash-can"></i></button></span></figcaption></figure>`;
 }
@@ -78,6 +78,8 @@ export function fitHompy(el, tries = 0) {
     const fig = right.querySelector(':scope > .ss-hp-main');
     let used = 0; for (const ch of right.children) { if (ch === body || ch === fig || getComputedStyle(ch).position === 'absolute') continue; const cs = getComputedStyle(ch); used += ch.offsetHeight + parseFloat(cs.marginTop) + parseFloat(cs.marginBottom); }
     const room = right.clientHeight - pad(right) - used - 16;
+    // 소식 줄: 왼쪽 쪽에 이미 있는 칸(게이지 · 날짜 · 장소 · 돈 · 관계)은 CSS로 숨겨져 있음 → 남은 게 없으면 소식 칸을 통째로 숨긴다
+    const grid = body.querySelector('.ss-home-grid'); if (grid) grid.classList.toggle('ss-hp-nonews', ![...grid.children].some(w => w.offsetParent !== null));
     const forBody = fig ? room - Math.max(150, room * 0.52) : room;
     if (!shrinkToFit(body, forBody, () => body.scrollHeight)) right.classList.add('ss-hp-over'); // 그래도 안 들어가면 그때만 스크롤
 }
@@ -96,10 +98,10 @@ export function initHompy() {
         const done = () => { saveMeta(); if (el?.isConnected) app.renderPanel?.(el); };
         try {
             if (b.dataset.hp === 'photodel') { delete meta.hpPhoto; return done(); }
-            if (b.dataset.hp === 'photopos') { if (meta.hpPhoto) meta.hpPhoto.pos = meta.hpPhoto.pos === 'bottom' ? 'top' : 'bottom'; return done(); }
+            if (b.dataset.hp === 'photopos') { if (meta.hpPhoto) meta.hpPhoto.pos = meta.hpPhoto.pos === 'top' ? 'bottom' : 'top'; return done(); }
             if (b.dataset.hp === 'cap') { const v = await askInput('사진 아래 한마디', '비워 두면 지워져요.', meta.hpPhoto?.cap ?? ''); if (v === null || !meta.hpPhoto) return; meta.hpPhoto.cap = short(v.trim(), 80); return done(); }
             const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
-            inp.onchange = async () => { try { const f = inp.files?.[0]; if (!f) return; meta.hpPhoto = { src: await shrinkImage(f, 900, 0.82), cap: meta.hpPhoto?.cap ?? '', pos: meta.hpPhoto?.pos ?? 'top' }; done(); } catch (err) { ssErr(err); toastr.error('사진을 넣지 못했어요. 다른 그림으로 해 보세요.', TITLE); } };
+            inp.onchange = async () => { try { const f = inp.files?.[0]; if (!f) return; meta.hpPhoto = { src: await shrinkImage(f, 900, 0.82), cap: meta.hpPhoto?.cap ?? '', pos: meta.hpPhoto?.pos ?? 'bottom' }; done(); } catch (err) { ssErr(err); toastr.error('사진을 넣지 못했어요. 다른 그림으로 해 보세요.', TITLE); } };
             inp.click();
         } catch (err) { ssErr(err); }
     }, true);
@@ -114,16 +116,16 @@ export function hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, 
     const friends = rel ? rel.user.filter(r => !r.out).sort((a, b) => b.aff + b.trust - a.aff - a.trust).slice(0, 3) : [];
     const AX = rel ? relAxes(rel) : null;
     const mini = [cal ? ['날짜', `${dateShort(cal)} ${cal.time}`] : null, here ? ['장소', here] : null, w ? ['재산', `${fmtNum(w.cash)} ${w.currency ?? ''}`] : null].filter(Boolean);
-    const photo = tab === 'home' ? photoHTML(meta) : '', photoTop = !!photo && !!meta.hpPhoto?.src && meta.hpPhoto.pos !== 'bottom';
-    return `<div class="${rootCls} ss-hompy ${enter ? 'ss-hp-enter' : ''}">
+    const photo = tab === 'home' ? photoHTML(meta) : '', photoTop = !!photo && !!meta.hpPhoto?.src && meta.hpPhoto.pos === 'top';
+    const mine = String(settings().hpFace ?? '').startsWith('my:') && !!settings().hpFaces?.[Number(String(settings().hpFace).slice(3))];
+    return `<div class="${rootCls} ss-hompy ${settings().hpDot !== false ? 'ss-hp-dot' : ''} ${enter ? 'ss-hp-enter' : ''}">
         <div class="ss-hp-url"><i></i><i></i><i></i><span>https://meatball.home/<b>${esc(short(c.title || TITLE, 30))}</b></span><button class="ss-hp-x" data-hp="close" aria-hidden="false" title="닫기"><i class="fa-solid fa-xmark"></i></button><em></em></div>
         <div class="ss-hp-book">
             <div class="ss-hp-top"><span class="ss-hp-count">TURN <b>${s.turn ?? 0}</b> <i>|</i> TOTAL <b>${total}</b></span><b class="ss-hp-title">${esc(c.title || TITLE)}</b>${headHTML}</div>
             <aside class="ss-hp-left"><div class="ss-hp-left-in">
                 <div class="ss-hp-today"><small>TODAY IS…</small><b>${esc(feel)}</b></div>
-                <div class="ss-hp-photo" data-hp="face" role="button" title="눌러서 프로필 그림 바꾸기"><img src="${esc(faceSrc(con))}" alt=""><i class="ss-hp-tape"></i></div>
+                <div class="ss-hp-photo ${mine ? 'mine' : ''}" data-hp="face" role="button" title="눌러서 프로필 그림 바꾸기"><img src="${esc(faceSrc(con))}" alt=""><i class="ss-hp-tape"></i></div>
                 <p class="ss-hp-intro">${esc(short(c.summary, 110)) || '아직 소개 글이 없어요.'}</p>
-                <div class="ss-hp-links"><button data-act="tab" data-arg="home">▸ HOME</button><button data-act="tab" data-arg="manage">▸ EDIT</button><button data-act="tab" data-arg="record">▸ HISTORY</button></div>
                 ${mini.length ? `<dl class="ss-hp-mini">${mini.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}
                 ${bars.length ? `<div class="ss-hp-bars">${bars.map(b => `<div><span>${esc(b.name)}</span><i><b style="width:${b.max > 0 ? Math.max(0, Math.min(100, (b.cur / b.max) * 100)) : 0}%"></b></i><small>${fmtNum(b.cur)}</small></div>`).join('')}</div>` : ''}
                 ${friends.length ? `<div class="ss-hp-friends"><h5>일촌</h5>${friends.map(r => `<button data-act="tab" data-arg="rel" title="관계 탭 열기">${avatar(r.name)}<span><b>${esc(r.name)}</b><small>${r.label ? `${esc(r.label)} · ` : ''}${esc(AX.aff)} ${r.aff}</small></span></button>`).join('')}</div>` : ''}
