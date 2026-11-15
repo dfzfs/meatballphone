@@ -668,3 +668,7 @@ body.ss-skin-paper .ss-hp-col .ss-hp-win::before { -webkit-mask-size: 18px; mask
 body.ss-skin-gothic .ss-hp-wt b { letter-spacing: .2em; text-indent: .2em; white-space: nowrap; } body.ss-skin-gothic .ss-hp-col .ss-hp-wt::before, body.ss-skin-gothic .ss-hp-col .ss-hp-wt::after { flex-basis: 16px; }
 body:is(.ss-skin-paper, .ss-skin-ink, .ss-skin-term, .ss-skin-gothic, .ss-skin-phone) .ss-hp-wt b { white-space: nowrap; overflow: hidden; }
 body.ss-skin-phone .ss-hp-col { padding: 0 6px 14px; margin: 0 -6px; }
+@media (max-width: 640px) { /* 폰: 제목이 잘리지 않게 — 제목이 먼저 자리를 잡고, 머리 단추들이 남는 폭 안에서 옆으로 밀린다 */
+    .ss-hp-url .ss-hp-addr { flex: 0 0 auto; max-width: 62%; overflow: visible; white-space: normal; overflow-wrap: anywhere; } .ss-hompy .ss-hp-url .ss-head { flex: 1 1 0; min-width: 0; }
+    body.ss-skin-gothic .ss-hp-url { justify-content: flex-start; } body.ss-skin-gothic .ss-hp-addr b { letter-spacing: .16em; }
+}
