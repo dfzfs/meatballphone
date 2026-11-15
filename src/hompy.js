@@ -33,31 +33,67 @@ async function pickFace(redraw) {
 // 🎨 꾸미기 (모든 채팅 공통): 색 · 바탕 무늬 · 글꼴 · 보일 창
 export const THEMES = [['분홍', 340, 1], ['회색', 260, 0.08], ['하늘', 215, 1], ['민트', 150, 0.8], ['빨강', 2, 1], ['살구', 22, 1], ['노랑', 46, 1], ['보라', 268, 1]];
 export const PATTERNS = { grid: '모눈', dot: '물방울', stripe: '줄무늬', none: '없음' };
-const SIDE = { profile: '프로필', stats: '상태', friends: '일촌', extra: '소식 창들', photo: '사진' };
 const themeOf = () => THEMES[Number(settings().hpTheme) || 0] ?? THEMES[0];
 const patOf = () => (PATTERNS[settings().hpPattern] ? settings().hpPattern : 'grid');
-const winOn = (k) => settings().hpWins?.[k] !== false;
-// 🪟 HUD · 미니창에도 같은 색 · 테두리 (설정 hpSkinHud · 기본 켬): body에 색 값과 표시를 걸어 둔다
+// 🪟 HUD · 미니창 · 보통 상태창에도 같은 색 · 테두리 (설정 hpSkinHud · 기본 켬): body에 색 값과 표시를 걸어 둔다
 export function applyRetro() {
     const b = document.body; if (!b) return; const [, h, s] = themeOf(), on = settings().hpSkinHud !== false;
     b.classList.toggle('ss-retro', on); b.classList.toggle('ss-retro-dot', on && settings().hpDot !== false);
     b.style.setProperty('--hp-h', String(h)); b.style.setProperty('--hp-s', String(s));
 }
-const win = (key, title, body, cls = '') => (body ? `<section class="ss-hp-win ${cls}" data-win="${key}"><div class="ss-hp-wt"><b>${title}</b><i>♡♡♡</i></div><div class="ss-hp-wb">${body}</div></section>` : '');
+// 창 하나하나의 자리: settings().hpLayout = { l: [왼쪽 줄 순서], r: [오른쪽 줄 순서], off: [숨긴 창], main: 'c'|'l'|'r'(가운데 창 위치), lw · rw: 0~2(줄 폭) }
+export const WINS = { profile: '프로필', intro: '소개', stats: '상태', friends: '일촌', quest: '퀘스트', news: '뉴스', contact: '연락', mind: '속마음', cond: '상태 이상', fate: '저주 · 빚', music: 'BGM', custom: '내 탭', photo: '사진' };
+const WIN_T = { profile: 'profile', intro: 'about', stats: 'status', photo: 'photo' };
+const FS = { s: 9.5, m: 11, l: 12.5 }; // 글씨 크기(px) — 고르지 않았으면 화면 배율이 큰 기기(노트북 150%↑)는 작게
+const fsOf = () => (FS[settings().hpFs] ? settings().hpFs : (window.devicePixelRatio || 1) >= 1.5 ? 's' : 'm');
+const COLW = ['130px', 'clamp(150px, 15%, 200px)', 'clamp(210px, 23%, 320px)'];
+let editWins = false; // 창 옮기기 중 (창마다 ▲▼⇄✕ 단추)
+export function hpLayout() {
+    const d = settings().hpLayout ?? {}, all = Object.keys(WINS), ok = (x) => (Array.isArray(x) ? x.filter(k => WINS[k]) : null);
+    const l = ok(d.l) ?? ['profile', 'intro', 'stats'], r0 = (ok(d.r) ?? []).filter(k => !l.includes(k));
+    return { l: [...new Set(l)], r: [...new Set([...r0, ...all.filter(k => !l.includes(k) && !r0.includes(k))])], off: ok(d.off) ?? [], main: ['l', 'c', 'r'].includes(d.main) ? d.main : 'c', lw: [0, 1, 2].includes(d.lw) ? d.lw : 1, rw: [0, 1, 2].includes(d.rw) ? d.rw : 1 };
+}
+// 한 탭(「모음」)으로 합칠 자잘한 탭 — 묶음 안에 2개 이상 켜져 있을 때만 합쳐진다
+export const MINOR_ALL = { music: '추천 음악', album: '추억 앨범', record: '플레이 기록', ach: '업적', memo: '메모', custom: '내 탭', dice: '주사위', fate: '운명' };
+export const hpMinor = () => (Array.isArray(settings().hpMinor) ? settings().hpMinor.filter(k => MINOR_ALL[k]) : ['music', 'album', 'record']);
+const saveLayout = (L) => { settings().hpLayout = L; saveSettings(); };
+// 창 옮기기: up · down(같은 줄에서 보이는 이웃과 자리 바꿈) · side(다른 줄로) · off(숨김)
+function moveWin(key, how, shown) {
+    const L = hpLayout(), side = L.l.includes(key) ? 'l' : 'r', arr = L[side], vis = shown.filter(k => arr.includes(k)), v = vis.indexOf(key);
+    if (how === 'off') L.off = [...new Set([...L.off, key])];
+    else if (how === 'side') { L[side] = arr.filter(k => k !== key); L[side === 'l' ? 'r' : 'l'].unshift(key); }
+    else { const other = vis[v + (how === 'up' ? -1 : 1)]; if (!other) return; const i = arr.indexOf(key), j = arr.indexOf(other); [arr[i], arr[j]] = [arr[j], arr[i]]; }
+    saveLayout(L);
+}
+const winOn = (k) => !hpLayout().off.includes(k);
+const win = (key, title, body, cls = '') => (body ? `<section class="ss-hp-win ${cls}" data-win="${key}"><div class="ss-hp-wt"><b>${title}</b>${editWins ? `<span class="ss-hp-wtools"><button data-hp="mv" data-arg="${key}:up" title="위로">▲</button><button data-hp="mv" data-arg="${key}:down" title="아래로">▼</button><button data-hp="mv" data-arg="${key}:side" title="반대쪽 줄로">⇄</button><button data-hp="mv" data-arg="${key}:off" title="숨기기 (꾸미기에서 다시 켜요)">✕</button></span>` : '<i>♡♡♡</i>'}</div><div class="ss-hp-wb">${body}</div></section>` : '');
 async function openDeco(redraw) {
     for (;;) {
-        const set = settings(), ti = Number(set.hpTheme) || 0, box = document.createElement('div'); box.className = 'ss-root ss-scope ss-hp-pick';
-        box.innerHTML = `<h3>🎨 미니홈피 꾸미기</h3><h4>색</h4><div class="ss-hp-faces">${THEMES.map(([n, h, s], i) => `<button class="ss-hp-sw ${ti === i ? 'on' : ''}" data-choice="theme:${i}" title="${n}" style="background:hsl(${h} ${Math.round(85 * s)}% 86%)"></button>`).join('')}</div>
-            <h4>바탕 무늬</h4><div class="ss-row-btns">${Object.entries(PATTERNS).map(([k, n]) => `<button class="ss-btn sm ${patOf() === k ? 'pri' : 'ghost'}" data-choice="pat:${k}">${n}</button>`).join('')}</div>
-            <h4>글꼴</h4><div class="ss-row-btns"><button class="ss-btn sm ${set.hpDot !== false ? 'pri' : 'ghost'}" data-choice="font:1">도트 글꼴</button><button class="ss-btn sm ${set.hpDot === false ? 'pri' : 'ghost'}" data-choice="font:0">실리 글꼴</button></div>
-            <h4>HUD · 미니창</h4><div class="ss-row-btns"><button class="ss-btn sm ${set.hpSkinHud !== false ? 'pri' : 'ghost'}" data-choice="skin:1">${set.hpSkinHud !== false ? '✓ ' : ''}HUD · 미니창도 같은 모양으로</button></div>
-            <h4>보일 창</h4><div class="ss-row-btns">${Object.entries(SIDE).map(([k, n]) => `<button class="ss-btn sm ${winOn(k) ? 'pri' : 'ghost'}" data-choice="win:${k}">${winOn(k) ? '✓ ' : ''}${n}</button>`).join('')}</div>`;
+        const set = settings(), ti = Number(set.hpTheme) || 0, L = hpLayout(), box = document.createElement('div'); box.className = 'ss-root ss-scope ss-hp-pick';
+        const seg = (k, cur, opts) => opts.map(([v, n]) => `<button class="ss-btn sm ${cur === v ? 'pri' : 'ghost'}" data-choice="${k}:${v}">${n}</button>`).join('');
+        box.innerHTML = `<h3>🎨 꾸미기</h3><h4>색</h4><div class="ss-hp-faces">${THEMES.map(([n, h, s], i) => `<button class="ss-hp-sw ${ti === i ? 'on' : ''}" data-choice="theme:${i}" title="${n}" style="background:hsl(${h} ${Math.round(85 * s)}% 86%)"></button>`).join('')}</div>
+            <h4>바탕 무늬</h4><div class="ss-row-btns">${seg('pat', patOf(), Object.entries(PATTERNS))}</div>
+            <h4>글꼴</h4><div class="ss-row-btns">${seg('font', set.hpDot !== false ? '1' : '0', [['1', '도트 글꼴'], ['0', '실리 글꼴']])}</div>
+            <div class="ss-row-btns"><small>글씨 크기</small>${seg('fs', fsOf(), [['s', '작게'], ['m', '보통'], ['l', '크게']])}</div>
+            <h4>창 자리</h4><div class="ss-row-btns"><button class="ss-btn sm pri" data-choice="edit:1"><i class="fa-solid fa-up-down-left-right"></i> 창 옮기기 ${editWins ? '끝내기' : '시작'}</button><small class="ss-hint">창마다 ▲▼(순서) · ⇄(반대쪽 줄) · ✕(숨기기) 단추가 생겨요.</small></div>
+            <div class="ss-row-btns"><small>가운데 창 위치</small>${seg('main', L.main, [['l', '왼쪽'], ['c', '가운데'], ['r', '오른쪽']])}</div>
+            <div class="ss-row-btns"><small>왼쪽 줄 폭</small>${seg('lw', String(L.lw), [['0', '좁게'], ['1', '보통'], ['2', '넓게']])}</div>
+            <div class="ss-row-btns"><small>오른쪽 줄 폭</small>${seg('rw', String(L.rw), [['0', '좁게'], ['1', '보통'], ['2', '넓게']])}</div>
+            <h4>「모음」 한 탭으로 합칠 탭 <small>(같은 묶음에 2개 이상일 때 합쳐져요)</small></h4><div class="ss-row-btns">${Object.entries(MINOR_ALL).map(([k, n]) => `<button class="ss-btn sm ${hpMinor().includes(k) ? 'pri' : 'ghost'}" data-choice="minor:${k}">${hpMinor().includes(k) ? '✓ ' : ''}${n}</button>`).join('')}</div>
+            <h4>보일 창 <small>(내용이 있는 창만 떠요)</small></h4><div class="ss-row-btns">${Object.entries(WINS).map(([k, n]) => `<button class="ss-btn sm ${L.off.includes(k) ? 'ghost' : 'pri'}" data-choice="win:${k}">${L.off.includes(k) ? '' : '✓ '}${n}</button>`).join('')}</div>
+            <h4>HUD · 미니창 · 보통 상태창</h4><div class="ss-row-btns"><button class="ss-btn sm ${set.hpSkinHud !== false ? 'pri' : 'ghost'}" data-choice="skin:1">${set.hpSkinHud !== false ? '✓ ' : ''}같은 모양으로</button><button class="ss-btn sm ghost" data-choice="reset:1">창 자리 처음으로</button></div>`;
         const pick = await choosePopup(box, '닫기'); if (!pick) return;
         const [k, v] = pick.split(':');
         if (k === 'theme') set.hpTheme = Number(v); if (k === 'pat') set.hpPattern = v; if (k === 'font') set.hpDot = v === '1';
-        if (k === 'win') (set.hpWins ??= {})[v] = !winOn(v);
+        if (k === 'win') saveLayout({ ...L, off: L.off.includes(v) ? L.off.filter(x => x !== v) : [...L.off, v] });
+        if (k === 'main') saveLayout({ ...L, main: v }); if (k === 'lw' || k === 'rw') saveLayout({ ...L, [k]: Number(v) });
+        if (k === 'reset') set.hpLayout = {};
+        if (k === 'fs') set.hpFs = v;
+        if (k === 'minor') { const m = hpMinor(); set.hpMinor = m.includes(v) ? m.filter(x => x !== v) : [...m, v]; }
         if (k === 'skin') set.hpSkinHud = set.hpSkinHud === false;
-        saveSettings(); applyRetro(); redraw();
+        if (k === 'edit') editWins = !editWins;
+        saveSettings(); applyRetro(); redraw(); if (k === 'skin' || k === 'theme' || k === 'font') { app.rerenderPanels?.(true); app.renderHud?.(); }
+        if (k === 'edit') return; // 창을 옮기러 가게 닫는다
     }
 }
 // 오늘의 기분: 지금 상태로 정한다 (토큰 0)
@@ -73,7 +109,7 @@ function mood(s, meta, nNew) {
     return ['hi', '좋은 하루'];
 }
 // 🖼 홈 쪽 아래의 큰 사진 (선택 · 이 채팅에만 · meta.hpPhoto = { src, cap }) — 안 넣으면 얇은 단추 한 줄만
-function photoHTML(meta) {
+export function photoHTML(meta) {
     const p = meta.hpPhoto;
     if (!p?.src) return '<div class="ss-hp-addphoto"><button class="ss-btn sm ghost" data-hp="photo"><i class="fa-solid fa-image"></i> 여기에 큰 사진 넣기</button></div>';
     const top = p.pos === 'top'; // 기본은 소식 아래 (미니홈피처럼) · ↑ 단추로 맨 위
@@ -82,7 +118,7 @@ function photoHTML(meta) {
 }
 // 📐 한 화면에 다 보이게 (넓은 화면): 홈 쪽은 스크롤 없이 — 사진이 남는 높이를 차지하고, 본문이 넘치면 본문을 줄여(zoom) 맞춘다.
 //   왼쪽 프로필 쪽도 넘치면 줄인다. 다른 탭은 내용이 길어서 오른쪽 쪽 안에서 스크롤. 좁은 화면(폰)은 그냥 아래로 스크롤.
-const MINZ = 0.45;
+const MINZ = 0.5;
 function shrinkToFit(box, room, nat) {
     box.style.zoom = '';
     if (room <= 0 || nat() <= room + 1) return true;
@@ -99,16 +135,17 @@ function shrinkToFit(box, room, nat) {
 export function fitHompy(el, tries = 0) {
     const root = el?.querySelector?.('.ss-hompy'); if (!root) return;
     const right = root.querySelector('.ss-hp-right'), body = right?.querySelector(':scope > .ss-body'), cols = [...root.querySelectorAll('.ss-hp-col')];
-    cols.forEach(c => { c.firstElementChild.style.zoom = ''; }); if (body) body.style.zoom = ''; right?.classList.remove('ss-hp-over');
+    cols.forEach(c => { c.firstElementChild.style.zoom = ''; }); if (body) { body.style.zoom = ''; body.style.height = ''; const hb0 = body.querySelector('.ss-hp-homebody'); if (hb0) hb0.style.zoom = ''; } right?.classList.remove('ss-hp-over');
     if (matchMedia('(max-width: 860px)').matches) return;
     if (!right || right.clientHeight < 60) { if (tries < 8) setTimeout(() => fitHompy(el, tries + 1), 80); return; } // 창이 아직 안 떴음
     const pad = (x) => { const cs = getComputedStyle(x); return parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom); };
     for (const c of cols) { const inn = c.firstElementChild; if (!shrinkToFit(inn, c.clientHeight - pad(c), () => inn.scrollHeight)) c.classList.add('ss-hp-over'); else c.classList.remove('ss-hp-over'); }
-    if (!right.classList.contains('ss-hp-fit') || !body) return;
-    const fig = right.querySelector(':scope > .ss-hp-main');
-    let used = 0; for (const ch of right.children) { if (ch === body || ch === fig || getComputedStyle(ch).position === 'absolute') continue; const cs = getComputedStyle(ch); used += ch.offsetHeight + parseFloat(cs.marginTop) + parseFloat(cs.marginBottom); }
-    const room = right.clientHeight - pad(right) - used - 12;
-    if (!shrinkToFit(body, fig ? room - Math.max(140, room * 0.55) : room, () => body.scrollHeight)) right.classList.add('ss-hp-over'); // 그래도 안 들어가면 그때만 스크롤
+    // 가운데 창: 넘치면 내용을 더 작게 줄여 한 화면에 맞춘다 (0.5배까지 · 그래도 넘칠 때만 스크롤)
+    let used = 0; for (const ch of right.children) { if (ch === body) continue; const cs = getComputedStyle(ch); used += ch.offsetHeight + parseFloat(cs.marginTop) + parseFloat(cs.marginBottom); }
+    const room = right.clientHeight - pad(right) - used - 8;
+    const hb = body.querySelector(':scope > .ss-hp-homewrap > .ss-hp-homebody'), target = hb ?? body;
+    if (hb) { body.style.height = `${room}px`; }
+    if (!shrinkToFit(target, room, () => target.scrollHeight)) right.classList.add('ss-hp-over');
 }
 // 사진 단추 (패널마다 걸지 않고 문서에 한 번)
 export function initHompy() {
@@ -121,6 +158,10 @@ export function initHompy() {
         e.preventDefault(); e.stopPropagation();
         const el = b.closest('.ss-panel');
         if (b.dataset.hp === 'close') { el?.closest('dialog')?.querySelector('.popup-button-ok')?.click(); return; }
+        if (b.dataset.hp === 'mv') { const [key, how] = String(b.dataset.arg).split(':'); moveWin(key, how, [...(b.closest('.ss-hp-col')?.querySelectorAll('[data-win]') ?? [])].map(x => x.dataset.win)); if (el?.isConnected) app.renderPanel?.(el); return; }
+        if (b.dataset.hp === 'solo' && el?._ss) { Object.assign(el._ss, { tab: b.dataset.arg, hpSolo: b.dataset.arg, mode: 'view', ui: {} }); app.renderPanel?.(el); return; } // 이 칸만 크게
+        if (b.dataset.hp === 'all' && el?._ss) { el._ss.hpSolo = null; el._ss.mode = 'view'; app.renderPanel?.(el); return; } // 묶음 전체로
+        if (b.dataset.hp === 'editdone') { editWins = false; if (el?.isConnected) app.renderPanel?.(el); return; }
         if (b.dataset.hp === 'deco') { try { await openDeco(() => { if (el?.isConnected) app.renderPanel?.(el); }); } catch (err) { ssErr(err); } return; }
         if (b.dataset.hp === 'face') { try { await pickFace(() => { if (el?.isConnected) app.renderPanel?.(el); }); } catch (err) { ssErr(err); } return; }
         const meta = getMeta(); if (!meta) return;
@@ -135,7 +176,7 @@ export function initHompy() {
         } catch (err) { ssErr(err); }
     }, true);
 }
-export function hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, s, meta, nNew, enter, tab }) {
+export function hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, s, meta, nNew, enter, homeGroup }) {
     const c = s.core, d = s.data, [con, feel] = mood(s, meta, nNew), [, hue, sat] = themeOf();
     const total = (ctx().chat ?? []).filter(m => !m.is_system).length;
     const cal = d.calendar && modOn('calendar', meta) ? d.calendar : null, here = modOn('map', meta) ? d.map?.here : '';
@@ -145,27 +186,30 @@ export function hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, 
     const friends = rel ? rel.user.filter(r => !r.out).sort((x, y) => y.aff + y.trust - x.aff - x.trust).slice(0, 6) : [];
     const mini = [cal ? ['날짜', `${dateShort(cal)} ${cal.time}`] : null, here ? ['장소', here] : null, w ? ['재산', `${fmtNum(w.cash)} ${w.currency ?? ''}`] : null].filter(Boolean);
     const mine = String(settings().hpFace ?? '').startsWith('my:') && !!settings().hpFaces?.[Number(String(settings().hpFace).slice(3))];
-    const home = tab === 'home', photo = photoHTML(meta), hasPhoto = !!meta.hpPhoto?.src;
-    // 왼쪽 줄: 프로필 · 상태 · 일촌
-    const L = [
-        winOn('profile') ? win('profile', 'profile', `<div class="ss-hp-prof"><div class="ss-hp-photo ${mine ? 'mine' : ''}" data-hp="face" role="button" title="눌러서 프로필 그림 바꾸기"><img src="${esc(faceSrc(con))}" alt=""></div>
-            <div class="ss-hp-prof-t"><div class="ss-hp-today"><small>TODAY IS…</small><b>${esc(feel)}</b></div><b class="ss-hp-name">${esc(short(c.title || TITLE, 40))}</b></div></div><p class="ss-hp-intro">${esc(short(c.summary, 110)) || '아직 소개 글이 없어요.'}</p>`) : '',
-        winOn('stats') ? win('stats', 'status', `${mini.length ? `<dl class="ss-hp-mini">${mini.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}${bars.length ? `<div class="ss-hp-bars">${bars.map(b => `<div><span>${esc(b.name)}</span><i><b style="width:${b.max > 0 ? Math.max(0, Math.min(100, (b.cur / b.max) * 100)) : 0}%"></b></i><small>${fmtNum(b.cur)}</small></div>`).join('')}</div>` : ''}`) : '',
-    ].join('');
-    // 오른쪽 줄: 소식 창들(퀘스트 · 뉴스 · 연락 …) · 사진(홈이 아닐 때 — 홈에서는 가운데 창에 크게)
-    const R = [
-        winOn('friends') && friends.length ? win('friends', '일촌', `<div class="ss-hp-friends">${friends.map(r => `<button data-act="tab" data-arg="rel" title="관계 탭 열기">${avatar(r.name)}<span><b>${esc(r.name)}</b><small>${r.label ? esc(r.label) : ''}</small></span><em>♥${r.aff}</em><em class="t">★${r.trust}</em></button>`).join('')}</div>`) : '',
-        ...(winOn('extra') ? ['quest', 'news', 'contact', 'mind', 'cond', 'fate', 'music', 'custom'].map(k => win(k, MINI[k].name, miniWidgets(s, [k]), 'x')) : []),
-        winOn('photo') && !home && hasPhoto ? win('photo', 'photo', photo) : '',
-    ].join('');
-    const mainBody = home && winOn('photo') ? (meta.hpPhoto?.pos === 'top' && hasPhoto ? restHTML.replace('<main class="ss-body"', () => `${photo}<main class="ss-body"`) : restHTML + photo) : restHTML;
-    return `<div class="${rootCls} ss-hompy ss-hp-p-${patOf()} ${settings().hpDot !== false ? 'ss-hp-dot' : ''} ${enter ? 'ss-hp-enter' : ''}" style="--hp-h:${hue};--hp-s:${sat}">
+    const home = !!homeGroup, photo = photoHTML(meta), hasPhoto = !!meta.hpPhoto?.src; // 홈 묶음에서는 사진이 가운데 창에 크게 → 옆의 사진 창은 안 띄움
+    // 창 내용 (없으면 빈 글 → 창이 안 뜸)
+    const BODY = {
+        profile: () => `<div class="ss-hp-prof"><div class="ss-hp-photo ${mine ? 'mine' : ''}" data-hp="face" role="button" title="눌러서 프로필 그림 바꾸기"><img src="${esc(faceSrc(con))}" alt=""></div>
+            <div class="ss-hp-prof-t"><div class="ss-hp-today"><small>TODAY IS</small><b>${esc(feel)}</b></div><b class="ss-hp-name">${esc(c.title || TITLE)}</b></div></div>`,
+        intro: () => (c.summary ? `<p class="ss-hp-intro">${esc(c.summary)}</p>` : ''),
+        quest: () => { const q = d.quest && modOn('quest', meta) ? d.quest.list.filter(x => x.status === 'active') : []; return q.length ? `<ul class="ss-hp-list" data-act="tab" data-arg="quest">${q.slice(0, 6).map(x => `<li>${esc(x.title)}</li>`).join('')}</ul>` : ''; },
+        news: () => { const n = d.news && modOn('news', meta) ? d.news.items.slice(-3).reverse() : []; return n.length ? `<ul class="ss-hp-list" data-act="tab" data-arg="news">${n.map(x => `<li>${esc(x.title)}</li>`).join('')}</ul>` : ''; },
+        stats: () => `${mini.length ? `<dl class="ss-hp-mini">${mini.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}${bars.length ? `<div class="ss-hp-bars">${bars.map(b => `<div><span>${esc(b.name)}</span><i><b style="width:${b.max > 0 ? Math.max(0, Math.min(100, (b.cur / b.max) * 100)) : 0}%"></b></i><small>${fmtNum(b.cur)}</small></div>`).join('')}</div>` : ''}`,
+        friends: () => (friends.length ? `<div class="ss-hp-friends">${friends.map(r => `<button data-act="tab" data-arg="rel" title="관계 탭 열기">${avatar(r.name)}<span><b>${esc(r.name)}</b><small>${r.label ? esc(r.label) : ''}</small></span><em>♥${r.aff}</em><em class="t">★${r.trust}</em></button>`).join('')}</div>` : ''),
+        photo: () => (!home && hasPhoto ? photo : ''),
+    };
+    const LY = hpLayout(), mk = (k) => (LY.off.includes(k) ? '' : win(k, WIN_T[k] ?? WINS[k], BODY[k] ? BODY[k]() : miniWidgets(s, [k]), BODY[k] ? '' : 'x'));
+    const L = LY.l.map(mk).join(''), R = LY.r.map(mk).join('');
+    const mainBody = restHTML;
+    return `<div class="${rootCls} ss-hompy ss-hp-p-${patOf()} ${settings().hpDot !== false ? 'ss-hp-dot' : ''} ${enter ? 'ss-hp-enter' : ''}" style="--hp-h:${hue};--hp-s:${sat};--hp-fs:${FS[fsOf()]}px">
         <div class="ss-hp-url ss-hp-top"><i></i><i></i><i></i><span class="ss-hp-nav" aria-hidden="true">‹ › ⟳</span><span class="ss-hp-addr">meatball.home/<b>${esc(short(c.title || TITLE, 30))}</b></span>${headHTML}<button class="ss-hp-x" data-hp="close" title="닫기"><i class="fa-solid fa-xmark"></i></button><em></em></div>
-        <div class="ss-hp-marks"><div class="ss-hp-index">${groupsHTML}</div><span class="ss-hp-count">TURN <b>${s.turn ?? 0}</b> · TOTAL <b>${total}</b></span><button class="ss-hp-deco-b" data-hp="deco" title="색 · 무늬 · 글꼴 · 보일 창 고르기">🎨 꾸미기</button></div>
-        <div class="ss-hp-book ${L ? '' : 'no-l'} ${R ? '' : 'no-r'}">
-            ${L ? `<aside class="ss-hp-col ss-hp-left"><div class="ss-hp-col-in ss-hp-left-in">${L}</div></aside>` : ''}
-            <section class="ss-hp-win main"><div class="ss-hp-wt"><b>${esc(c.title || TITLE)}</b><i>♡♡♡</i></div><div class="ss-hp-right ${home ? 'ss-hp-fit' : ''}">${pauseHTML}${mainBody}</div></section>
-            ${R ? `<aside class="ss-hp-col ss-hp-rcol"><div class="ss-hp-col-in">${R}</div></aside>` : ''}
-        </div>
+        <div class="ss-hp-marks"><div class="ss-hp-index">${groupsHTML}</div><span class="ss-hp-count">TURN <b>${s.turn ?? 0}</b> · TOTAL <b>${total}</b></span>${editWins ? '<button class="ss-hp-deco-b on" data-hp="editdone">✓ 창 옮기기 끝</button>' : ''}<button class="ss-hp-deco-b" data-hp="deco" title="색 · 무늬 · 글꼴 · 창 자리 · 보일 창">🎨 꾸미기</button></div>
+        ${(() => {
+            const lcol = L ? `<aside class="ss-hp-col ss-hp-left"><div class="ss-hp-col-in ss-hp-left-in">${L}</div></aside>` : '', rcol = R ? `<aside class="ss-hp-col ss-hp-rcol"><div class="ss-hp-col-in">${R}</div></aside>` : '';
+            const main = `<section class="ss-hp-win main"><div class="ss-hp-wt"><b>${esc(c.title || TITLE)}</b><i>♡♡♡</i></div><div class="ss-hp-right">${pauseHTML}${mainBody}</div></section>`;
+            const order = LY.main === 'l' ? [['m', main], ['l', lcol], ['r', rcol]] : LY.main === 'r' ? [['l', lcol], ['r', rcol], ['m', main]] : [['l', lcol], ['m', main], ['r', rcol]];
+            const cols = order.filter(([, h]) => h).map(([k]) => (k === 'm' ? 'minmax(0, 1fr)' : COLW[k === 'l' ? LY.lw : LY.rw])).join(' ');
+            return `<div class="ss-hp-book ${editWins ? 'ss-hp-editing' : ''}" style="grid-template-columns:${cols}">${order.map(([, h]) => h).join('')}</div>`;
+        })()}
     </div>`;
 }

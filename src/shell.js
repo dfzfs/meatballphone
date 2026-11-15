@@ -20,7 +20,7 @@ import { EDIT, viewTr, letterMode } from './core.js';
 import { translateSheet, missingTr } from './translate.js';
 import { hintAfterAction } from './tips.js';
 import { storySection } from './story_ui.js';
-import { hompyHTML, fitHompy } from './hompy.js';
+import { hompyHTML, fitHompy, photoHTML, hpLayout, hpMinor } from './hompy.js';
 import { openPromptWindow, openThemeWindow, openWizard } from './lazy.js';
 import { setBase, startBlank } from './engine.js';
 export { setBase, startBlank, openWizard, openPromptWindow, openThemeWindow }; // 다른 파일은 예전처럼 여기서 받아도 된다 (창은 눌렀을 때 불러옴 — lazy.js)
@@ -145,7 +145,18 @@ export function renderPanel(el) {
     // 조각으로 만들어 두고 → 평소엔 그대로 이어 붙이고, 전체화면(미니홈피)일 땐 수첩 틀 안에 넣는다 (hompy.js)
     const dlg0 = el.closest('dialog'), isFull = dlg0 ? dlg0.classList.contains('ss-full') : !!st.full; // 창이 뜨기 전(첫 그리기)엔 여는 쪽이 적어 둔 값으로
     const hp = !inSide && isFull && settings().hompyFull !== false;
-    const rootCls = `ss-root ss-scope ${inSide ? 'in-side' : ''} ${meta.paused ? 'paused' : ''} ${settings().bottomNav && !hp ? 'navbottom' : ''}`;
+    // 📒 미니홈피: 한 묶음의 칸들을 탭으로 나누지 않고 작은 창으로 한 화면에 (창 제목을 누르면 그 칸만 크게 — 편집 · AI로 수정은 거기서)
+    const gTabs = groupTabs(g, meta), minorSet = hpMinor(), minors = hp ? gTabs.filter(t => minorSet.includes(t)) : [];
+    const pack = minors.length >= 2, navTabs = pack ? gTabs.filter(t => !minors.includes(t)) : gTabs; // 「모음」으로 합쳐진 탭은 탭 줄에서 빠진다
+    const merged = pack && st.mode === 'view' && minors.includes(tab) && st.hpSolo !== tab;
+    if (merged) {
+        const one = (t) => { const m = TAB_MOD(t), ps = PSEUDO.has(t) && t !== 'home', dt = ps ? {} : m === 'core' ? s.core : s.data[m]; try { return ps ? VIEW[t](s, null, st.ui) : !dt ? '<p class="ss-hint">비어 있어요 — 제목을 눌러 채워요.</p>' : VIEW[t](s, dt, st.ui) + storySection(t, st.ui); } catch (e) { ssErr(LOG, 'merged', t, e); return '<p class="ss-hint">이 칸을 그리지 못했어요 — 제목을 눌러 열어 보세요.</p>'; } };
+        body = `<div class="ss-hp-all">${minors.map(t => `<section class="ss-hp-win sub" data-sub="${t}"><div class="ss-hp-wt" data-hp="solo" data-arg="${t}" role="button" title="이 칸만 크게 열기 — 편집 · AI로 수정 · 다시 생성"><b><i class="fa-solid ${TAB_INFO(t).icon}"></i> ${esc(TAB_INFO(t).name)}</b><i class="fa-solid fa-up-right-and-down-left-from-center"></i></div><div class="ss-hp-wb">${one(t)}</div></section>`).join('')}</div>`;
+    } else if (hp && tab === 'home' && st.mode === 'view' && data && !hpLayout().off.includes('photo')) {
+        // 홈: 큰 사진 옆에 홈 칸들 (사진이 없으면 「사진 넣기」 한 줄만)
+        body = `<div class="ss-hp-homewrap ${meta.hpPhoto?.src ? 'has' : ''} ${meta.hpPhoto?.pos === 'top' ? 'flip' : ''}">${photoHTML(meta)}<div class="ss-hp-homebody">${body}</div></div>`;
+    }
+    const rootCls = `ss-root ss-scope ${document.body.classList.contains('ss-retro') ? 'ss-rt' : ''} ${inSide ? 'in-side' : ''} ${meta.paused ? 'paused' : ''} ${settings().bottomNav && !hp ? 'navbottom' : ''}`;
     const headHTML = `<header class="ss-head">
             ${settings().mascotBuddy !== false ? `<span class="ss-head-cat" data-act="help" title="궁금한 게 있으면 저를 눌러요 🐾 (미트볼 도우미)">${mascot(meta.paused ? 'sleep' : nNew ? 'surprise' : 'idle', 'head', 'bob')}</span>` : ''}
             <div class="ss-head-t"><b>${esc(c.title || TITLE)}</b>${sub2 ? `<small>${esc(sub2)}</small>` : ''}</div>
@@ -164,14 +175,15 @@ export function renderPanel(el) {
         </header>`;
     const pauseHTML = `${meta.paused ? `<div class="ss-pausebar">${mascot('sleep', 'xs') || '<i class="fa-solid fa-pause"></i>'} 일시정지 중 — AI에게 상태를 보내지 않아요<button class="ss-btn sm" data-act="pause">재개</button></div>` : ''}`;
     const groupsHTML = `<nav class="ss-groups">${gs.map(x => `<button class="${x === g ? 'on' : ''}" data-act="group" data-arg="${x.id}"><i class="fa-solid ${x.icon}"></i><span>${x.name}</span>${x === g ? '' : groupBadge(x, s, meta)}</button>`).join('')}</nav>`;
-    const restHTML = `${groupTabs(g, meta).length > 1 ? `<nav class="ss-tabs">${groupTabs(g, meta).map(t => `<button class="${t === tab ? 'on' : ''}" data-act="tab" data-arg="${t}"><i class="fa-solid ${TAB_INFO(t).icon}"></i>${esc(TAB_INFO(t).name)}${isHidden(t === 'home' ? 'core' : TAB_MOD(t), meta) ? '<i class="fa-solid fa-eye-slash ss-hid" title="가림 — AI에게 안 보냄"></i>' : ''}${badgeFor(t, s, meta)}</button>`).join('')}</nav>` : ''}
+    const restHTML = `${gTabs.length > 1 ? `<nav class="ss-tabs">${navTabs.map(t => `<button class="${t === tab ? 'on' : ''}" data-act="tab" data-arg="${t}"><i class="fa-solid ${TAB_INFO(t).icon}"></i>${esc(TAB_INFO(t).name)}${isHidden(t === 'home' ? 'core' : TAB_MOD(t), meta) ? '<i class="fa-solid fa-eye-slash ss-hid" title="가림 — AI에게 안 보냄"></i>' : ''}${badgeFor(t, s, meta)}</button>`).join('')}${pack ? `<button class="${minors.includes(tab) ? 'on' : ''}" data-act="tab" data-arg="${minors[0]}" title="${esc(minors.map(t => TAB_INFO(t).name).join(' · '))}"><i class="fa-solid fa-layer-group"></i>모음${minors.map(t => badgeFor(t, s, meta)).join('')}</button>` : ''}</nav>` : ''}
         ${hidden ? `<div class="ss-hidebar"><i class="fa-solid fa-eye-slash"></i><span>가린 칸 — AI에게 이 칸을 안 보내는 중이에요. 화면·직접 편집·변화 기록은 그대로예요.</span><button class="ss-btn sm" data-act="hidetog">다시 보내기</button></div>` : ''}
         ${tools || instruct ? `<div class="ss-toolrow"><div class="ss-toolrow-t"><i class="fa-solid ${info.icon}"></i>${esc(info.name)}</div>${tools}</div>${instruct}` : ''}
-        <main class="ss-body" data-tab="${tab}">${body}</main>`;
+        ${pack && minors.includes(tab) && !merged ? `<button class="ss-btn sm ss-hp-back" data-hp="all"><i class="fa-solid fa-layer-group"></i> 모음으로</button>` : ''}
+        <main class="ss-body ${merged ? 'ss-hp-merged' : ''}" data-tab="${tab}">${body}</main>`;
     const enter = hp && !st.hpShown; st.hpShown = hp;
-    el.innerHTML = hp ? hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, s, meta, nNew, enter, tab: st.mode === 'view' ? tab : '' })
+    el.innerHTML = hp ? hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, s, meta, nNew, enter, homeGroup: tab === 'home' && st.mode === 'view' && !!data })
         : `<div class="${rootCls}">${headHTML}${pauseHTML}${groupsHTML}${restHTML}</div>`;
-    if (st.mode !== 'edit' && st.mode !== 'json' && tab !== 'manage' && (pseudo || data)) applyParts(el, tab); // 👁 보일 것 (v2.7.19)
+    if (!merged && st.mode !== 'edit' && st.mode !== 'json' && tab !== 'manage' && (pseudo || data)) applyParts(el, tab); // 👁 보일 것 (v2.7.19)
     if (hp) fitHompy(el); // 📐 미니홈피: 홈 쪽 · 프로필 쪽을 한 화면에 맞춘다
     if (st.mode === 'edit') bindEditor(el.querySelector('.ss-editor'), st.work, EDIT[mod], () => {
         const box = el.querySelector('.ss-editor'); const all0 = [...box.querySelectorAll('details')]; const open = all0.filter(d => d.open).map(d => all0.indexOf(d));
