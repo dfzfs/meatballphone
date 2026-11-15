@@ -118,7 +118,7 @@ for (const width of [1300, 390]) {
                   delete core.getMeta().hpSet; S0.hpSets = []; hpm.applyRetro(); shell.rerenderPanels(true); await wait(200);
                 } else out.vibeApply = `no suggestion (${want})`;
                 const looks = {}; for (const k of Object.keys(hpm.SKINS)) { S0.hpSkin = k; hpm.applyRetro(); shell.rerenderPanels(true); await wait(120); const cs = getComputedStyle(el.querySelector('.ss-hompy')); looks[k] = `${cs.getPropertyValue('--hp-paper').trim()}/${cs.fontFamily.slice(0, 12)}`; }
-                out.fourSkins = (new Set(Object.values(looks).map(x => x.split('/')[0])).size >= 3 && Object.keys(looks).length === 4) || JSON.stringify(looks);
+                out.fourSkins = (new Set(Object.values(looks).map(x => x.split('/')[0])).size >= 5 && Object.keys(looks).length === 7) || JSON.stringify(looks);
                 Object.assign(S0, { hpSkin: 'clean', hpFont: 'g', hpDark: 'light', hpSuggest: false }); hpm.applyRetro(); shell.rerenderPanels(true); await wait(200); }
               out.profileCard = !!el.querySelector('.ss-hp-badges') || innerWidth <= 640 && !el.querySelector('.ss-hompy.ss-hp-athome') ; }
             out.closeButton = !!el.querySelector('.ss-hp-url [data-hp="close"]');
