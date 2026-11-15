@@ -113,7 +113,7 @@ try {
                 if (wide) { const br = fb.getBoundingClientRect(), pr = fp.getBoundingClientRect(); out.free = (!!fb && Math.abs((pr.left - br.left) / br.width - 0.4) < 0.03 && Math.abs(pr.width / br.width - 0.3) < 0.03) || [((pr.left - br.left) / br.width).toFixed(2), (pr.width / br.width).toFixed(2)].join('|'); }
                 else out.free = !fb || 'free on phone';
                 S.hpFreeOn = false; S.hpFree = {}; await re();
-                out.noErrors = !(window.__errors ?? []).length || (window.__errors ?? []).map(String).slice(-2).join(' | ');
+                out.quiet = !(window.__errors ?? []).length || (window.__errors ?? []).map(String).slice(-2).join(' | ');
                 return out;
             }, skin);
             for (const [k, v] of Object.entries(r)) check(v === true, `${tag}: ${k}`, JSON.stringify(v));

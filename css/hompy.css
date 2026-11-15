@@ -657,3 +657,7 @@ body.ss-hp-dark :is(.ss-hp-edbar, .ss-hp-sheet) { --e-bg: #1c1c1e; --e-ink: #f2f
 /* 검수에서 나온 것: 폰에서도 여백 고르기가 먹게 · 태블릿의 도트 모양 메뉴 단추를 손가락 크기로 */
 @media (max-width: 640px) { .ss-hp-book { gap: calc(var(--hp-g, 12px) * .85); padding: calc(var(--hp-g, 12px) * .85) 12px; } .ss-hp-col-in { gap: calc(var(--hp-g, 12px) * .85); } body.ss-skin-dot .ss-hp-book { padding: var(--hp-g, 7px) 6px; gap: var(--hp-g, 7px); } body.ss-skin-dot .ss-hp-col-in { gap: var(--hp-g, 7px); } }
 @media (pointer: coarse) and (min-width: 641px) { body.ss-skin-dot :is(.ss-hompy, .ss-rt) .ss-groups > button { min-height: 36px; padding: 4px 12px; } body.ss-skin-dot :is(.ss-hompy, .ss-rt) .ss-tabs > button { min-height: 34px; padding: 4px 12px; } }
+/* 깔끔 · 노트 · 사이버 · 폰: 도구(AI로 수정 · 편집 …)와 머리 단추 글자가 흐리지 않게 — 테두리색이 아니라 보조 글자색으로 */
+body:not(.ss-skin-dot) :is(.ss-hompy, .ss-rt) .ss-tool, body:not(.ss-skin-dot) .ss-rt:not(.ss-hompy) .ss-head-a .ss-ib, body:not(.ss-skin-dot) .ss-hompy .ss-head-a .ss-ib, body:not(.ss-skin-dot) .ss-hp-x { color: var(--hp-dim); }
+body:not(.ss-skin-dot) :is(.ss-hompy, .ss-rt) .ss-tool:hover { color: var(--hp-ink); }
+body:not(.ss-skin-dot).ss-retro #ss-side .ss-side-handle, body:not(.ss-skin-dot).ss-retro .ss-float { color: var(--hp-dim) !important; }

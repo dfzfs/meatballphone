@@ -473,6 +473,7 @@ export function initHompy() {
         const b = e.target.closest?.('.ss-hompy [data-hp]'); if (!b) return;
         e.preventDefault(); e.stopPropagation();
         const el = b.closest('.ss-panel');
+        if (b.dataset.hp === 'close' && ED) endEdit(true); // 꾸미기 모드 중에 닫으면 저장하고 끝낸다
         if (b.dataset.hp === 'close') { el?.closest('dialog')?.querySelector('.popup-button-ok')?.click(); return; }
         if (b.dataset.hp === 'mv') { const [key, how] = String(b.dataset.arg).split(':'); moveWin(key, how, [...(b.closest('.ss-hp-col')?.querySelectorAll('[data-win]') ?? [])].map(x => x.dataset.win)); if (el?.isConnected) app.renderPanel?.(el); return; }
         if (b.dataset.hp === 'fold' && el?._ss) { const o = el._ss.hpOpen ?? (el._ss.hpOpen = []), i = o.indexOf(b.dataset.arg); if (i >= 0) o.splice(i, 1); else o.push(b.dataset.arg); app.renderPanel?.(el); return; } // 「모음」 칸 펼치기 · 접기
