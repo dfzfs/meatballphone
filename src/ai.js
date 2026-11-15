@@ -217,13 +217,31 @@ export function takeSends(t, out) {
         return '';
     }).replace(/\n{3,}/g, '\n\n').trim();
 }
-export async function phoneReply(who, state, sends = null) {
+// 🔕 상대가 연락을 꺼 두기 (v2.7.23): 답 끝의 「(OFFLINE: 이유 | N)」 줄을 떼어 info.away = { why, n }으로 돌려준다
+const OFFLINE_RE = /\(\s*OFFLINE\s*[:：]\s*([^|)\n]*?)\s*(?:\|\s*(\d+)\s*)?\)/i;
+export async function phoneReply(who, state, sends = null, info = null) {
     const ct = state.data.contact;
-    const sys = P('ai.phone', { who, app: ct.app }) + remoteRule(who) + sendRule(state, who);
-    const out = takeSends(await aiGenerate('phone', sys, [...aboutPerson(who, state), `Conversation so far:\n${threadMemory(ct, who, 14)}`].join('\n\n'), 800), sends);
+    const awayOn = settings().contactAway !== false && !!info;
+    const sys = P('ai.phone', { who, app: ct.app }) + remoteRule(who) + (awayOn ? P('ai.away', { who }) : '') + sendRule(state, who);
+    let raw = await aiGenerate('phone', sys, [...aboutPerson(who, state), `Conversation so far:\n${threadMemory(ct, who, 14)}`].join('\n\n'), 800);
+    const off = OFFLINE_RE.exec(raw);
+    if (off) { raw = raw.replace(OFFLINE_RE, ''); if (awayOn) info.away = { why: off[1].trim().slice(0, 40), n: Math.min(6, Math.max(1, Number(off[2]) || 2)) }; }
+    const out = takeSends(raw, sends);
     return finLines(stripStatus(out).split(/\r?\n/).map(x => x.replace(nameRe(who), '').replace(/^["“](.*)["”]$/, '$1').trim()).filter(Boolean).slice(0, 4));
 }
 // 편지 답장 → 본문 하나
+// 🕵 최면 어플 (v2.7.23): 연락의 「다크 버전」 — 그 인물이 숨김없이 답한다. 이야기 밖 놀이라 상태를 바꾸지 않고 본편 AI에게도 안 간다
+// (모델 · 프로필은 메신저 답장과 같은 칸을 쓴다)
+export async function truthReply(who, state) {
+    const ct = state.data.contact;
+    const rel = state.data.rel ? findBy(state.data.rel.user, who) : null;
+    const priv = rel ? [rel.mind?.text && `what ${who} is really feeling right now: ${rel.mind.text}`, rel.likes && `drawn to: ${rel.likes}`, rel.dislikes && `put off by: ${rel.dislikes}`, rel.concern && `on their mind lately: ${rel.concern}`, rel.jealous ? `jealousy ${rel.jealous}/100` : '', rel.bond ? 'they are confirmed lovers' : ''].filter(Boolean).join(' · ') : '';
+    const body = [...aboutPerson(who, state), priv ? `PRIVATE (things ${who} keeps to themselves — they must come out when asked):\n${priv}` : '',
+        `Their ordinary conversation so far (context only):\n${threadMemory(ct, who, 8) || '(none)'}`,
+        `Hypnosis-app session so far:\n${threadMemory({ threads: ct.truth ?? {}, summaries: {} }, who, 14) || '(none)'}`].filter(Boolean).join('\n\n');
+    const out = await aiGenerate('phone', P('ai.truth', { who, app: ct.app }), body, 900);
+    return finLines(stripStatus(out).split(/\r?\n/).map(x => x.replace(nameRe(who), '').replace(/^["“](.*)["”]$/, '$1').trim()).filter(Boolean).slice(0, 5));
+}
 export async function letterReply(who, state, { courier, rush }, sends = null) {
     const ct = state.data.contact;
     const sys = P('ai.letter', { who, app: ct.app, courier: courier || ct.app, rush: rush ? `${who} paid extra for an express courier so it arrives fast — it may show a little in the letter (eagerness).` : '' }) + remoteRule(who) + sendRule(state, who);

@@ -1,7 +1,7 @@
 // 📱/✉️ 연락: 메신저 · 즉시 통신 · 편지 (배달 수단 · 도착 시간 · 급행)
 import { letterMode, contactSimple, instantLetter, SIMPLE_THREAD, app, settings, getMeta, modOn, esc, short, clone, findBy, norm, uid, randInt, rand, clamp, num, fmtNum, nowTick, wholeTick, tickUnit, waitText, slotsPerDay, useDays, saveSettings, stamp, CONTACT_MODES, TITLE, COURIER_PRESETS, touchContact, msgText, ssErr, ssWarn } from './core.js';
 import { commit, addAdjust, dueLetters, inTransit, affMul, PIN_LINES } from './engine.js';
-import { phoneReply, letterReply, pingMessage, summarizeThread } from './ai.js';
+import { phoneReply, letterReply, pingMessage, summarizeThread, truthReply } from './ai.js';
 import { avatar, ai1, emptyBox, askInput, askConfirm, busyBtn, choosePopup } from './kit.js';
 
 const isLetter = (d) => letterMode(d);
@@ -24,7 +24,8 @@ function listView(s, d, ui) {
     const modeInfo = CONTACT_MODES[d.mode];
     return `<div class="ss-ct">
         <div class="ss-ct-top"><div class="ss-ct-app"><i class="fa-solid ${modeInfo.icon}"></i><b>${esc(d.app)}</b><small>${esc(modeInfo.name)}</small></div>
-            <button class="ss-btn sm ghost" data-act="cmode" title="연락 방식 바꾸기"><i class="fa-solid fa-right-left"></i> 방식</button></div>
+            <button class="ss-btn sm ghost" data-act="cmode" title="연락 방식 바꾸기"><i class="fa-solid fa-right-left"></i> 방식</button>
+            <button class="ss-btn sm ss-truth-btn" data-act="ctruth" title="최면 어플 — 부른 사람이 솔직하게만 답하고 시키는 말을 따라요 (연락과 따로 · 본편에 안 감)"><i class="fa-solid fa-hurricane"></i> 최면 어플</button></div>
         ${due.length ? `<div class="ss-callout mail"><i class="fa-solid fa-envelope-open-text"></i><div><b>도착한 편지 ${due.length}통</b><span>${due.map(x => esc(x.who)).join(', ')}${due.some(x => x.m.rush) ? ' · 💨 급행 포함' : ''}</span></div><button class="ss-btn sm pri" data-act="copen" data-arg="${esc(due[0].who)}">열기</button></div>` : ''}
         ${transit.length ? `<div class="ss-card ss-transit"><div class="ss-sec-h"><h4><i class="fa-solid fa-truck-fast"></i> 배달 중</h4></div>${transit.map(x => {
             const total = Math.max(1, (x.m.arrive ?? 0) - (x.m.at ?? 0));
@@ -36,7 +37,7 @@ function listView(s, d, ui) {
             const last = lastLine(d, n, now);
             const un = (d.unread[n] ?? 0) + due.filter(x => x.who === n).length;
             return `<div class="ss-ct-row" data-act="copen" data-arg="${esc(n)}">${avatar(n)}
-                <div class="ss-ct-b"><b>${esc(n)}${c.blocked ? ' <i class="fa-solid fa-ban ss-dim" title="차단됨"></i>' : ''}${c.reflect === 'never' ? ' <i class="fa-solid fa-eye-slash ss-dim" title="본편에 반영 안 함"></i>' : ''}</b><small>${esc(last ? short(msgText(last), 46) : c.status || c.handle || '대화 없음')}</small></div>
+                <div class="ss-ct-b"><b>${esc(n)}${c.blocked ? ' <i class="fa-solid fa-ban ss-dim" title="차단됨"></i>' : ''}${awayOf(d, n, s) ? ' <i class="fa-solid fa-bell-slash ss-dim" title="지금 연락이 안 돼요"></i>' : ''}${c.reflect === 'never' ? ' <i class="fa-solid fa-eye-slash ss-dim" title="본편에 반영 안 함"></i>' : ''}</b><small>${esc(last ? short(msgText(last), 46) : c.status || c.handle || '대화 없음')}</small></div>
                 ${un ? `<i class="ss-badge">${un}</i>` : ''}
                 <button class="ss-ib" data-act="cmenu" data-arg="${esc(n)}" title="더 보기"><i class="fa-solid fa-ellipsis"></i></button></div>`;
         }).join('') || emptyBox('연락처가 없어요', 'fa-address-book')}</div>
@@ -73,13 +74,15 @@ function phoneView(s, d, ui) {
     const c = findBy(d.contacts, who) ?? { name: who };
     return `<div class="ss-phone">
         <div class="ss-phone-top"><button class="ss-ib" data-act="cback"><i class="fa-solid fa-chevron-left"></i></button>${avatar(who)}<div class="ss-ct-b"><b>${esc(who)}</b><small>${esc(c.status || d.app)}</small></div>
-            <button class="ss-ib" data-act="cmenu" data-arg="${esc(who)}"><i class="fa-solid fa-ellipsis-vertical"></i></button></div>
+            ${ui.truth ? `<button class="ss-ib" data-act="ctruthclear" data-arg="${esc(who)}" title="이 사람과의 최면 어플 대화 비우기"><i class="fa-solid fa-broom"></i></button>` : `<button class="ss-ib" data-act="cmenu" data-arg="${esc(who)}"><i class="fa-solid fa-ellipsis-vertical"></i></button>`}</div>
+        ${!ui.truth && awayOf(d, who, s) ? `<div class="ss-csum ss-away"><i class="fa-solid fa-bell-slash"></i> <span><b>지금 연락이 안 돼요</b>${awayOf(d, who, s).why ? ` — ${esc(awayOf(d, who, s).why)}` : ''} · ${esc(awayLeft(awayOf(d, who, s), s))}</span><button class="ss-btn sm" data-act="cwake" data-arg="${esc(who)}" title="꺼 둔 연락을 무시하고 지금 답장을 받아요 (AI 1회)">${ai1} 그래도 불러내기</button></div>` : ''}
+        ${ui.truth ? '<div class="ss-csum ss-truth-bar"><i class="fa-solid fa-hurricane"></i> 최면 어플 켜짐 — 숨기지 못하고, 시키면 해요</div>' : ''}
         ${d.summaries?.[who] ? `<button class="ss-csum" data-act="csumedit" data-arg="${esc(who)}" title="한 줄 요약 — 눌러서 고치기${d.summaries[who].manual ? ' (직접 쓴 요약)' : ' (AI가 만든 요약)'}"><i class="fa-solid fa-note-sticky"></i> ${esc(d.summaries[who].text)}</button>` : ''}
         ${rangeBar(th, ui)}
         <div class="ss-thread ${instantLetter(d) ? 'letters' : ''}">${th.filter(m => m.pending || visible(m, nowTick(s))).map(m => bubble(m, ui)).join('') || '<div class="ss-hint center">아직 대화가 없어요. 먼저 말을 걸어 보세요.</div>'}</div>
-        ${c.blocked ? '<div class="ss-callout"><i class="fa-solid fa-ban"></i><div><b>차단한 상대예요</b><span>⋮ 메뉴에서 차단을 풀 수 있어요</span></div></div>' : `        <div class="ss-phone-in"><textarea class="ss-in ss-cin" rows="${instantLetter(d) ? 3 : 1}" placeholder="${instantLetter(d) ? `${esc(who)}에게 편지 쓰기 (바로 도착해요)` : '메시지 보내기'}">${esc(ui.draft ?? '')}</textarea><button class="ss-btn pri ss-send" data-act="csend" title="보내기"><i class="fa-solid ${instantLetter(d) ? 'fa-envelope' : 'fa-paper-plane'}"></i></button></div>
-        <div class="ss-phone-att">${attButtons(s, d)}</div>
-        <div class="ss-phone-opt"><label class="ss-tog"><input type="checkbox" class="ss-switch ss-creply" ${ui.noReply ? '' : 'checked'}><span>보내면 답장 받기 ${ai1}</span></label></div>`}
+        ${c.blocked ? '<div class="ss-callout"><i class="fa-solid fa-ban"></i><div><b>차단한 상대예요</b><span>⋮ 메뉴에서 차단을 풀 수 있어요</span></div></div>' : `        <div class="ss-phone-in"><textarea class="ss-in ss-cin" rows="${instantLetter(d) ? 3 : 1}" placeholder="${ui.truth ? '묻거나 시켜 보세요 — 숨기지 못해요' : instantLetter(d) ? `${esc(who)}에게 편지 쓰기 (바로 도착해요)` : '메시지 보내기'}">${esc(ui.draft ?? '')}</textarea><button class="ss-btn pri ss-send" data-act="csend" title="보내기"><i class="fa-solid ${instantLetter(d) ? 'fa-envelope' : 'fa-paper-plane'}"></i></button></div>
+        ${ui.truth ? '' : `<div class="ss-phone-att">${attButtons(s, d)}</div>
+        <div class="ss-phone-opt"><label class="ss-tog"><input type="checkbox" class="ss-switch ss-creply" ${ui.noReply ? '' : 'checked'}><span>보내면 답장 받기 ${ai1}</span></label></div>`}`}
     </div>`;
 }
 // 첨부 단추 (v2.7.18 다시 보이게): 사진 · 음성 · 위치 · 선물(소지품) · 송금(돈) — 선물은 재산 칸, 송금은 돈이 있을 때만
@@ -167,7 +170,31 @@ function letterCard(m, d, ui, now, unit) {
         <div class="ss-bub-acts"><button class="ss-ib" data-act="cmsgedit" data-arg="${esc(m.id)}" title="수정"><i class="fa-solid fa-pen"></i></button><button class="ss-ib" data-act="cmsgdel" data-arg="${esc(m.id)}" title="삭제"><i class="fa-solid fa-trash-can"></i></button></div></div>`;
 }
 
+// ───── 🔕 상대가 연락을 꺼 둠 (v2.7.23) ─────
+// 메신저 답장에서 상대가 스스로 「연락 끔」을 고를 수 있다 (화남 · 일 · 잠). 그동안 보낸 말은 안 읽히고 AI도 안 부른다.
+// 풀리는 때: 이야기 시간이 그만큼 흐르거나 · (연락만 하고 놀 때를 위해) 실제 시간으로 한 칸당 10분이 지나거나 · 「그래도 불러내기」
+const AWAY_MIN = 10;
+function awayOf(d, who, s) {
+    const a = findBy(d.contacts, who)?.away;
+    if (!a || settings().contactAway === false) return null;
+    if (a.until <= nowTick(s) || (a.t && Date.now() >= a.t)) return null;
+    return a;
+}
+const awayLeft = (a, s) => { const real = a.t ? Math.max(1, Math.ceil((a.t - Date.now()) / 60000)) : 0; const story = waitText(a.until - nowTick(s), s); return real ? `${story} 뒤 (또는 ${real}분 뒤)` : `${story} 뒤`; };
+// ───── 🕵 최면 어플 (v2.7.23) ─────
+// 연락과 똑같이 생긴 「다크 버전」: 부른 인물이 무엇이든 솔직하게 답한다. 대화는 연락과 따로(ct.truth) 쌓이고 본편 AI에게 가지 않는다.
+const boxOf = (nd, ui) => (ui?.truth ? (nd.truth ??= {}) : nd.threads);
+function truthList(s, d, ui) {
+    const ns = [...new Set([...names(d), ...(s.data.rel?.user ?? []).map(r => r.name), ...Object.keys(d.truth ?? {})])];
+    return `<div class="ss-ct">
+        <div class="ss-ct-top"><div class="ss-ct-app"><i class="fa-solid fa-hurricane"></i><b>최면 어플</b><small>숨기지 못하고 · 시키면 해요</small></div>
+            <button class="ss-btn sm ghost" data-act="ctruth" title="연락으로 돌아가기"><i class="fa-solid fa-right-left"></i> 연락으로</button></div>
+        <div class="ss-callout"><i class="fa-solid fa-heart-pulse"></i><div><b>누구를 앉힐까요?</b><span>여기서는 그 사람이 무엇을 물어도 <b>솔직하게만</b> 답하고(속마음 · 숨긴 일 · 진짜 이유), 이 대화 안에서 <b>시키는 말도 따라요</b>. 이야기 밖 놀이라 수치는 안 바뀌고, 본편 AI에게 안 가고, 그 사람도 본편에선 기억 못 해요. 말을 걸 때마다 확장 AI 1회.</span></div></div>
+        <div class="ss-ct-list">${ns.map(n => { const th = d.truth?.[n] ?? []; const last = th.at(-1); return `<div class="ss-ct-row" data-act="copen" data-arg="${esc(n)}">${avatar(n)}<div class="ss-ct-b"><b>${esc(n)}</b><small>${esc(last ? short(msgText(last), 46) : '아직 안 물어봤어요')}</small></div>${th.length ? `<i class="ss-badge">${th.length}</i>` : ''}</div>`; }).join('') || emptyBox('부를 사람이 없어요 — 연락처나 관계에 사람을 먼저 추가해요', 'fa-user-secret')}</div>
+    </div>`;
+}
 export function contactView(s, d, ui) {
+    if (ui.truth) return `<div class="ss-truth">${ui.who ? phoneView(s, { ...d, mode: 'phone', threads: d.truth ?? {}, summaries: {} }, ui) : truthList(s, d, ui)}</div>`;
     if (!ui.who) return listView(s, d, ui);
     return isLetter(d) ? letterView(s, d, ui) : phoneView(s, d, ui);
 }
@@ -229,6 +256,7 @@ async function askUndoGoods(list, s, title) {
 }
 function findMsg(nd, id) {
     for (const [who, th] of Object.entries(nd.threads)) { const k = th.findIndex(m => m.id === id); if (k >= 0) return { who, th, k, m: th[k] }; }
+    for (const [who, th] of Object.entries(nd.truth ?? {})) { const k = th.findIndex(m => m.id === id); if (k >= 0) return { who, th, k, m: th[k], truth: true }; } // 🕵 최면 어플 대화
     return null;
 }
 async function markRead(who) { if (curState()?.data.contact?.unread?.[who]) await addAdjust({ ops: [['_read', who]], silent: true }); }
@@ -244,6 +272,30 @@ function redraw(el) {
     app.renderPanel(el);
     if (focus) el.querySelector('.ss-cin')?.focus();
 }
+// 🕵 최면 어플: 묻고 → 솔직한 답 (기록 · 요약 · 주고받는 물건 없음)
+async function sendTruth(el, s, who, text) {
+    const nd = clone(s.data.contact);
+    ((nd.truth ??= {})[who] ??= []).push({ id: uid(), from: 'me', text, date: stamp(s), at: wholeTick(s), arrive: wholeTick(s), kind: 'text', read: true });
+    await commit('contact', nd, '');
+    redraw(el);
+    await getTruthReply(el, who);
+}
+async function getTruthReply(el, who, replaceId = null) {
+    const thread = el.querySelector('.ss-thread');
+    thread?.insertAdjacentHTML('beforeend', '<div class="ss-bub typing"><span><i></i><i></i><i></i></span></div>');
+    if (thread) thread.scrollTop = thread.scrollHeight;
+    try {
+        const s = curState();
+        const lines = await truthReply(who, s);
+        if (!lines.length) throw new Error('빈 답이 왔어요');
+        const nd = clone(curState().data.contact);
+        const th = (nd.truth ??= {})[who] ??= [];
+        const msgs = lines.map(l => ({ id: uid(), from: 'them', text: l, date: stamp(s), at: wholeTick(s), arrive: wholeTick(s) }));
+        if (replaceId) { const k = th.findIndex(m => m.id === replaceId); if (k >= 0) th.splice(k, 1, ...msgs); else th.push(...msgs); } else th.push(...msgs);
+        await commit('contact', nd, '');
+        redraw(el);
+    } catch (e) { ssErr(e); toastr.error(`답을 받지 못했어요: ${esc(e.message)}`, TITLE); redraw(el); }
+}
 async function sendPhone(el, s, who, text, extra = {}) {
     const ui = el._ss.ui;
     const nd = clone(s.data.contact);
@@ -252,8 +304,11 @@ async function sendPhone(el, s, who, text, extra = {}) {
     trimSimple(nd, who);
     touchContact(nd, who);
     if (!findBy(nd.contacts, who)) nd.contacts.push({ name: who, handle: '', status: '', courier: '' });
+    const away = awayOf(nd, who, s); // 🔕 상대가 연락을 꺼 둔 동안
+    { const c0 = findBy(nd.contacts, who); if (c0?.away && !away) delete c0.away; } // 시간이 지났으면 풀림
     await commit('contact', nd, lbl(`${nd.app}로 ${who}에게${instantLetter(nd) ? ' 편지' : ''}: ${short(msgText(m), 30)}`), { mid: m.id });
     redraw(el);
+    if (away) { toastr.info(`🔕 ${esc(who)}은(는) 지금 연락이 안 돼요${away.why ? ` (${esc(away.why)})` : ''}. 보낸 말은 나중에 읽을 거예요.`, TITLE); return; }
     if (!ui.noReply) await getPhoneReply(el, who);
 }
 // 내 메시지를 모두 '읽음'으로
@@ -299,8 +354,15 @@ async function getPhoneReply(el, who, replaceId = null) {
         const s = curState();
         const ltr = instantLetter(s.data.contact); // 간단 모드 편지 세계: 답도 편지 한 통 (바로 도착)
         const sends = [];
-        const lines = ltr ? [await letterReply(who, s, { courier: s.data.contact.app, rush: false }, sends)].filter(Boolean) : await phoneReply(who, s, sends);
+        const info = {};
+        const lines = ltr ? [await letterReply(who, s, { courier: s.data.contact.app, rush: false }, sends)].filter(Boolean) : await phoneReply(who, s, sends, info);
         const nd = clone(curState().data.contact);
+        if (info.away) { // 🔕 상대가 연락을 꺼 둠
+            const c = findBy(nd.contacts, who) ?? (nd.contacts.push({ name: who, handle: '', status: '', courier: '' }), nd.contacts.at(-1));
+            c.away = { why: info.away.why, until: nowTick(s) + (useDays(s) ? info.away.n / slotsPerDay(s) : info.away.n), t: Date.now() + info.away.n * AWAY_MIN * 60000 };
+            setTimeout(() => toastr.info(`🔕 ${esc(who)}이(가) 연락을 꺼 뒀어요${info.away.why ? ` — ${esc(info.away.why)}` : ''}.`, TITLE), 300);
+            if (!lines.length) { await commit('contact', nd, ''); redraw(el); return; } // 말없이 꺼 버림 (내 말은 안 읽은 채)
+        }
         if (lines.length === 1 && /읽지 않음/.test(lines[0])) { toastr.info(`${esc(who)}이(가) 아직 읽지 않았어요.`, TITLE); redraw(el); return; }
         if (lines.length === 1 && /^\(?\s*읽음\s*\)?$/.test(lines[0].trim())) {
             readAll(nd.threads[who] ??= []);
@@ -420,17 +482,17 @@ export const CONTACT_ACTIONS = {
         const ui = el._ss.ui, who = ui.who;
         const done = () => { ui.range = null; ui.draft = el.querySelector('.ss-cin')?.value ?? ui.draft; app.renderPanel(el); };
         if (arg === 'cancel' || !who) return done();
-        const nd = clone(s.data.contact), th = nd.threads[who] ?? [];
+        const nd = clone(s.data.contact), bx = boxOf(nd, ui), th = bx[who] ?? [];
         const ids = new Set(rangeIds(th, ui));
         if (!ids.size) return done();
         if (arg === 'del') {
             if (!(await askConfirm(`고른 말풍선 ${ids.size}개를 지울까요?`))) return;
             for (const m of th) if (ids.has(m.id) && goodsOf(m).length) ids.delete(m.id); // 🎁 💸 은 남긴다 — 하나씩 지워야 돌려받을지 고를 수 있어요
             for (const m of th) if (ids.has(m.id)) hushSent(m, who);
-            nd.threads[who] = th.filter(m => !ids.has(m.id));
+            bx[who] = th.filter(m => !ids.has(m.id));
         } else {
             for (const m of th) { if (ids.has(m.id)) m.pin = arg !== 'unpin'; else if (arg === 'only') m.pin = false; }
-            if (arg === 'only') { const c = findBy(nd.contacts, who) ?? (nd.contacts.push({ name: who, handle: '', status: '', courier: '' }), nd.contacts.at(-1)); c.reflect = 'pinned'; }
+            if (arg === 'only' && !ui.truth) { const c = findBy(nd.contacts, who) ?? (nd.contacts.push({ name: who, handle: '', status: '', courier: '' }), nd.contacts.at(-1)); c.reflect = 'pinned'; }
         }
         ui.range = null;
         await commit('contact', nd, '');
@@ -475,9 +537,22 @@ export const CONTACT_ACTIONS = {
         await commit('contact', nd, `${f.who}에게 보낸 메시지를 지웠다 (이미 읽음)`);
         toastr.info('지웠지만… 상대는 이미 읽었어요.', TITLE);
     },
-    copen: (el, arg) => { el._ss.tab = 'contact'; el._ss.ui = { who: arg }; app.renderPanel(el); markRead(arg); },
+    copen: (el, arg) => { const truth = !!el._ss.ui?.truth && el._ss.tab === 'contact'; el._ss.tab = 'contact'; el._ss.ui = truth ? { who: arg, truth: true } : { who: arg }; app.renderPanel(el); if (!truth) markRead(arg); },
     talk: (el, arg) => CONTACT_ACTIONS.copen(el, arg),
-    cback: (el) => { el._ss.ui = {}; app.renderPanel(el); },
+    cback: (el) => { el._ss.ui = el._ss.ui?.truth ? { truth: true } : {}; app.renderPanel(el); },
+    // 🔕 꺼 둔 연락을 무시하고 불러내기
+    cwake: async (el, arg, btn, s) => {
+        const nd = clone(s.data.contact); const c = findBy(nd.contacts, arg); if (c?.away) { delete c.away; await commit('contact', nd, ''); }
+        redraw(el);
+        await getPhoneReply(el, arg);
+    },
+    // 🕵 연락 ↔ 최면 어플
+    ctruth: (el) => { el._ss.ui = el._ss.ui?.truth ? {} : { truth: true }; app.renderPanel(el); },
+    ctruthclear: async (el, arg, btn, s) => {
+        if (!(s.data.contact.truth?.[arg]?.length) || !(await askConfirm(`${arg}와(과)의 최면 어플 대화를 비울까요?`))) return;
+        const nd = clone(s.data.contact); delete nd.truth[arg];
+        await commit('contact', nd, ''); redraw(el);
+    },
     cadd: async (el, arg, btn, s) => {
         const n = el.querySelector('.ss-cnew').value.trim(); if (!n) return;
         const nd = clone(s.data.contact); if (!findBy(nd.contacts, n)) nd.contacts.push({ name: n, handle: '', status: '', courier: '' });
@@ -491,7 +566,7 @@ export const CONTACT_ACTIONS = {
         { const w = el.querySelector('.ss-lwhen'); if (w && QUICK.includes(w.value) && settings().letterQuick !== w.value) { settings().letterQuick = w.value; saveSettings(); } }
         ui.draft = '';
         busyBtn(btn, true, '');
-        try { if (isLetter(s.data.contact)) await sendLetter(el, s, who, text); else await sendPhone(el, s, who, text); }
+        try { if (ui.truth) await sendTruth(el, s, who, text); else if (isLetter(s.data.contact)) await sendLetter(el, s, who, text); else await sendPhone(el, s, who, text); }
         finally { busyBtn(btn, false); }
     },
     creply: (el) => getPhoneReply(el, el._ss.ui.who),
@@ -552,6 +627,7 @@ export const CONTACT_ACTIONS = {
     },
     cmsgre: async (el, arg, btn, s) => {
         const f = findMsg(s.data.contact, arg); if (!f) return;
+        if (f.truth) { const nd = clone(s.data.contact); const g = findMsg(nd, arg); let end = g.k; while (end + 1 < g.th.length && g.th[end + 1].from === 'them') end++; g.th.splice(g.k + 1, end - g.k); await commit('contact', nd, ''); return getTruthReply(el, f.who, arg); } // 🕵 최면 어플: 다시 물어 새 답
         // 이 말풍선과 그 뒤에 이어진 상대 말풍선들을 지우고 다시 받는다
         const nd = clone(s.data.contact); const g = findMsg(nd, arg);
         let end = g.k; while (end + 1 < g.th.length && g.th[end + 1].from === 'them') end++;
@@ -670,6 +746,7 @@ export async function receivePing(who, auto) {
     const c = courierOf(nd, who);
     const th = nd.threads[who] ??= [];
     for (const l of lines) th.push({ id: uid(), from: 'them', text: l, date: stamp(s), at: now, arrive: now, courier: letter ? c.name : '', ping: true });
+    { const cc = findBy(nd.contacts, who); if (cc?.away) delete cc.away; } // 🔕 먼저 연락해 왔으면 꺼 둔 것도 풀림
     sendBubbles(th, sends, s, letter);
     readAll(th); // 먼저 연락해 왔다면 내 메시지도 읽은 것
     trimSimple(nd, who);

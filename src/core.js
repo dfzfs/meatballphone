@@ -134,6 +134,7 @@ export const DEFAULTS = Object.freeze({
     sceneFilter: true,       // 최근 대화에 나온 인물만 자세히 주입, 나머지는 이름만
     sceneTurns: 6,           // 장면 판단에 볼 최근 메시지 수
     pinCap: 8,               // 주입할 고정 메모 최대 개수
+    contactAway: true,       // 🔕 상대가 알아서 연락을 꺼 둘 수 있게 (v2.7.23 · 화남 · 일 · 잠 — 그동안 보낸 말은 안 읽힘 · AI 0회)
     contactStayRemote: true, // 🚫 연락 속 인물이 「갈게 · 만나자」 하지 않기 (v2.7.23 · 만남은 본편에서)
     contactRecall: 'mid',    // 🧠 연락 속 인물이 지난 대화를 얼마나 읽고 답할지 (v2.7.23): short (최근 14줄 · 편지 8통) · mid (약 6천 자) · long (약 2만 자) · all (보관된 것 전부)
     letterQuick: 's3',       // 💨 편지 퀵 속도 (v2.7.23): now (바로) · s1 · s2 · s3 (시간대 뒤) — 한 시간대 빨라질 때마다 기본 요금만큼 더
@@ -761,13 +762,16 @@ export const NORM = {
         for (const [k, v] of Object.entries(d.threads && typeof d.threads === 'object' ? d.threads : {})) {
             threads[k] = arr(v).filter(x => x && (x.text || x.pending || (x.kind && x.kind !== 'text'))).map(msgN).slice(-THREAD_MAX); // 송금·삭제됨은 글이 없어도 남긴다
         }
+        // 🕵 최면 어플 (v2.7.23): 연락과 따로 쌓이는 대화 (본편 AI에게 안 감)
+        const truth = {};
+        for (const [k, v] of Object.entries(d.truth && typeof d.truth === 'object' ? d.truth : {})) { const t = arr(v).filter(x => x && x.text).map(msgN).slice(-THREAD_MAX); if (t.length) truth[k] = t; }
         const mode = ['phone', 'instant', 'letter'].includes(d.mode) ? d.mode : 'phone';
         const couriers = arr(d.couriers).filter(c => c?.name).map(courierN);
         return {
             mode, app: str(d.app, CONTACT_MODES[mode].app) || CONTACT_MODES[mode].app,
-            contacts: arr(d.contacts).filter(c => c?.name).map(c => ({ name: str(c.name), handle: str(c.handle), status: str(c.status), courier: str(c.courier), reflect: ['always', 'pinned', 'never'].includes(c.reflect) ? c.reflect : '', blocked: !!c.blocked })),
+            contacts: arr(d.contacts).filter(c => c?.name).map(c => ({ name: str(c.name), handle: str(c.handle), status: str(c.status), courier: str(c.courier), reflect: ['always', 'pinned', 'never'].includes(c.reflect) ? c.reflect : '', blocked: !!c.blocked, ...(c.away && Number.isFinite(Number(c.away.until)) ? { away: { why: str(c.away.why), until: Number(c.away.until), t: Number(c.away.t) || 0 } } : {}) })), // away = 🔕 상대가 연락을 꺼 둠 (v2.7.23)
             summaries: Object.fromEntries(Object.entries(d.summaries && typeof d.summaries === 'object' ? d.summaries : {}).filter(([, v]) => v?.text).map(([k, v]) => [k, { text: str(v.text), n: Math.max(0, Math.round(num(v.n, 0))), ...(v.manual === true ? { manual: true } : {}) }])),
-            threads, unread: d.unread && typeof d.unread === 'object' ? { ...d.unread } : {},
+            threads, ...(Object.keys(truth).length ? { truth } : {}), unread: d.unread && typeof d.unread === 'object' ? { ...d.unread } : {},
             recent: arr(d.recent).map(String).filter(Boolean).slice(0, 30),
             couriers: couriers.length ? couriers : clone(COURIER_PRESETS.slice(0, 1)),
             express: (() => { const dn = viewTr() ? 'Express' : '급행 (퀵)'; return { name: str(d.express?.name, dn) || dn, fee: Math.max(0, num(d.express?.fee, 100)) }; })(),

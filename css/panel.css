@@ -525,3 +525,16 @@ button.ss-csum { width: 100%; text-align: left; border: 0; border-bottom: 1px so
 /* ✉ 답장 도착 고르기 (v2.7.23) */
 .ss-lwhen-row { gap: 8px; }
 .ss-lwhen-row select.ss-lwhen { width: auto; min-width: 9em; padding: 4px 8px; }
+
+/* 🕵 최면 어플 (v2.7.23) — 연락의 어두운 판 */
+.ss-truth { --ss-bg: #15151c; --ss-surface: #1d1d27; --ss-surface2: #262633; --ss-card: #1d1d27; --ss-ink: #eceaf3; --ss-dim: #a09eb2; --ss-line: #33313f; --ss-hi: #e0455e; --ss-acc: #e0455e; --ss-accInk: #fff; background: #0f0f15; color: var(--ss-ink); border-radius: var(--ss-r); padding: 6px; }
+.ss-truth .ss-ct-row, .ss-truth .ss-callout, .ss-truth .ss-phone-top, .ss-truth .ss-csum, .ss-truth .ss-in { background: var(--ss-card); color: var(--ss-ink); border-color: var(--ss-line); }
+.ss-truth .ss-bub > span { background: #262633; color: var(--ss-ink); }
+.ss-truth .ss-bub.me > span { background: var(--ss-hi); color: #fff; }
+.ss-truth .ss-truth-bar { color: #ff8fa1; justify-content: center; }
+.ss-truth small, .ss-truth .ss-hint { color: var(--ss-dim); }
+.ss-truth-btn i { color: #e0455e; }
+
+/* 🔕 상대가 연락을 꺼 둠 (v2.7.23) */
+.ss-csum.ss-away { gap: 8px; flex-wrap: wrap; color: var(--ss-ink); background: color-mix(in srgb, var(--ss-warn, #c47f0a) 12%, var(--ss-bg)); }
+.ss-csum.ss-away > span { flex: 1 1 auto; }
