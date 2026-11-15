@@ -644,6 +644,7 @@ export const CONTACT_ACTIONS = {
         box.innerHTML = `<h3>${avatar(who)} ${esc(who)}</h3>
             <button class="ss-btn wide" data-m="rename"><i class="fa-solid fa-signature"></i> 이름 바꾸기</button>
             <button class="ss-btn wide" data-m="status"><i class="fa-solid fa-comment-dots"></i> 상태 메시지 · 사는 곳</button>
+            <button class="ss-btn wide" data-m="prompt"><i class="fa-solid fa-feather-pointed"></i> 추가 지시 ${findBy(s.data.contact.contacts, who)?.prompt ? '<small>(적어 둠)</small>' : ''}</button>
             ${isLetter(s.data.contact) ? '<button class="ss-btn wide" data-m="courier"><i class="fa-solid fa-dove"></i> 이 사람이 쓰는 배달 수단</button>' : ''}
             <button class="ss-btn wide" data-m="ping">${ai1} ${isLetter(s.data.contact) ? '편지 오게' : '선톡 오게'}</button>
             <button class="ss-btn wide" data-m="sumwrite"><i class="fa-solid fa-pen"></i> 한 줄 요약 직접 쓰기</button>
@@ -670,6 +671,11 @@ export const CONTACT_ACTIONS = {
             const v = (await askInput(TITLE, '새 이름', who))?.trim(); if (!v || v === who) return;
             c.name = v; if (nd.threads[who]) { nd.threads[v] = nd.threads[who]; delete nd.threads[who]; } if (nd.unread[who]) { nd.unread[v] = nd.unread[who]; delete nd.unread[who]; }
             if (el._ss.ui.who === who) el._ss.ui.who = v;
+        }
+        if (pick === 'prompt') {
+            const v = await askInput(TITLE, `${esc(who)}에게만 주는 추가 지시<br><small>이 사람이 연락에서 어떻게 굴지 적어요 — 말투 · 성격 · 답장 길이 · 하지 말 것 등. 답장 · 편지 · 선톡 · 최면 어플에 모두 붙고, 다른 지시보다 먼저 따라요. 예: 「반말로 짧게, 이모티콘은 쓰지 않는다. 질투가 많다.」 비우면 지워요.</small>`, c.prompt ?? '');
+            if (v === null) return;
+            if (String(v).trim()) c.prompt = String(v).trim(); else delete c.prompt;
         }
         if (pick === 'status') { const v = await askInput(TITLE, '상태 메시지 · 사는 곳', c.status); if (v === null) return; c.status = v; }
         if (pick === 'courier') {

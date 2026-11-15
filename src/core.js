@@ -769,7 +769,7 @@ export const NORM = {
         const couriers = arr(d.couriers).filter(c => c?.name).map(courierN);
         return {
             mode, app: str(d.app, CONTACT_MODES[mode].app) || CONTACT_MODES[mode].app,
-            contacts: arr(d.contacts).filter(c => c?.name).map(c => ({ name: str(c.name), handle: str(c.handle), status: str(c.status), courier: str(c.courier), reflect: ['always', 'pinned', 'never'].includes(c.reflect) ? c.reflect : '', blocked: !!c.blocked, ...(c.away && Number.isFinite(Number(c.away.until)) ? { away: { why: str(c.away.why), until: Number(c.away.until), t: Number(c.away.t) || 0 } } : {}) })), // away = 🔕 상대가 연락을 꺼 둠 (v2.7.23)
+            contacts: arr(d.contacts).filter(c => c?.name).map(c => ({ name: str(c.name), handle: str(c.handle), status: str(c.status), courier: str(c.courier), reflect: ['always', 'pinned', 'never'].includes(c.reflect) ? c.reflect : '', blocked: !!c.blocked, ...(str(c.prompt).trim() ? { prompt: short(str(c.prompt).trim(), 1200) } : {}), ...(c.away && Number.isFinite(Number(c.away.until)) ? { away: { why: str(c.away.why), until: Number(c.away.until), t: Number(c.away.t) || 0 } } : {}) })), // away = 🔕 상대가 연락을 꺼 둠 (v2.7.23)
             summaries: Object.fromEntries(Object.entries(d.summaries && typeof d.summaries === 'object' ? d.summaries : {}).filter(([, v]) => v?.text).map(([k, v]) => [k, { text: str(v.text), n: Math.max(0, Math.round(num(v.n, 0))), ...(v.manual === true ? { manual: true } : {}) }])),
             threads, ...(Object.keys(truth).length ? { truth } : {}), unread: d.unread && typeof d.unread === 'object' ? { ...d.unread } : {},
             recent: arr(d.recent).map(String).filter(Boolean).slice(0, 30),

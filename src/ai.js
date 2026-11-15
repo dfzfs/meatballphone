@@ -156,6 +156,8 @@ function aboutPerson(who, state) {
         rel ? `Relationship with {{user}}: ${rel.label || '-'} · ${relAxes(state.data.rel).aff} ${rel.aff} · ${relAxes(state.data.rel).trust} ${rel.trust} · ${rel.memo}` : '',
         `Difficulty: ${DIFFS[diffOf()].name}`,
         `Recent story (for context):\n${recentChat(lite ? 3 : 8)}`,
+        // ✍ 연락처마다 넣는 추가 지시 (v2.7.23): 이 사람이 연락에서 어떻게 굴지 — 답장 · 편지 · 선톡 · 최면 어플 모두에 붙는다
+        (() => { const dir = d.contact ? findBy(d.contact.contacts, who)?.prompt : ''; return dir ? `=== USER'S DIRECTION for how ${who} behaves in these messages (highest priority) ===\n${dir}` : ''; })(),
     ].filter(Boolean);
 }
 const threadN = (n) => (contactSimple() ? Math.min(n, 4) : n); // 간단 모드: 최근 4줄만 기억

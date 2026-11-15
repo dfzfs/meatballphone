@@ -62,6 +62,14 @@ try {
         await say('자?');
         out.offNoRule = !sys[0].includes('GOING OFFLINE') && !leonC().away && st().data.contact.threads.Leon.at(-1).text === '응.';
         core.settings().contactAway = true;
+        // ✍ 연락처마다 추가 지시: 그 사람의 답장에만 붙는다
+        { const nd = core.clone(st().data.contact); nd.contacts.find(x => x.name === 'Leon').prompt = '반말로 짧게 DIRECTIVE-XYZ'; nd.contacts.push({ name: 'Mira' }); await eng.commit('contact', nd, ''); await wait(200); }
+        const seen = []; window.__ai = (p, sp) => { seen.push(p); return '응'; };
+        await say('지시 확인');
+        out.dirKept = st().data.contact.contacts.find(x => x.name === 'Leon').prompt === '반말로 짧게 DIRECTIVE-XYZ';
+        out.dirSent = seen.at(-1).includes('DIRECTIVE-XYZ') && seen.at(-1).includes("USER'S DIRECTION");
+        ct.CONTACT_ACTIONS.copen(el, 'Mira'); await wait(250); await say('안녕');
+        out.dirOnlyThatPerson = !seen.at(-1).includes('DIRECTIVE-XYZ');
         return out;
     });
     for (const [k, v] of Object.entries(r)) check(v === true, k);
