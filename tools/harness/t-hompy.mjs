@@ -18,7 +18,7 @@ for (const width of [1300, 390]) {
             const dlg = el.closest('dialog'); dlg.classList.add('ss-dlg'); dlg.style.cssText = 'position:fixed;inset:0;width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;padding:0;border:0;overflow:auto;';
             el.querySelector('[data-act="fullscreen"]').click(); await wait(400);
             out.fullIsHompy = !!el.querySelector('.ss-hompy .ss-hp-book') && el.querySelector('.ss-hompy').classList.contains('ss-hp-enter');
-            out.parts = ['.ss-hp-url', '.ss-hp-left .ss-hp-photo img', '.ss-hp-right .ss-body', '.ss-hp-index .ss-groups', '.ss-hp-today', '.ss-hp-top .ss-head [data-act="fullscreen"]'].filter(q => !el.querySelector(q)).join(' ') || true;
+            out.parts = ['.ss-hp-url', '.ss-hp-left .ss-hp-photo', '.ss-hp-right .ss-body', '.ss-hp-index .ss-groups', '.ss-hp-today', '.ss-hp-top .ss-head [data-act="fullscreen"]'].filter(q => !el.querySelector(q)).join(' ') || true;
             await wait(600);
             out.imgsLoad = [...el.querySelectorAll('.ss-hompy img[src*="/img/meatcon/"]')].every(i => i.naturalWidth > 0);
             // 화면에 딱 맞음: 넓은 화면에선 수첩이 창 안에 다 들어오고 안쪽(오른쪽 쪽)만 스크롤
@@ -26,6 +26,12 @@ for (const width of [1300, 390]) {
               out.fitsWindow = innerWidth < 861 || (root.top === 0 && Math.round(root.height) === innerHeight && bk.bottom <= innerHeight && (() => { const b = el.querySelector('.ss-hp-right > .ss-body'); return !b.style.zoom; })()) || JSON.stringify([root.top, root.height, bk.bottom, innerHeight]); }
             // 프로필 그림: 기본은 기분 따라 · 고르면 그 그림 · 내 그림 · 고르기 창이 뜸
             const face = () => el.querySelector('.ss-hp-photo img').getAttribute('src');
+            // 기본은 빈 칸(눌러서 넣기) · 미트볼은 제목 옆에 작게 — 끄면 없음
+            delete core.settings().hpFace; shell.rerenderPanels(true); await wait(150);
+            out.faceEmptyByDefault = innerWidth <= 640 && !el.querySelector('.ss-hp-photo') || (!!el.querySelector('.ss-hp-photo.empty') && !el.querySelector('.ss-hp-photo img'));
+            out.petBesideTitle = !!el.querySelector('.ss-hp-url .ss-hp-pet')?.getAttribute('src').includes('/img/meatcon/');
+            core.settings().hpPet = false; shell.rerenderPanels(true); await wait(150); out.petOff = !el.querySelector('.ss-hp-pet'); delete core.settings().hpPet;
+            core.settings().hpFace = 'auto'; shell.rerenderPanels(true); await wait(150);
             out.faceAuto = face().includes('/img/meatcon/');
             core.settings().hpFace = 'con:box'; shell.rerenderPanels(true); await wait(150); out.facePicked = face().endsWith('/img/meatcon/box.webp');
             core.settings().hpFaces = ['data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7']; core.settings().hpFace = 'my:0'; shell.rerenderPanels(true); await wait(150); out.faceMine = face().startsWith('data:image/gif');

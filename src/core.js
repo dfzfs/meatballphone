@@ -137,7 +137,7 @@ export const DEFAULTS = Object.freeze({
     // 📒 올린 것(모든 채팅 공통 · 세트/코드에는 안 들어감): hpCover 머리 그림 · hpBgImg 바탕 그림(hpBgTile 바둑판) · hpFontFile 글꼴 파일 · hpMoodFaces 기분별 내 그림 · hpCss 내 CSS
     hpSets: [],              // 📒 저장한 꾸밈 세트 [{ name, data }] — 채팅에 묶으면 meta.hpSet = 이름
     hpWins: {},              // 📒 미니홈피에서 끈 창 ({ stats: false } …)
-    hpFace: 'auto',          // 📒 미니홈피 프로필 그림: auto(기분 따라) · con:이름 · my:번호
+    hpFace: 'none',          // 📒 미니홈피 프로필 그림: none(비워 둠 · 눌러서 넣기) · auto(기분 따라 미트볼) · con:이름 · my:번호
     hpFaces: [],             // 📒 내가 올린 프로필 그림 (최대 12장 · 긴 변 320px)
     hompyFull: true,         // 📒 전체화면으로 열면 미니홈피(수첩) 모양으로 (v2.8 · 화면만 · 끄면 예전 전체화면)
     sheetFull: false,        // 상태창을 전체화면으로 열기

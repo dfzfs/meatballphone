@@ -672,3 +672,9 @@ body.ss-skin-phone .ss-hp-col { padding: 0 6px 14px; margin: 0 -6px; }
     .ss-hp-url .ss-hp-addr { flex: 0 0 auto; max-width: 62%; overflow: visible; white-space: normal; overflow-wrap: anywhere; } .ss-hompy .ss-hp-url .ss-head { flex: 1 1 0; min-width: 0; }
     body.ss-skin-gothic .ss-hp-url { justify-content: flex-start; } body.ss-skin-gothic .ss-hp-addr b { letter-spacing: .16em; }
 }
+
+/* 프로필 그림은 기본이 빈 칸 (눌러서 자유롭게 넣기) · 미트볼은 제목 옆에 작게 — 기분 따라 표정만 바뀌고 아무것도 가리지 않는다 */
+.ss-hp-photo.empty, body .ss-hp-photo.empty { background: none !important; border: 1.5px dashed var(--hp-ol) !important; box-shadow: none !important; padding: 0 !important; color: var(--hp-dim); clip-path: none !important; } .ss-hp-photo.empty i { font-size: 1.1em; opacity: .7; } .ss-hp-photo.empty:hover { border-color: var(--hp-acc) !important; color: var(--hp-acc); }
+.ss-hp-pet { flex: 0 0 auto; width: 32px; height: 32px; object-fit: contain; margin: -6px 0 -6px -4px; pointer-events: auto; transform-origin: 50% 90%; } body.ss-skin-gothic .ss-hp-pet { filter: grayscale(.7); } body.ss-skin-ink .ss-hp-pet { filter: grayscale(.35); }
+@media (prefers-reduced-motion: no-preference) { body:not(.ss-hp-still) .ss-hp-pet.pop { animation: ss-hp-pop .45s ease-out; } body:not(.ss-hp-still) .ss-hp-pet:hover { transform: rotate(-8deg) scale(1.08); transition: transform .15s; } }
+body.ss-skin-dot .ss-hp-pet { width: 20px; height: 20px; margin: -2px 0; }
