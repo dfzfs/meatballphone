@@ -130,6 +130,10 @@ export const DEFAULTS = Object.freeze({
     profGen: '',
     profFeeds: '',
     profAnalyze: '',
+    hpSkinHud: true,         // 🪟 HUD · 미니창도 미니홈피와 같은 색 · 얇은 테두리로 (화면만)
+    hpTheme: 0,              // 📒 미니홈피 색 (hompy.js THEMES의 번호)
+    hpPattern: 'grid',       // 📒 미니홈피 바탕 무늬: grid · dot · stripe · none
+    hpWins: {},              // 📒 미니홈피에서 끈 창 ({ stats: false } …)
     hpDot: true,             // 📒 미니홈피 글꼴: 도트 글꼴(갈무리11 · font/) — 끄면 실리 글꼴 그대로
     hpFace: 'auto',          // 📒 미니홈피 프로필 그림: auto(기분 따라) · con:이름 · my:번호
     hpFaces: [],             // 📒 내가 올린 프로필 그림 (최대 12장 · 긴 변 320px)

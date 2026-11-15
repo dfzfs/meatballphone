@@ -3,7 +3,7 @@
 // 계산은 없음(화면만) · 그림은 img/meatcon/ 의 미트볼콘 (폴더 이름을 con으로 하면 윈도우에서 못 만든다 — 예약된 이름)
 import { app, esc, short, fmtNum, modOn, relAxes, ctx, TITLE, dateShort, getMeta, saveMeta, ssErr, settings, saveSettings } from './core.js';
 import { avatar, askInput, choosePopup } from './kit.js';
-import { shrinkImage } from './tiles.js';
+import { shrinkImage, MINI, miniWidgets } from './tiles.js';
 
 export const conUrl = (n) => new URL(`../img/meatcon/${n}.webp`, import.meta.url).href;
 export const CONS = ['hi', 'proud', 'heart', 'pray', 'focus', 'groom', 'blank', 'roll', 'box', 'blanket', 'tongue', 'sulk', 'sad', 'gasp'];
@@ -29,6 +29,36 @@ async function pickFace(redraw) {
         inp.click(); return;
     }
     set.hpFace = pick; saveSettings(); redraw();
+}
+// 🎨 꾸미기 (모든 채팅 공통): 색 · 바탕 무늬 · 글꼴 · 보일 창
+export const THEMES = [['분홍', 340, 1], ['회색', 260, 0.08], ['하늘', 215, 1], ['민트', 150, 0.8], ['빨강', 2, 1], ['살구', 22, 1], ['노랑', 46, 1], ['보라', 268, 1]];
+export const PATTERNS = { grid: '모눈', dot: '물방울', stripe: '줄무늬', none: '없음' };
+const SIDE = { profile: '프로필', stats: '상태', friends: '일촌', extra: '소식 창들', photo: '사진' };
+const themeOf = () => THEMES[Number(settings().hpTheme) || 0] ?? THEMES[0];
+const patOf = () => (PATTERNS[settings().hpPattern] ? settings().hpPattern : 'grid');
+const winOn = (k) => settings().hpWins?.[k] !== false;
+// 🪟 HUD · 미니창에도 같은 색 · 테두리 (설정 hpSkinHud · 기본 켬): body에 색 값과 표시를 걸어 둔다
+export function applyRetro() {
+    const b = document.body; if (!b) return; const [, h, s] = themeOf(), on = settings().hpSkinHud !== false;
+    b.classList.toggle('ss-retro', on); b.classList.toggle('ss-retro-dot', on && settings().hpDot !== false);
+    b.style.setProperty('--hp-h', String(h)); b.style.setProperty('--hp-s', String(s));
+}
+const win = (key, title, body, cls = '') => (body ? `<section class="ss-hp-win ${cls}" data-win="${key}"><div class="ss-hp-wt"><b>${title}</b><i>♡♡♡</i></div><div class="ss-hp-wb">${body}</div></section>` : '');
+async function openDeco(redraw) {
+    for (;;) {
+        const set = settings(), ti = Number(set.hpTheme) || 0, box = document.createElement('div'); box.className = 'ss-root ss-scope ss-hp-pick';
+        box.innerHTML = `<h3>🎨 미니홈피 꾸미기</h3><h4>색</h4><div class="ss-hp-faces">${THEMES.map(([n, h, s], i) => `<button class="ss-hp-sw ${ti === i ? 'on' : ''}" data-choice="theme:${i}" title="${n}" style="background:hsl(${h} ${Math.round(85 * s)}% 86%)"></button>`).join('')}</div>
+            <h4>바탕 무늬</h4><div class="ss-row-btns">${Object.entries(PATTERNS).map(([k, n]) => `<button class="ss-btn sm ${patOf() === k ? 'pri' : 'ghost'}" data-choice="pat:${k}">${n}</button>`).join('')}</div>
+            <h4>글꼴</h4><div class="ss-row-btns"><button class="ss-btn sm ${set.hpDot !== false ? 'pri' : 'ghost'}" data-choice="font:1">도트 글꼴</button><button class="ss-btn sm ${set.hpDot === false ? 'pri' : 'ghost'}" data-choice="font:0">실리 글꼴</button></div>
+            <h4>HUD · 미니창</h4><div class="ss-row-btns"><button class="ss-btn sm ${set.hpSkinHud !== false ? 'pri' : 'ghost'}" data-choice="skin:1">${set.hpSkinHud !== false ? '✓ ' : ''}HUD · 미니창도 같은 모양으로</button></div>
+            <h4>보일 창</h4><div class="ss-row-btns">${Object.entries(SIDE).map(([k, n]) => `<button class="ss-btn sm ${winOn(k) ? 'pri' : 'ghost'}" data-choice="win:${k}">${winOn(k) ? '✓ ' : ''}${n}</button>`).join('')}</div>`;
+        const pick = await choosePopup(box, '닫기'); if (!pick) return;
+        const [k, v] = pick.split(':');
+        if (k === 'theme') set.hpTheme = Number(v); if (k === 'pat') set.hpPattern = v; if (k === 'font') set.hpDot = v === '1';
+        if (k === 'win') (set.hpWins ??= {})[v] = !winOn(v);
+        if (k === 'skin') set.hpSkinHud = set.hpSkinHud === false;
+        saveSettings(); applyRetro(); redraw();
+    }
 }
 // 오늘의 기분: 지금 상태로 정한다 (토큰 0)
 function mood(s, meta, nNew) {
@@ -68,23 +98,21 @@ function shrinkToFit(box, room, nat) {
 }
 export function fitHompy(el, tries = 0) {
     const root = el?.querySelector?.('.ss-hompy'); if (!root) return;
-    const left = root.querySelector('.ss-hp-left'), lin = root.querySelector('.ss-hp-left-in'), right = root.querySelector('.ss-hp-right'), body = right?.querySelector(':scope > .ss-body');
-    if (lin) lin.style.zoom = ''; if (body) body.style.zoom = ''; right?.classList.remove('ss-hp-over');
+    const right = root.querySelector('.ss-hp-right'), body = right?.querySelector(':scope > .ss-body'), cols = [...root.querySelectorAll('.ss-hp-col')];
+    cols.forEach(c => { c.firstElementChild.style.zoom = ''; }); if (body) body.style.zoom = ''; right?.classList.remove('ss-hp-over');
     if (matchMedia('(max-width: 860px)').matches) return;
     if (!right || right.clientHeight < 60) { if (tries < 8) setTimeout(() => fitHompy(el, tries + 1), 80); return; } // 창이 아직 안 떴음
     const pad = (x) => { const cs = getComputedStyle(x); return parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom); };
-    if (left && lin) shrinkToFit(lin, left.clientHeight - pad(left), () => lin.scrollHeight);
+    for (const c of cols) { const inn = c.firstElementChild; if (!shrinkToFit(inn, c.clientHeight - pad(c), () => inn.scrollHeight)) c.classList.add('ss-hp-over'); else c.classList.remove('ss-hp-over'); }
     if (!right.classList.contains('ss-hp-fit') || !body) return;
     const fig = right.querySelector(':scope > .ss-hp-main');
     let used = 0; for (const ch of right.children) { if (ch === body || ch === fig || getComputedStyle(ch).position === 'absolute') continue; const cs = getComputedStyle(ch); used += ch.offsetHeight + parseFloat(cs.marginTop) + parseFloat(cs.marginBottom); }
-    const room = right.clientHeight - pad(right) - used - 16;
-    // 소식 줄: 왼쪽 쪽에 이미 있는 칸(게이지 · 날짜 · 장소 · 돈 · 관계)은 CSS로 숨겨져 있음 → 남은 게 없으면 소식 칸을 통째로 숨긴다
-    const grid = body.querySelector('.ss-home-grid'); if (grid) grid.classList.toggle('ss-hp-nonews', ![...grid.children].some(w => w.offsetParent !== null));
-    const forBody = fig ? room - Math.max(150, room * 0.52) : room;
-    if (!shrinkToFit(body, forBody, () => body.scrollHeight)) right.classList.add('ss-hp-over'); // 그래도 안 들어가면 그때만 스크롤
+    const room = right.clientHeight - pad(right) - used - 12;
+    if (!shrinkToFit(body, fig ? room - Math.max(140, room * 0.55) : room, () => body.scrollHeight)) right.classList.add('ss-hp-over'); // 그래도 안 들어가면 그때만 스크롤
 }
 // 사진 단추 (패널마다 걸지 않고 문서에 한 번)
 export function initHompy() {
+    try { applyRetro(); } catch (e) { ssErr(e); }
     let rt = null; const refit = () => { clearTimeout(rt); rt = setTimeout(() => document.querySelectorAll('.ss-hompy').forEach(r => fitHompy(r.closest('.ss-panel'))), 120); };
     window.addEventListener('resize', refit);
     document.addEventListener('load', (e) => { if (e.target?.tagName === 'IMG' && e.target.closest?.('.ss-hompy')) refit(); }, true);
@@ -93,6 +121,7 @@ export function initHompy() {
         e.preventDefault(); e.stopPropagation();
         const el = b.closest('.ss-panel');
         if (b.dataset.hp === 'close') { el?.closest('dialog')?.querySelector('.popup-button-ok')?.click(); return; }
+        if (b.dataset.hp === 'deco') { try { await openDeco(() => { if (el?.isConnected) app.renderPanel?.(el); }); } catch (err) { ssErr(err); } return; }
         if (b.dataset.hp === 'face') { try { await pickFace(() => { if (el?.isConnected) app.renderPanel?.(el); }); } catch (err) { ssErr(err); } return; }
         const meta = getMeta(); if (!meta) return;
         const done = () => { saveMeta(); if (el?.isConnected) app.renderPanel?.(el); };
@@ -107,33 +136,36 @@ export function initHompy() {
     }, true);
 }
 export function hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, s, meta, nNew, enter, tab }) {
-    const c = s.core, d = s.data, [con, feel] = mood(s, meta, nNew);
+    const c = s.core, d = s.data, [con, feel] = mood(s, meta, nNew), [, hue, sat] = themeOf();
     const total = (ctx().chat ?? []).filter(m => !m.is_system).length;
     const cal = d.calendar && modOn('calendar', meta) ? d.calendar : null, here = modOn('map', meta) ? d.map?.here : '';
     const w = d.wallet && modOn('wallet', meta) ? d.wallet : null;
-    const bars = modOn('stats', meta) ? (d.stats?.bars ?? []).slice(0, 3) : [];
-    const rel = d.rel && modOn('rel', meta) ? d.rel : null;
-    const friends = rel ? rel.user.filter(r => !r.out).sort((a, b) => b.aff + b.trust - a.aff - a.trust).slice(0, 3) : [];
-    const AX = rel ? relAxes(rel) : null;
+    const bars = modOn('stats', meta) ? (d.stats?.bars ?? []).slice(0, 6) : [];
+    const rel = d.rel && modOn('rel', meta) ? d.rel : null, AX = rel ? relAxes(rel) : null;
+    const friends = rel ? rel.user.filter(r => !r.out).sort((x, y) => y.aff + y.trust - x.aff - x.trust).slice(0, 6) : [];
     const mini = [cal ? ['날짜', `${dateShort(cal)} ${cal.time}`] : null, here ? ['장소', here] : null, w ? ['재산', `${fmtNum(w.cash)} ${w.currency ?? ''}`] : null].filter(Boolean);
-    const photo = tab === 'home' ? photoHTML(meta) : '', photoTop = !!photo && !!meta.hpPhoto?.src && meta.hpPhoto.pos === 'top';
     const mine = String(settings().hpFace ?? '').startsWith('my:') && !!settings().hpFaces?.[Number(String(settings().hpFace).slice(3))];
-    return `<div class="${rootCls} ss-hompy ${settings().hpDot !== false ? 'ss-hp-dot' : ''} ${enter ? 'ss-hp-enter' : ''}">
-        <div class="ss-hp-url"><i></i><i></i><i></i><span>https://meatball.home/<b>${esc(short(c.title || TITLE, 30))}</b></span><button class="ss-hp-x" data-hp="close" aria-hidden="false" title="닫기"><i class="fa-solid fa-xmark"></i></button><em></em></div>
-        <div class="ss-hp-book">
-            <div class="ss-hp-top"><span class="ss-hp-count">TURN <b>${s.turn ?? 0}</b> <i>|</i> TOTAL <b>${total}</b></span><b class="ss-hp-title">${esc(c.title || TITLE)}</b>${headHTML}</div>
-            <aside class="ss-hp-left"><div class="ss-hp-left-in">
-                <div class="ss-hp-today"><small>TODAY IS…</small><b>${esc(feel)}</b></div>
-                <div class="ss-hp-photo ${mine ? 'mine' : ''}" data-hp="face" role="button" title="눌러서 프로필 그림 바꾸기"><img src="${esc(faceSrc(con))}" alt=""><i class="ss-hp-tape"></i></div>
-                <p class="ss-hp-intro">${esc(short(c.summary, 110)) || '아직 소개 글이 없어요.'}</p>
-                ${mini.length ? `<dl class="ss-hp-mini">${mini.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}
-                ${bars.length ? `<div class="ss-hp-bars">${bars.map(b => `<div><span>${esc(b.name)}</span><i><b style="width:${b.max > 0 ? Math.max(0, Math.min(100, (b.cur / b.max) * 100)) : 0}%"></b></i><small>${fmtNum(b.cur)}</small></div>`).join('')}</div>` : ''}
-                ${friends.length ? `<div class="ss-hp-friends"><h5>일촌</h5>${friends.map(r => `<button data-act="tab" data-arg="rel" title="관계 탭 열기">${avatar(r.name)}<span><b>${esc(r.name)}</b><small>${r.label ? `${esc(r.label)} · ` : ''}${esc(AX.aff)} ${r.aff}</small></span></button>`).join('')}</div>` : ''}
-                <div class="ss-hp-deco" aria-hidden="true"><img src="${conUrl('box')}" alt=""><img src="${conUrl('roll')}" alt=""></div>
-            </div></aside>
-            <div class="ss-hp-rings" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-            <section class="ss-hp-right ${tab === 'home' ? 'ss-hp-fit' : ''}">${pauseHTML}${photoTop ? restHTML.replace('<main class="ss-body"', () => `${photo}<main class="ss-body"`) : restHTML + photo}</section>
-            <div class="ss-hp-index">${groupsHTML}</div>
+    const home = tab === 'home', photo = photoHTML(meta), hasPhoto = !!meta.hpPhoto?.src;
+    // 왼쪽 줄: 프로필 · 상태 · 일촌
+    const L = [
+        winOn('profile') ? win('profile', 'profile', `<div class="ss-hp-prof"><div class="ss-hp-photo ${mine ? 'mine' : ''}" data-hp="face" role="button" title="눌러서 프로필 그림 바꾸기"><img src="${esc(faceSrc(con))}" alt=""></div>
+            <div class="ss-hp-prof-t"><div class="ss-hp-today"><small>TODAY IS…</small><b>${esc(feel)}</b></div><b class="ss-hp-name">${esc(short(c.title || TITLE, 40))}</b></div></div><p class="ss-hp-intro">${esc(short(c.summary, 110)) || '아직 소개 글이 없어요.'}</p>`) : '',
+        winOn('stats') ? win('stats', 'status', `${mini.length ? `<dl class="ss-hp-mini">${mini.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}${bars.length ? `<div class="ss-hp-bars">${bars.map(b => `<div><span>${esc(b.name)}</span><i><b style="width:${b.max > 0 ? Math.max(0, Math.min(100, (b.cur / b.max) * 100)) : 0}%"></b></i><small>${fmtNum(b.cur)}</small></div>`).join('')}</div>` : ''}`) : '',
+    ].join('');
+    // 오른쪽 줄: 소식 창들(퀘스트 · 뉴스 · 연락 …) · 사진(홈이 아닐 때 — 홈에서는 가운데 창에 크게)
+    const R = [
+        winOn('friends') && friends.length ? win('friends', '일촌', `<div class="ss-hp-friends">${friends.map(r => `<button data-act="tab" data-arg="rel" title="관계 탭 열기">${avatar(r.name)}<span><b>${esc(r.name)}</b><small>${r.label ? esc(r.label) : ''}</small></span><em>♥${r.aff}</em><em class="t">★${r.trust}</em></button>`).join('')}</div>`) : '',
+        ...(winOn('extra') ? ['quest', 'news', 'contact', 'mind', 'cond', 'fate', 'music', 'custom'].map(k => win(k, MINI[k].name, miniWidgets(s, [k]), 'x')) : []),
+        winOn('photo') && !home && hasPhoto ? win('photo', 'photo', photo) : '',
+    ].join('');
+    const mainBody = home && winOn('photo') ? (meta.hpPhoto?.pos === 'top' && hasPhoto ? restHTML.replace('<main class="ss-body"', () => `${photo}<main class="ss-body"`) : restHTML + photo) : restHTML;
+    return `<div class="${rootCls} ss-hompy ss-hp-p-${patOf()} ${settings().hpDot !== false ? 'ss-hp-dot' : ''} ${enter ? 'ss-hp-enter' : ''}" style="--hp-h:${hue};--hp-s:${sat}">
+        <div class="ss-hp-url ss-hp-top"><i></i><i></i><i></i><span class="ss-hp-nav" aria-hidden="true">‹ › ⟳</span><span class="ss-hp-addr">meatball.home/<b>${esc(short(c.title || TITLE, 30))}</b></span>${headHTML}<button class="ss-hp-x" data-hp="close" title="닫기"><i class="fa-solid fa-xmark"></i></button><em></em></div>
+        <div class="ss-hp-marks"><div class="ss-hp-index">${groupsHTML}</div><span class="ss-hp-count">TURN <b>${s.turn ?? 0}</b> · TOTAL <b>${total}</b></span><button class="ss-hp-deco-b" data-hp="deco" title="색 · 무늬 · 글꼴 · 보일 창 고르기">🎨 꾸미기</button></div>
+        <div class="ss-hp-book ${L ? '' : 'no-l'} ${R ? '' : 'no-r'}">
+            ${L ? `<aside class="ss-hp-col ss-hp-left"><div class="ss-hp-col-in ss-hp-left-in">${L}</div></aside>` : ''}
+            <section class="ss-hp-win main"><div class="ss-hp-wt"><b>${esc(c.title || TITLE)}</b><i>♡♡♡</i></div><div class="ss-hp-right ${home ? 'ss-hp-fit' : ''}">${pauseHTML}${mainBody}</div></section>
+            ${R ? `<aside class="ss-hp-col ss-hp-rcol"><div class="ss-hp-col-in">${R}</div></aside>` : ''}
         </div>
     </div>`;
 }

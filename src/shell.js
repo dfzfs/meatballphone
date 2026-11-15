@@ -450,6 +450,7 @@ function fitSoon(el) { if (!el) return; fitQ.add(el); if (fitRaf) return; fitRaf
 function paintHost(el, attr) {
     if (!el) return;
     const set = settings(), bs = set.boardStyle ?? {}, img = set.tileDeco?.[`${attr}Bg`];
+    el.classList.toggle('ss-own-bg', !!img); // 직접 올린 배경 그림이 있으면 🪟 스킨이 바탕을 덮지 않는다
     const pre = img ? null : BOARD_BG[set.boardPreset ?? 'daisy']; // 올린 그림이 없으면 기본 무늬 (v2.7.21)
     el.classList.add('ss-tbhost');
     const v = { '--h-bg': bs.bg || pre?.bg || '', '--h-bd': bs.bd || pre?.bd || '', '--h-img': img ? `url("${img}")` : pre?.img || '', '--h-size': img ? 'cover' : pre?.size || '', '--h-pos': img ? 'center' : pre?.pos || '', '--h-rep': img ? 'no-repeat' : '' };
