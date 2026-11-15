@@ -134,7 +134,7 @@ export const DEFAULTS = Object.freeze({
     sceneFilter: true,       // 최근 대화에 나온 인물만 자세히 주입, 나머지는 이름만
     sceneTurns: 6,           // 장면 판단에 볼 최근 메시지 수
     pinCap: 8,               // 주입할 고정 메모 최대 개수
-    letterReplyIn: '',       // ✉ 편지 답장이 언제 올지 (v2.7.23): '' = 배달 수단대로 · now · s1~s3 (시간대 뒤) · d1~d3 (일 뒤)
+    letterQuick: 's3',       // 💨 편지 퀵 속도 (v2.7.23): now (바로) · s1 · s2 · s3 (시간대 뒤) — 한 시간대 빨라질 때마다 기본 요금만큼 더
     bindContact: false, bindNews: false, bindGossip: false, bindBoard: false, bindSns: false, // 📦 부가 기능을 채팅에 붙일지 (v2.7.23 · 기본 = 따로 보관: 기록을 안 쌓고 · 되감기 안 됨 · 「방금 한 일」로 안 감)
     contactReflect: 'auto',  // 연락 → 본편 반영: off | auto | pinned | summary
     usage: [],               // 확장 AI 사용 기록

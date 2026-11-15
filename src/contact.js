@@ -116,18 +116,14 @@ function bubble(m, ui) {
             <button class="ss-ib" data-act="cmsgdel" data-arg="${esc(m.id)}" title="기록에서 지우기"><i class="fa-solid fa-trash-can"></i></button>${!mine ? `<button class="ss-ib" data-act="cmsgre" data-arg="${esc(m.id)}" title="다시 받기 (AI 1회)"><i class="fa-solid fa-rotate"></i></button>` : ''}</div>`}</div>`;
 }
 
-// ✉ 답장이 언제 올지 (v2.7.23): 배달 수단대로 · 바로 · 시간대 뒤 · 일 뒤 (달력이 없으면 턴)
-function replyWhenOpts(s) {
-    const days = useDays(s);
-    return [['', '배달 수단대로 (기본)'], ['now', '바로'], ...[1, 2, 3].map(k => [`s${k}`, days ? `${k}시간대 뒤` : `${k}턴 뒤`]), ...(days ? [1, 2, 3].map(k => [`d${k}`, `${k}일 뒤`]) : [])];
-}
-function replyDelay(when, s) {
-    if (!when) return null;
-    if (when === 'now') return 0;
-    const k = Number(when.slice(1)) || 1;
-    if (when[0] === 'd') return k;
-    return useDays(s) ? k / slotsPerDay(s) : k;
-}
+// 💨 퀵 (v2.7.23): 편지를 시간대 단위로 빨리 — 바로 · 1~3시간대 뒤 (달력이 없으면 턴). 요금은 「한 시간대 빨라질 때마다 기본 요금만큼 더」
+//   3시간대 뒤 = 기본 요금 ×1 · 2시간대 뒤 ×2 · 1시간대 뒤 ×3 · 바로 ×4. 내 편지를 퀵으로 부칠 때와 「답장도 퀵으로」에 같은 속도 · 요금이 쓰인다
+const QUICK = ['now', 's1', 's2', 's3'];
+const quickOf = () => (QUICK.includes(settings().letterQuick) ? settings().letterQuick : 's3');
+const quickSteps = (q) => (q === 'now' ? 0 : Number(q.slice(1)) || 3);
+const quickDelay = (q, s) => (useDays(s) ? quickSteps(q) / slotsPerDay(s) : quickSteps(q));
+const quickFee = (q, d) => Math.round(Math.max(0, num(d.express?.fee, 100)) * (4 - quickSteps(q)));
+const quickName = (q, s) => (q === 'now' ? '바로' : `${quickSteps(q)}${useDays(s) ? '시간대' : '턴'} 뒤`);
 // ───── 편지 ─────
 function letterView(s, d, ui) {
     const who = ui.who, th = d.threads[who] ?? [];
@@ -143,13 +139,13 @@ function letterView(s, d, ui) {
         <div class="ss-compose">
             <div class="ss-paper"><textarea class="ss-in ss-cin" rows="5" placeholder="${esc(who)}에게…">${esc(ui.draft ?? '')}</textarea><div class="ss-paper-sign">— ${esc(app.userName?.() ?? '')}</div></div>
             <div class="ss-f wide"><span>보내는 방법</span><div class="ss-couriers">${d.couriers.map(c => `<button class="ss-cour ${ui.courier === c.name && !ui.express ? 'on' : ''}" data-act="cpick" data-arg="${esc(c.name)}"><em>${esc(c.icon)}</em><b>${esc(c.name)}</b><small>${c.min === c.max ? c.min : `${c.min}~${c.max}`}${unit}${c.fee ? ` · ${fmtNum(c.fee)}${esc(cur)}` : ''}</small></button>`).join('')}
-                <button class="ss-cour express ${ui.express ? 'on' : ''}" data-act="cpick" data-arg="__express"><em>💨</em><b>${esc(d.express.name)}</b><small>오늘 도착 · ${fmtNum(d.express.fee)}${esc(cur)}</small></button></div></div>
+                <button class="ss-cour express ${ui.express ? 'on' : ''}" data-act="cpick" data-arg="__express" title="퀵 — 아래 「퀵 속도」에서 고른 만큼 뒤에 도착해요"><em>💨</em><b>퀵</b><small>${esc(quickName(quickOf(), s))} · ${fmtNum(quickFee(quickOf(), d))}${esc(cur)}</small></button></div></div>
             ${s.data.wallet && modOn('wallet') ? `<div class="ss-enclose"><span>동봉</span>${(ui.enc ?? []).map((x, i) => `<span class="ss-chip">${esc(x.label)}<button class="ss-x" data-act="cencdel" data-arg="${i}">×</button></span>`).join('')}
                 <button class="ss-btn sm ghost" data-act="cenc" data-arg="photo"><i class="fa-solid fa-image"></i> 사진·그림</button><button class="ss-btn sm ghost" data-act="cenc" data-arg="gift"><i class="fa-solid fa-gift"></i> 선물</button><button class="ss-btn sm ghost" data-act="cenc" data-arg="money"><i class="fa-solid fa-coins"></i> 돈</button></div>` : ''}
             <div class="ss-compose-opt">
                 <label class="ss-tog"><input type="checkbox" class="ss-switch ss-lreply" ${ui.noReply ? '' : 'checked'}><span>답장 오게 하기</span></label>
-                <label class="ss-tog"><input type="checkbox" class="ss-switch ss-lrush" ${ui.rushPaid ? 'checked' : ''}><span>답장 급행료 동봉 (+${fmtNum(d.express.fee)}${esc(cur)})</span></label>
-                <label class="ss-tog ss-lwhen-row" title="답장이 언제 올지 직접 정해요. 고르면 내 편지는 바로 도착하고, 답장은 고른 만큼 뒤에 와요 (배달 수단 속도 · 급행 확률은 안 써요)"><span>답장 도착</span><select class="ss-in ss-lwhen">${replyWhenOpts(s).map(([v, t]) => `<option value="${v}" ${(settings().letterReplyIn ?? '') === v ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>
+                <label class="ss-tog"><input type="checkbox" class="ss-switch ss-lrush" ${ui.rushPaid ? 'checked' : ''}><span>답장도 퀵으로 (+${fmtNum(quickFee(quickOf(), d))}${esc(cur)})</span></label>
+                <label class="ss-tog ss-lwhen-row" title="퀵으로 부치거나 「답장도 퀵으로」를 켰을 때의 속도예요. 한 ${useDays(s) ? '시간대' : '턴'} 빨라질 때마다 ${fmtNum(Math.max(0, num(d.express?.fee, 100)))}${esc(cur)}씩 더 들어요"><span>퀵 속도</span><select class="ss-in ss-lwhen" data-chg="cquick">${QUICK.map(q => `<option value="${q}" ${quickOf() === q ? 'selected' : ''}>${esc(quickName(q, s))} — ${fmtNum(quickFee(q, d))}${esc(cur)}</option>`).join('')}</select></label>
             </div>
             <div class="ss-row-btns"><button class="ss-btn pri" data-act="csend"><i class="fa-solid fa-envelope"></i> 부치기</button>${cash !== undefined ? `<small class="ss-dim">소지금 ${fmtNum(cash)}${esc(cur)}</small>` : ''}
                 <button class="ss-btn ghost" data-act="cping" data-arg="${esc(who)}">${ai1} 이 사람에게서 편지 오게</button></div>
@@ -300,18 +296,18 @@ async function sendLetter(el, s, who, text) {
     const nd = clone(s.data.contact);
     const now = nowTick(s);
     const express = !!ui.express;
-    const c = express ? { name: nd.express.name, icon: '💨', min: 0, max: 0, fee: nd.express.fee } : (findBy(nd.couriers, ui.courier) ?? nd.couriers[0]);
+    const q = quickOf(), qFee = quickFee(q, nd), qDelay = quickDelay(q, s); // 💨 퀵 속도 · 요금
+    const c = express ? { name: '퀵', icon: '💨', min: 0, max: 0, fee: qFee } : (findBy(nd.couriers, ui.courier) ?? nd.couriers[0]);
     const wantReply = !ui.noReply;
     const rushPaid = wantReply && !!ui.rushPaid;
-    const fee = (c.fee || 0) + (rushPaid ? nd.express.fee : 0);
+    const fee = (c.fee || 0) + (rushPaid ? qFee : 0);
     const w = s.data.wallet;
     const enc = ui.enc ?? [];
     const encCash = enc.filter(x => x.kind === 'money').reduce((a, x) => a + x.amount, 0);
     if ((fee || encCash) && w && modOn('wallet') && w.cash < fee + encCash) { toastr.warning(`돈이 모자라요 (${fmtNum(fee + encCash)} ${esc(w.currency)} 필요).`, TITLE); return; }
     if (enc.length) text = `${text}\n\n${enc.map(x => x.kind === 'photo' ? `[동봉한 사진·그림: ${x.text}]` : x.kind === 'gift' ? `[동봉한 선물: ${x.text}]` : `[동봉한 돈: ${fmtNum(x.amount)} ${w?.currency ?? ''}]`).join('\n')}`;
-    const custom = wantReply ? replyDelay(settings().letterReplyIn ?? '', s) : null; // ✉ 답장 도착을 직접 골랐으면: 내 편지는 바로 도착 · 답장은 고른 만큼 뒤
-    // 배달 수단(하루 단위)은 예전처럼 「그날이 되면」 도착 — 지금이 저녁이어도 1일짜리는 내일 날짜가 되면 옴
-    const arrive = custom !== null ? Math.floor(now) : Math.floor(now) + (express ? 0 : randInt(c.min, c.max));
+    // 퀵은 고른 시간대만큼 뒤에 · 배달 수단(하루 단위)은 예전처럼 「그날이 되면」 도착 (지금이 저녁이어도 1일짜리는 내일 날짜가 되면 옴)
+    const arrive = express ? now + qDelay : Math.floor(now) + randInt(c.min, c.max);
     const mid = uid();
     const encKeep = enc.filter(x => x.kind === 'gift' || x.kind === 'money').map(x => ({ kind: x.kind, text: x.text ?? '', amount: x.amount ?? 0 }));
     (nd.threads[who] ??= []).push({ id: mid, from: 'me', text, date: stamp(s), at: now, arrive, courier: c.name, express, fee, rush: false, ...(encKeep.length ? { enc: encKeep } : {}) });
@@ -323,17 +319,18 @@ async function sendLetter(el, s, who, text) {
         const chance = clamp(num(settings().rushChance, 15) + Math.max(0, rel?.aff ?? 0) / 3, 0, 70);
         const rush = rushPaid || rand(100) <= chance;
         const theirs = courierOf(nd, who);
-        const due = custom !== null ? now + custom : arrive + randInt(0, 1) + (rush ? 0 : randInt(theirs.min, theirs.max));
-        nd.threads[who].push({ id: uid(), from: 'them', text: '', pending: true, at: arrive, arrive: due, courier: rush ? nd.express.name : theirs.name, rush, express: rush });
+        // 답장: 「답장도 퀵으로」면 내 편지가 닿은 뒤 퀵 속도만큼 · 운 좋게 급행이면 닿은 날~다음 날 · 보통은 상대의 배달 수단대로
+        const due = rushPaid ? arrive + qDelay : Math.floor(arrive) + randInt(0, 1) + (rush ? 0 : randInt(theirs.min, theirs.max));
+        nd.threads[who].push({ id: uid(), from: 'them', text: '', pending: true, at: arrive, arrive: due, courier: rush ? '퀵' : theirs.name, rush, express: rush });
         if (rush && !rushPaid) rushNote = 'rush';
     }
     ui.draft = ''; ui.express = false; ui.rushPaid = false; ui.enc = [];
-    await commit('contact', nd, `${c.icon} ${c.name}(으)로 ${who}에게 편지를 부쳤다${express || arrive <= now ? ' — 오늘 도착' : ` — ${waitText(arrive - now, s)} 뒤 도착`}${enc.length ? ` (동봉: ${enc.map(x => x.label).join(', ')})` : ''}`, { mid });
+    await commit('contact', nd, `${c.icon} ${c.name}(으)로 ${who}에게 편지를 부쳤다${arrive <= now ? ' — 바로 도착' : ` — ${waitText(arrive - now, s)} 뒤 도착`}${enc.length ? ` (동봉: ${enc.map(x => x.label).join(', ')})` : ''}`, { mid });
     if (fee && w && modOn('wallet')) await addAdjust({ ops: [['cash', `-${fee}`]], label: `편지 요금 −${fmtNum(fee)} ${w.currency}` });
     const encOps = [];
     for (const x of enc) { if (x.kind === 'gift') encOps.push(['item', `-${x.text} 1|`]); if (x.kind === 'money') encOps.push(['cash', `-${x.amount}`]); }
     if (encOps.length) await addAdjust({ ops: encOps, silent: true });
-    toastr.success(`${esc(c.icon)} 편지를 부쳤어요${express || arrive <= now ? ' (바로 도착)' : ` (${waitText(arrive - now, s)} 뒤 도착)`}${custom !== null && wantReply ? ` · 답장은 ${custom ? `${waitText(custom, s)} 뒤` : '바로'}` : ''}`, TITLE);
+    toastr.success(`${esc(c.icon)} 편지를 부쳤어요${arrive <= now ? ' (바로 도착)' : ` (${waitText(arrive - now, s)} 뒤 도착)`}${rushPaid ? ` · 답장은 그 뒤 ${qDelay ? waitText(qDelay, s) : '바로'}` : ''}`, TITLE);
     if (rushNote) setTimeout(() => toastr.info('…어쩐지 답장이 빨리 올 것 같은 예감이 들어요.', TITLE), 600);
 }
 
@@ -359,6 +356,15 @@ async function pickAttach(kind, s) {
 }
 
 export const CONTACT_ACTIONS = {
+    // 💨 퀵 속도를 바꾸면 요금 표시를 바로 다시 그린다
+    cquick: (el, arg) => {
+        const ui = el._ss.ui, w = el.querySelector('.ss-lwhen');
+        if (!w || !QUICK.includes(w.value)) return;
+        settings().letterQuick = w.value; saveSettings();
+        ui.draft = el.querySelector('.ss-cin')?.value ?? ui.draft;
+        ui.noReply = !(el.querySelector('.ss-lreply')?.checked ?? true); ui.rushPaid = !!el.querySelector('.ss-lrush')?.checked;
+        app.renderPanel(el);
+    },
     // ✏️ 한 줄 요약 직접 쓰기 (v2.7.23): 비우고 확인하면 지움 · 직접 쓴 요약은 AI가 자동으로 덮지 않음
     csumedit: async (el, arg, btn, s) => {
         const who = arg || el._ss.ui.who; if (!who) return;
@@ -451,7 +457,7 @@ export const CONTACT_ACTIONS = {
         const text = el.querySelector('.ss-cin')?.value.trim(); if (!text) return;
         ui.noReply = !(el.querySelector('.ss-creply, .ss-lreply')?.checked ?? true);
         ui.rushPaid = !!el.querySelector('.ss-lrush')?.checked;
-        { const w = el.querySelector('.ss-lwhen'); if (w && (settings().letterReplyIn ?? '') !== w.value) { settings().letterReplyIn = w.value; saveSettings(); } } // 고른 「답장 도착」은 다음에도 그대로
+        { const w = el.querySelector('.ss-lwhen'); if (w && QUICK.includes(w.value) && settings().letterQuick !== w.value) { settings().letterQuick = w.value; saveSettings(); } }
         ui.draft = '';
         busyBtn(btn, true, '');
         try { if (isLetter(s.data.contact)) await sendLetter(el, s, who, text); else await sendPhone(el, s, who, text); }
@@ -633,7 +639,7 @@ export const CONTACT_ACTIONS = {
         await commit('contact', nd, '');
     },
 };
-export const CONTACT_CHANGES = {};
+export const CONTACT_CHANGES = { cquick: (el) => CONTACT_ACTIONS.cquick(el) };
 
 // 선톡(편지 오게): 지금 바로 도착
 export async function receivePing(who, auto) {

@@ -12,7 +12,7 @@ import { fullBackup, restoreFile, saveSlot, loadSlot, deleteSlot, attachToCard, 
 import { applyPreset } from './extra.js';
 import { unreadNotes } from './notify.js';
 import { DICE_ACTIONS, DICE_CHANGES } from './dice.js';
-import { CONTACT_ACTIONS } from './contact.js';
+import { CONTACT_ACTIONS , CONTACT_CHANGES } from './contact.js';
 import { FEED_ACTIONS, FEED_CHANGES } from './feeds.js';
 import { MONEY_ACTIONS } from './money.js';
 import { FATE_ACTIONS } from './fate.js';
@@ -178,7 +178,7 @@ export function renderPanel(el) {
 app.renderPanel = renderPanel;
 
 const ACTIONS = { ...PARTS_ACTIONS, ...VIEW_ACTIONS, ...DICE_ACTIONS, ...CONTACT_ACTIONS, ...FEED_ACTIONS, ...MONEY_ACTIONS, ...FATE_ACTIONS };
-const CHANGES = { ...VIEW_CHANGES, ...DICE_CHANGES, ...FEED_CHANGES };
+const CHANGES = { ...VIEW_CHANGES, ...DICE_CHANGES, ...FEED_CHANGES, ...CONTACT_CHANGES };
 
 async function onPanelAction(el, act, arg, btn) {
     const st = el._ss;
