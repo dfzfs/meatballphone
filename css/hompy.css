@@ -152,23 +152,39 @@
     .ss-hompy .ss-groups > button { padding: 5px 8px 5px 7px; min-width: 58px; }
     .ss-hp-main img { max-height: 42dvh; }
 }
-/* 좁은 화면: 한 쪽씩 — 프로필은 위쪽 띠로, 색인 탭은 가로줄로 */
+/* 좁은 화면(폰): 세로 수첩 — 위쪽 쪽(제목 · 지금 탭 내용 · 사진)과 옆의 색인 탭, 링, 아래쪽 쪽(프로필). 화면 전체가 아래로 스크롤 */
 @media (max-width: 860px) {
     .ss-root.ss-hompy { overflow-y: auto; display: block; }
-    .ss-hp-url { position: sticky; top: 0; }
-    .ss-hp-book { width: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: none; margin: 10px 6px 18px; padding: 10px 9px 12px; border-radius: 16px; }
-    .ss-hp-left, .ss-hp-right, .ss-hp-index { overflow: visible; }
-    .ss-hp-photo { width: 64px; }
-    .ss-hp-book::before, .ss-hp-rings, .ss-hp-intro, .ss-hp-bars, .ss-hp-friends, .ss-hp-deco, .ss-hp-links { display: none; }
-    .ss-hp-top { flex-wrap: wrap; row-gap: 2px; padding: 2px 6px 0; } .ss-hp-title { flex: 1 1 100%; order: -1; font-size: 1.1em; }
-    .ss-hompy .ss-head { flex: 1 1 100%; } .ss-hompy .ss-head-a { flex-wrap: wrap; overflow: visible; }
-    .ss-hp-book { font-size: 1em; }
-    .ss-hp-left, .ss-hp-right, .ss-hp-index { grid-column: 1; }
-    .ss-hp-left { padding: 8px 10px; } .ss-hp-left-in { grid-template-columns: 64px minmax(0, 1fr); align-items: center; gap: 4px 10px; }
-    .ss-hp-right.ss-hp-fit { display: block; overflow: visible; } .ss-hp-fit > .ss-toolrow { position: static; } .ss-hp-fit > .ss-tabs { padding-right: 0; } .ss-hp-fit > .ss-hp-main img { height: auto; max-height: 60dvh; }
-    .ss-hp-photo { grid-row: 1 / span 2; } .ss-hp-tape { display: none; }
-    .ss-hp-index { order: 2; margin: 0; padding: 0; } .ss-hp-right { order: 3; padding: 8px 8px 12px; }
-    .ss-hompy .ss-groups { flex-direction: row; overflow-x: auto; gap: 4px; padding: 0 6px; scrollbar-width: none; }
-    .ss-hompy .ss-groups > button { min-width: 0; flex: 0 0 auto; border-radius: 10px 10px 0 0; border: 1.5px solid var(--hp-mint-d); border-bottom: 0; padding: 6px 10px; box-shadow: none; margin-bottom: -9px; }
-    .ss-hompy .ss-groups > button.on { padding-right: 10px; }
+    .ss-hp-url { position: sticky; top: 0; padding: 5px 10px; }
+    .ss-hp-book { width: auto; margin: 10px 6px 18px; padding: 9px 0 10px 9px; border-radius: 16px; font-size: 1em; row-gap: 0;
+        grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: none; grid-template-areas: "top top" "right index" "rings rings" "left left"; }
+    .ss-hp-book::before { display: none; }
+    .ss-hp-top { grid-area: top; flex-wrap: wrap; row-gap: 2px; padding: 2px 12px 8px 4px; }
+    .ss-hp-title { flex: 1 1 100%; order: -1; font-size: 1.2em; white-space: normal; }
+    .ss-hp-count { flex: 0 0 auto; }
+    .ss-hompy .ss-head { flex: 1 1 0; min-width: 0; } .ss-hompy .ss-head-a { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; justify-content: flex-end; }
+    /* 위쪽 쪽: 지금 탭 */
+    .ss-hp-right { grid-area: right; overflow: visible; padding: 8px 8px 12px; border-radius: 12px 0 12px 12px; }
+    .ss-hp-right.ss-hp-fit { display: block; overflow: visible; }
+    .ss-hp-fit > .ss-toolrow { position: static; margin-top: 4px; } .ss-hp-fit > .ss-tabs { padding-right: 0; }
+    .ss-hp-fit .ss-home-grid { grid-template-columns: minmax(0, 1fr); }
+    .ss-hp-main { margin-top: 8px; } .ss-hp-fit > .ss-hp-main { display: block; }
+    .ss-hp-fit > .ss-hp-main img, .ss-hp-main img { height: auto; max-height: none; aspect-ratio: 4 / 3; }
+    /* 옆의 색인 탭: 세로로, 아이콘 위에 글자 */
+    .ss-hp-index { grid-area: index; overflow: visible; margin: 0 0 0 -1.5px; padding: 6px 5px 0 0; }
+    .ss-hompy .ss-groups { flex-direction: column; gap: 4px; }
+    .ss-hompy .ss-groups > button { flex-direction: column; justify-content: center; gap: 1px; min-width: 44px; padding: 6px 4px; font-size: .82em; border-radius: 0 9px 9px 0; box-shadow: 1px 1px 0 rgba(0, 0, 0, .08); }
+    .ss-hompy .ss-groups > button.on { padding-right: 4px; }
+    .ss-hompy .ss-groups > button .ss-badge { position: absolute; top: -3px; right: -3px; }
+    /* 링: 두 쪽을 가로로 잇는다 */
+    .ss-hp-rings { grid-area: rings; flex-direction: row; justify-content: space-around; padding: 0 16% 0 12%; margin: -7px 9px -7px 0; height: 26px; }
+    .ss-hp-rings i { width: 10px; height: 26px; border-radius: 7px; background: linear-gradient(90deg, #fff, #cfc6b8); }
+    .ss-hp-rings i:nth-child(n+3) { margin-left: 14%; } .ss-hp-rings i:nth-child(2) { margin-left: -8%; } .ss-hp-rings i:nth-child(4) { margin-left: -8%; }
+    /* 아래쪽 쪽: 프로필 — 왼쪽에 그림, 오른쪽에 오늘의 기분 · 날짜 · 게이지 · 일촌 */
+    .ss-hp-left { grid-area: left; overflow: visible; margin-right: 9px; padding: 14px 10px 10px; }
+    .ss-hp-left-in { grid-template-columns: 38% minmax(0, 1fr); gap: 6px 12px; align-items: start; }
+    .ss-hp-left-in > * { grid-column: 2; }
+    .ss-hp-photo { grid-column: 1; grid-row: 1 / span 6; width: 100%; aspect-ratio: 3 / 4; align-self: start; } .ss-hp-photo img { width: 92%; height: 92%; }
+    .ss-hp-tape, .ss-hp-deco { display: none; }
+    .ss-hp-intro { -webkit-line-clamp: 2; line-clamp: 2; }
 }
