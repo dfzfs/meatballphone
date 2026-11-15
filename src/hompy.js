@@ -1,11 +1,11 @@
 // 📒 미니홈피 화면 (v2.8): 상태창을 전체화면으로 열면 수첩 모양의 「홈피」로 보여 준다 (설정 hompyFull · 기본 켬)
 // 안쪽(오른쪽 쪽)은 평소 상태창 그대로 — 틀만 씌운다: 주소창 · 수첩 표지 · 왼쪽 프로필 쪽 · 링 · 오른쪽 색인 탭
-// 계산은 없음(화면만) · 그림은 img/con/ 의 미트볼콘
+// 계산은 없음(화면만) · 그림은 img/meatcon/ 의 미트볼콘 (폴더 이름을 con으로 하면 윈도우에서 못 만든다 — 예약된 이름)
 import { app, esc, short, fmtNum, modOn, relAxes, ctx, TITLE, dateShort, getMeta, saveMeta, ssErr } from './core.js';
 import { avatar, askInput } from './kit.js';
 import { shrinkImage } from './tiles.js';
 
-export const conUrl = (n) => new URL(`../img/con/${n}.webp`, import.meta.url).href;
+export const conUrl = (n) => new URL(`../img/meatcon/${n}.webp`, import.meta.url).href;
 // 오늘의 기분: 지금 상태로 정한다 (토큰 0)
 function mood(s, meta, nNew) {
     if (meta.paused) return ['blanket', '쉬는 중'];

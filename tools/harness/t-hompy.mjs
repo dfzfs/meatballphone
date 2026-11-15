@@ -19,7 +19,7 @@ for (const width of [1300, 390]) {
             out.fullIsHompy = !!el.querySelector('.ss-hompy .ss-hp-book') && el.querySelector('.ss-hompy').classList.contains('ss-hp-enter');
             out.parts = ['.ss-hp-url', '.ss-hp-left .ss-hp-photo img', '.ss-hp-right .ss-body', '.ss-hp-index .ss-groups', '.ss-hp-today'].filter(q => !el.querySelector(q)).join(' ') || true;
             await wait(600);
-            out.imgsLoad = [...el.querySelectorAll('.ss-hompy img[src*="/img/con/"]')].every(i => i.naturalWidth > 0);
+            out.imgsLoad = [...el.querySelectorAll('.ss-hompy img[src*="/img/meatcon/"]')].every(i => i.naturalWidth > 0);
             // 🖼 홈의 큰 사진: 없으면 단추만 · 넣으면 보임 · 한마디 · 빼기 · 다른 탭엔 없음
             out.photoEmpty = !!el.querySelector('.ss-hp-right .ss-hp-addphoto [data-hp="photo"]') && !el.querySelector('.ss-hp-main');
             core.getMeta().hpPhoto = { src: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', cap: '우리 집 <b>고양이</b>' }; shell.rerenderPanels(true); await wait(200);
