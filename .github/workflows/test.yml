@@ -15,6 +15,10 @@ jobs:
       - name: 문법 검사
         run: |
           for f in index.js src/*.js; do cp "$f" /tmp/chk.mjs && node --check /tmp/chk.mjs || { echo "✘ $f"; exit 1; }; done
+      - name: 윈도우에서 못 만드는 파일 · 폴더 이름이 없는지 (con · nul · aux … · 금지 문자)
+        run: |
+          bad=$(git ls-files | grep -i -E '(^|/)(con|prn|aux|nul|com[0-9]|lpt[0-9])(\.[^/]*)?(/|$)|[<>:"|?*]|[. ](/|$)' || true)
+          if [ -n "$bad" ]; then echo "✘ 윈도우에서 설치가 실패하는 이름:"; echo "$bad"; exit 1; fi
       - name: 판 번호 맞는지 (manifest.json = src/core.js)
         run: |
           m=$(node -p "require('./manifest.json').version")
