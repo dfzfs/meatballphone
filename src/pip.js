@@ -45,6 +45,7 @@ export function pipDiag(i) {
         const list = ops.slice(0, 8).map(([k, v]) => `${k}: ${v}`).join('\n');
         if (unk.length) return { code: 'unknown', title: '읽었지만 모르는 키예요', text: `미트볼이 모르는 키라 아무것도 안 바뀌었어요: ${unk.join(', ')}\n\n${list}`, acts: ['edit'] };
         if (off.length) return { code: 'unknown', title: '꺼 둔 칸의 변화예요', text: `쓸 기능에서 꺼 둔 칸이라 반영하지 않았어요: ${off.join(', ')}`, acts: ['edit'] };
+        if (snap?.miss?.length) return { code: 'unknown', title: '읽었지만 값 모양이 달라 못 썼어요', text: `아래 줄은 값 모양이 달라서(이름이 없거나 · 숫자가 없거나) 반영하지 못했어요. 맞는 변화면 「직접 고치기」로 적어 주세요.\n\n${snap.miss.slice(0, 8).join('\n')}`, acts: ['edit'] };
         return { code: 'nochange', title: '읽었지만 바뀐 게 없어요', text: `변화 줄 ${ops.length}개를 읽었는데 바뀐 게 없어요. 지금 값과 같거나, 값 모양이 달라서 못 읽었을 수 있어요 (이름이 틀렸는지 · 숫자 뒤에 다른 글이 붙었는지 봐 주세요). 틀렸으면 「직접 고치기」로 적어요.\n\n${list}`, acts: ['edit'] };
     }
     if (set.msgCard === 'off') return { code: 'cardoff', title: '칩 표시가 꺼져 있어요', text: `변화 ${labels.length}개는 제대로 반영됐어요. 확장 설정 › 「메시지 변동 칩」이 「숨기기」예요.`, acts: [] };
@@ -56,6 +57,7 @@ export function pipDiag(i) {
     let hiddenBy = '';
     for (let p = card; p && p !== mesEl; p = p.parentElement) { const st = getComputedStyle(p); if (st.display === 'none' || st.visibility === 'hidden' || Number(st.opacity) === 0) { hiddenBy = p.className || p.tagName; break; } }
     if (hiddenBy || !r.width || !r.height || cs.display === 'none') return { code: 'hidden', title: '읽었는데 화면에 안 보여요 — 안 보이는 것', text: `변화 ${labels.length}개는 숫자에 반영됐어요 (${labels.slice(0, 4).join(' · ')}). 칩은 있는데 가려져 있어요${hiddenBy ? ` (가린 곳: ${String(hiddenBy).slice(0, 60)})` : ''}. 번역 확장이 원문을 숨기는 경우가 많아요 → 「칩을 본문 밖에 붙이기」.`, acts: ['outside', 'redraw'] };
+    if (snap?.miss?.length) return { code: 'unknown', title: `일부 줄을 못 읽었어요 (${snap.miss.length}개)`, text: `변화 ${labels.length}개는 반영됐어요 (${labels.slice(0, 4).join(' · ')}).\n아래 줄은 키를 모르거나 값 모양이 달라서 넘어갔어요. 맞는 변화면 「직접 고치기」로 적어 주세요.\n\n${snap.miss.slice(0, 8).join('\n')}`, acts: ['edit'] };
     return { code: 'shown', title: '칩이 잘 보이고 있어요', text: `변화 ${labels.length}개: ${labels.slice(0, 6).join(' · ')}` };
 }
 

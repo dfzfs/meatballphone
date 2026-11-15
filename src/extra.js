@@ -6,6 +6,7 @@ const FRESH_I = '<i class="ss-fresh" title="방금 AI 답에서 바뀌었어요"
 import { newSns, snsReactions, musicPicks, peekMind, fillWants } from './ai.js';
 import { sec, emptyBox, chip, avatar, ai1, seg, gauge, meter, askInput, askConfirm, busyBtn, insertInput, closeIfPopup, mascot, choosePopup } from './kit.js';
 import { MUSIC_APPS, songLink } from './notify.js';
+import { openTrend } from './trend.js';
 
 const play = (x, label = '') => `<a class="ss-btn sm ss-play" href="${esc(songLink(x))}" target="_blank" rel="noopener" title="${esc((MUSIC_APPS[settings().musicApp] ?? MUSIC_APPS.youtube).name)}에서 찾기"><i class="fa-solid fa-play"></i>${label ? ` ${label}` : ''}</a>`;
 
@@ -175,7 +176,7 @@ export function relView(s, d, ui) {
         const btns = relOn('relShowBtns') ? `${set.peekOn !== false ? `<button class="ss-ib" data-act="peek" data-arg="${esc(r.name)}" title="속마음 엿보기 (AI 1회${set.peekPerDay ? ` · 오늘 ${left}번 남음` : ''})" ${set.peekPerDay && left <= 0 ? 'disabled' : ''}><i class="fa-solid fa-heart-circle-question"></i></button>` : ''}
             ${modOn('contact') ? `<button class="ss-ib" data-act="talk" data-arg="${esc(r.name)}" title="연락"><i class="fa-solid fa-envelope"></i></button>` : ''}
             <button class="ss-ib ss-leave ${r.out ? 'on' : ''}" data-act="leave" data-arg="${esc(r.name)}" title="${r.out ? '이야기에 다시 등장시키기' : '이야기에서 빠짐 (사망 · 떠남) — AI가 이 사람을 다시 등장시키지 않게'}"><i class="fa-solid fa-dove"></i></button>
-            <button class="ss-ib ss-nolove ${r.noLove ? 'on' : ''}" data-act="${r.noLove ? 'love' : 'nolove'}" data-arg="${esc(r.name)}" title="${r.noLove ? `💗 ${esc(AX.aff)} 다시 켜기` : `💗 ${esc(AX.aff)} 꺼 두기 — 이 사람은 우정만 (연애 없음)`}"><i class="fa-solid ${r.noLove ? 'fa-heart-crack' : 'fa-heart'}"></i></button>` : '';
+            <button class="ss-ib ss-nolove ${r.noLove ? 'on' : ''}" data-act="${r.noLove ? 'love' : 'nolove'}" data-arg="${esc(r.name)}" title="${r.noLove ? `💗 ${esc(AX.aff)} 다시 켜기` : `💗 ${esc(AX.aff)} 꺼 두기 — 이 사람은 우정만 (연애 없음)`}"><i class="fa-solid ${r.noLove ? 'fa-heart-crack' : 'fa-heart'}"></i></button>${d.user.length > 1 ? `<button class="ss-ib" data-act="relmerge" data-arg="${esc(r.name)}" title="다른 이름과 합치기 — 같은 사람이 이름만 달라 둘로 생겼을 때 (예: Leon · 레온)"><i class="fa-solid fa-link"></i></button>` : ''}` : '';
         const nextLine = !STG || !relOn('relShowNext') ? ''
             : nx ? `<p class="ss-hint">${r.bondReady && k + 1 === L ? `「${esc(nx.name)}」 조건은 채웠어요 — 고백 후 💍 확정해야 넘어가요` : `다음 「${esc(nx.name)}」까지 ${esc(need) || '조금만 더'}`}${nx.unlock && relOn('relShowUnlock') ? ` → <span>${esc(nx.unlock)}</span>` : ''}</p>`
                 : r.noLove && k + 1 < st.length ? `<p class="ss-hint">💗 ${esc(AX.aff)} 꺼 둔 사람이라 「${esc(g.name)}」까지예요. 우정은 계속 쌓여요.</p>` : '<p class="ss-hint">가장 높은 단계예요 💞</p>';
@@ -206,7 +207,8 @@ export function relView(s, d, ui) {
     const ens = playOf().ensemble, PA = optOn('pairAff');
     const race = optOn('relRace') ? raceHTML(d, st, AX, STG, ens) : '';
     const pairRow = (p) => `<div><b>${esc(p.a)}</b><i class="fa-solid fa-arrows-left-right"></i><b>${esc(p.b)}</b>${p.label ? chip(esc(p.label)) : ''}${PA ? `${STG && Number.isFinite(p.aff) ? chip(esc(pairStage(d, p).name)) : ''}<span class="ss-pair-adj"><button class="ss-ib" data-act="pairadj" data-arg="${esc(`${p.a}|${p.b}|-5`)}" title="${esc(AX.aff)} −5">−</button><button class="ss-ib" data-act="pairadj" data-arg="${esc(`${p.a}|${p.b}|+5`)}" title="${esc(AX.aff)} +5">+</button></span>` : ''}${p.memo ? `<small>${esc(p.memo)}</small>` : ''}${PA ? meter(AX.aff, p.aff ?? 0, 'love') : ''}</div>`;
-    return `${ladderBar}${showBar}${ens ? '' : mindBar}${ens ? '' : romBar}${race}${ens && !d.user.length ? '' : `<div class="ss-stack">${d.user.map(card).join('') || emptyBox('관계가 없어요', 'fa-people-arrows')}</div>`}
+    const trendBar = d.user.length ? `<div class="ss-row-btns"><button class="ss-btn sm ghost" data-act="trend" title="애정 · 우정 · 돈이 어떻게 변해 왔는지 (AI 0회)"><i class="fa-solid fa-chart-line"></i> 변화 그래프</button></div>` : '';
+    return `${ladderBar}${showBar}${ens ? '' : mindBar}${ens ? '' : romBar}${race}${trendBar}${ens && !d.user.length ? '' : `<div class="ss-stack">${d.user.map(card).join('') || emptyBox('관계가 없어요', 'fa-people-arrows')}</div>`}
         ${life.length ? sec('🌙 화면 밖 소식', `<div class="ss-stack">${life.map(x => `<div class="ss-ev"><b>${esc(x.who)}</b><small>${esc(x.text)}${x.date ? ` · ${esc(x.date)}` : ''}</small></div>`).join('')}</div>`) : ''}
         ${relOn('relShowPairs') && d.pairs.length ? sec('인물끼리', `<div class="ss-pairs ${PA ? 'aff' : ''}">${d.pairs.map(pairRow).join('')}</div>`) : ens ? emptyBox('인물끼리의 관계가 아직 없어요', 'fa-people-arrows') : ''}
         ${!STG ? '' : `<details class="ss-more"><summary>관계 단계 ${st.length}개</summary><ol class="ss-stages">${st.map((x, i) => `<li><b>${i === L ? '💞 ' : ''}${esc(x.name)}</b> <small>${esc([x.at > -100 ? `${AX.aff} ${x.at}+` : '', x.trust > -100 ? `${AX.trust} ${x.trust}+` : ''].filter(Boolean).join(' · ')) || '처음부터'}${x.unlock ? ` — <span>${esc(x.unlock)}</span>` : ''}</small></li>`).join('')}</ol><p class="ss-hint">${L >= 0 ? `💞 표시가 <b>연인 단계</b>예요${set.romBond ? ' — 숫자만으론 안 올라가고, 고백 후 💍 확정해야 올라가요' : ''}.` : '이 세계관의 단계엔 <b>연인 단계가 없어요</b>. 아래 버튼으로 맨 위에 붙일 수 있어요.'} 다른 단계를 연인 단계로 쓰려면 ✏️ 편집 › 관계 단계에서 「💞 연인 단계」를 체크하세요.</p>${L < 0 ? '<div class="ss-row-btns"><button class="ss-btn sm pri" data-act="addlove"><i class="fa-solid fa-heart"></i> 💞 연인 단계 추가</button></div>' : ''}</details>`}`;
@@ -249,6 +251,17 @@ export const REL_ACTIONS = {
         el._ss.ui.relShow = true;
         saveSettings(); app.refreshNow?.(); app.rerenderPanels?.(true); app.renderPanel(el);
     },
+    // 🔗 인물 합치기 (v2.7.23)
+    relmerge: async (el, arg) => {
+        const others = (app.current?.state?.data?.rel?.user ?? []).filter(r => norm(r.name) !== norm(arg));
+        if (!others.length) return;
+        const box = document.createElement('div'); box.className = 'ss-root ss-scope';
+        box.innerHTML = `<h3>🔗 「${esc(arg)}」을(를) 누구와 합칠까요?</h3><p class="ss-hint">같은 사람이 이름만 달라 둘로 생겼을 때 써요. 「${esc(arg)}」의 수치를 고른 사람에게 더하고 「${esc(arg)}」 카드는 사라져요. 앞으로 AI가 「${esc(arg)}」(이)라고 적어도 고른 사람에게 반영돼요. 관리 탭의 되돌리기로 되돌릴 수 있어요. (연락 대화 기록은 합쳐지지 않아요.)</p><div class="ss-row-btns">${others.map(r => `<button class="ss-btn sm" data-choice="${esc(r.name)}">${esc(r.name)}</button>`).join('')}</div>`;
+        const to = await choosePopup(box);
+        if (!to) return;
+        return addAdjust({ ops: [['_merge', `${arg} => ${to}`]], label: `🔗 ${arg} → ${to} 합침` });
+    },
+    trend: () => openTrend(),
     pairadj: (el, arg) => { const [a, b, v] = arg.split('|'); if (!a || !b || !/^[+-]\d+$/.test(v ?? '')) return; return addAdjust({ ops: [['pairaff', `${a} & ${b} ${v}`]], label: `💞 ${a}↔${b} ${v}` }); },
     relshow: (el, arg) => {
         const set = settings();

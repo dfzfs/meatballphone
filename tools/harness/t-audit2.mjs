@@ -37,6 +37,26 @@ try {
         // 출력 규칙 문구가 깨지지 않는다
         const inj = eng.buildInjection(app.current, { full: true }).main;
         out.rule = !inj.includes('above., names') && /existing names exactly as written above\./.test(inj);
+        // ⚠ 못 읽은 줄: 반영된 변화 옆에 못 읽은 줄 수가 남는다
+        await say('aff: Leon +1\nfoo: bar\naff: +3');
+        { const sn = app.current.snaps.get(app.current.lastAI); out.miss = sn.miss?.length === 2 && sn.labels.length === 1; }
+        await new Promise(r => setTimeout(r, 200));
+        out.missChip = !!document.querySelector(`#chat .mes[mesid="${app.current.lastAI}"] .ss-mchip.pip`);
+        // 🔗 인물 합치기: 수치가 더해지고 · 카드가 하나가 되고 · 그 뒤 옛 이름으로 와도 남긴 사람에게
+        await say('aff: 레온 +4\ntrust: 레온 +2');
+        const a0 = leon().aff, t0 = leon().trust;
+        out.dupMade = !!st().data.rel.user.find(x => x.name === '레온');
+        await eng.addAdjust({ ops: [['_merge', '레온 => Leon']], label: 'merge' }); await wait(200);
+        out.merged = !st().data.rel.user.find(x => x.name === '레온') && leon().aff === a0 + 4 && leon().trust === t0 + 2;
+        await say('aff: 레온 +1'); out.aliasAfter = !st().data.rel.user.find(x => x.name === '레온') && leon().aff === a0 + 5;
+        await eng.undoLast(); await wait(200); // 마지막 편집(합치기) 되돌리기 → 다시 둘
+        out.mergeUndo = !!st().data.rel.user.find(x => x.name === '레온');
+        // 📈 변화 그래프: 값이 모이고 그림이 나온다
+        const tr = await import('/ext/src/trend.js');
+        const td = tr.trendData();
+        out.trendData = td.xs.length > 3 && Array.isArray(td.aff.Leon) && td.aff.Leon.length === td.xs.length && td.cash.length === td.xs.length;
+        out.trendHtml = tr.trendHTML().includes('<polyline');
+        out.version = (await import('/ext/src/core.js')).VERSION === '2.7.23';
         return out;
     });
     for (const [k, v] of Object.entries(r)) check(v === true, k);

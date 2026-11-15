@@ -33,6 +33,13 @@
 - **넘어가도 되는 오류**: 빈 `catch { }` 대신 `ssNote('어디서', e)` — 콘솔엔 안 찍히고 오류 보고문에만 남아요.
 - **스타일**: `style.css`는 `@import`만 있고 내용은 `css/` 폴더에 순서대로 (`base` → `panel` → `hud` → `patches` → `tiles` → `routes`). 뒤 파일이 앞 파일을 덮어써요.
 
+## 작업 순서 — dev에 바로 올리지 않기
+
+`dev`는 `auto_update`로 쓰는 분들에게 바로 나가요. 그래서:
+1. 고칠 땐 `dev`에서 작업용 브랜치를 따요 (예: `review/…` · `next`).
+2. 거기에 올리면 자동 시험이 돌아요 (Actions 탭). 필요하면 실리태번 확장 설치 창의 브랜치 칸에 그 브랜치 이름을 적어 직접 써 봐요.
+3. 시험이 통과하고 써 봐서 괜찮으면 `dev`에 합쳐요. 합칠 땐 `manifest.json` · `src/core.js`의 판 번호와 README · `index.js`의 「바뀐 점」을 같이 올려요.
+
 ## 올릴 때마다 자동 시험 (`.github/workflows/test.yml`)
 
 깃허브에 올리면 문법 검사 → 판 번호 확인(`manifest.json` = `src/core.js`) → 시나리오 전부를 돌려요. 결과는 저장소의 Actions 탭에서 봐요.

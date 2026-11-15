@@ -5,7 +5,7 @@ export { clamp, clone, esc, num, str, arr, norm, fmtNum, signed, uid, short, spl
 export const MODULE = 'statussim';
 export const LOG = '[미트볼 상태창]';
 export const TITLE = '미트볼 상태창';
-export const VERSION = '2.7.22';
+export const VERSION = '2.7.23';
 export const INJECT_KEY = 'statussim_state';
 export const INJECT_KEY2 = 'statussim_people';
 export const INJECT_KEY3 = 'statussim_romance'; // 로맨스 보정 · 내 주입문 (v2.6)
@@ -408,8 +408,12 @@ export function h(html) {
     t.innerHTML = String(html).trim();
     return t.content.firstElementChild;
 }
+// 🔗 인물 합치기 (v2.7.23): 합쳐서 없어진 이름(「레온」)을 남은 이름(「Leon」)으로 찾는다 — 표는 관계 칸(rel.alias)에 있고, 계산할 때마다 여기에 걸어 둔다
+let aliasMap = null;
+export const setAlias = (m) => { aliasMap = m && typeof m === 'object' && Object.keys(m).length ? m : null; };
 export function findBy(list, name, field = 'name') {
-    const n = norm(name);
+    let n = norm(name);
+    if (aliasMap && Object.hasOwn(aliasMap, n)) n = norm(aliasMap[n]);
     if (!n || !Array.isArray(list)) return null;
     return list.find(x => norm(x?.[field]) === n)
         ?? list.find(x => { const m = norm(x?.[field]); return m.length >= 2 && n.length >= 2 && (m.includes(n) || n.includes(m)); })
@@ -728,6 +732,8 @@ export const NORM = {
             stages: stages.length ? stages : (() => { const st = clone(str(d.affName) ? LOVE_STAGES : DEFAULT_STAGES); if (!viewTr()) return st; const en = toEnglish(st); try { app.addTrPairs?.(usedPairs(en)); } catch { /* 사전 없어도 저장은 영어 */ } return en; })(), // 영어 저장이면 기본 단계도 영어로
             affName: short(str(d.affName), 12), trustName: short(str(d.trustName), 12),
             life: arr(d.life).filter(x => x?.text).map(x => ({ who: str(x.who), text: str(x.text), date: str(x.date) })).slice(-20),
+            // 🔗 합친 이름 표 (합친 적이 있을 때만 생김)
+            ...(d.alias && typeof d.alias === 'object' && !Array.isArray(d.alias) && Object.keys(d.alias).length ? { alias: Object.fromEntries(Object.entries(d.alias).filter(([k, v]) => k && typeof v === 'string' && v).map(([k, v]) => [norm(k), v])) } : {}),
         };
     },
     map: (d) => ({

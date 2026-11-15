@@ -349,7 +349,7 @@ export function manageHTML(s, ui = {}) {
 }
 
 // 편집 기록 이름: 라벨이 없는 조용한 기록(주사위 · 좋아요 · 읽음 같은 것)도 무엇인지 알 수 있게 (v2.7.18)
-const OP_NAME = { _roll: '🎲 주사위 굴림', _read: '💬 읽음 표시', _nread: '📰 기사 읽음', _peekday: '💗 속마음 엿보기', _memo: '📝 메모', _achtog: '🏆 업적', _travel: '🗺 이동', _trash: '🗑 버림', _purge: '🗑 완전 삭제', _restore: '↩ 되살림', _tostore: '📦 보관', _tobag: '🎒 꺼냄', _unplace: '🪑 치움', _sellused: '💸 중고 판매', _loan: '🏦 대출', _repay: '🏦 상환', _questpay: '📜 보상', _draw: '🃏 카드', _effect: '✨ 효과', _bond: '💍 연인 확정', _unbond: '💔 확정 취소', _nolove: '💗 애정 끔', _love: '💗 애정 켬', _leave: '🕊 빠짐' };
+const OP_NAME = { _merge: '🔗 인물 합치기', _roll: '🎲 주사위 굴림', _read: '💬 읽음 표시', _nread: '📰 기사 읽음', _peekday: '💗 속마음 엿보기', _memo: '📝 메모', _achtog: '🏆 업적', _travel: '🗺 이동', _trash: '🗑 버림', _purge: '🗑 완전 삭제', _restore: '↩ 되살림', _tostore: '📦 보관', _tobag: '🎒 꺼냄', _unplace: '🪑 치움', _sellused: '💸 중고 판매', _loan: '🏦 대출', _repay: '🏦 상환', _questpay: '📜 보상', _draw: '🃏 카드', _effect: '✨ 효과', _bond: '💍 연인 확정', _unbond: '💔 확정 취소', _nolove: '💗 애정 끔', _love: '💗 애정 켬', _leave: '🕊 빠짐' };
 function adjName(a) {
     if (a.label) return a.label;
     if (a.set) return `${MOD[a.set.mod]?.name ?? a.set.mod} 칸 바뀜`;

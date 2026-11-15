@@ -1,7 +1,7 @@
 // 상태 엔진: <meatball> 변화량 → 상태 재계산 · 직접 편집 기록 · 프롬프트 주입
 import {
     letterMode, instantLetter, contactSimple, app, ctx, settings, getMeta, saveMeta, modOn, MOD_IDS, MOD, EMPTY, DIFFS, NORM, normalize, clone, clamp, num, norm, findBy, splitBar, fmtNum, short, dayIndex, addDays, dateStr, eventsOn, parseDate, nowTick, tickUnit, stamp, esc,
-    TITLE, INJECT_KEY, INJECT_KEY2, INJECT_KEY3, trLook, trBack, viewTr, weekday, PROMPT_IN_CHAT, ROLE_SYSTEM, MODULE, AI_PARTS, aiOff, uid, diffOf, LOG, loveIndex, CONTACT_MODES, tidy, msgText, DEFAULT_STAGES, arr, playOf, swapUser, ssWarn, relAxes, INJ, isHidden, modOnRaw, DATA_V, normPlay, ssNote, heroIsUser,
+    setAlias, TITLE, INJECT_KEY, INJECT_KEY2, INJECT_KEY3, trLook, trBack, viewTr, weekday, PROMPT_IN_CHAT, ROLE_SYSTEM, MODULE, AI_PARTS, aiOff, uid, diffOf, LOG, loveIndex, CONTACT_MODES, tidy, msgText, DEFAULT_STAGES, arr, playOf, swapUser, ssWarn, relAxes, INJ, isHidden, modOnRaw, DATA_V, normPlay, ssNote, heroIsUser,
 } from './core.js';
 import { P } from './prompts.js';
 import { pairStage, KEYMAP, KEY_MOD, seeded, effSum, today, applyLines, seasonOf, pickWeather, stageIndex, noLoveStage, updateStage, startDay, applyOp, stagesOn, dateFromIndex } from './ops.js';
@@ -456,7 +456,7 @@ export function shiftSwipeAnchors(meta, m, removed) {
     return changed;
 }
 // 이야기와 상관없는 정리 · 설정 편집은 묶지 않음 (메시지를 지워도 남음): 번역 · 영어 저장(라벨 없는 칸 저장) · 완전 삭제 · 읽음 · 메모 · 업적 표시 · 애정 끄기 · 연인 확정
-const META_OPS = new Set(['_purge', '_read', '_nread', '_memo', '_achtog', '_nolove', '_love', '_bond', '_unbond', '_alert']);
+const META_OPS = new Set(['_purge', '_read', '_nread', '_memo', '_achtog', '_nolove', '_love', '_bond', '_unbond', '_alert', '_merge']);
 export const isMetaEdit = (a) => (a?.ops?.length ? a.ops.every(([k]) => META_OPS.has(k)) : !!a?.set && !a.label && !a.silent) || a?.keep === true; // 조용한 저장(구매 때 상점 재고 −1 등)은 행동이라 묶음
 export function clampAdjust(meta, len) {
     let n = 0;
@@ -495,6 +495,7 @@ export function compute(limit, opts = {}) {
     adjEvents.clear(); // 편집 기록 알림은 이번 계산 것만 (예전엔 세션 내내 쌓였음)
     const slimmed = [];
     const s = freshState(meta.base);
+    setAlias(s.data.rel?.alias); // 🔗 합친 이름 표 (v2.7.23)
     s.turn = meta.baseTurn ?? 0;
     const snaps = new Map();
     const n = Math.min(limit ?? chat.length, chat.length);
@@ -544,7 +545,9 @@ export function compute(limit, opts = {}) {
             }
             if (a.set.mod === 'core') s.core = clone(a.set.data);
             else if (MOD_IDS.includes(a.set.mod)) {
+                const al = a.set.mod === 'rel' ? s.data.rel?.alias : null;
                 s.data[a.set.mod] = clone(a.set.data);
+                if (al && s.data.rel && !s.data.rel.alias) s.data.rel.alias = al; // 🔗 관계 칸을 통째로 저장해도 합친 이름 표는 안 풀림
                 if (a.set.mod === 'rel') for (const r of s.data.rel.user) { if (s.bonds && Object.hasOwn(s.bonds, norm(r.name))) r.bond = s.bonds[norm(r.name)]; if (s.nolove && Object.hasOwn(s.nolove, norm(r.name))) { if (s.nolove[norm(r.name)]) r.noLove = true; else delete r.noLove; } updateStage(s, r, info, true); }
                 if (a.set.mod === 'calendar' && s.day0 === null) s.day0 = dayIndex(s.data.calendar);
             }
@@ -576,7 +579,8 @@ export function compute(limit, opts = {}) {
         if (before) fresh = freshDiff(before, s, `${seed}:${i}:${m.swipe_id ?? 0}`);
         if (s.gone.length) trackGone(s, null); // AI가 다시 얻은 물건은 「없음」 목록에서 빼기
         s.dayBuf?.labels.push(...info.labels.slice(info.cut));
-        snaps.set(i, { labels: info.labels, alerts: info.alerts, roll: info.roll, turn: s.turn });
+        snaps.set(i, { labels: info.labels, alerts: info.alerts, roll: info.roll, turn: s.turn, ...(info.miss ? { miss: info.miss } : {}) });
+        opts.onStep?.(i, s); // 📈 변화 그래프 (v2.7.23)
         if (i === lastAI && info.roll) s.pendingRoll = info.roll;
     }
     const adjLimit = opts.bake ? n : Infinity;
@@ -586,6 +590,8 @@ export function compute(limit, opts = {}) {
     const cal = s.data.calendar;
     if (cal?.autoWeather && !cal.weather && modOn('calendar', meta)) cal.weather = pickWeather(cal, `${seed}:w${dayIndex(cal)}`);
     for (const [a, p] of slimmed) a.set = { mod: a.set.mod, patch: p };
+    setAlias(s.data.rel?.alias);
+    opts.onStep?.(n, s);
     return { state: s, snaps, lastAI, rest: adj.slice(ai), fresh, slimmed: slimmed.length, ...(recent ? { recent } : {}) };
 }
 // 옛 채팅(v2.7.6 이하)에 쌓인 연락 · 피드 통째 기록을 한 번 줄인다 → 줄인 개수
@@ -718,7 +724,7 @@ export async function purgeTrash(names) {
 // ───── 🧹 기록 · 칸 지우기 (v2.7.18) — 찌꺼기 없이 ─────
 // 미트볼 전용 기록 키(_roll 같은 것)가 어느 칸 것인지
 export const PRIV_MOD = {
-    _achtog: 'ach', _bond: 'rel', _love: 'rel', _nolove: 'rel', _leave: 'rel', _unbond: 'rel', _peekday: 'rel',
+    _achtog: 'ach', _bond: 'rel', _love: 'rel', _nolove: 'rel', _leave: 'rel', _unbond: 'rel', _peekday: 'rel', _merge: 'rel',
     _draw: 'fate', _effect: 'fate', _loan: 'wallet', _repay: 'wallet', _sellused: 'wallet', _tobag: 'wallet', _memo: 'memo', _questpay: 'quest',
     _read: 'contact', _nread: 'news', _roll: 'dice', _trash: 'home', _purge: 'home', _restore: 'home', _tostore: 'home', _unplace: 'home', _travel: 'map',
 };

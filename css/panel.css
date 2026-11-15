@@ -506,3 +506,12 @@ dialog.ss-dlg .popup-content > .ss-root, dialog.ss-dlg .popup-content > .ss-pane
 .ss-colors { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 140px), 1fr)); gap: 6px 10px; margin-bottom: 8px; }
 .ss-colorf { display: flex; align-items: center; gap: 8px; font-size: .88em; min-width: 0; }
 .ss-colorf span { flex: 1; min-width: 0; }
+
+/* 📈 변화 그래프 (v2.7.23) */
+.ss-trend .ss-trend-box { margin: 10px 0 16px; }
+.ss-trend .ss-trend-box > b { display: block; margin-bottom: 4px; }
+.ss-trend svg { width: 100%; height: auto; display: block; }
+.ss-trend .ss-trend-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; font-size: .9em; }
+.ss-trend .ss-trend-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.ss-trend .ss-trend-legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.ss-trend .ss-trend-legend small { opacity: .7; }

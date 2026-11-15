@@ -1,4 +1,5 @@
 // 규칙 · 변화량 처리 — <meatball> 한 줄(키=값)을 상태에 반영 (engine.js에서 떼어 냄)
+import { setAlias } from './core.js';
 import { letterMode, ctx, settings, EMPTY, DIFFS, GLOBAL_OFF, clamp, num, norm, findBy, parseNum, splitBar, signed, fmtNum, short, dayIndex, addDays, dateStr, eventsOn, parseDate, nowTick, stamp, viewTr, diffOf, loveIndex, touchContact, THREAD_MAX, dateShort, DEFAULT_STAGES, relAxes, romanceStart, ssNote } from './core.js';
 import { enStr } from './skeleton_en.js';
 
@@ -366,7 +367,38 @@ function bareFix(p, cur, info) {
     const c = Number(cur) || 0;
     return c !== 0 && Math.abs(p.v - c) <= Math.abs(p.v) * 0.3 ? { mode: 'set', v: p.v } : { mode: 'add', v: p.v };
 }
+// ⚠ 못 읽은 줄 (v2.7.23): AI 답의 변화 줄인데 키를 모르거나 값 모양이 달라 넘어간 것 — 칩 옆에 ⚠로 알려 준다
+const miss = (info, k, v) => { if (info?.ai) (info.miss ??= []).push(`${k}: ${v}`); };
+// 🔗 인물 합치기 (v2.7.23): 「레온 => Leon」 — 레온의 수치를 Leon에 더하고 레온을 지운 뒤, 앞으로 「레온」으로 오는 변화는 Leon에게 간다
+function opXMerge(s, val, info) {
+    const [a0, b0] = String(val).split('=>').map(x => x.trim());
+    if (!a0 || !b0 || norm(a0) === norm(b0)) return;
+    const rl = ensure(s, 'rel');
+    const exact = (n) => rl.user.find(r => norm(r.name) === norm(n));
+    const to = exact(b0); if (!to) return;
+    const from = exact(a0);
+    if (from) {
+        to.aff = clamp(Math.round((to.aff || 0) + (from.aff || 0)), -100, 100);
+        to.trust = clamp(Math.round((to.trust || 0) + (from.trust || 0)), -100, 100);
+        to.jealous = Math.max(to.jealous || 0, from.jealous || 0);
+        for (const k of ['label', 'memo', 'met', 'likes', 'dislikes', 'concern']) if (!to[k] && from[k]) to[k] = from[k];
+        if (from.bond) { to.bond = true; (s.bonds ??= {})[norm(to.name)] = true; }
+        rl.user = rl.user.filter(r => r !== from);
+        const fn = norm(from.name);
+        for (const p of rl.pairs ?? []) { if (norm(p.a) === fn) p.a = to.name; if (norm(p.b) === fn) p.b = to.name; }
+        const pk = (p) => [norm(p.a), norm(p.b)].sort().join('\u0000');
+        rl.pairs = (rl.pairs ?? []).filter((p, i, all) => norm(p.a) !== norm(p.b) && all.findIndex(q => pk(q) === pk(p)) === i);
+        for (const x of rl.life ?? []) if (norm(x.who) === fn) x.who = to.name;
+    }
+    const al = (rl.alias ??= {});
+    al[norm(a0)] = to.name;
+    for (const k of Object.keys(al)) if (norm(al[k]) === norm(a0)) al[k] = to.name; // 예전에 a0로 합친 이름들도 따라감
+    delete al[norm(to.name)];
+    setAlias(al);
+    to.stage = -1; updateStage(s, to, info, true);
+}
 export function applyOp(s, rawKey, rawVal, info) {
+    setAlias(s.data?.rel?.alias);
     let key = KEYMAP[String(rawKey).trim().toLowerCase()] ?? (String(rawKey).startsWith('_') ? String(rawKey) : null);
     let val = String(rawVal ?? '').trim();
     if (!key) {
@@ -374,7 +406,7 @@ export function applyOp(s, rawKey, rawVal, info) {
         if (s.data.stats && findBy(s.data.stats.bars, nm)) { key = 'stat'; val = `${nm} ${val}`; }
         else if (s.data.stats && findBy(s.data.stats.attrs, nm)) { key = 'attr'; val = `${nm} ${val}`; }
         else if (s.data.wallet && norm(nm) === norm(s.data.wallet.currency)) key = 'cash';
-        else return;
+        else return miss(info, nm, val);
     }
     const mod = KEY_MOD[key];
     if (mod && info.mods && info.mods[mod] === false) return;
@@ -596,9 +628,9 @@ function opStat(s, val, info, L, T, key, rawKey) {
     // 「hp: −5」처럼 키가 곧 게이지 이름이고 값이 숫자뿐이면 그 이름으로 읽는다 (예전엔 「−」라는 게이지가 생겼음)
     if (/^[=+\-−]?\s*[\d.,]+$/.test(val) && !['stat', '수치', '게이지', 'gauge'].includes(norm(rawKey))) val = `${String(rawKey).trim()} ${val}`;
     const m = val.match(/^(.+?)\s*(max|최대)?\s*([=+\-−][\d.,]+|\d[\d.,]*)\s*$/i);
-    if (!m) return;
+    if (!m) return miss(info, key, val);
     let bar = findBy(st.bars, m[1]) ?? aliasBar(st.bars, m[1]);
-    if (!bar && !/\p{L}/u.test(m[1])) return; // 글자가 없는 이름(「−」 「+」)으로는 게이지를 만들지 않는다
+    if (!bar && !/\p{L}/u.test(m[1])) return miss(info, key, val); // 글자가 없는 이름(「−」 「+」)으로는 게이지를 만들지 않는다
     if (!bar) { bar = { name: m[1].trim(), cur: 100, max: 100, color: '', desc: '' }; st.bars.push(bar); }
     let p = parseNum(m[3]);
     if (!p) return;
@@ -614,7 +646,7 @@ function opAttr(s, val, info, L, T, key, rawKey) {
     if (MULTI_RE.test(val)) { for (const part of val.split(MULTI_RE)) if (part.trim()) applyPart(s, 'attr', part.trim(), info); return; }
     const st = ensure(s, 'stats');
     const m = val.match(/^(.+?)\s*([=+\-−][\d.]+|\d[\d.]*)\s*$/);
-    if (!m) return;
+    if (!m) return miss(info, key, val);
     let a = findBy(st.attrs, m[1]);
     if (!a) { a = { name: m[1].trim(), val: 0, desc: '' }; st.attrs.push(a); }
     const p = bareFix(parseNum(m[2]), a.val, info); if (!p) return;
@@ -760,9 +792,9 @@ function opAff(s, val, info, L, T, key, rawKey) {
     { const head = val.split('|')[0]; if (MULTI_RE.test(head) && /\d/.test(head.split(MULTI_RE)[0])) { const parts = head.split(MULTI_RE); const tail = val.slice(head.length); parts.forEach((p0, i) => p0.trim() && applyPart(s, key, p0.trim() + (i === parts.length - 1 ? tail : ''), info)); return; } }
     const rl = ensure(s, 'rel');
     const m = val.match(/^(.+?)\s*([=+\-−]\s*[\d.]+|\d[\d.]*)\s*(?:\|\s*(.*))?$/);
-    if (!m) return;
+    if (!m) return miss(info, key, val);
     const nm = personName(s, m[1]);
-    if (!nm) return;
+    if (!nm) return miss(info, key, val);
     let r = findBy(rl.user, nm);
     if (!r) { r = { name: nm, label: '', aff: 0, trust: 0, memo: '', stage: -1, jealous: 0, met: s.data.calendar ? dateShort(s.data.calendar) : '' }; rl.user.push(r); }
     const p = bareFix(parseNum(m[2].replace(/\s+/g, '')), r[key], info); if (!p) return;
@@ -1052,6 +1084,7 @@ const OPS = {
     '_love': opXNolove,
     '_bond': opXBond,
     '_unbond': opXBond,
+    '_merge': opXMerge,
     'concern': opConcern,
     'taste': opConcern,
     '_peekday': opXPeekday,

@@ -87,7 +87,7 @@ function decorateAll() {
         const on0 = !!album && !!m && album.has(`${m.send_date}|${m.name}`);
         // v2.7.9: 칩이 있는 답도 내용이 그대로면 건너뛴다 (마지막 AI 답은 칩 점검 때문에 늘 다시) — 단, 칩 자리가 지워졌으면 다시
         const sig = i === lastAI ? null : snap
-            ? `y|${on0}|${set.msgCard}|${albumOn}|${out}|${i >= baked}|${m?.mes?.length}|${m?.swipe_id}|${!!(m && drawerOps(m))}|${snap.roll ? 1 : 0}|${snap.labels.join('\u0001')}`
+            ? `y|${on0}|${set.msgCard}|${albumOn}|${out}|${i >= baked}|${m?.mes?.length}|${m?.swipe_id}|${!!(m && drawerOps(m))}|${snap.roll ? 1 : 0}|${snap.miss?.length ?? 0}|${snap.labels.join('\u0001')}`
             : `n|${on0}|${set.msgCard}|${albumOn}|${out}`;
         if (sig && doneEl.get(mesEl) === sig && (!albumOn || mesEl._ssStar?.isConnected !== false)
             && (!snap || set.msgCard === 'off' || !(snap.labels.length || snap.roll) || [...mesEl.querySelectorAll(SLOT_SEL)].some(x => x.firstChild))) return;
@@ -129,11 +129,13 @@ function decorateAll() {
             }
             const rollBtn = snap.roll && i === lastAI ? `<button class="ss-mchip roll" data-roll="${esc(snap.roll.label)}|${snap.roll.dc}"><i class="fa-solid fa-dice-d20"></i> ${esc(snap.roll.label)} 굴리기</button>` : '';
             // 칩 내용이 그대로면 다시 그리지 않는다 (긴 채팅에서 갱신마다 모든 답의 칩을 새로 그리던 것이 렉의 큰 원인)
-            const key = `${snap.labels.join('\u0001')}|${rollBtn ? 1 : 0}|${editBtn ? 1 : 0}`;
+            // ⚠ 못 읽은 줄 (v2.7.23): 누르면 칩 점검이 어떤 줄인지 보여 준다
+            const missBtn = snap.miss?.length ? `<button class="ss-mchip pip" data-ss-pip="${i}" title="못 읽고 넘어간 줄 ${snap.miss.length}개 — 눌러서 확인">⚠ ${snap.miss.length}</button>` : '';
+            const key = `${snap.labels.join('\u0001')}|${rollBtn ? 1 : 0}|${editBtn ? 1 : 0}|${snap.miss?.length ?? 0}`;
             if (slot.dataset.ssk === key && slot.firstChild) continue;
             slot.dataset.ssk = key;
             slot.style.display = '';
-            slot.innerHTML = `<div class="ss-msgcard ss-scope">${snap.labels.filter(l => !l.startsWith('🎲')).slice(0, 14).map(l => `<span class="ss-mchip ${/[−-]\d/.test(l) ? 'neg' : /\+\d/.test(l) ? 'pos' : ''}">${esc(l)}</span>`).join('')}${rollBtn}${editBtn}</div>`;
+            slot.innerHTML = `<div class="ss-msgcard ss-scope">${snap.labels.filter(l => !l.startsWith('🎲')).slice(0, 14).map(l => `<span class="ss-mchip ${/[−-]\d/.test(l) ? 'neg' : /\+\d/.test(l) ? 'pos' : ''}">${esc(l)}</span>`).join('')}${missBtn}${rollBtn}${editBtn}</div>`;
         }
     });
 }
@@ -239,6 +241,13 @@ app.showWhatsNew = (all = true) => showWhatsNew(all);
 
 // ───── 📣 업데이트 알림: 버전이 바뀌면 「바뀐 점」을 한 번 보여 준다 ─────
 const CHANGELOG = [
+    { v: '2.7.23', title: '놓치던 변화 줄 읽기 · 인물 합치기 · 변화 그래프', items: [
+        ['🧲 놓치던 변화 줄', 'AI가 「Leon +2 (웃어서)」처럼 숫자 뒤에 이유를 붙이거나, 「체력」을 HP · Health로 적어도 이제 읽어요. 예전엔 그 줄이 조용히 버려지거나 새 게이지가 생겼어요. 진행 중인 채팅은 전에 놓친 줄이 반영되면서 숫자가 조금 달라질 수 있어요.'],
+        ['⚠ 못 읽은 줄 표시', '그래도 못 읽은 줄이 있으면 칩 옆에 ⚠ 숫자가 떠요. 누르면 어떤 줄인지 보여 줘요.'],
+        ['🔗 인물 합치기', '같은 사람이 이름만 달라 둘로 생겼을 때(Leon · 레온) 관계 카드의 🔗 단추로 합쳐요. 수치는 더해지고, 그 뒤로는 어느 이름으로 적어도 한 사람에게 반영돼요.'],
+        ['📈 변화 그래프', '관계 탭의 「변화 그래프」 또는 /ss-graph — 애정 · 우정 · 돈이 어떻게 변해 왔는지 선으로 보여 줘요 (AI 0회).'],
+        ['🩹 그 밖에', 'AI에게 보내는 출력 규칙 문구가 깨져 나가던 것 · 안 닫힌 <meatball> 뒤의 대사가 본문에서 잘리던 것 · 키보드로 옮겨 다닐 때 단추 테두리 표시.'],
+    ] },
     { v: '2.7.22', title: '다인 · 풀사칭을 위한 선택 기능 · 더 가볍게 켜짐', items: [
         ['👑 루트 비교 (선택)', '관계 탭 › 보일 것 › 선택 기능에서 켜면 맨 위에 인물별 진행도를 나란히 보여 줘요. 앞선 사람에 👑, 최근 메시지 20개 동안의 변화는 ▲▼. 화면만 바뀌고 토큰은 0이에요.'],
         ['💞 인물끼리 호감 (선택)', '유저 말고 인물 둘 사이도 수치로 쌓여요 (pairaff). 「인물끼리」 목록에 게이지 · 단계 · − ＋ 단추가 붙어요. 끄면 AI에게 가르치지 않고 적어 와도 반영하지 않아요.'],

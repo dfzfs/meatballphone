@@ -8,6 +8,7 @@ import { openHelp } from './lazy.js';
 import { saveSlot, fullBackup, diagnose } from './safe.js';
 import { openReport } from './report.js';
 import { openPip, pipFix, pipDiag } from './pip.js';
+import { openTrend } from './trend.js';
 
 // ───── 슬래시 커맨드 ─────
 export function registerCommands() {
@@ -95,6 +96,20 @@ export function registerCommands() {
         },
         namedArgumentList: [SlashCommandNamedArgument.fromProps({ name: 'key', description: 'cash, loc, date, time, weather, season, curse, quest, here_now, aff:이름, trust:이름, stat:체력, item:이름, 게이지 이름…', typeList: ARGUMENT_TYPE.STRING, isRequired: false })],
         helpString: '상태를 텍스트로 돌려준다. key를 주면 그 값 하나만. 예: /ss-get key=cash · /ss-get key=aff:레온',
+    });
+    add({ name: 'ss-graph', aliases: ['ss-trend'], callback: () => { openTrend(); return ''; }, helpString: '📈 애정 · 우정 · 돈이 어떻게 변해 왔는지 그래프로 본다 (AI 0회).' });
+    add({
+        name: 'ss-merge',
+        callback: async (_n, text) => {
+            if (!ready()) return '';
+            const [a, b] = String(text ?? '').split('=>').map(x => x.trim());
+            const has = (n) => (app.current?.state?.data?.rel?.user ?? []).some(r => r.name.replace(/\s+/g, '').toLowerCase() === String(n).replace(/\s+/g, '').toLowerCase());
+            if (!a || !b || !has(b)) { toastr.warning('예: /ss-merge 레온 => Leon (뒤 이름은 관계 탭에 있는 사람)', TITLE); return ''; }
+            await addAdjust({ ops: [['_merge', `${a} => ${b}`]], label: `🔗 ${a} → ${b} 합침` });
+            return '';
+        },
+        unnamedArgumentList: [SlashCommandArgument.fromProps({ description: '없앨 이름 => 남길 이름', typeList: ARGUMENT_TYPE.STRING, isRequired: true })],
+        helpString: '🔗 이름만 다른 같은 사람을 하나로 합친다. 예: /ss-merge 레온 => Leon',
     });
     add({ name: 'ss-undo', callback: async () => { await app.undoLast?.(); return ''; }, helpString: '상태창에서 한 마지막 편집을 되돌린다.' });
     add({ name: 'ss-save', callback: async () => { if (ready()) await saveSlot(); return ''; }, helpString: '지금 상태를 세이브 슬롯에 저장한다.' });
