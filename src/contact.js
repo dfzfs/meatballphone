@@ -1,5 +1,5 @@
 // 📱/✉️ 연락: 메신저 · 즉시 통신 · 편지 (배달 수단 · 도착 시간 · 급행)
-import { letterMode, contactSimple, instantLetter, SIMPLE_THREAD, app, settings, getMeta, modOn, esc, short, clone, findBy, norm, uid, randInt, rand, clamp, num, fmtNum, nowTick, tickUnit, stamp, CONTACT_MODES, TITLE, COURIER_PRESETS, touchContact, msgText, ssErr, ssWarn } from './core.js';
+import { letterMode, contactSimple, instantLetter, SIMPLE_THREAD, app, settings, getMeta, modOn, esc, short, clone, findBy, norm, uid, randInt, rand, clamp, num, fmtNum, nowTick, tickUnit, waitText, slotsPerDay, useDays, saveSettings, stamp, CONTACT_MODES, TITLE, COURIER_PRESETS, touchContact, msgText, ssErr, ssWarn } from './core.js';
 import { commit, addAdjust, dueLetters, inTransit, affMul, PIN_LINES } from './engine.js';
 import { phoneReply, letterReply, pingMessage, summarizeThread } from './ai.js';
 import { avatar, ai1, emptyBox, askInput, askConfirm, busyBtn, choosePopup } from './kit.js';
@@ -29,7 +29,7 @@ function listView(s, d, ui) {
         ${transit.length ? `<div class="ss-card ss-transit"><div class="ss-sec-h"><h4><i class="fa-solid fa-truck-fast"></i> 배달 중</h4></div>${transit.map(x => {
             const total = Math.max(1, (x.m.arrive ?? 0) - (x.m.at ?? 0));
             const pct = clamp(100 - (x.left / total) * 100, 4, 100);
-            return `<div class="ss-tr"><span>${x.m.from === 'me' ? `→ ${esc(x.who)}` : `${esc(x.who)} →`}</span><div class="ss-tr-t" style="--x:${pct}%"><i style="width:${pct}%"></i><em>${esc(courierIcon(d, x.m.courier))}</em></div><small>${x.left}${unit} 뒤</small></div>`;
+            return `<div class="ss-tr"><span>${x.m.from === 'me' ? `→ ${esc(x.who)}` : `${esc(x.who)} →`}</span><div class="ss-tr-t" style="--x:${pct}%"><i style="width:${pct}%"></i><em>${esc(courierIcon(d, x.m.courier))}</em></div><small>${waitText(x.left, s)} 뒤</small></div>`;
         }).join('')}</div>` : ''}
         <div class="ss-ct-list">${ns.map(n => {
             const c = findBy(d.contacts, n) ?? { name: n };
@@ -116,6 +116,18 @@ function bubble(m, ui) {
             <button class="ss-ib" data-act="cmsgdel" data-arg="${esc(m.id)}" title="기록에서 지우기"><i class="fa-solid fa-trash-can"></i></button>${!mine ? `<button class="ss-ib" data-act="cmsgre" data-arg="${esc(m.id)}" title="다시 받기 (AI 1회)"><i class="fa-solid fa-rotate"></i></button>` : ''}</div>`}</div>`;
 }
 
+// ✉ 답장이 언제 올지 (v2.7.23): 배달 수단대로 · 바로 · 시간대 뒤 · 일 뒤 (달력이 없으면 턴)
+function replyWhenOpts(s) {
+    const days = useDays(s);
+    return [['', '배달 수단대로 (기본)'], ['now', '바로'], ...[1, 2, 3].map(k => [`s${k}`, days ? `${k}시간대 뒤` : `${k}턴 뒤`]), ...(days ? [1, 2, 3].map(k => [`d${k}`, `${k}일 뒤`]) : [])];
+}
+function replyDelay(when, s) {
+    if (!when) return null;
+    if (when === 'now') return 0;
+    const k = Number(when.slice(1)) || 1;
+    if (when[0] === 'd') return k;
+    return useDays(s) ? k / slotsPerDay(s) : k;
+}
 // ───── 편지 ─────
 function letterView(s, d, ui) {
     const who = ui.who, th = d.threads[who] ?? [];
@@ -137,6 +149,7 @@ function letterView(s, d, ui) {
             <div class="ss-compose-opt">
                 <label class="ss-tog"><input type="checkbox" class="ss-switch ss-lreply" ${ui.noReply ? '' : 'checked'}><span>답장 오게 하기</span></label>
                 <label class="ss-tog"><input type="checkbox" class="ss-switch ss-lrush" ${ui.rushPaid ? 'checked' : ''}><span>답장 급행료 동봉 (+${fmtNum(d.express.fee)}${esc(cur)})</span></label>
+                <label class="ss-tog ss-lwhen-row" title="답장이 언제 올지 직접 정해요. 고르면 내 편지는 바로 도착하고, 답장은 고른 만큼 뒤에 와요 (배달 수단 속도 · 급행 확률은 안 써요)"><span>답장 도착</span><select class="ss-in ss-lwhen">${replyWhenOpts(s).map(([v, t]) => `<option value="${v}" ${(settings().letterReplyIn ?? '') === v ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>
             </div>
             <div class="ss-row-btns"><button class="ss-btn pri" data-act="csend"><i class="fa-solid fa-envelope"></i> 부치기</button>${cash !== undefined ? `<small class="ss-dim">소지금 ${fmtNum(cash)}${esc(cur)}</small>` : ''}
                 <button class="ss-btn ghost" data-act="cping" data-arg="${esc(who)}">${ai1} 이 사람에게서 편지 오게</button></div>
@@ -147,13 +160,13 @@ function letterCard(m, d, ui, now, unit) {
     const ic = m.rush || m.express ? '💨' : courierIcon(d, m.courier);
     if (m.pending) {
         if ((m.arrive ?? 0) <= now) return `<div class="ss-env due ${m.rush ? 'rush' : ''}">${m.rush ? '<div class="ss-ribbon">💨 웃돈 주고 급행!</div>' : ''}<div class="ss-env-flap"></div><div class="ss-env-b"><b>📬 답장이 도착했어요</b><small>${esc(ic)} ${esc(m.courier || '편지')}</small><button class="ss-btn pri sm" data-act="lopen" data-arg="${esc(m.id)}">${ai1} 뜯어 보기</button></div></div>`;
-        return `<div class="ss-env wait"><div class="ss-env-flap"></div><div class="ss-env-b"><b>답장을 기다리는 중</b><small>${esc(ic)} 약 ${(m.arrive ?? 0) - now}${unit} 뒤 도착 예정</small></div></div>`;
+        return `<div class="ss-env wait"><div class="ss-env-flap"></div><div class="ss-env-b"><b>답장을 기다리는 중</b><small>${esc(ic)} 약 ${waitText((m.arrive ?? 0) - now, app.current?.state)} 뒤 도착 예정</small></div></div>`;
     }
     if (m.from === 'them' && (m.arrive ?? -Infinity) > now) return '';
     const left = (m.arrive ?? -Infinity) - now;
     if (ui.editId === m.id) return `<div class="ss-letter ${m.from}"><textarea class="ss-in ss-bub-ed" rows="5">${esc(m.text)}</textarea><div class="ss-bub-acts on"><button class="ss-btn sm pri" data-act="cmsgsave" data-arg="${esc(m.id)}">저장</button><button class="ss-btn sm" data-act="cmsgcancel">취소</button></div></div>`;
     return `<div class="ss-letter ${m.from === 'me' ? 'me' : 'them'}">${m.rush ? '<div class="ss-ribbon">💨 웃돈 주고 급행!</div>' : m.express ? '<div class="ss-ribbon">💨 급행</div>' : ''}
-        <div class="ss-letter-meta"><span>${m.from === 'me' ? '보낸 편지' : '받은 편지'}</span><span>${esc(ic)} ${esc(m.courier || '')}${m.fee ? ` · ${fmtNum(m.fee)}` : ''}</span><span>${m.from === 'me' && left > 0 ? `<b class="ss-hl">배달 중 · ${left}${unit} 남음</b>` : esc(m.date)}</span></div>
+        <div class="ss-letter-meta"><span>${m.from === 'me' ? '보낸 편지' : '받은 편지'}</span><span>${esc(ic)} ${esc(m.courier || '')}${m.fee ? ` · ${fmtNum(m.fee)}` : ''}</span><span>${m.from === 'me' && left > 0 ? `<b class="ss-hl">배달 중 · ${waitText(left, app.current?.state)} 남음</b>` : esc(m.date)}</span></div>
         <div class="ss-letter-body">${esc(m.text)}</div>
         <div class="ss-bub-acts"><button class="ss-ib" data-act="cmsgedit" data-arg="${esc(m.id)}" title="수정"><i class="fa-solid fa-pen"></i></button><button class="ss-ib" data-act="cmsgdel" data-arg="${esc(m.id)}" title="삭제"><i class="fa-solid fa-trash-can"></i></button></div></div>`;
 }
@@ -296,9 +309,12 @@ async function sendLetter(el, s, who, text) {
     const encCash = enc.filter(x => x.kind === 'money').reduce((a, x) => a + x.amount, 0);
     if ((fee || encCash) && w && modOn('wallet') && w.cash < fee + encCash) { toastr.warning(`돈이 모자라요 (${fmtNum(fee + encCash)} ${esc(w.currency)} 필요).`, TITLE); return; }
     if (enc.length) text = `${text}\n\n${enc.map(x => x.kind === 'photo' ? `[동봉한 사진·그림: ${x.text}]` : x.kind === 'gift' ? `[동봉한 선물: ${x.text}]` : `[동봉한 돈: ${fmtNum(x.amount)} ${w?.currency ?? ''}]`).join('\n')}`;
-    const arrive = now + (express ? 0 : randInt(c.min, c.max));
+    const custom = wantReply ? replyDelay(settings().letterReplyIn ?? '', s) : null; // ✉ 답장 도착을 직접 골랐으면: 내 편지는 바로 도착 · 답장은 고른 만큼 뒤
+    // 배달 수단(하루 단위)은 예전처럼 「그날이 되면」 도착 — 지금이 저녁이어도 1일짜리는 내일 날짜가 되면 옴
+    const arrive = custom !== null ? now : Math.floor(now) + (express ? 0 : randInt(c.min, c.max));
     const mid = uid();
-    (nd.threads[who] ??= []).push({ id: mid, from: 'me', text, date: stamp(s), at: now, arrive, courier: c.name, express, fee, rush: false });
+    const encKeep = enc.filter(x => x.kind === 'gift' || x.kind === 'money').map(x => ({ kind: x.kind, text: x.text ?? '', amount: x.amount ?? 0 }));
+    (nd.threads[who] ??= []).push({ id: mid, from: 'me', text, date: stamp(s), at: now, arrive, courier: c.name, express, fee, rush: false, ...(encKeep.length ? { enc: encKeep } : {}) });
     touchContact(nd, who);
     if (!findBy(nd.contacts, who)) nd.contacts.push({ name: who, handle: '', status: '', courier: '' });
     let rushNote = '';
@@ -307,17 +323,17 @@ async function sendLetter(el, s, who, text) {
         const chance = clamp(num(settings().rushChance, 15) + Math.max(0, rel?.aff ?? 0) / 3, 0, 70);
         const rush = rushPaid || rand(100) <= chance;
         const theirs = courierOf(nd, who);
-        const due = arrive + randInt(0, 1) + (rush ? 0 : randInt(theirs.min, theirs.max));
+        const due = custom !== null ? now + custom : arrive + randInt(0, 1) + (rush ? 0 : randInt(theirs.min, theirs.max));
         nd.threads[who].push({ id: uid(), from: 'them', text: '', pending: true, at: arrive, arrive: due, courier: rush ? nd.express.name : theirs.name, rush, express: rush });
         if (rush && !rushPaid) rushNote = 'rush';
     }
     ui.draft = ''; ui.express = false; ui.rushPaid = false; ui.enc = [];
-    await commit('contact', nd, `${c.icon} ${c.name}(으)로 ${who}에게 편지를 부쳤다${express ? ' — 오늘 도착' : ` — ${arrive - now}${tickUnit(s)} 뒤 도착`}${enc.length ? ` (동봉: ${enc.map(x => x.label).join(', ')})` : ''}`, { mid });
+    await commit('contact', nd, `${c.icon} ${c.name}(으)로 ${who}에게 편지를 부쳤다${express || arrive <= now ? ' — 오늘 도착' : ` — ${waitText(arrive - now, s)} 뒤 도착`}${enc.length ? ` (동봉: ${enc.map(x => x.label).join(', ')})` : ''}`, { mid });
     if (fee && w && modOn('wallet')) await addAdjust({ ops: [['cash', `-${fee}`]], label: `편지 요금 −${fmtNum(fee)} ${w.currency}` });
     const encOps = [];
     for (const x of enc) { if (x.kind === 'gift') encOps.push(['item', `-${x.text} 1|`]); if (x.kind === 'money') encOps.push(['cash', `-${x.amount}`]); }
     if (encOps.length) await addAdjust({ ops: encOps, silent: true });
-    toastr.success(`${esc(c.icon)} 편지를 부쳤어요${express ? ' (오늘 도착)' : ` (${arrive - now}${tickUnit(s)} 뒤 도착)`}`, TITLE);
+    toastr.success(`${esc(c.icon)} 편지를 부쳤어요${express || arrive <= now ? ' (바로 도착)' : ` (${waitText(arrive - now, s)} 뒤 도착)`}${custom !== null && wantReply ? ` · 답장은 ${custom ? `${waitText(custom, s)} 뒤` : '바로'}` : ''}`, TITLE);
     if (rushNote) setTimeout(() => toastr.info('…어쩐지 답장이 빨리 올 것 같은 예감이 들어요.', TITLE), 600);
 }
 
@@ -434,6 +450,7 @@ export const CONTACT_ACTIONS = {
         const text = el.querySelector('.ss-cin')?.value.trim(); if (!text) return;
         ui.noReply = !(el.querySelector('.ss-creply, .ss-lreply')?.checked ?? true);
         ui.rushPaid = !!el.querySelector('.ss-lrush')?.checked;
+        { const w = el.querySelector('.ss-lwhen'); if (w && (settings().letterReplyIn ?? '') !== w.value) { settings().letterReplyIn = w.value; saveSettings(); } } // 고른 「답장 도착」은 다음에도 그대로
         ui.draft = '';
         busyBtn(btn, true, '');
         try { if (isLetter(s.data.contact)) await sendLetter(el, s, who, text); else await sendPhone(el, s, who, text); }
@@ -484,25 +501,39 @@ export const CONTACT_ACTIONS = {
     cmsgdel: async (el, arg, btn, s) => {
         const nd = clone(s.data.contact); const f = findMsg(nd, arg); if (!f) return;
         const m = f.m, who = f.who, mine = m.from === 'me';
-        // 🎁 💸 내가 보낸 선물 · 송금을 지울 때: 물건 · 돈을 돌려받을지 고른다 (v2.7.23 · 예전엔 말풍선만 사라지고 물건은 안 돌아왔음)
-        const gift = mine && m.kind === 'gift' && !!m.text, money = mine && m.kind === 'money' && m.amount > 0;
+        // 🎁 💸 내가 보낸 선물 · 송금 · 편지에 동봉한 것을 지울 때: 물건 · 돈을 돌려받을지 고른다 (v2.7.23 · 예전엔 글만 사라지고 물건은 안 돌아왔음)
+        const back = []; // [{ kind, text, amount, aff }]
+        if (mine && m.kind === 'gift' && m.text) back.push({ kind: 'gift', text: m.text, aff: true }); // 메신저 선물은 호감도 올랐음
+        if (mine && m.kind === 'money' && m.amount > 0) back.push({ kind: 'money', amount: m.amount });
+        if (mine && Array.isArray(m.enc)) for (const x of m.enc) { if (x.kind === 'gift' && x.text) back.push({ kind: 'gift', text: x.text }); if (x.kind === 'money' && x.amount > 0) back.push({ kind: 'money', amount: x.amount }); }
+        else if (mine && m.kind === 'text') { // 예전에 부친 편지: 본문 끝의 「[동봉한 …]」 줄로 알아본다
+            for (const g of String(m.text).matchAll(/\[동봉한 선물: ([^\]]+)\]/g)) back.push({ kind: 'gift', text: g[1].trim() });
+            for (const g of String(m.text).matchAll(/\[동봉한 돈: ([\d,.]+)/g)) { const v = Number(g[1].replace(/,/g, '')); if (v > 0) back.push({ kind: 'money', amount: v }); }
+        }
         let refund = false;
-        if ((gift || money) && s.data.wallet && modOn('wallet')) {
-            const what = gift ? `🎁 ${m.text}` : `💸 ${fmtNum(m.amount)} ${s.data.wallet.currency ?? ''}`;
+        if (back.length && s.data.wallet && modOn('wallet')) {
+            const cur = s.data.wallet.currency ?? '';
+            const what = back.map(x => (x.kind === 'gift' ? `🎁 ${x.text}` : `💸 ${fmtNum(x.amount)} ${cur}`)).join(' · ');
             const box = document.createElement('div'); box.className = 'ss-root ss-scope';
-            box.innerHTML = `<h3>${esc(what)} — 지울까요?</h3><p class="ss-hint">${gift ? '보냈던 물건을 소지품으로 돌려받고, 선물로 오른 호감도 되돌릴 수 있어요.' : '보냈던 돈을 돌려받을 수 있어요.'}</p><div class="ss-row-btns"><button class="ss-btn sm pri" data-choice="refund">돌려받고 지우기</button><button class="ss-btn sm ghost" data-choice="only">기록만 지우기</button></div>`;
+            box.innerHTML = `<h3>${esc(what)} — 지울까요?</h3><p class="ss-hint">보냈던 물건 · 돈을 돌려받을 수 있어요${back.some(x => x.aff) ? ' (선물로 오른 호감도 되돌아가요)' : ''}. 배달 요금은 돌아오지 않아요.</p><div class="ss-row-btns"><button class="ss-btn sm pri" data-choice="refund">돌려받고 지우기</button><button class="ss-btn sm ghost" data-choice="only">기록만 지우기</button></div>`;
             const pick = await choosePopup(box);
             if (!pick) return;
             refund = pick === 'refund';
         }
         if (mine) hushSent(m, who);
         f.th.splice(f.k, 1);
+        // 아직 안 뜯은 답장(기다리는 중)이 이 편지에 딸려 있으면 같이 지운다 — 보낸 편지가 없는데 답장만 오지 않게
+        if (mine && f.th[f.k]?.pending && f.th[f.k].from === 'them') f.th.splice(f.k, 1);
         await commit('contact', nd, '');
         if (refund) {
-            const r = gift && s.data.rel ? findBy(s.data.rel.user, who) : null;
-            const ops = gift ? [['item', `+${m.text} 1`], ...(r ? [['aff', `${who} -${Math.max(1, Math.round(2 * affMul(s)))}`]] : [])] : [['cash', `+${m.amount}`]];
-            await addAdjust({ ops, label: `↩ ${who}에게 보낸 ${gift ? m.text : '돈'} 돌려받음`, silent: true }); // 조용히 — 「없던 일」이라 AI에게 알리지 않는다
-            toastr.info(gift ? `「${esc(m.text)}」을(를) 돌려받았어요.` : '돈을 돌려받았어요.', TITLE);
+            const r = s.data.rel ? findBy(s.data.rel.user, who) : null;
+            const ops = [];
+            for (const x of back) {
+                if (x.kind === 'gift') { ops.push(['item', `+${x.text} 1`]); if (x.aff && r) ops.push(['aff', `${who} -${Math.max(1, Math.round(2 * affMul(s)))}`]); }
+                else ops.push(['cash', `+${x.amount}`]);
+            }
+            await addAdjust({ ops, label: `↩ ${who}에게 보낸 것 돌려받음`, silent: true }); // 조용히 — 「없던 일」이라 AI에게 알리지 않는다
+            toastr.info('보냈던 것을 돌려받았어요.', TITLE);
         }
     },
     cmsgre: async (el, arg, btn, s) => {

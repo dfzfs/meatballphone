@@ -134,6 +134,7 @@ export const DEFAULTS = Object.freeze({
     sceneFilter: true,       // 최근 대화에 나온 인물만 자세히 주입, 나머지는 이름만
     sceneTurns: 6,           // 장면 판단에 볼 최근 메시지 수
     pinCap: 8,               // 주입할 고정 메모 최대 개수
+    letterReplyIn: '',       // ✉ 편지 답장이 언제 올지 (v2.7.23): '' = 배달 수단대로 · now · s1~s3 (시간대 뒤) · d1~d3 (일 뒤)
     bindContact: false, bindNews: false, bindGossip: false, bindBoard: false, bindSns: false, // 📦 부가 기능을 채팅에 붙일지 (v2.7.23 · 기본 = 따로 보관: 기록을 안 쌓고 · 되감기 안 됨 · 「방금 한 일」로 안 감)
     contactReflect: 'auto',  // 연락 → 본편 반영: off | auto | pinned | summary
     usage: [],               // 확장 AI 사용 기록
@@ -664,6 +665,7 @@ const msgN = (x) => ({
     at: Number.isFinite(Number(x.at)) ? Number(x.at) : null, arrive: Number.isFinite(Number(x.arrive)) ? Number(x.arrive) : null,
     courier: str(x.courier), express: !!x.express, rush: !!x.rush, pending: !!x.pending, fee: num(x.fee, 0), edited: !!x.edited, ping: !!x.ping,
     kind: MSG_KINDS.includes(x.kind) ? x.kind : 'text', pin: !!x.pin, read: !!x.read, react: str(x.react), orig: str(x.orig), amount: num(x.amount, 0),
+    ...(Array.isArray(x.enc) && x.enc.some(e => e && (e.kind === 'gift' || e.kind === 'money')) ? { enc: x.enc.filter(e => e && (e.kind === 'gift' || e.kind === 'money')).map(e => ({ kind: e.kind, text: str(e.text), amount: num(e.amount, 0) })) } : {}), // 편지에 동봉한 물건 · 돈 (지울 때 돌려받기)
 });
 // 연락 메시지 종류: 글 · 사진/음성/파일/위치 묘사 · 선물 · 송금 · 삭제됨
 export const MSG_KINDS = ['text', 'photo', 'voice', 'file', 'place', 'gift', 'money', 'deleted'];
@@ -1026,5 +1028,24 @@ export const EDIT = {
 // ───── 시간 (편지 배달용) ─────
 // 달력이 켜져 있으면 "일", 아니면 AI 응답 수("턴")로 잰다
 export function useDays(s, meta = getMeta()) { return !!(s?.data?.calendar && modOn('calendar', meta)); }
-export function nowTick(s, meta = getMeta()) { return useDays(s, meta) ? dayIndex(s.data.calendar) : (s?.turn ?? 0); }
+// 🕐 시간대 (v2.7.23): 하루 안에서도 시간이 흐른다 — 지금 시간대가 하루의 어디쯤인지 0~1 (달력의 시간대 목록 순서 · 목록에 없는 말은 뜻으로 어림)
+const SLOT_HINT = [[/새벽|dawn|early morning/i, 0.08], [/오후|afternoon/i, 0.6], [/정오|점심|noon|midday/i, 0.45], [/아침|morning|sunrise/i, 0.25], [/저녁|evening|dusk|sunset/i, 0.72], [/심야|자정|late night|midnight/i, 0.95], [/밤|night/i, 0.85], [/낮|day/i, 0.5]];
+export function dayFrac(cal) {
+    const raw = String(cal?.time ?? ''), t = norm(raw), times = Array.isArray(cal?.times) ? cal.times : [];
+    if (!t) return 0;
+    const i = times.findIndex(x => norm(x) === t);
+    if (i >= 0) return i / times.length;
+    for (const [re, f] of SLOT_HINT) if (re.test(raw)) return f;
+    return 0;
+}
+export const slotsPerDay = (s) => Math.max(1, s?.data?.calendar?.times?.length || 6);
+// 기다리는 시간을 글로: 「2일」 「3시간대」 「1일 2시간대」 「곧」 (달력이 없으면 턴)
+export function waitText(delta, s, meta = getMeta()) {
+    if (!useDays(s, meta)) return `${Math.max(0, Math.ceil(delta))}턴`;
+    const N = slotsPerDay(s), k = Math.round(delta * N);
+    if (k <= 0) return '곧';
+    const d = Math.floor(k / N), r = k % N;
+    return [d ? `${d}일` : '', r ? `${r}시간대` : ''].filter(Boolean).join(' ');
+}
+export function nowTick(s, meta = getMeta()) { return useDays(s, meta) ? dayIndex(s.data.calendar) + dayFrac(s.data.calendar) : (s?.turn ?? 0); }
 export function tickUnit(s, meta = getMeta()) { return useDays(s, meta) ? '일' : '턴'; }

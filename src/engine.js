@@ -1,7 +1,7 @@
 // 상태 엔진: <meatball> 변화량 → 상태 재계산 · 직접 편집 기록 · 프롬프트 주입
 import {
     letterMode, instantLetter, contactSimple, app, ctx, settings, getMeta, saveMeta, modOn, MOD_IDS, MOD, EMPTY, DIFFS, NORM, normalize, clone, clamp, num, norm, findBy, splitBar, fmtNum, short, dayIndex, addDays, dateStr, eventsOn, parseDate, nowTick, tickUnit, stamp, esc,
-    setAlias, TITLE, INJECT_KEY, INJECT_KEY2, INJECT_KEY3, trLook, trBack, viewTr, weekday, PROMPT_IN_CHAT, ROLE_SYSTEM, MODULE, AI_PARTS, aiOff, uid, diffOf, LOG, loveIndex, CONTACT_MODES, tidy, msgText, DEFAULT_STAGES, arr, playOf, swapUser, ssWarn, relAxes, INJ, isHidden, modOnRaw, DATA_V, normPlay, ssNote, heroIsUser,
+    waitText, setAlias, TITLE, INJECT_KEY, INJECT_KEY2, INJECT_KEY3, trLook, trBack, viewTr, weekday, PROMPT_IN_CHAT, ROLE_SYSTEM, MODULE, AI_PARTS, aiOff, uid, diffOf, LOG, loveIndex, CONTACT_MODES, tidy, msgText, DEFAULT_STAGES, arr, playOf, swapUser, ssWarn, relAxes, INJ, isHidden, modOnRaw, DATA_V, normPlay, ssNote, heroIsUser,
 } from './core.js';
 import { P } from './prompts.js';
 import { pairStage, KEYMAP, KEY_MOD, seeded, effSum, today, applyLines, seasonOf, pickWeather, stageIndex, noLoveStage, updateStage, startDay, applyOp, stagesOn, dateFromIndex } from './ops.js';
@@ -1333,7 +1333,7 @@ function buildUltra(r, opt = {}) {
         if (letterMode(ct)) L.push('✉편지 세계(전화 없음): 도착 전엔 상대가 내용을 모름');
         else if (instantLetter(ct)) L.push('✉편지 세계(전화 없음 · 멀리 있는 사람은 편지로만)');
         const tr = inTransit(s, meta).filter(x => x.m.from === 'me');
-        if (tr.length) L.push(`✉배송중:${tr.map(x => `${x.who}(${x.left}${tickUnit(s, meta)})`).join(',')}`);
+        if (tr.length) L.push(`✉배송중:${tr.map(x => `${x.who}(${waitText(x.left, s, meta)})`).join(',')}`);
         for (const x of contactPicks(s, meta, set, inScene).slice(0, 2)) {
             L.push(`✉${x.who}:${x.summary ? `(${short(x.summary, 50)})` : ''}${x.msgs.slice(-2).map(m => `${m.from === 'me' ? '나›' : ''}${msgText(m, 40)}`).join('/')}`);
         }
@@ -1645,7 +1645,7 @@ function buildInjection0(r, opt = {}) {
         if (letterMode(ct)) L.push(P('inj.letter', { app: ct.app }));
         else if (instantLetter(ct)) L.push(P('inj.letter.simple', { app: ct.app })); // v2.7.18: 간단 모드여도 세계 규칙은 남김 (예전엔 같이 빠져서 멀리 있는 인물이 즉시 대답했음)
         const tr = inTransit(s, meta).filter(x => x.m.from === 'me');
-        if (tr.length) L.push(`Letters on the way (NOT yet received — the recipients don't know their contents yet): ${tr.map(x => `to ${x.who} (${x.left}${tickUnit(s, meta)} left)`).join(', ')}`);
+        if (tr.length) L.push(`Letters on the way (NOT yet received — the recipients don't know their contents yet): ${tr.map(x => `to ${x.who} (${waitText(x.left, s, meta)} left)`).join(', ')}`);
         for (const x of contactPicks(s, meta, set, inScene)) {
             PP.push(`${ct.app} with ${x.who}${x.summary ? ` — so far: ${x.summary}` : ''}${x.msgs.length ? ` (latest): ${x.msgs.map(m => `${m.from === 'me' ? '{{user}}' : x.who}: ${msgText(m, 70)}`).join(' / ')}` : ''}`);
         }
