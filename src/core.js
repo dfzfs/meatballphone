@@ -762,7 +762,7 @@ export const NORM = {
         return {
             mode, app: str(d.app, CONTACT_MODES[mode].app) || CONTACT_MODES[mode].app,
             contacts: arr(d.contacts).filter(c => c?.name).map(c => ({ name: str(c.name), handle: str(c.handle), status: str(c.status), courier: str(c.courier), reflect: ['always', 'pinned', 'never'].includes(c.reflect) ? c.reflect : '', blocked: !!c.blocked })),
-            summaries: Object.fromEntries(Object.entries(d.summaries && typeof d.summaries === 'object' ? d.summaries : {}).filter(([, v]) => v?.text).map(([k, v]) => [k, { text: str(v.text), n: Math.max(0, Math.round(num(v.n, 0))) }])),
+            summaries: Object.fromEntries(Object.entries(d.summaries && typeof d.summaries === 'object' ? d.summaries : {}).filter(([, v]) => v?.text).map(([k, v]) => [k, { text: str(v.text), n: Math.max(0, Math.round(num(v.n, 0))), ...(v.manual === true ? { manual: true } : {}) }])),
             threads, unread: d.unread && typeof d.unread === 'object' ? { ...d.unread } : {},
             recent: arr(d.recent).map(String).filter(Boolean).slice(0, 30),
             couriers: couriers.length ? couriers : clone(COURIER_PRESETS.slice(0, 1)),

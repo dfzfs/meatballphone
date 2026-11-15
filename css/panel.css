@@ -515,3 +515,9 @@ dialog.ss-dlg .popup-content > .ss-root, dialog.ss-dlg .popup-content > .ss-pane
 .ss-trend .ss-trend-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .ss-trend .ss-trend-legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 .ss-trend .ss-trend-legend small { opacity: .7; }
+
+/* 🔗 연락 구간 고르기 · 요약 줄 (v2.7.23) */
+.ss-crange { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 12px; font-size: .9em; background: color-mix(in srgb, var(--ss-hi) 10%, var(--ss-bg)); border-bottom: 1px solid var(--ss-line); position: sticky; top: 0; z-index: 2; }
+.ss-crange > span { flex: 1 1 100%; }
+.ss-bub.sel > span, .ss-bub.sel > .ss-att { outline: 2px dashed var(--ss-hi); outline-offset: 2px; }
+button.ss-csum { width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--ss-line); cursor: pointer; font: inherit; font-size: .85em; }

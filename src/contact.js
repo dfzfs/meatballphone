@@ -1,6 +1,6 @@
 // 📱/✉️ 연락: 메신저 · 즉시 통신 · 편지 (배달 수단 · 도착 시간 · 급행)
 import { letterMode, contactSimple, instantLetter, SIMPLE_THREAD, app, settings, getMeta, modOn, esc, short, clone, findBy, norm, uid, randInt, rand, clamp, num, fmtNum, nowTick, tickUnit, stamp, CONTACT_MODES, TITLE, COURIER_PRESETS, touchContact, msgText, ssErr, ssWarn } from './core.js';
-import { commit, addAdjust, dueLetters, inTransit, affMul } from './engine.js';
+import { commit, addAdjust, dueLetters, inTransit, affMul, PIN_LINES } from './engine.js';
 import { phoneReply, letterReply, pingMessage, summarizeThread } from './ai.js';
 import { avatar, ai1, emptyBox, askInput, askConfirm, busyBtn, choosePopup } from './kit.js';
 
@@ -48,14 +48,34 @@ function listView(s, d, ui) {
 }
 const courierIcon = (d, name) => findBy(d.couriers, name)?.icon ?? '✉️';
 
+// 🔗 구간 고르기 (v2.7.23): 첫 말풍선 · 끝 말풍선을 고르면 그 사이를 한 번에 — 본편에 반영(📌) · 고정 풀기 · 지우기
+function rangeIds(th, ui) {
+    const r = ui.range; if (!r?.a) return [];
+    const i = th.findIndex(m => m.id === r.a), j = r.b ? th.findIndex(m => m.id === r.b) : i;
+    if (i < 0 || j < 0) return [];
+    return th.slice(Math.min(i, j), Math.max(i, j) + 1).filter(m => !m.pending).map(m => m.id);
+}
+function rangeBar(th, ui) {
+    if (!ui.range?.a) return '';
+    const ids = rangeIds(th, ui);
+    if (!ui.range.b) return `<div class="ss-crange"><span><i class="fa-solid fa-arrows-up-down"></i> 구간 고르기 — 이제 <b>끝 말풍선</b>의 <i class="fa-solid fa-arrows-up-down"></i>를 눌러요</span><button class="ss-btn sm ghost" data-act="crangeact" data-arg="cancel">취소</button></div>`;
+    return `<div class="ss-crange"><span><b>${ids.length}개</b> 고름${ids.length > PIN_LINES ? ` <small>(본편엔 뒤쪽 ${PIN_LINES}줄까지 가요)</small>` : ''}</span>
+        <button class="ss-btn sm pri" data-act="crangeact" data-arg="only" title="이 구간만 📌 고정하고 나머지 고정은 풀어요. 이 사람의 대화는 「📌 고른 것만」 본편 AI에게 가게 바꿔요">📌 이 구간만 본편에</button>
+        <button class="ss-btn sm" data-act="crangeact" data-arg="pin" title="이 구간을 📌 고정에 더해요">📌 고정</button>
+        <button class="ss-btn sm" data-act="crangeact" data-arg="unpin">고정 풀기</button>
+        <button class="ss-btn sm danger" data-act="crangeact" data-arg="del">지우기</button>
+        <button class="ss-btn sm ghost" data-act="crangeact" data-arg="cancel">취소</button></div>`;
+}
 // ───── 메신저 대화 ─────
 function phoneView(s, d, ui) {
+    ui._sel = new Set(rangeIds(d.threads[ui.who] ?? [], ui));
     const who = ui.who, th = d.threads[who] ?? [];
     const c = findBy(d.contacts, who) ?? { name: who };
     return `<div class="ss-phone">
         <div class="ss-phone-top"><button class="ss-ib" data-act="cback"><i class="fa-solid fa-chevron-left"></i></button>${avatar(who)}<div class="ss-ct-b"><b>${esc(who)}</b><small>${esc(c.status || d.app)}</small></div>
             <button class="ss-ib" data-act="cmenu" data-arg="${esc(who)}"><i class="fa-solid fa-ellipsis-vertical"></i></button></div>
-        ${d.summaries?.[who] ? `<div class="ss-csum"><i class="fa-solid fa-note-sticky"></i> ${esc(d.summaries[who].text)}</div>` : ''}
+        ${d.summaries?.[who] ? `<button class="ss-csum" data-act="csumedit" data-arg="${esc(who)}" title="한 줄 요약 — 눌러서 고치기${d.summaries[who].manual ? ' (직접 쓴 요약)' : ' (AI가 만든 요약)'}"><i class="fa-solid fa-note-sticky"></i> ${esc(d.summaries[who].text)}</button>` : ''}
+        ${rangeBar(th, ui)}
         <div class="ss-thread ${instantLetter(d) ? 'letters' : ''}">${th.filter(m => m.pending || visible(m, nowTick(s))).map(m => bubble(m, ui)).join('') || '<div class="ss-hint center">아직 대화가 없어요. 먼저 말을 걸어 보세요.</div>'}</div>
         ${c.blocked ? '<div class="ss-callout"><i class="fa-solid fa-ban"></i><div><b>차단한 상대예요</b><span>⋮ 메뉴에서 차단을 풀 수 있어요</span></div></div>' : `        <div class="ss-phone-in"><textarea class="ss-in ss-cin" rows="${instantLetter(d) ? 3 : 1}" placeholder="${instantLetter(d) ? `${esc(who)}에게 편지 쓰기 (바로 도착해요)` : '메시지 보내기'}">${esc(ui.draft ?? '')}</textarea><button class="ss-btn pri ss-send" data-act="csend" title="보내기"><i class="fa-solid ${instantLetter(d) ? 'fa-envelope' : 'fa-paper-plane'}"></i></button></div>
         <div class="ss-phone-att">${attButtons(s, d)}</div>
@@ -85,11 +105,12 @@ function bubble(m, ui) {
     }
     if (ui.editId === m.id) return `<div class="ss-bub ${m.from === 'me' ? 'me' : ''} editing"><textarea class="ss-in ss-bub-ed" rows="2">${esc(m.text)}</textarea><div class="ss-bub-acts"><button class="ss-btn sm pri" data-act="cmsgsave" data-arg="${esc(m.id)}">저장</button><button class="ss-btn sm" data-act="cmsgcancel">취소</button></div></div>`;
     const mine = m.from === 'me';
-    return `<div class="ss-bub ${mine ? 'me' : ''} ${m.ping ? 'ping' : ''} ${m.pin ? 'pinned' : ''} k-${m.kind}" data-id="${esc(m.id)}">${bubbleBody(m)}
+    return `<div class="ss-bub ${mine ? 'me' : ''} ${m.ping ? 'ping' : ''} ${m.pin ? 'pinned' : ''} ${ui._sel?.has(m.id) ? 'sel' : ''} k-${m.kind}" data-id="${esc(m.id)}">${bubbleBody(m)}
         ${m.react ? `<em class="ss-react">${esc(m.react)}</em>` : ''}
         <div class="ss-bub-meta">${mine && !m.read && m.kind !== 'deleted' ? '<b class="ss-unread">1</b> ' : ''}${m.pin ? '📌 ' : ''}${m.edited ? '수정됨 · ' : ''}${esc(m.date || '')}</div>
         ${`<div class="ss-bub-acts ${ui.reactFor === m.id ? 'on' : ''}">${!mine && m.kind !== 'deleted' ? (ui.reactFor === m.id ? REACTS.map(r => `<button class="ss-ib r ${m.react === r ? 'on' : ''}" data-act="creact" data-arg="${esc(m.id)}|${r}">${r}</button>`).join('') : `<button class="ss-ib" data-act="creactpick" data-arg="${esc(m.id)}" title="반응 달기"><i class="fa-regular fa-face-smile"></i></button>`) : ''}
             <button class="ss-ib" data-act="cpin" data-arg="${esc(m.id)}" title="${m.pin ? '고정 해제' : '본편에 꼭 반영 (📌)'}"><i class="fa-solid fa-thumbtack"></i></button>
+            <button class="ss-ib" data-act="crange" data-arg="${esc(m.id)}" title="구간 고르기 — 첫 말풍선에서 한 번, 끝 말풍선에서 한 번"><i class="fa-solid fa-arrows-up-down"></i></button>
             ${m.kind === 'text' ? `<button class="ss-ib" data-act="cmsgedit" data-arg="${esc(m.id)}" title="수정"><i class="fa-solid fa-pen"></i></button>` : ''}
             ${mine && !['deleted', 'gift', 'money'].includes(m.kind) ? `<button class="ss-ib" data-act="cunsend" data-arg="${esc(m.id)}" title="전송 취소"><i class="fa-solid fa-rotate-left"></i></button>` : ''}
             <button class="ss-ib" data-act="cmsgdel" data-arg="${esc(m.id)}" title="기록에서 지우기"><i class="fa-solid fa-trash-can"></i></button>${!mine ? `<button class="ss-ib" data-act="cmsgre" data-arg="${esc(m.id)}" title="다시 받기 (AI 1회)"><i class="fa-solid fa-rotate"></i></button>` : ''}</div>`}</div>`;
@@ -205,6 +226,7 @@ async function maybeSummarize(who, force = false) {
     const want = force || st.contactReflect === 'summary' || (c?.reflect === 'always' && st.contactReflect === 'summary');
     if (!want) return;
     const n = (ct.threads[who] ?? []).filter(m => !m.pending).length;
+    if (!force && ct.summaries?.[who]?.manual) return; // ✏️ 직접 쓴 요약은 자동으로 덮어쓰지 않는다 (v2.7.23)
     if (!force && n - (ct.summaries?.[who]?.n ?? 0) < 8) return;
     try {
         const text = await summarizeThread(who, s);
@@ -321,6 +343,46 @@ async function pickAttach(kind, s) {
 }
 
 export const CONTACT_ACTIONS = {
+    // ✏️ 한 줄 요약 직접 쓰기 (v2.7.23): 비우고 확인하면 지움 · 직접 쓴 요약은 AI가 자동으로 덮지 않음
+    csumedit: async (el, arg, btn, s) => {
+        const who = arg || el._ss.ui.who; if (!who) return;
+        const cur = s.data.contact.summaries?.[who];
+        const v = await askInput(TITLE, `${esc(who)}와(과)의 대화 한 줄 요약<br><small>「연락 내용을 본편 AI에게」가 「요약」일 때 이 한 줄이 본편 AI에게 가요. 직접 쓴 요약은 AI가 자동으로 바꾸지 않아요. 비우면 지워요.</small>`, cur?.text ?? '');
+        if (v === null || v === undefined) return;
+        const nd = clone(curState().data.contact);
+        const n = (nd.threads[who] ?? []).filter(m => !m.pending).length;
+        nd.summaries = { ...(nd.summaries ?? {}) };
+        if (String(v).trim()) nd.summaries[who] = { text: String(v).trim(), n, manual: true }; else delete nd.summaries[who];
+        await commit('contact', nd, '');
+        redraw(el);
+    },
+    // 🔗 구간 고르기: 첫 말풍선 → 끝 말풍선
+    crange: (el, arg) => {
+        const ui = el._ss.ui;
+        if (!ui.range?.a || ui.range.b) ui.range = { a: arg }; else ui.range.b = arg;
+        ui.draft = el.querySelector('.ss-cin')?.value ?? ui.draft;
+        app.renderPanel(el);
+    },
+    crangeact: async (el, arg, btn, s) => {
+        const ui = el._ss.ui, who = ui.who;
+        const done = () => { ui.range = null; ui.draft = el.querySelector('.ss-cin')?.value ?? ui.draft; app.renderPanel(el); };
+        if (arg === 'cancel' || !who) return done();
+        const nd = clone(s.data.contact), th = nd.threads[who] ?? [];
+        const ids = new Set(rangeIds(th, ui));
+        if (!ids.size) return done();
+        if (arg === 'del') {
+            if (!(await askConfirm(`고른 말풍선 ${ids.size}개를 지울까요?`))) return;
+            for (const m of th) if (ids.has(m.id)) hushSent(m, who);
+            nd.threads[who] = th.filter(m => !ids.has(m.id));
+        } else {
+            for (const m of th) { if (ids.has(m.id)) m.pin = arg !== 'unpin'; else if (arg === 'only') m.pin = false; }
+            if (arg === 'only') { const c = findBy(nd.contacts, who) ?? (nd.contacts.push({ name: who, handle: '', status: '', courier: '' }), nd.contacts.at(-1)); c.reflect = 'pinned'; }
+        }
+        ui.range = null;
+        await commit('contact', nd, '');
+        toastr.info(arg === 'only' ? `📌 고른 ${ids.size}개만 본편 AI에게 가요${ids.size > PIN_LINES ? ` (뒤쪽 ${PIN_LINES}줄까지)` : ''}. ⋮ 메뉴에서 되돌릴 수 있어요.` : arg === 'pin' ? `📌 ${ids.size}개를 고정했어요.` : arg === 'unpin' ? '고정을 풀었어요.' : `${ids.size}개를 지웠어요.`, TITLE);
+        redraw(el);
+    },
     catt: async (el, arg, btn, s) => {
         const who = el._ss.ui.who; if (!who) return;
         const a = await pickAttach(arg, s); if (!a) return;
@@ -461,7 +523,9 @@ export const CONTACT_ACTIONS = {
             <button class="ss-btn wide" data-m="status"><i class="fa-solid fa-comment-dots"></i> 상태 메시지 · 사는 곳</button>
             ${isLetter(s.data.contact) ? '<button class="ss-btn wide" data-m="courier"><i class="fa-solid fa-dove"></i> 이 사람이 쓰는 배달 수단</button>' : ''}
             <button class="ss-btn wide" data-m="ping">${ai1} ${isLetter(s.data.contact) ? '편지 오게' : '선톡 오게'}</button>
-            <button class="ss-btn wide" data-m="summary">${ai1} 대화 한 줄 요약 만들기</button>
+            <button class="ss-btn wide" data-m="sumwrite"><i class="fa-solid fa-pen"></i> 한 줄 요약 직접 쓰기</button>
+            <button class="ss-btn wide" data-m="summary">${ai1} 한 줄 요약 AI로 만들기</button>
+            ${s.data.contact.summaries?.[who] ? '<button class="ss-btn wide ghost" data-m="sumdel"><i class="fa-solid fa-eraser"></i> 한 줄 요약 지우기</button>' : ''}
             <div class="ss-f"><span>본편 AI에게 이 대화를</span><div class="ss-seg wrap">${[['', '기본 설정'], ['always', '항상 반영'], ['pinned', '📌 고른 것만'], ['never', '숨기기 (비밀)']].map(([v, t]) => `<button class="${(findBy(s.data.contact.contacts, who)?.reflect ?? '') === v ? 'on' : ''}" data-m="refl:${v}">${t}</button>`).join('')}</div></div>
             <button class="ss-btn wide" data-m="block"><i class="fa-solid fa-ban"></i> ${findBy(s.data.contact.contacts, who)?.blocked ? '차단 풀기' : '차단하기'}</button>
             <button class="ss-btn wide" data-m="clear"><i class="fa-solid fa-broom"></i> 대화 비우기</button>
@@ -490,6 +554,8 @@ export const CONTACT_ACTIONS = {
         }
         if (pick === 'ping') return CONTACT_ACTIONS.cping(el, who, null, curState());
         if (pick === 'summary') return maybeSummarize(who, true);
+        if (pick === 'sumwrite') return CONTACT_ACTIONS.csumedit(el, who, null, curState());
+        if (pick === 'sumdel') { if (nd.summaries) delete nd.summaries[who]; }
         if (pick.startsWith('refl:')) { c.reflect = pick.slice(5); }
         if (pick === 'block') { c.blocked = !c.blocked; toastr.info(c.blocked ? `${esc(who)}을(를) 차단했어요.` : '차단을 풀었어요.', TITLE); }
         if (pick === 'clear') { nd.threads[who] = []; delete nd.unread[who]; }

@@ -1159,6 +1159,7 @@ export function sceneTester(set = settings(), s = null) {
 const MOD_SHORT = { easy: '이지', normal: '보통', hard: '하드' };
 
 // 연락 → 본편 반영: 반영 모드(끔·자동·고른 것만·요약)와 연락처별 예외를 따라 고른다
+export const PIN_LINES = 20;
 export function contactPicks(s, meta, set, inScene) {
     const ct = s.data.contact;
     if (!ct) return [];
@@ -1185,7 +1186,7 @@ export function contactPicks(s, meta, set, inScene) {
         if (!th.length) continue;
         const how = refl === 'pinned' ? 'pinned' : refl === 'always' ? (mode === 'summary' ? 'summary' : 'auto') : mode;
         let msgs = [], summary = '';
-        if (how === 'pinned') msgs = th.filter(m => m.pin).slice(-3);
+        if (how === 'pinned') msgs = th.filter(m => m.pin).slice(-PIN_LINES); // 📌 고른 것만: 구간으로 고를 수 있어서 3줄 → 20줄까지 (v2.7.23)
         else if (how === 'summary') {
             const sm = ct.summaries?.[who];
             if (sm) { summary = sm.text; msgs = th.slice(sm.n).slice(-2); } else msgs = th.slice(-3);
