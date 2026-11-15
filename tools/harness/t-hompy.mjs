@@ -40,7 +40,7 @@ for (const width of [1300, 390]) {
             core.settings().hpTheme = 2; core.settings().hpLayout = { off: ['stats'] }; shell.rerenderPanels(true); await wait(200);
             { const r = el.querySelector('.ss-hompy'); out.customize = r.style.getPropertyValue('--hp-h') === '215' && !el.querySelector('.ss-hp-win[data-win="stats"]'); }
             el.querySelector('[data-hp="deco"]').click(); await wait(400);
-            { const pk = document.querySelector('.ss-hp-pick'); out.decoOpens = !!pk && pk.querySelectorAll('.ss-hp-sw').length === 9 && !!pk.querySelector('[data-hpr="hue"]') && !!pk.querySelector('[data-choice="dark:dark"]') && !!pk.querySelector('[data-choice="setsave:1"]') && !!pk.querySelector('[data-choice="win:stats"]') && !!pk.querySelector('[data-choice="skin:1"]');
+            { const pk = document.querySelector('.ss-hp-pick'); out.decoOpens = !!pk && pk.querySelectorAll('.ss-hp-sw').length === 9 && !!pk.querySelector('[data-choice="skin:dot"]') && !!pk.querySelector('[data-hpr="fs"]') && !!pk.querySelector('[data-hpc="hpInk"]') && !!pk.querySelector('[data-hpr="hue"]') && !!pk.querySelector('[data-choice="dark:dark"]') && !!pk.querySelector('[data-choice="setsave:1"]') && !!pk.querySelector('[data-choice="win:stats"]') && !!pk.querySelector('[data-choice="hudskin:1"]');
               pk?.querySelector('[data-choice="theme:0"]')?.click(); await wait(400); out.decoSets = core.settings().hpTheme === 0 && document.body.style.getPropertyValue('--hp-h') === '340' && document.body.classList.contains('ss-retro');
               document.querySelectorAll('dialog').forEach(d => { if (d.querySelector('.ss-hp-pick')) d.querySelector('.popup-button-ok')?.click(); }); await wait(300); }
             core.settings().hpLayout = {}; shell.rerenderPanels(true); await wait(200);
@@ -60,7 +60,6 @@ for (const width of [1300, 390]) {
               out.mainMoves = el.querySelector('.ss-hp-book').lastElementChild.classList.contains('main');
               core.settings().hpLayout = {}; shell.rerenderPanels(true); await wait(200);
             }
-            out.cleanFont = !getComputedStyle(el.querySelector('.ss-hp-wt b')).fontFamily.includes('MeatballDot') && !el.querySelector('.ss-hompy').classList.contains('ss-hp-dot');
             { // 꾸미기: 직접 고른 색 · 어둡게 · 모서리 · 글꼴 · 움직임 끔 · 세트 코드 · 채팅에 묶은 세트
               const hpm = await import('/ext/src/hompy.js'), S0 = core.settings(), B = document.body;
               Object.assign(S0, { hpTheme: 'c', hpHue: 123, hpSat: 0.5, hpDark: 'dark', hpCorner: 2, hpGap: 0, hpFont: 'r', hpMotion: false }); hpm.applyRetro(); shell.rerenderPanels(true); await wait(200);
@@ -72,6 +71,14 @@ for (const width of [1300, 390]) {
               out.boundSet = (el.querySelector('.ss-hompy').style.getPropertyValue('--hp-h') === '215' && B.classList.contains('ss-hp-dark') && S0.hpTheme === 0) || B.className;
               delete core.getMeta().hpSet; S0.hpSets = []; hpm.applyRetro(); shell.rerenderPanels(true); await wait(200);
               out.setUnbound = !B.classList.contains('ss-hp-dark') && el.querySelector('.ss-hompy').style.getPropertyValue('--hp-h') === '340';
+              // 모양 두 가지: 처음엔 고르는 줄 → 도트를 고르면 도트 글꼴 · 무늬 · 주소창 / 깔끔이면 고딕 · 무늬 없음. 직접 고른 글씨 크기 · 글자색
+              delete S0.hpSkin; hpm.applyRetro(); shell.rerenderPanels(true); await wait(200);
+              const ask = !!el.querySelector('.ss-hp-choose') && el.querySelector('.ss-hompy').classList.contains('ss-hp-k-clean');
+              el.querySelector('.ss-hp-choose [data-arg="dot"]').click(); await wait(400); await document.fonts.ready;
+              { const r2 = el.querySelector('.ss-hompy'); out.skinDot = (ask && S0.hpSkin === 'dot' && !el.querySelector('.ss-hp-choose') && B.classList.contains('ss-skin-dot') && r2.classList.contains('ss-hp-p-grid') && getComputedStyle(r2).fontFamily.includes('MeatballDot') && getComputedStyle(el.querySelector('.ss-hp-hearts')).display !== 'none' && getComputedStyle(r2).backgroundImage !== 'none') || [ask, S0.hpSkin, B.className, getComputedStyle(r2).fontFamily].join(' | '); }
+              Object.assign(S0, { hpSkin: 'clean', hpFsPx: 16, hpInk: '#112233' }); hpm.applyRetro(); shell.rerenderPanels(true); await wait(300);
+              { const r3 = el.querySelector('.ss-hompy'), cs = getComputedStyle(r3); out.skinClean = (!B.classList.contains('ss-skin-dot') && !cs.fontFamily.includes('MeatballDot') && cs.backgroundImage === 'none' && getComputedStyle(el.querySelector('.ss-hp-hearts')).display === 'none' && r3.style.getPropertyValue('--hp-fs') === '16px' && cs.color === 'rgb(17, 34, 51)') || [B.className, cs.fontFamily, cs.color, r3.style.cssText].join(' | '); }
+              Object.assign(S0, { hpFsPx: 0, hpInk: '' }); hpm.applyRetro(); shell.rerenderPanels(true); await wait(200);
               out.profileCard = !!el.querySelector('.ss-hp-badges') || innerWidth <= 640 && !el.querySelector('.ss-hompy.ss-hp-athome') ; }
             out.closeButton = !!el.querySelector('.ss-hp-url [data-hp="close"]');
             // 🖼 홈의 큰 사진: 없으면 단추만 · 넣으면 보임 · 한마디 · 빼기 · 다른 탭엔 없음

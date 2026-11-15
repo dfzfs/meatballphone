@@ -132,6 +132,7 @@ export const DEFAULTS = Object.freeze({
     profAnalyze: '',
     hpSkinHud: true,         // 🪟 HUD · 미니창도 미니홈피와 같은 색 · 얇은 테두리로 (화면만)
     hpTheme: 0,              // 📒 미니홈피 포인트 색 (hompy.js THEMES의 번호 · 'c' = 직접 고른 색 hpHue · hpSat)
+    // hpSkin: (없음 = 아직 안 고름 → 깔끔으로 보이고 「모양 고르기」 줄이 뜬다) · 'clean' · 'dot'
     hpDark: 'light',         // 📒 밝기: light · dark · auto(기기 따라)
     hpSets: [],              // 📒 저장한 꾸밈 세트 [{ name, data }] — 채팅에 묶으면 meta.hpSet = 이름
     hpWins: {},              // 📒 미니홈피에서 끈 창 ({ stats: false } …)

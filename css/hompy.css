@@ -1,11 +1,13 @@
+@font-face { font-family: 'MeatballDot'; src: url("../font/Galmuri11.woff2") format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'MeatballDot'; src: url("../font/Galmuri11-Bold.woff2") format('woff2'); font-weight: 700; font-display: swap; }
 /* 📒 미니홈피 화면 (v2.8 · 두 번째 판) — 상태창을 전체화면으로 열었을 때만.
    얇은 테두리의 작은 「창」들을 바탕 위에 빽빽하게 놓는다: 주소창 → 즐겨찾기 줄(묶음) → [프로필 · 상태 · 일촌] [지금 탭] [소식 창들 · 사진]
    색은 --hp-h(색상) · --hp-s(채도 배율) 두 값에서 전부 만든다 (🎨 꾸미기 › 색). 같은 색을 HUD · 미니창 스킨(맨 아래)도 쓴다 */
 .ss-root.ss-hompy, .ss-root.ss-rt, .ss-hp-pick, body.ss-retro dialog.ss-dlg, body.ss-retro :is(#ss-hud, #ss-side .ss-side-mini, .ss-float) {
     /* 깔끔한 블로그 모양: 흰 바탕 · 옅은 회색 선 · 포인트 색 하나 (--hp-h 색상 · --hp-s 채도 배율) */
-    --hp-ol: hsl(var(--hp-h, 340) calc(8% * var(--hp-s, 1)) 84%); --hp-ink: #24262b; --hp-dim: #8b9099;
+    --hp-ol: hsl(var(--hp-h, 340) calc(8% * var(--hp-s, 1)) 84%); --hp-ink: var(--hp-ink-u, #24262b); --hp-dim: var(--hp-dim-u, #8b9099);
     --hp-strip: hsl(var(--hp-h, 340) calc(60% * var(--hp-s, 1)) 95%); --hp-soft: hsl(var(--hp-h, 340) calc(14% * var(--hp-s, 1)) 97%); --hp-gl: hsl(var(--hp-h, 340) calc(8% * var(--hp-s, 1)) 92%);
-    --hp-ln: hsl(var(--hp-h, 340) calc(8% * var(--hp-s, 1)) 88%); --hp-acc: hsl(var(--hp-h, 340) calc(62% * var(--hp-s, 1)) 56%); --hp-bgc: hsl(var(--hp-h, 340) calc(10% * var(--hp-s, 1)) 97.5%); --hp-paper: #fff;
+    --hp-ln: hsl(var(--hp-h, 340) calc(8% * var(--hp-s, 1)) 88%); --hp-acc: hsl(var(--hp-h, 340) calc(62% * var(--hp-s, 1)) 56%); --hp-bgc: var(--hp-bg-u, hsl(var(--hp-h, 340) calc(10% * var(--hp-s, 1)) 97.5%)); --hp-paper: var(--hp-paper-u, #fff);
 }
 .ss-root.ss-hompy, .ss-root.ss-rt, body.ss-retro dialog.ss-dlg, body.ss-retro dialog.ss-dlg .ss-root, body.ss-retro :is(#ss-hud, #ss-side .ss-side-mini) {
     --ss-bg: var(--hp-paper) !important; --ss-surface: var(--hp-soft) !important; --ss-surface2: var(--hp-strip) !important; --ss-card: var(--hp-paper) !important; --ss-ink: var(--hp-ink) !important; --ss-dim: var(--hp-dim) !important;
@@ -265,9 +267,9 @@ body.ss-hp-f-r { --hp-font: 'NanumSquareRound', 'Nanum Gothic Round', 'Jua', 'Ca
 .ss-hp-wb { padding: 6px var(--hp-g, 12px) var(--hp-g, 12px); } .ss-hp-right { padding: 8px calc(var(--hp-g, 12px) + 2px) calc(var(--hp-g, 12px) + 2px); }
 /* 🌙 어두운 모양 */
 body.ss-hp-dark :is(.ss-root.ss-hompy, .ss-root.ss-rt, .ss-hp-pick), body.ss-hp-dark.ss-retro dialog.ss-dlg, body.ss-hp-dark.ss-retro :is(#ss-hud, #ss-side .ss-side-mini, .ss-float) {
-    --hp-ol: hsl(var(--hp-h, 340) calc(8% * var(--hp-s, 1)) 34%); --hp-ink: #eceef2; --hp-dim: #979daa;
+    --hp-ol: hsl(var(--hp-h, 340) calc(8% * var(--hp-s, 1)) 34%); --hp-ink: var(--hp-ink-u, #eceef2); --hp-dim: var(--hp-dim-u, #979daa);
     --hp-strip: hsl(var(--hp-h, 340) calc(34% * var(--hp-s, 1)) 24%); --hp-soft: hsl(var(--hp-h, 340) calc(10% * var(--hp-s, 1)) 17%); --hp-gl: hsl(var(--hp-h, 340) calc(8% * var(--hp-s, 1)) 24%);
-    --hp-ln: hsl(var(--hp-h, 340) calc(8% * var(--hp-s, 1)) 26%); --hp-acc: hsl(var(--hp-h, 340) calc(72% * var(--hp-s, 1)) 70%); --hp-bgc: hsl(var(--hp-h, 340) calc(10% * var(--hp-s, 1)) 9%); --hp-paper: hsl(var(--hp-h, 340) calc(8% * var(--hp-s, 1)) 13%);
+    --hp-ln: hsl(var(--hp-h, 340) calc(8% * var(--hp-s, 1)) 26%); --hp-acc: hsl(var(--hp-h, 340) calc(72% * var(--hp-s, 1)) 70%); --hp-bgc: var(--hp-bg-u, hsl(var(--hp-h, 340) calc(10% * var(--hp-s, 1)) 9%)); --hp-paper: var(--hp-paper-u, hsl(var(--hp-h, 340) calc(8% * var(--hp-s, 1)) 13%));
     --ss-accInk: #16171b !important; color-scheme: dark;
 }
 /* 머리: 얇은 머리 그림(선택) */
@@ -351,3 +353,84 @@ body.ss-hp-still :is(.ss-hompy, .ss-rt) * { animation: none !important; transiti
 }
 @media (max-width: 640px) { .ss-hompy .ss-head-a { justify-content: flex-start; overflow-x: auto; scrollbar-width: none; flex-direction: row-reverse; } .ss-hompy .ss-head-a::-webkit-scrollbar { display: none; } }
 .ss-hp-range small { white-space: nowrap; }
+
+/* ───────── 모양 두 가지 (꾸미기 › 모양): 깔끔(기본) · 도트 ─────────
+   뼈대와 꾸밈 값(색 · 크기 · 모서리 · 여백 · 창 자리)은 같이 쓰고, 여기 아래는 도트 모양에서만 달라지는 겉모습.
+   도트 글꼴 파일은 도트 모양을 고른 사람만 내려받는다 (브라우저가 쓰일 때만 받음) */
+.ss-hp-dots, .ss-hp-nav, .ss-hp-addr > small, .ss-hp-count, .ss-hp-hearts { display: none; }
+.ss-hp-color { display: inline-flex; align-items: center; gap: 5px; } .ss-hp-color input { width: 30px; height: 26px; padding: 0; border: 1px solid var(--ss-line); border-radius: 7px; background: none; cursor: pointer; } .ss-hp-color small { color: var(--ss-dim); white-space: nowrap; }
+/* 처음 한 번: 모양 고르기 줄 */
+.ss-hp-choose { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 16px 0; padding: 8px 12px; border: 1px solid var(--hp-acc); border-radius: var(--hp-r, 12px); background: var(--hp-paper); }
+.ss-hp-choose > small { color: var(--hp-dim); flex: 1 1 120px; } .ss-hp-choose button { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px 4px 5px; border: 1px solid var(--hp-ln); border-radius: 10px; font-weight: 600; }
+.ss-hp-choose button.on { border-color: var(--hp-acc); color: var(--hp-acc); } .ss-hp-choose button.x { padding: 4px 8px; border: 0; color: var(--hp-dim); }
+.ss-hp-pv { display: grid; grid-template-columns: 9px 1fr; grid-template-rows: 6px 1fr; gap: 2px; width: 44px; height: 30px; padding: 3px; box-sizing: border-box; border-radius: 6px; background: #f6f6f8; border: 1px solid #dcdfe4; }
+.ss-hp-pv i { background: #fff; border: 1px solid #dcdfe4; border-radius: 3px; } .ss-hp-pv i:first-child { grid-column: 1 / -1; border: 0; background: #e9ebef; }
+.ss-hp-pv.dot { background: #fdeef3 linear-gradient(#f7cfdc 1px, transparent 1px) 0 0 / 5px 5px; border-color: #9a6b7c; border-radius: 3px; } .ss-hp-pv.dot i { border-color: #9a6b7c; border-radius: 1px; box-shadow: 1px 1px 0 #f7cfdc; } .ss-hp-pv.dot i:first-child { background: #f9cfdc; border: 0; box-shadow: none; }
+/* 🕹 도트 모양 */
+body.ss-skin-dot { --hp-font: 'MeatballDot', 'Malgun Gothic', sans-serif; } body.ss-skin-dot.ss-hp-r-0 { --hp-r: 2px; } body.ss-skin-dot.ss-hp-r-1 { --hp-r: 7px; } body.ss-skin-dot.ss-hp-r-2 { --hp-r: 13px; }
+body.ss-skin-dot.ss-hp-g-0 { --hp-g: 4px; } body.ss-skin-dot.ss-hp-g-1 { --hp-g: 7px; } body.ss-skin-dot.ss-hp-g-2 { --hp-g: 12px; }
+body.ss-skin-dot:not(.ss-hp-dark) :is(.ss-root.ss-hompy, .ss-root.ss-rt, .ss-hp-pick), body.ss-skin-dot:not(.ss-hp-dark).ss-retro dialog.ss-dlg, body.ss-skin-dot:not(.ss-hp-dark).ss-retro :is(#ss-hud, #ss-side .ss-side-mini, .ss-float) {
+    --hp-ol: hsl(var(--hp-h, 340) calc(26% * var(--hp-s, 1)) 44%); --hp-ink: var(--hp-ink-u, hsl(var(--hp-h, 340) calc(20% * var(--hp-s, 1)) 27%)); --hp-dim: var(--hp-dim-u, hsl(var(--hp-h, 340) calc(14% * var(--hp-s, 1)) 54%));
+    --hp-strip: hsl(var(--hp-h, 340) calc(86% * var(--hp-s, 1)) 89%); --hp-soft: hsl(var(--hp-h, 340) calc(80% * var(--hp-s, 1)) 95.5%); --hp-gl: hsl(var(--hp-h, 340) calc(60% * var(--hp-s, 1)) 91%);
+    --hp-ln: hsl(var(--hp-h, 340) calc(32% * var(--hp-s, 1)) 70%); --hp-acc: hsl(var(--hp-h, 340) calc(58% * var(--hp-s, 1)) 62%); --hp-bgc: var(--hp-bg-u, hsl(var(--hp-h, 340) calc(70% * var(--hp-s, 1)) 97.5%)); --hp-paper: var(--hp-paper-u, #fffefd);
+}
+body.ss-skin-dot.ss-hp-dark :is(.ss-root.ss-hompy, .ss-root.ss-rt, .ss-hp-pick), body.ss-skin-dot.ss-hp-dark.ss-retro dialog.ss-dlg, body.ss-skin-dot.ss-hp-dark.ss-retro :is(#ss-hud, #ss-side .ss-side-mini, .ss-float) {
+    --hp-ol: hsl(var(--hp-h, 340) calc(30% * var(--hp-s, 1)) 58%); --hp-strip: hsl(var(--hp-h, 340) calc(40% * var(--hp-s, 1)) 26%); --hp-soft: hsl(var(--hp-h, 340) calc(24% * var(--hp-s, 1)) 18%); --hp-gl: hsl(var(--hp-h, 340) calc(24% * var(--hp-s, 1)) 20%); --hp-ln: hsl(var(--hp-h, 340) calc(24% * var(--hp-s, 1)) 40%);
+}
+body.ss-skin-dot :is(.ss-root.ss-hompy, .ss-root.ss-rt), body.ss-skin-dot.ss-retro :is(#ss-hud, #ss-side .ss-side-mini, dialog.ss-dlg .ss-root) { letter-spacing: 0; -webkit-font-smoothing: none; line-height: 1.45; }
+body.ss-skin-dot :is(.ss-hompy, .ss-rt) :is(b, small, h3, h4, h5) { font-family: inherit; }
+body.ss-skin-dot .ss-hompy.ss-hp-p-grid { background-image: linear-gradient(var(--hp-gl) 1px, transparent 1px), linear-gradient(90deg, var(--hp-gl) 1px, transparent 1px); background-size: 16px 16px; }
+body.ss-skin-dot .ss-hompy.ss-hp-p-dot { background-image: radial-gradient(var(--hp-gl) 1.6px, transparent 2.2px); background-size: 14px 14px; }
+body.ss-skin-dot .ss-hompy.ss-hp-p-stripe { background-image: repeating-linear-gradient(90deg, var(--hp-soft) 0 14px, transparent 14px 28px); }
+body.ss-skin-dot .ss-hp-url { padding: 3px 8px; gap: 6px; background-color: var(--hp-strip); border-bottom: 1px solid var(--hp-ol); }
+body.ss-skin-dot .ss-hp-dots { display: block; flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--hp-paper); border: 1px solid var(--hp-ol); }
+body.ss-skin-dot .ss-hp-nav { display: inline; } body.ss-skin-dot .ss-hp-addr > small { display: inline; font-size: 1em; } body.ss-skin-dot .ss-hp-count { display: inline; } body.ss-skin-dot .ss-hp-hearts { display: inline; }
+body.ss-skin-dot .ss-hp-addr { padding: 0 10px; border-radius: 999px; background: var(--hp-paper); border: 1px solid var(--hp-ol); color: var(--hp-dim); font-size: 1em; } body.ss-skin-dot .ss-hp-addr b { font-weight: 700; color: var(--hp-ink); text-shadow: none; }
+body.ss-skin-dot .ss-hompy .ss-head-a .ss-ib { width: 24px; height: 22px; color: var(--hp-ol); border-radius: 5px; } body.ss-skin-dot .ss-hompy .ss-head-a :is(.ss-chip, .ss-helpchip) { height: 20px; padding: 0 7px; border: 1px solid var(--hp-ol); background: var(--hp-paper); color: var(--hp-ink); }
+body.ss-skin-dot .ss-hp-x { width: 20px; height: 20px; border: 1px solid var(--hp-ol); border-radius: 5px; color: var(--hp-ol); background: var(--hp-paper); }
+body.ss-skin-dot .ss-hp-marks { padding: 3px 8px; gap: 8px; border-bottom: 1px solid var(--hp-ol); }
+body.ss-skin-dot :is(.ss-hompy, .ss-rt) .ss-groups { gap: 4px; }
+body.ss-skin-dot :is(.ss-hompy, .ss-rt) .ss-groups > button { padding: 1px 9px; min-height: 0; border: 1px solid var(--hp-ol); border-radius: 6px; background: var(--hp-paper); color: var(--hp-ink); box-shadow: 1px 1px 0 var(--hp-strip); font-weight: 400; }
+body.ss-skin-dot :is(.ss-hompy, .ss-rt) .ss-groups > button i { color: var(--hp-acc); opacity: 1; } body.ss-skin-dot :is(.ss-hompy, .ss-rt) .ss-groups > button:hover { background: var(--hp-soft); }
+body.ss-skin-dot :is(.ss-hompy, .ss-rt) .ss-groups > button.on { background: var(--hp-strip); border-color: var(--hp-ol); font-weight: 700; box-shadow: none; }
+body.ss-skin-dot :is(.ss-hompy, .ss-rt) .ss-groups > button > :is(.ss-dot, .ss-fresh, .ss-badge) { top: -3px; right: -3px; }
+body.ss-skin-dot .ss-hp-count { font-size: 1em; color: var(--hp-dim); white-space: nowrap; } body.ss-skin-dot .ss-hp-deco-b { padding: 0 8px; border-radius: 6px; border: 1px solid var(--hp-ol); background: var(--hp-soft); font-size: 1em; }
+body.ss-skin-dot .ss-hp-book { padding: var(--hp-g, 7px) calc(var(--hp-g, 7px) + 2px) calc(var(--hp-g, 7px) + 2px); } body.ss-skin-dot .ss-hp-col { padding: 0 3px 3px 0; } body.ss-skin-dot .ss-hp-win.main { margin: 0 3px 3px 0; }
+body.ss-skin-dot :is(.ss-hp-win, .ss-hp-win.sub) { border: 1.5px solid var(--hp-ol); box-shadow: 2px 2px 0 var(--hp-strip); }
+body.ss-skin-dot .ss-hp-wt, body.ss-skin-dot .ss-hp-win.main > .ss-hp-wt { background: var(--hp-strip); border-bottom: 1.5px solid var(--hp-ol); padding: 0 7px; line-height: 1.6; }
+body.ss-skin-dot .ss-hp-wt b, body.ss-skin-dot .ss-hp-win.main > .ss-hp-wt b { font-size: 1em; font-weight: 700; color: var(--hp-ink); letter-spacing: 0; text-transform: none; }
+body.ss-skin-dot .ss-hp-wb { padding: 6px 7px; gap: 5px; } body.ss-skin-dot .ss-hp-right { padding: 6px; }
+body.ss-skin-dot .ss-hp-prof { grid-template-columns: 38% minmax(0, 1fr); align-items: start; gap: 7px; }
+body.ss-skin-dot .ss-hp-photo, body.ss-skin-dot .ss-hp-photo.mine img { border-radius: 6px; } body.ss-skin-dot .ss-hp-photo { border: 1px solid var(--hp-ol); background: repeating-linear-gradient(90deg, var(--hp-soft) 0 7px, var(--hp-paper) 7px 14px); }
+body.ss-skin-dot .ss-hp-today { padding: 2px 6px; border: 1px solid var(--hp-ol); border-radius: 5px; background: var(--hp-soft); color: var(--hp-ink); order: -1; } body.ss-skin-dot .ss-hp-today::before { content: 'TODAY IS'; color: var(--hp-acc); font-size: .85em; margin-right: 4px; } body.ss-skin-dot .ss-hp-today i { display: none; }
+body.ss-skin-dot .ss-hp-prof-t { gap: 4px; } body.ss-skin-dot .ss-hp-name { font-size: 1em; font-weight: 700; } body.ss-skin-dot .ss-hp-badges span { border: 1px solid var(--hp-ln); background: var(--hp-paper); border-radius: 5px; padding: 0 5px; }
+body.ss-skin-dot .ss-hp-bars i { height: 7px; border: 1px solid var(--hp-ol); background: var(--hp-soft); }
+body.ss-skin-dot :is(.ss-hompy, .ss-rt) .ss-tabs { gap: 3px; border-bottom: 1px solid var(--hp-ol); }
+body.ss-skin-dot :is(.ss-hompy, .ss-rt) .ss-tabs > button { padding: 1px 8px; min-height: 0; border: 1px solid var(--hp-gl) !important; border-bottom-color: transparent !important; border-radius: 6px 6px 0 0 !important; color: var(--hp-ink); }
+body.ss-skin-dot :is(.ss-hompy, .ss-rt) .ss-tabs > button.on { background: var(--hp-soft) !important; border-color: var(--hp-ol) !important; border-bottom-color: transparent !important; font-weight: 700; }
+body.ss-skin-dot :is(.ss-hompy, .ss-rt) .ss-body :is(.ss-card, .ss-mini-w, .ss-item, .ss-rtile, .ss-attr, .ss-callout, .ss-prof, .ss-loan, .ss-reg, .ss-st-f, .ss-st-card, .ss-ct-row, .ss-prices > *, .ss-in, textarea, select) { border: 1px solid var(--hp-ol); border-radius: var(--hp-r, 7px); }
+body.ss-skin-dot :is(.ss-hompy, .ss-rt) .ss-body :is(.ss-card, .ss-callout, .ss-st-f) { background: var(--hp-soft); }
+body.ss-skin-dot .ss-hp-all > .ss-hp-win.sub.shut > .ss-hp-wt { padding: 2px 9px; border-bottom: 0; }
+body.ss-skin-dot .ss-hp-choose { margin: 6px 9px 0; border: 1.5px solid var(--hp-ol); box-shadow: 2px 2px 0 var(--hp-strip); }
+body.ss-skin-dot .ss-root.ss-rt:not(.ss-hompy) { border: 1px solid var(--hp-ol); box-shadow: 2px 2px 0 var(--hp-strip); } body.ss-skin-dot .ss-rt:not(.ss-hompy) > .ss-head { background: var(--hp-strip); border-bottom: 1px solid var(--hp-ol); padding: 4px 8px; }
+body.ss-skin-dot .ss-rt:not(.ss-hompy) > .ss-groups { padding: 4px 8px; border-bottom: 1px solid var(--hp-ol); } body.ss-skin-dot .ss-rt:not(.ss-hompy) .ss-head-a .ss-ib { color: var(--hp-ol); width: 24px; height: 22px; }
+body.ss-skin-dot.ss-retro dialog.ss-dlg:not(.ss-full) { border: 1px solid var(--hp-ol) !important; border-top: 14px solid var(--hp-strip) !important; border-radius: 9px !important; box-shadow: 3px 3px 0 var(--hp-strip) !important; }
+body.ss-skin-dot.ss-retro dialog.ss-dlg .ss-root:not(.ss-hompy) { font-family: var(--hp-font); }
+body.ss-skin-dot.ss-retro :is(#ss-hud, #ss-side .ss-side-mini) { font-family: var(--hp-font); border: 0 !important; border-top: 8px solid var(--hp-strip) !important; outline: 1px solid var(--hp-ol); outline-offset: -1px; border-radius: 8px !important; box-shadow: 2px 2px 0 var(--hp-strip) !important; }
+body.ss-skin-dot.ss-retro :is(#ss-hud, #ss-side .ss-side-mini):not(.ss-own-bg) { --h-bg: var(--hp-bgc) !important; --h-img: linear-gradient(var(--hp-gl) 1px, transparent 1px), linear-gradient(90deg, var(--hp-gl) 1px, transparent 1px) !important; --h-size: 14px 14px !important; }
+body.ss-skin-dot.ss-retro #ss-side .ss-side-handle, body.ss-skin-dot.ss-retro .ss-float { background: var(--hp-strip) !important; color: var(--hp-ol) !important; border: 1px solid var(--hp-ol) !important; box-shadow: 2px 2px 0 var(--hp-soft) !important; }
+body.ss-skin-dot.ss-retro :is(#ss-hud, #ss-side .ss-side-mini) .ss-tb .ss-t { border-radius: 6px; box-shadow: 1px 1px 0 var(--hp-strip); }
+body.ss-skin-dot .ss-hp-url.has-cover { padding-bottom: 5px; } body.ss-skin-dot .ss-hp-url.has-cover .ss-hp-addr b { color: var(--hp-ink); }
+@media (max-width: 640px) {
+    body.ss-skin-dot .ss-hp-nav, body.ss-skin-dot .ss-hp-count { display: none; } body.ss-skin-dot .ss-hp-url { padding: max(5px, env(safe-area-inset-top)) 8px 5px; }
+    body.ss-skin-dot .ss-hompy .ss-groups { gap: 3px; } body.ss-skin-dot .ss-hompy .ss-groups > button { padding: 4px 2px; min-height: 46px; font-size: .8em; } body.ss-skin-dot .ss-hp-marks { padding: 4px 6px calc(4px + env(safe-area-inset-bottom)); border-top: 1px solid var(--hp-ol); }
+    body.ss-skin-dot .ss-hompy .ss-groups > button.on { color: var(--hp-ink); border: 1px solid var(--hp-ol); }
+    body.ss-skin-dot .ss-hp-book { padding: 6px; } body.ss-skin-dot .ss-hp-col, body.ss-skin-dot .ss-hp-win.main { padding: 0; margin: 0; }
+    /* 폰에서 메뉴를 위로 (꾸미기 › 폰에서 메뉴) */
+    body.ss-hp-navtop .ss-root.ss-hompy { padding-bottom: env(safe-area-inset-bottom) !important; }
+    body.ss-hp-navtop .ss-hp-marks { position: sticky; top: 0; bottom: auto; border-top: 0; border-bottom: 1px solid var(--hp-ln); padding-bottom: 4px; }
+    .ss-hp-choose { margin: 8px 12px 0; }
+}
+body.ss-skin-dot .ss-hp-today { display: grid; white-space: nowrap; } body.ss-skin-dot .ss-hp-today::before { margin: 0; }
+.ss-hp-addr { white-space: nowrap; overflow: hidden; }
+@media (max-width: 640px) { body.ss-skin-dot .ss-hp-prof { grid-template-columns: 72px minmax(0, 1fr); } body.ss-skin-dot .ss-hp-addr > small, body.ss-skin-dot .ss-hp-dots { display: none; } }

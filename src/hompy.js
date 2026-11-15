@@ -6,7 +6,7 @@ import { avatar, askInput, choosePopup } from './kit.js';
 import { shrinkImage, MINI, miniWidgets } from './tiles.js';
 
 // 🎨 꾸밈 값: 보통은 설정(모든 채팅 공통). 이 채팅에 꾸밈 세트를 묶어 두었으면(meta.hpSet = 세트 이름) 그 세트 값이 먼저다 — 고쳐도 그 세트가 바뀐다
-const DECO_KEYS = ['hpTheme', 'hpHue', 'hpSat', 'hpFs', 'hpFont', 'hpCorner', 'hpGap', 'hpDark', 'hpMotion', 'hpLayout', 'hpMinor', 'hpFace'];
+const DECO_KEYS = ['hpSkin', 'hpPattern', 'hpFsPx', 'hpInk', 'hpBg', 'hpPaper', 'hpNavTop', 'hpTheme', 'hpHue', 'hpSat', 'hpFs', 'hpFont', 'hpCorner', 'hpGap', 'hpDark', 'hpMotion', 'hpLayout', 'hpMinor', 'hpFace'];
 const boundSet = () => { try { const n = getMeta()?.hpSet; return n ? (settings().hpSets ?? []).find(x => x.name === n) ?? null : null; } catch { return null; } };
 const D = () => { const b = boundSet(); return b ? { ...settings(), ...b.data } : settings(); };
 const W = (k, v) => { const b = boundSet(); (b ? b.data : settings())[k] = v; };
@@ -44,19 +44,28 @@ export const THEMES = [['분홍', 340, 1], ['회색', 260, 0.08], ['하늘', 215
 const themeOf = () => { const d = D(); return d.hpTheme === 'c' ? ['직접', Math.max(0, Math.min(360, Number(d.hpHue) || 0)), Math.max(0, Math.min(1.2, Number(d.hpSat ?? 1)))] : THEMES[Number(d.hpTheme) || 0] ?? THEMES[0]; };
 const FONTS = { g: '고딕', s: '명조', r: '둥근 글꼴' }, CORNERS = ['각지게', '보통', '둥글게'], GAPS = ['촘촘', '보통', '넉넉'], DARKS = { light: '밝게', dark: '어둡게', auto: '기기 따라' };
 const pick3 = (v) => ([0, 1, 2].includes(Number(v)) && v !== null && v !== undefined && v !== '' ? Number(v) : 1);
+export const SKINS = { clean: '깔끔', dot: '도트' }, PATTERNS = { grid: '모눈', dot: '물방울', stripe: '줄무늬', none: '없음' };
+export const skinOf = () => (D().hpSkin === 'dot' ? 'dot' : 'clean'); // 고르지 않았으면 깔끔 (처음 열 때 고르는 줄이 뜬다)
+const patOf = () => (PATTERNS[D().hpPattern] ? D().hpPattern : 'grid');
+const hex = (v) => (/^#[0-9a-f]{6}$/i.test(String(v ?? '')) ? String(v) : '');
 const darkOn = () => { const v = D().hpDark; return v === 'dark' || v === 'auto' && !!window.matchMedia?.('(prefers-color-scheme: dark)').matches; };
 // 🪟 HUD · 미니창 · 보통 상태창에도 같은 색 · 테두리 (설정 hpSkinHud · 기본 켬): body에 색 값과 표시를 걸어 둔다
 export function applyRetro() {
-    const b = document.body; if (!b) return; const d = D(), [, h, s] = themeOf(), on = settings().hpSkinHud !== false;
-    b.classList.toggle('ss-retro', on); b.classList.toggle('ss-hp-dark', darkOn()); b.classList.toggle('ss-hp-still', d.hpMotion === false);
-    for (const [p, v, all] of [['ss-hp-r-', pick3(d.hpCorner), [0, 1, 2]], ['ss-hp-g-', pick3(d.hpGap), [0, 1, 2]], ['ss-hp-f-', FONTS[d.hpFont] ? d.hpFont : 'g', Object.keys(FONTS)]]) for (const x of all) b.classList.toggle(p + x, x === v);
+    const b = document.body; if (!b) return; const d = D(), [, h, s] = themeOf(), on = settings().hpSkinHud !== false, dot = skinOf() === 'dot';
+    b.classList.toggle('ss-retro', on); b.classList.toggle('ss-skin-dot', dot); b.classList.toggle('ss-hp-dark', darkOn()); b.classList.toggle('ss-hp-still', d.hpMotion === false); b.classList.toggle('ss-hp-navtop', d.hpNavTop === true);
+    for (const [p, v, all] of [['ss-hp-r-', pick3(d.hpCorner), [0, 1, 2]], ['ss-hp-g-', pick3(d.hpGap), [0, 1, 2]], ['ss-hp-f-', dot ? 'd' : FONTS[d.hpFont] ? d.hpFont : 'g', [...Object.keys(FONTS), 'd']]]) for (const x of all) b.classList.toggle(p + x, x === v);
     b.style.setProperty('--hp-h', String(h)); b.style.setProperty('--hp-s', String(s));
-    b.style.setProperty('--hp-fs', `${FS[fsOf()]}px`); // 다른 창(도우미 등)의 글씨 크기도 같이
+    b.style.setProperty('--hp-fs', `${fsPx()}px`); // 다른 창(도우미 등)의 글씨 크기도 같이
+    // 직접 고른 글자 · 바탕 · 카드 색 (비우면 모양의 기본색)
+    const ink = hex(d.hpInk), set = (k, v) => (v ? b.style.setProperty(k, v) : b.style.removeProperty(k));
+    set('--hp-ink-u', ink); set('--hp-dim-u', ink ? `color-mix(in srgb, ${ink} 58%, transparent)` : ''); set('--hp-bg-u', hex(d.hpBg)); set('--hp-paper-u', hex(d.hpPaper));
 }
 // 창 하나하나의 자리: settings().hpLayout = { l: [왼쪽 줄 순서], r: [오른쪽 줄 순서], off: [숨긴 창], main: 'c'|'l'|'r'(가운데 창 위치), lw · rw: 0~2(줄 폭) }
 export const WINS = { profile: '프로필', intro: '소개', stats: '상태', friends: '일촌', quest: '퀘스트', news: '뉴스', contact: '연락', mind: '속마음', cond: '상태 이상', fate: '저주 · 빚', music: 'BGM', custom: '내 탭', photo: '사진' };
 const WIN_T = { profile: 'profile', intro: 'about', stats: 'status', photo: 'photo' };
 const FS = { s: 11.5, m: 13, l: 14.5 }; // 글씨 크기(px) — 고르지 않았으면 화면 배율이 큰 기기(노트북 150%↑)는 작게
+const FS_DOT = { s: 9.5, m: 11, l: 12.5 };
+const fsPx = () => { const n = Number(D().hpFsPx); return n >= 8 && n <= 22 ? n : (skinOf() === 'dot' ? FS_DOT : FS)[fsOf()]; }; // 직접 정한 크기가 먼저
 const fsOf = () => (FS[D().hpFs] ? D().hpFs : (window.devicePixelRatio || 1) >= 1.5 ? 's' : 'm');
 const COLW = ['130px', 'clamp(150px, 15%, 200px)', 'clamp(210px, 23%, 320px)'];
 let editWins = false; // 창 옮기기 중 (창마다 ▲▼⇄✕ 단추)
@@ -78,7 +87,7 @@ function moveWin(key, how, shown) {
     saveLayout(L);
 }
 const winOn = (k) => !hpLayout().off.includes(k);
-const win = (key, title, body, cls = '') => (body ? `<section class="ss-hp-win ${cls}" data-win="${key}"><div class="ss-hp-wt"><b>${title}</b>${editWins ? `<span class="ss-hp-wtools"><button data-hp="mv" data-arg="${key}:up" title="위로">▲</button><button data-hp="mv" data-arg="${key}:down" title="아래로">▼</button><button data-hp="mv" data-arg="${key}:side" title="반대쪽 줄로">⇄</button><button data-hp="mv" data-arg="${key}:off" title="숨기기 (꾸미기에서 다시 켜요)">✕</button></span>` : ''}</div><div class="ss-hp-wb">${body}</div></section>` : '');
+const win = (key, title, body, cls = '') => (body ? `<section class="ss-hp-win ${cls}" data-win="${key}"><div class="ss-hp-wt"><b>${title}</b>${editWins ? '' : '<i class="ss-hp-hearts">♡♡♡</i>'}${editWins ? `<span class="ss-hp-wtools"><button data-hp="mv" data-arg="${key}:up" title="위로">▲</button><button data-hp="mv" data-arg="${key}:down" title="아래로">▼</button><button data-hp="mv" data-arg="${key}:side" title="반대쪽 줄로">⇄</button><button data-hp="mv" data-arg="${key}:off" title="숨기기 (꾸미기에서 다시 켜요)">✕</button></span>` : ''}</div><div class="ss-hp-wb">${body}</div></section>` : '');
 const pickImage = (max, q, done) => { const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.onchange = async () => { try { const f = inp.files?.[0]; if (f) done(await shrinkImage(f, max, q)); } catch (err) { ssErr(err); toastr.error('그림을 넣지 못했어요. 다른 그림으로 해 보세요.', TITLE); } }; inp.click(); };
 async function openDeco(redraw) {
     const after = (k) => { saveSettings(); try { saveMeta(); } catch { /* 채팅 없음 */ } applyRetro(); redraw(); if (k !== 'quiet') { app.rerenderPanels?.(true); app.renderHud?.(); } };
@@ -88,17 +97,22 @@ async function openDeco(redraw) {
         const seg = (k, cur, opts) => `<span class="ss-hp-seg">${opts.map(([v, n]) => `<button class="${String(cur) === String(v) ? 'on' : ''}" data-choice="${k}:${v}">${n}</button>`).join('')}</span>`;
         const row = (label, html) => `<div class="ss-hp-row"><span>${label}</span><div>${html}</div></div>`;
         box.innerHTML = `<h3>꾸미기</h3>${bound ? `<p class="ss-hp-bound"><i class="fa-solid fa-link"></i> 이 채팅은 꾸밈 세트 <b>「${esc(bound.name)}」</b>를 써요 — 여기서 고치면 그 세트가 바뀌어요. <button class="ss-btn sm ghost" data-choice="unbind:1">풀기</button></p>` : ''}
+            <h4>모양</h4>
+            ${row('모양', seg('skin', skinOf(), Object.entries(SKINS)))}
             <h4>색</h4>
             ${row('포인트 색', `<div class="ss-hp-faces sw">${THEMES.map(([n, h, s], i) => `<button class="ss-hp-sw ${ti === i ? 'on' : ''}" data-choice="theme:${i}" title="${n}" style="background:hsl(${h} ${Math.round(62 * s)}% 60%)"></button>`).join('')}<span class="ss-hp-sw mine ${custom ? 'on' : ''}" title="직접 고른 색" style="background:hsl(${hue} ${Math.round(62 * sat)}% 60%)"></span></div>`)}
             ${row('직접 고르기', `<label class="ss-hp-range"><small>색상</small><input type="range" min="0" max="360" step="1" value="${hue}" data-hpr="hue" class="hue"></label><label class="ss-hp-range"><small>진하기</small><input type="range" min="0" max="1.2" step="0.05" value="${sat}" data-hpr="sat"></label>`)}
+            ${row('글자 · 바탕 · 카드', ['Ink:글자', 'Bg:바탕', 'Paper:카드'].map(x => x.split(':')).map(([k, n]) => `<label class="ss-hp-color"><input type="color" data-hpc="hp${k}" value="${hex(d['hp' + k]) || (k === 'Ink' ? '#24262b' : '#ffffff')}"><small>${n}${hex(d['hp' + k]) ? ' ✓' : ''}</small></label>`).join('') + (hex(d.hpInk) || hex(d.hpBg) || hex(d.hpPaper) ? '<button class="ss-btn sm ghost" data-choice="colreset:1">기본색으로</button>' : ''))}
+            ${skinOf() === 'dot' ? row('바탕 무늬', seg('pat', patOf(), Object.entries(PATTERNS))) : ''}
             ${row('밝기', seg('dark', DARKS[d.hpDark] ? d.hpDark : 'light', Object.entries(DARKS)))}
-            <h4>모양</h4>
-            ${row('글꼴', seg('font', FONTS[d.hpFont] ? d.hpFont : 'g', Object.entries(FONTS)))}
-            ${row('글씨 크기', seg('fs', fsOf(), [['s', '작게'], ['m', '보통'], ['l', '크게']]))}
+            <h4>글씨 · 칸</h4>
+            ${skinOf() === 'dot' ? '' : row('글꼴', seg('font', FONTS[d.hpFont] ? d.hpFont : 'g', Object.entries(FONTS)))}
+            ${row('글씨 크기', seg('fs', Number(d.hpFsPx) ? '' : fsOf(), [['s', '작게'], ['m', '보통'], ['l', '크게']]) + `<label class="ss-hp-range"><input type="range" min="9" max="18" step="0.5" value="${fsPx()}" data-hpr="fs"><small data-fsv>${fsPx()}px</small></label>`)}
             ${row('모서리', seg('corner', pick3(d.hpCorner), CORNERS.map((n, i) => [i, n])))}
             ${row('여백', seg('gap', pick3(d.hpGap), GAPS.map((n, i) => [i, n])))}
             ${row('움직임', seg('motion', d.hpMotion === false ? '0' : '1', [['1', '켬'], ['0', '끔']]))}
             ${row('머리 그림', `<button class="ss-btn sm" data-choice="cover:add"><i class="fa-solid fa-image"></i> ${set.hpCover ? '바꾸기' : '넣기'}</button>${set.hpCover ? '<button class="ss-btn sm ghost" data-choice="cover:del">빼기</button>' : ''}<small class="ss-hint">맨 위 제목 뒤에 얇은 띠로 들어가요.</small>`)}
+            ${row('폰에서 메뉴', seg('navtop', d.hpNavTop === true ? '1' : '0', [['0', '아래'], ['1', '위']]))}
             <h4>창 자리</h4>
             ${row('창 옮기기', `<button class="ss-btn sm" data-choice="edit:1"><i class="fa-solid fa-up-down-left-right"></i> ${editWins ? '끝내기' : '시작'}</button><button class="ss-btn sm ghost" data-choice="reset:1">처음으로</button>`)}
             ${row('가운데 창', seg('main', L.main, [['l', '왼쪽'], ['c', '가운데'], ['r', '오른쪽']]))}
@@ -106,23 +120,30 @@ async function openDeco(redraw) {
             ${row('오른쪽 줄 폭', seg('rw', L.rw, [['0', '좁게'], ['1', '보통'], ['2', '넓게']]))}
             ${row('보일 창', `<div class="ss-hp-chips">${Object.entries(WINS).map(([k, n]) => `<button class="${L.off.includes(k) ? '' : 'on'}" data-choice="win:${k}">${n}</button>`).join('')}</div>`)}
             ${row('「모음」에 넣을 탭', `<div class="ss-hp-chips">${Object.entries(MINOR_ALL).map(([k, n]) => `<button class="${hpMinor().includes(k) ? 'on' : ''}" data-choice="minor:${k}">${n}</button>`).join('')}</div>`)}
-            ${row('다른 창들', `<div class="ss-hp-chips"><button class="${set.hpSkinHud !== false ? 'on' : ''}" data-choice="skin:1">HUD · 미니창 · 보통 상태창도 같은 모양</button></div>`)}
+            ${row('다른 창들', `<div class="ss-hp-chips"><button class="${set.hpSkinHud !== false ? 'on' : ''}" data-choice="hudskin:1">HUD · 미니창 · 보통 상태창도 같은 모양</button></div>`)}
             <h4>꾸밈 세트</h4>
             <div class="ss-hp-sets">${sets.map((x, i) => `<div class="ss-hp-set ${bound?.name === x.name ? 'on' : ''}"><i style="background:hsl(${x.data.hpTheme === 'c' ? Number(x.data.hpHue) || 0 : (THEMES[Number(x.data.hpTheme) || 0] ?? THEMES[0])[1]} 62% 60%)"></i><b>${esc(x.name)}</b><span><button class="ss-btn sm" data-choice="apply:${i}" title="모든 채팅에 적용">적용</button><button class="ss-btn sm ${bound?.name === x.name ? 'pri' : 'ghost'}" data-choice="bind:${i}" title="이 채팅에서만 이 세트를 써요">${bound?.name === x.name ? '✓ 이 채팅' : '이 채팅만'}</button><button class="ss-btn sm ghost" data-choice="code:${i}" title="코드 복사 — 다른 사람에게 보내요">코드</button><button class="ss-ib" data-choice="setdel:${i}" title="지우기"><i class="fa-solid fa-trash-can"></i></button></span></div>`).join('') || '<p class="ss-hint">저장한 세트가 없어요.</p>'}</div>
             <div class="ss-row-btns"><button class="ss-btn sm" data-choice="setsave:1"><i class="fa-solid fa-floppy-disk"></i> 지금 꾸밈 저장</button><button class="ss-btn sm ghost" data-choice="setimport:1"><i class="fa-solid fa-paste"></i> 코드로 가져오기</button></div>`;
         // 색 슬라이더: 끄는 동안 바로 보이게 (저장은 손을 뗐을 때)
-        box.addEventListener('input', (e) => { const r = e.target.closest?.('[data-hpr]'); if (!r) return; W('hpTheme', 'c'); const hs = box.querySelector('[data-hpr="hue"]').value, ss = box.querySelector('[data-hpr="sat"]').value; W('hpHue', Number(hs)); W('hpSat', Number(ss)); applyRetro(); document.querySelectorAll('.ss-hompy').forEach(x => { x.style.setProperty('--hp-h', hs); x.style.setProperty('--hp-s', ss); }); box.querySelectorAll('.ss-hp-sw').forEach(x => x.classList.toggle('on', x.classList.contains('mine'))); const m = box.querySelector('.ss-hp-sw.mine'); if (m) m.style.background = `hsl(${hs} ${Math.round(62 * ss)}% 60%)`; });
-        box.addEventListener('change', (e) => { if (e.target.closest?.('[data-hpr]')) after(); });
+        box.addEventListener('input', (e) => {
+            const c = e.target.closest?.('[data-hpc]'); if (c) { W(c.dataset.hpc, c.value); applyRetro(); return; }
+            const r = e.target.closest?.('[data-hpr]'); if (!r) return;
+            if (r.dataset.hpr === 'fs') { W('hpFsPx', Number(r.value)); applyRetro(); document.querySelectorAll('.ss-hompy').forEach(x => x.style.setProperty('--hp-fs', `${r.value}px`)); const o = box.querySelector('[data-fsv]'); if (o) o.textContent = `${r.value}px`; return; }
+            W('hpTheme', 'c'); const hs = box.querySelector('[data-hpr="hue"]').value, ss = box.querySelector('[data-hpr="sat"]').value; W('hpHue', Number(hs)); W('hpSat', Number(ss)); applyRetro();
+            document.querySelectorAll('.ss-hompy').forEach(x => { x.style.setProperty('--hp-h', hs); x.style.setProperty('--hp-s', ss); }); box.querySelectorAll('.ss-hp-sw').forEach(x => x.classList.toggle('on', x.classList.contains('mine'))); const m = box.querySelector('.ss-hp-sw.mine'); if (m) m.style.background = `hsl(${hs} ${Math.round(62 * ss)}% 60%)`;
+        });
+        box.addEventListener('change', (e) => { if (e.target.closest?.('[data-hpr], [data-hpc]')) after(); });
         const pick = await choosePopup(box, '닫기'); if (!pick) return;
         const [k, v] = pick.split(':');
         if (k === 'theme') W('hpTheme', Number(v));
-        if (k === 'dark') W('hpDark', v); if (k === 'font') W('hpFont', v); if (k === 'fs') W('hpFs', v);
+        if (k === 'dark') W('hpDark', v); if (k === 'font') W('hpFont', v); if (k === 'fs') { W('hpFs', v); W('hpFsPx', 0); }
+        if (k === 'skin') { W('hpSkin', v); W('hpFsPx', 0); } if (k === 'pat') W('hpPattern', v); if (k === 'navtop') W('hpNavTop', v === '1'); if (k === 'colreset') { W('hpInk', ''); W('hpBg', ''); W('hpPaper', ''); }
         if (k === 'corner') W('hpCorner', Number(v)); if (k === 'gap') W('hpGap', Number(v)); if (k === 'motion') W('hpMotion', v === '1');
         if (k === 'win') saveLayout({ ...L, off: L.off.includes(v) ? L.off.filter(x => x !== v) : [...L.off, v] });
         if (k === 'main') saveLayout({ ...L, main: v }); if (k === 'lw' || k === 'rw') saveLayout({ ...L, [k]: Number(v) });
         if (k === 'reset') W('hpLayout', {});
         if (k === 'minor') { const m = hpMinor(); W('hpMinor', m.includes(v) ? m.filter(x => x !== v) : [...m, v]); }
-        if (k === 'skin') set.hpSkinHud = set.hpSkinHud === false;
+        if (k === 'hudskin') set.hpSkinHud = set.hpSkinHud === false;
         if (k === 'edit') editWins = !editWins;
         if (k === 'cover' && v === 'del') delete set.hpCover;
         if (k === 'cover' && v === 'add') { pickImage(1400, 0.8, (src) => { set.hpCover = src; after(); }); return; }
@@ -210,6 +231,7 @@ export function initHompy() {
         if (b.dataset.hp === 'fold' && el?._ss) { const o = el._ss.hpOpen ?? (el._ss.hpOpen = []), i = o.indexOf(b.dataset.arg); if (i >= 0) o.splice(i, 1); else o.push(b.dataset.arg); app.renderPanel?.(el); return; } // 「모음」 칸 펼치기 · 접기
         if (b.dataset.hp === 'solo' && el?._ss) { Object.assign(el._ss, { tab: b.dataset.arg, hpSolo: b.dataset.arg, mode: 'view', ui: {} }); app.renderPanel?.(el); return; } // 이 칸만 크게
         if (b.dataset.hp === 'all' && el?._ss) { el._ss.hpSolo = null; el._ss.mode = 'view'; app.renderPanel?.(el); return; } // 묶음 전체로
+        if (b.dataset.hp === 'skinpick') { const v = b.dataset.arg; if (SKINS[v]) settings().hpSkin = v; else settings().hpSkin = settings().hpSkin ?? 'clean'; saveSettings(); applyRetro(); app.rerenderPanels?.(true); app.renderHud?.(); return; } // 처음 한 번: 모양 고르기
         if (b.dataset.hp === 'editdone') { editWins = false; if (el?.isConnected) app.renderPanel?.(el); return; }
         if (b.dataset.hp === 'deco') { try { await openDeco(() => { if (el?.isConnected) app.renderPanel?.(el); }); } catch (err) { ssErr(err); } return; }
         if (b.dataset.hp === 'face') { try { await pickFace(() => { if (el?.isConnected) app.renderPanel?.(el); }); } catch (err) { ssErr(err); } return; }
@@ -252,12 +274,16 @@ export function hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, 
     const L = LY.l.map(mk).join(''), R = LY.r.map(mk).join('');
     const mainBody = restHTML;
     const cover = settings().hpCover;
-    return `<div class="${rootCls} ss-hompy ${home ? 'ss-hp-athome' : ''} ${enter ? 'ss-hp-enter' : ''}" style="--hp-h:${hue};--hp-s:${sat};--hp-fs:${FS[fsOf()]}px">
-        <div class="ss-hp-url ss-hp-top ${cover ? 'has-cover' : ''}"${cover ? ` style="background-image:linear-gradient(180deg, rgba(0,0,0,.05), rgba(0,0,0,.45)), url('${esc(cover)}')"` : ''}><span class="ss-hp-addr"><b>${esc(short(c.title || TITLE, 30))}</b></span>${headHTML}<button class="ss-hp-x ss-hp-deco-m" data-hp="deco" title="꾸미기"><i class="fa-solid fa-palette"></i></button><button class="ss-hp-x" data-hp="close" title="닫기"><i class="fa-solid fa-xmark"></i></button><em></em></div>
-        <div class="ss-hp-marks"><div class="ss-hp-index">${groupsHTML}</div>${editWins ? '<button class="ss-hp-deco-b on" data-hp="editdone">✓ 창 옮기기 끝</button>' : ''}<button class="ss-hp-deco-b" data-hp="deco" title="색 · 글씨 크기 · 창 자리 · 보일 창"><i class="fa-solid fa-palette"></i> 꾸미기</button></div>
+    return `<div class="${rootCls} ss-hompy ss-hp-k-${skinOf()} ${skinOf() === 'dot' ? `ss-hp-dot ss-hp-p-${patOf()}` : ''} ${home ? 'ss-hp-athome' : ''} ${enter ? 'ss-hp-enter' : ''}" style="--hp-h:${hue};--hp-s:${sat};--hp-fs:${fsPx()}px">
+        <div class="ss-hp-url ss-hp-top ${cover ? 'has-cover' : ''}"${cover ? ` style="background-image:linear-gradient(180deg, rgba(0,0,0,.05), rgba(0,0,0,.45)), url('${esc(cover)}')"` : ''}><i class="ss-hp-dots"></i><i class="ss-hp-dots"></i><i class="ss-hp-dots"></i><span class="ss-hp-nav" aria-hidden="true">‹ › ⟳</span><span class="ss-hp-addr"><small>meatball.home/</small><b>${esc(short(c.title || TITLE, 30))}</b></span>${headHTML}<button class="ss-hp-x ss-hp-deco-m" data-hp="deco" title="꾸미기"><i class="fa-solid fa-palette"></i></button><button class="ss-hp-x" data-hp="close" title="닫기"><i class="fa-solid fa-xmark"></i></button><em></em></div>
+        <div class="ss-hp-marks"><div class="ss-hp-index">${groupsHTML}</div><span class="ss-hp-count">TURN <b>${s.turn ?? 0}</b> · TOTAL <b>${total}</b></span>${editWins ? '<button class="ss-hp-deco-b on" data-hp="editdone">✓ 창 옮기기 끝</button>' : ''}<button class="ss-hp-deco-b" data-hp="deco" title="색 · 글씨 크기 · 창 자리 · 보일 창"><i class="fa-solid fa-palette"></i> 꾸미기</button></div>
+        ${settings().hpSkin === undefined ? `<div class="ss-hp-choose"><b>어떤 모양으로 볼까요?</b><small>나중에 「꾸미기」에서 언제든 바꿀 수 있어요.</small>
+            <button data-hp="skinpick" data-arg="clean" class="${skinOf() === 'clean' ? 'on' : ''}"><span class="ss-hp-pv clean"><i></i><i></i><i></i></span>깔끔</button>
+            <button data-hp="skinpick" data-arg="dot" class="${skinOf() === 'dot' ? 'on' : ''}"><span class="ss-hp-pv dot"><i></i><i></i><i></i></span>도트</button>
+            <button data-hp="skinpick" data-arg="" class="x" title="지금 모양 그대로">✕</button></div>` : ''}
         ${(() => {
             const lcol = L ? `<aside class="ss-hp-col ss-hp-left"><div class="ss-hp-col-in ss-hp-left-in">${L}</div></aside>` : '', rcol = R ? `<aside class="ss-hp-col ss-hp-rcol"><div class="ss-hp-col-in">${R}</div></aside>` : '';
-            const main = `<section class="ss-hp-win main"><div class="ss-hp-wt"><b>${esc(c.title || TITLE)}</b></div><div class="ss-hp-right">${pauseHTML}${mainBody}</div></section>`;
+            const main = `<section class="ss-hp-win main"><div class="ss-hp-wt"><b>${esc(c.title || TITLE)}</b><i class="ss-hp-hearts">♡♡♡</i></div><div class="ss-hp-right">${pauseHTML}${mainBody}</div></section>`;
             const order = LY.main === 'l' ? [['m', main], ['l', lcol], ['r', rcol]] : LY.main === 'r' ? [['l', lcol], ['r', rcol], ['m', main]] : [['l', lcol], ['m', main], ['r', rcol]];
             const cols = order.filter(([, h]) => h).map(([k]) => (k === 'm' ? 'minmax(0, 1fr)' : COLW[k === 'l' ? LY.lw : LY.rw])).join(' ');
             return `<div class="ss-hp-book ${editWins ? 'ss-hp-editing' : ''}" style="grid-template-columns:${cols}">${order.map(([, h]) => h).join('')}</div>`;
