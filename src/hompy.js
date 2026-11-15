@@ -45,17 +45,17 @@ async function pickFace(redraw) {
 // 🎨 꾸미기 (모든 채팅 공통): 포인트 색 · 글씨 크기 · 창 자리 · 보일 창 (깔끔한 블로그 모양 — 무늬 · 도트 글꼴은 뺐다)
 export const THEMES = [['분홍', 340, 1], ['회색', 260, 0.08], ['하늘', 215, 1], ['민트', 150, 0.8], ['빨강', 2, 1], ['살구', 22, 1], ['노랑', 46, 1], ['보라', 268, 1]];
 const themeOf = () => { const d = D(); return d.hpTheme === 'c' ? ['직접', Math.max(0, Math.min(360, Number(d.hpHue) || 0)), Math.max(0, Math.min(1.2, Number(d.hpSat ?? 1)))] : THEMES[Number(d.hpTheme) || 0] ?? THEMES[0]; };
-const FONTS = { g: '고딕', s: '명조', r: '둥근 글꼴', u: '내 글꼴' }, CORNERS = ['각지게', '보통', '둥글게'], GAPS = ['촘촘', '보통', '넉넉'], DARKS = { light: '밝게', dark: '어둡게', auto: '기기 따라' };
+const FONTS = { g: '고딕', s: '명조', r: '둥근 글꼴', m: '고정폭', u: '내 글꼴' }, CORNERS = ['각지게', '보통', '둥글게'], GAPS = ['촘촘', '보통', '넉넉'], DARKS = { light: '밝게', dark: '어둡게', auto: '기기 따라' };
 const pick3 = (v) => ([0, 1, 2].includes(Number(v)) && v !== null && v !== undefined && v !== '' ? Number(v) : 1);
-export const SKINS = { clean: '깔끔', dot: '도트' }, PATTERNS = { grid: '모눈', dot: '물방울', stripe: '줄무늬', none: '없음' };
-export const skinOf = () => (D().hpSkin === 'dot' ? 'dot' : 'clean'); // 고르지 않았으면 깔끔 (처음 열 때 고르는 줄이 뜬다)
+export const SKINS = { clean: '깔끔', dot: '도트', paper: '양피지', term: '터미널' }, PATTERNS = { grid: '모눈', dot: '물방울', stripe: '줄무늬', none: '없음' };
+export const skinOf = () => (SKINS[D().hpSkin] ? D().hpSkin : 'clean'); // 고르지 않았으면 깔끔 (처음 열 때 고르는 줄이 뜬다)
 const patOf = () => (PATTERNS[D().hpPattern] ? D().hpPattern : 'grid');
 const hex = (v) => (/^#[0-9a-f]{6}$/i.test(String(v ?? '')) ? String(v) : '');
 const darkOn = () => { const v = D().hpDark; return v === 'dark' || v === 'auto' && !!window.matchMedia?.('(prefers-color-scheme: dark)').matches; };
 // 🪟 HUD · 미니창 · 보통 상태창에도 같은 색 · 테두리 (설정 hpSkinHud · 기본 켬): body에 색 값과 표시를 걸어 둔다
 export function applyRetro() {
     const b = document.body; if (!b) return; const d = D(), [, h, s] = themeOf(), on = settings().hpSkinHud !== false, dot = skinOf() === 'dot';
-    b.classList.toggle('ss-retro', on); b.classList.toggle('ss-skin-dot', dot); b.classList.toggle('ss-hp-dark', darkOn()); b.classList.toggle('ss-hp-still', d.hpMotion === false); b.classList.toggle('ss-hp-navtop', d.hpNavTop === true);
+    b.classList.toggle('ss-retro', on); for (const k of Object.keys(SKINS)) b.classList.toggle(`ss-skin-${k}`, skinOf() === k); b.classList.toggle('ss-hp-dark', darkOn()); b.classList.toggle('ss-hp-still', d.hpMotion === false); b.classList.toggle('ss-hp-navtop', d.hpNavTop === true);
     for (const [p, v, all] of [['ss-hp-r-', pick3(d.hpCorner), [0, 1, 2]], ['ss-hp-g-', pick3(d.hpGap), [0, 1, 2]], ['ss-hp-f-', d.hpFont === 'u' && settings().hpFontFile ? 'u' : dot ? 'd' : FONTS[d.hpFont] && d.hpFont !== 'u' ? d.hpFont : 'g', [...Object.keys(FONTS), 'd']]]) for (const x of all) b.classList.toggle(p + x, x === v);
     b.style.setProperty('--hp-h', String(h)); b.style.setProperty('--hp-s', String(s));
     b.style.setProperty('--hp-fs', `${fsPx()}px`); // 다른 창(도우미 등)의 글씨 크기도 같이
@@ -136,6 +136,22 @@ const takeSnap = () => { const g = {}, st = settings(); for (const k of DECO_KEY
 const undo = () => { if (!undoSnap) return false; const st = settings(); for (const k of DECO_KEYS) { if (undoSnap.g[k] === null) delete st[k]; else st[k] = undoSnap.g[k]; } if (undoSnap.b) { const b = (st.hpSets ?? []).find(x => x.name === undoSnap.b.name); if (b) b.data = undoSnap.b.data; } undoSnap = null; return true; };
 const LOOK_KEYS = ['hpParts', 'hpInk', 'hpBg', 'hpPaper', 'hpFsPx', 'hpCorner', 'hpGap', 'hpCardAlpha', 'hpHue', 'hpSat', 'hpFont', 'hpPattern'];
 const PRESETS = [['깔끔 밝게', { hpSkin: 'clean', hpDark: 'light', hpTheme: 0 }], ['깔끔 어둡게', { hpSkin: 'clean', hpDark: 'dark', hpTheme: 2 }], ['도트 분홍', { hpSkin: 'dot', hpDark: 'light', hpTheme: 0, hpPattern: 'grid' }], ['도트 밤', { hpSkin: 'dot', hpDark: 'dark', hpTheme: 7, hpPattern: 'dot' }]];
+// 🎭 분위기 세트: 모양 · 색 · 글꼴 · 모서리에 창 제목 · 메뉴 이름(용어)까지 한 묶음 — 중세 · 무협 · SF처럼 분위기가 다른 채팅용
+export const VIBES = {
+    fantasy: ['중세 · 판타지', { hpSkin: 'paper', hpDark: 'light', hpTheme: 'c', hpHue: 34, hpSat: 0.95, hpFont: 's', hpCorner: 0, hpTitles: { profile: '모험가', intro: '세계', stats: '상태', friends: '동료', quest: '의뢰', news: '소문', contact: '전갈' }, hpGroupNames: { people: '동료', feed: '소문' } }, /중세|판타지|왕국|기사|마법|용사|길드|마왕|엘프|드래곤|금화|은화|골드|던전|성기사|마탑|fantasy|kingdom|guild|dungeon/gi],
+    wuxia: ['무협 · 동양', { hpSkin: 'paper', hpDark: 'light', hpTheme: 'c', hpHue: 6, hpSat: 0.85, hpFont: 's', hpCorner: 0, hpTitles: { profile: '협객', intro: '강호', stats: '기혈', friends: '인연', quest: '임무', news: '강호 소식', contact: '서신' }, hpGroupNames: { people: '인연', feed: '풍문' } }, /무협|강호|문파|무림|내공|협객|사파|정파|검객|황궁|조선|사극|궁중|은자|냥|wuxia/gi],
+    scifi: ['SF · 사이버', { hpSkin: 'term', hpDark: 'dark', hpTheme: 'c', hpHue: 162, hpSat: 1, hpFont: 'm', hpCorner: 0, hpTitles: { profile: 'ID', intro: 'LOG', stats: 'STATUS', friends: 'CONTACTS', quest: 'MISSIONS', news: 'FEED', contact: 'COMMS' }, hpGroupNames: {} }, /SF|사이버|우주|안드로이드|로봇|해커|크레딧|함선|디스토피아|미래 ?도시|네온|인공지능|cyber|space|android|credit/gi],
+    gothic: ['호러 · 고딕', { hpSkin: 'clean', hpDark: 'dark', hpTheme: 'c', hpHue: 354, hpSat: 0.8, hpFont: 's', hpCorner: 0, hpTitles: { friends: '곁에 남은 사람', quest: '해야 할 일', news: '불길한 소식' }, hpGroupNames: {} }, /호러|공포|괴담|저주|유령|귀신|좀비|고딕|흡혈|오컬트|악령|폐가|horror|gothic|vampire/gi],
+    school: ['학원 · 로맨스', { hpSkin: 'clean', hpDark: 'light', hpTheme: 'c', hpHue: 338, hpSat: 1, hpFont: 'g', hpCorner: 2, hpTitles: { friends: '친구들', quest: '할 일', news: '소식', contact: '메시지' }, hpGroupNames: {} }, /학원|학교|고등학교|대학교|동아리|교실|기숙사|로맨스|연애|아이돌|school|romance/gi],
+    modern: ['현대 · 일상', { hpSkin: 'clean', hpDark: 'light', hpTheme: 'c', hpHue: 214, hpSat: 0.9, hpFont: 'g', hpCorner: 1, hpTitles: {}, hpGroupNames: {} }, null],
+};
+// 채팅의 세계관 글에서 분위기를 어림한다 (AI 호출 없음 · 낱말 2개 이상 맞고 1등이 뚜렷할 때만)
+export function guessVibe(s) {
+    let text = ''; try { text = `${JSON.stringify(s?.core ?? {})} ${s?.data?.wallet?.currency ?? ''} ${(s?.data?.map?.places ?? []).map(p => p.name).join(' ')}`.slice(0, 6000); } catch { return null; }
+    const score = Object.entries(VIBES).filter(([, v]) => v[2]).map(([k, v]) => [k, new Set((text.match(v[2]) ?? []).map(x => x.toLowerCase())).size]).sort((x, y) => y[1] - x[1]);
+    return score[0] && score[0][1] >= 2 && score[0][1] > (score[1]?.[1] ?? 0) ? score[0][0] : null;
+}
+const applyLook = (p) => { for (const x of LOOK_KEYS) W(x, x === 'hpParts' ? {} : x === 'hpPattern' ? 'grid' : x === 'hpFont' ? 'g' : x === 'hpCorner' || x === 'hpGap' ? 1 : 0); W('hpInk', ''); W('hpBg', ''); W('hpPaper', ''); W('hpTitles', {}); W('hpGroupNames', {}); for (const [x, y] of Object.entries(p)) W(x, clone(y)); };
 const MOODS = [['hi', '보통'], ['heart', '두근두근'], ['proud', '대성공'], ['focus', '성공'], ['sulk', '아쉬움'], ['sad', '슬픔'], ['gasp', '놀람'], ['tongue', '삐딱'], ['blanket', '쉬는 중']];
 const pickFile = (accept, maxBytes, done) => { const inp = document.createElement('input'); inp.type = 'file'; inp.accept = accept; inp.onchange = () => { const f = inp.files?.[0]; if (!f) return; if (f.size > maxBytes) { toastr.error(`파일이 너무 커요 (${Math.round(maxBytes / 1024 / 1024 * 10) / 10}MB까지).`, TITLE); return; } const fr = new FileReader(); fr.onload = () => done(String(fr.result), f); fr.onerror = () => toastr.error('파일을 읽지 못했어요.', TITLE); fr.readAsDataURL(f); }; inp.click(); };
 const afterDeco = (redraw) => { saveSettings(); try { saveMeta(); } catch { /* 채팅 없음 */ } applyRetro(); redraw(); app.rerenderPanels?.(true); app.renderHud?.(); };
@@ -177,7 +193,9 @@ async function openDeco(redraw, focus = '') {
         const sizeRow = row('글씨 크기', seg('fs', Number(d.hpFsPx) ? '' : fsOf(), [['s', '작게'], ['m', '보통'], ['l', '크게']]) + (decoFull ? `<label class="ss-hp-range"><input type="range" min="9" max="18" step="0.5" value="${fsPx()}" data-hpr="fs"><small data-fsv>${fsPx()}px</small></label>` : ''));
         const head = `<div class="ss-hp-dhead"><h3>꾸미기</h3>${seg('mode', decoFull ? '1' : '0', [['0', '간단히'], ['1', '자세히']])}${undoSnap ? '<button class="ss-btn sm ghost" data-choice="undo:1"><i class="fa-solid fa-rotate-left"></i> 방금 것 되돌리기</button>' : ''}</div>
             ${bound ? `<p class="ss-hp-bound"><i class="fa-solid fa-link"></i> 이 채팅은 꾸밈 세트 <b>「${esc(bound.name)}」</b>를 써요 — 여기서 고치면 그 세트가 바뀌어요. <button class="ss-btn sm ghost" data-choice="unbind:1">풀기</button></p>` : ''}`;
-        const simple = `<h4>한 번에 고르기</h4><div class="ss-hp-presets">${PRESETS.map(([n, p], i) => `<button data-choice="preset:${i}"><span class="ss-hp-pv ${p.hpSkin === 'dot' ? 'dot' : 'clean'} ${p.hpDark === 'dark' ? 'dark' : ''}"><i></i><i></i><i></i></span>${n}</button>`).join('')}</div>
+        const pv = (p) => `<span class="ss-hp-pv ${p.hpSkin} ${p.hpDark === 'dark' ? 'dark' : ''}" style="--pv:hsl(${p.hpTheme === 'c' ? p.hpHue : (THEMES[p.hpTheme] ?? THEMES[0])[1]} ${Math.round(62 * (p.hpTheme === 'c' ? p.hpSat : 1))}% 58%)"><i></i><i></i><i></i></span>`;
+        const simple = `<h4>한 번에 고르기</h4><div class="ss-hp-presets">${PRESETS.map(([n, p], i) => `<button data-choice="preset:${i}">${pv(p)}${n}</button>`).join('')}</div>
+            <h4>분위기 세트 <small>창 제목 · 메뉴 이름도 분위기에 맞게 바뀌어요</small></h4><div class="ss-hp-presets">${Object.entries(VIBES).map(([key, [n, p]]) => `<button data-choice="vibe:${key}">${pv(p)}${n}</button>`).join('')}</div>
             <h4>모양 · 색</h4>${row('모양', seg('skin', skinOf(), Object.entries(SKINS)))}${colorRows}${sizeRow}`;
         const full = `${fold('look', '모양 · 색', `${row('모양', seg('skin', skinOf(), Object.entries(SKINS)))}${colorRows}
                 ${row('직접 고르기', `<label class="ss-hp-range"><small>색상</small><input type="range" min="0" max="360" step="1" value="${hue}" data-hpr="hue" class="hue"></label><label class="ss-hp-range"><small>진하기</small><input type="range" min="0" max="1.2" step="0.05" value="${sat}" data-hpr="sat"></label>`)}
@@ -206,7 +224,7 @@ async function openDeco(redraw, focus = '') {
                 <div class="ss-hp-faces">${MOODS.map(([c, n]) => `<span class="ss-hp-mine"><button class="ss-hp-face ${mf[c] ? 'on' : ''}" data-choice="mface:${c}" title="${n}"><img src="${esc(mf[c] || conUrl(c))}" alt=""><em>${n}</em></button>${mf[c] ? `<button class="ss-ib" data-choice="mfdel:${c}" title="미트볼로 되돌리기"><i class="fa-solid fa-xmark"></i></button>` : ''}</span>`).join('')}</div>`)}
             ${fold('sets', '꾸밈 세트', `<div class="ss-hp-sets">${sets.map((x, i) => `<div class="ss-hp-set ${bound?.name === x.name ? 'on' : ''}"><i style="background:hsl(${x.data.hpTheme === 'c' ? Number(x.data.hpHue) || 0 : (THEMES[Number(x.data.hpTheme) || 0] ?? THEMES[0])[1]} 62% 60%)"></i><b>${esc(x.name)}</b><span><button class="ss-btn sm" data-choice="apply:${i}" title="모든 채팅에 적용">적용</button><button class="ss-btn sm ${bound?.name === x.name ? 'pri' : 'ghost'}" data-choice="bind:${i}" title="이 채팅에서만 이 세트를 써요">${bound?.name === x.name ? '✓ 이 채팅' : '이 채팅만'}</button><button class="ss-btn sm ghost" data-choice="code:${i}" title="코드 복사 — 다른 사람에게 보내요">코드</button><button class="ss-ib" data-choice="setdel:${i}" title="지우기"><i class="fa-solid fa-trash-can"></i></button></span></div>`).join('') || '<p class="ss-hint">저장한 세트가 없어요.</p>'}</div>
                 <div class="ss-row-btns"><button class="ss-btn sm" data-choice="setsave:1"><i class="fa-solid fa-floppy-disk"></i> 지금 꾸밈 저장</button><button class="ss-btn sm ghost" data-choice="setimport:1"><i class="fa-solid fa-paste"></i> 코드로 가져오기</button></div>`)}
-            ${fold('more', '그 밖에', `${row('다른 창들', chips([['hudskin:1', 'HUD · 미니창 · 보통 상태창도 같은 모양', set.hpSkinHud !== false]]))}
+            ${fold('more', '그 밖에', `${row('다른 창들', chips([['hudskin:1', 'HUD · 미니창 · 보통 상태창도 같은 모양', set.hpSkinHud !== false], ['suggest:1', '채팅 분위기에 맞는 모양 권하기', set.hpSuggest !== false]]))}
                 ${row('내 CSS', `<textarea class="ss-in ss-hp-css" data-hpcss rows="5" spellcheck="false" placeholder="/* 아는 분만 — 예: */&#10;.ss-hompy .ss-hp-win { border-style: dashed; }">${esc(set.hpCss ?? '')}</textarea><small class="ss-hint">칸 밖을 누르면 적용돼요. 내 CSS는 꾸밈 세트 · 코드에 들어가지 않아요. 이름표: .ss-hompy(전체) · .ss-hp-url(머리줄) · .ss-hp-marks(메뉴) · .ss-hp-win(창) · .ss-hp-wt(창 제목) · .ss-hp-wb(창 안) · [data-win="profile"](창 하나)</small>`)}
                 <div class="ss-row-btns"><button class="ss-btn sm ghost" data-choice="allreset:1"><i class="fa-solid fa-broom"></i> 꾸밈 전부 기본으로</button></div>`)}`;
         box.innerHTML = head + (decoFull ? full : simple);
@@ -222,18 +240,20 @@ async function openDeco(redraw, focus = '') {
         box.addEventListener('change', (e) => { if (e.target.closest?.('[data-hpr], [data-hpc]')) after(); const t = e.target.closest?.('[data-hpcss]'); if (t) { set.hpCss = String(t.value).slice(0, 20000); after(); } });
         const pick = await choosePopup(box, '닫기'); if (!pick) return;
         const ci = pick.indexOf(':'), k = pick.slice(0, ci), v = pick.slice(ci + 1);
-        focus = { skin: 'look', theme: 'look', dark: 'look', pat: 'look', colreset: 'look', bgimg: 'look', bgtile: 'look', cover: 'look', font: 'type', fontfile: 'type', fs: 'type', corner: 'type', gap: 'type', motion: 'type', part: 'parts', free: 'place', main: 'place', lw: 'place', rw: 'place', reset: 'place', navtop: 'place', win: 'content', prof: 'content', bars: 'content', friends: 'content', title: 'content', gname: 'content', uwadd: 'content', uwedit: 'content', uwdel: 'content', minor: 'content', mface: 'face', mfdel: 'face', apply: 'sets', bind: 'sets', code: 'sets', setdel: 'sets', setsave: 'sets', setimport: 'sets', unbind: 'sets', hudskin: 'more', allreset: 'more' }[k] ?? focus;
+        focus = { skin: 'look', theme: 'look', dark: 'look', pat: 'look', colreset: 'look', bgimg: 'look', bgtile: 'look', cover: 'look', font: 'type', fontfile: 'type', fs: 'type', corner: 'type', gap: 'type', motion: 'type', part: 'parts', free: 'place', main: 'place', lw: 'place', rw: 'place', reset: 'place', navtop: 'place', win: 'content', prof: 'content', bars: 'content', friends: 'content', title: 'content', gname: 'content', uwadd: 'content', uwedit: 'content', uwdel: 'content', minor: 'content', mface: 'face', mfdel: 'face', apply: 'sets', bind: 'sets', code: 'sets', setdel: 'sets', setsave: 'sets', setimport: 'sets', unbind: 'sets', hudskin: 'more', suggest: 'more', allreset: 'more' }[k] ?? focus;
         if (k === 'mode') { decoFull = v === '1'; continue; }
         if (k === 'undo') { undo(); after(); continue; }
         if (k === 'pick') { picking = true; redraw(); return; }
         if (k === 'part') return openPart(v, redraw);
         const meta = (() => { try { return getMeta(); } catch { return null; } })();
         if (!['code', 'setsave', 'setimport', 'cover', 'bgimg', 'fontfile', 'mface'].includes(k)) takeSnap();
-        if (k === 'preset') { const p = PRESETS[Number(v)]?.[1]; if (p) { for (const x of LOOK_KEYS) W(x, x === 'hpParts' ? {} : x === 'hpPattern' ? 'grid' : x === 'hpFont' ? 'g' : x === 'hpCorner' || x === 'hpGap' ? 1 : 0); W('hpInk', ''); W('hpBg', ''); W('hpPaper', ''); for (const [x, y] of Object.entries(p)) W(x, y); } }
+        if (k === 'preset') { const p = PRESETS[Number(v)]?.[1]; if (p) applyLook(p); }
+        if (k === 'vibe' && VIBES[v]) applyLook(VIBES[v][1]);
+        if (k === 'suggest') set.hpSuggest = set.hpSuggest === false;
         if (k === 'allreset') { for (const x of DECO_KEYS) { const b = boundSet(); if (b) delete b.data[x]; else delete set[x]; } set.hpSkin = set.hpSkin ?? 'clean'; }
         if (k === 'theme') W('hpTheme', Number(v));
         if (k === 'dark') W('hpDark', v); if (k === 'font') W('hpFont', v); if (k === 'fs') { W('hpFs', v); W('hpFsPx', 0); }
-        if (k === 'skin') { W('hpSkin', v); W('hpFsPx', 0); } if (k === 'pat') W('hpPattern', v); if (k === 'navtop') W('hpNavTop', v === '1'); if (k === 'colreset') { W('hpInk', ''); W('hpBg', ''); W('hpPaper', ''); }
+        if (k === 'skin') { W('hpSkin', v); W('hpFsPx', 0); W('hpFont', { paper: 's', term: 'm' }[v] ?? 'g'); if (v === 'term') W('hpDark', 'dark'); } if (k === 'pat') W('hpPattern', v); if (k === 'navtop') W('hpNavTop', v === '1'); if (k === 'colreset') { W('hpInk', ''); W('hpBg', ''); W('hpPaper', ''); }
         if (k === 'corner') W('hpCorner', Number(v)); if (k === 'gap') W('hpGap', Number(v)); if (k === 'motion') W('hpMotion', v === '1');
         if (k === 'win') saveLayout({ ...L, off: L.off.includes(v) ? L.off.filter(x => x !== v) : [...L.off, v] });
         if (k === 'main') saveLayout({ ...L, main: v }); if (k === 'lw' || k === 'rw') saveLayout({ ...L, [k]: Number(v) });
@@ -372,7 +392,13 @@ export function initHompy() {
         if (b.dataset.hp === 'fold' && el?._ss) { const o = el._ss.hpOpen ?? (el._ss.hpOpen = []), i = o.indexOf(b.dataset.arg); if (i >= 0) o.splice(i, 1); else o.push(b.dataset.arg); app.renderPanel?.(el); return; } // 「모음」 칸 펼치기 · 접기
         if (b.dataset.hp === 'solo' && el?._ss) { Object.assign(el._ss, { tab: b.dataset.arg, hpSolo: b.dataset.arg, mode: 'view', ui: {} }); app.renderPanel?.(el); return; } // 이 칸만 크게
         if (b.dataset.hp === 'all' && el?._ss) { el._ss.hpSolo = null; el._ss.mode = 'view'; app.renderPanel?.(el); return; } // 묶음 전체로
-        if (b.dataset.hp === 'skinpick') { const v = b.dataset.arg; if (SKINS[v]) settings().hpSkin = v; else settings().hpSkin = settings().hpSkin ?? 'clean'; saveSettings(); applyRetro(); app.rerenderPanels?.(true); app.renderHud?.(); return; } // 처음 한 번: 모양 고르기
+        if (b.dataset.hp === 'skinpick') { const v = b.dataset.arg; if (SKINS[v]) { settings().hpSkin = v; settings().hpFont = { paper: 's', term: 'm' }[v] ?? settings().hpFont; if (v === 'term') settings().hpDark = 'dark'; } else settings().hpSkin = settings().hpSkin ?? 'clean'; saveSettings(); applyRetro(); app.rerenderPanels?.(true); app.renderHud?.(); return; } // 처음 한 번: 모양 고르기
+        if (b.dataset.hp === 'vibe') { // 채팅 분위기에 맞는 모양 권하기: 이 채팅에만 적용 · 괜찮아요 · 다시 묻지 않기
+            const meta0 = (() => { try { return getMeta(); } catch { return null; } })(), [how, key] = String(b.dataset.arg).split(':'), set0 = settings();
+            if (how === 'never') set0.hpSuggest = false; else if (meta0) meta0.hpAsked = true;
+            if (how === 'yes' && VIBES[key] && meta0) { const name = `분위기 · ${VIBES[key][0]}`; set0.hpSets = [...(set0.hpSets ?? []).filter(x => x.name !== name), { name, data: cleanSet({ ...VIBES[key][1] }) }].slice(-20); meta0.hpSet = name; }
+            saveSettings(); try { saveMeta(); } catch { /* 채팅 없음 */ } applyRetro(); app.rerenderPanels?.(true); app.renderHud?.(); return;
+        }
         if (b.dataset.hp === 'pickend') { picking = false; if (el?.isConnected) app.renderPanel?.(el); return; }
         if (b.dataset.hp === 'editdone') { editWins = false; if (el?.isConnected) app.renderPanel?.(el); return; }
         if (b.dataset.hp === 'deco') { try { await openDeco(() => { if (el?.isConnected) app.renderPanel?.(el); }); } catch (err) { ssErr(err); } return; }
@@ -425,7 +451,15 @@ export function hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, 
         ${settings().hpSkin === undefined ? `<div class="ss-hp-choose"><b>어떤 모양으로 볼까요?</b><small>나중에 「꾸미기」에서 언제든 바꿀 수 있어요.</small>
             <button data-hp="skinpick" data-arg="clean" class="${skinOf() === 'clean' ? 'on' : ''}"><span class="ss-hp-pv clean"><i></i><i></i><i></i></span>깔끔</button>
             <button data-hp="skinpick" data-arg="dot" class="${skinOf() === 'dot' ? 'on' : ''}"><span class="ss-hp-pv dot"><i></i><i></i><i></i></span>도트</button>
+            <button data-hp="skinpick" data-arg="paper" class="${skinOf() === 'paper' ? 'on' : ''}"><span class="ss-hp-pv paper"><i></i><i></i><i></i></span>양피지</button>
+            <button data-hp="skinpick" data-arg="term" class="${skinOf() === 'term' ? 'on' : ''}"><span class="ss-hp-pv term dark"><i></i><i></i><i></i></span>터미널</button>
             <button data-hp="skinpick" data-arg="" class="x" title="지금 모양 그대로">✕</button></div>` : ''}
+        ${(() => { // 채팅 분위기에 맞는 모양 권하기 (모양을 이미 고른 뒤 · 이 채팅에서 아직 안 물었고 · 묶인 세트가 없을 때 한 번)
+            if (settings().hpSkin === undefined || settings().hpSuggest === false || meta.hpAsked || meta.hpSet || picking) return '';
+            const v = guessVibe(s); if (!v) return ''; const [n, p] = VIBES[v]; if (skinOf() === p.hpSkin && JSON.stringify(D().hpTitles ?? {}) === JSON.stringify(p.hpTitles)) return '';
+            return `<div class="ss-hp-choose vibe"><span class="ss-hp-pv ${p.hpSkin} ${p.hpDark === 'dark' ? 'dark' : ''}" style="--pv:hsl(${p.hpHue} ${Math.round(62 * p.hpSat)}% 58%)"><i></i><i></i><i></i></span><b>이 채팅은 ${n} 분위기 같아요.</b><small>그 분위기의 모양과 용어로 볼까요? 이 채팅에만 적용돼요.</small>
+                <button data-hp="vibe" data-arg="yes:${v}" class="on">이 채팅에 적용</button><button data-hp="vibe" data-arg="no:${v}">괜찮아요</button><button data-hp="vibe" data-arg="never:${v}" class="x" title="앞으로 다른 채팅에서도 권하지 않아요 (꾸미기 › 그 밖에서 다시 켜요)">다시 묻지 않기</button></div>`;
+        })()}
         ${picking ? '<div class="ss-hp-pickbar"><i class="fa-solid fa-arrow-pointer"></i> <b>꾸밀 곳을 눌러요</b> <small>머리줄 · 메뉴 · 창 제목 · 창 · 카드 · 단추</small><button class="ss-hp-deco-b on" data-hp="pickend">끝</button></div>' : ''}
         ${(() => {
             if (FREE) { // 자유 배치: 창마다 자리(왼쪽 · 위 · 폭 · 높이, 판 크기의 %)를 따로 — 저장한 자리가 없으면 세 줄 모양에서 시작

@@ -474,3 +474,73 @@ body:not(.ss-skin-dot) :is(.ss-hompy, .ss-rt) :is(button, [role="button"], input
 .ss-hp-book.free.ss-hp-editing > .ss-hp-win > .ss-hp-wt { cursor: grab; touch-action: none; user-select: none; } .ss-hp-book.free > .ss-hp-win.drag { z-index: 5; opacity: .92; box-shadow: 0 10px 30px rgba(20, 22, 30, .2); } .ss-hp-book.free > .ss-hp-win.drag > .ss-hp-wt { cursor: grabbing; }
 .ss-hp-rs { position: absolute; right: 0; bottom: 0; width: 20px; height: 20px; cursor: nwse-resize; touch-action: none; background: linear-gradient(135deg, transparent 50%, var(--hp-acc) 50%); border-bottom-right-radius: inherit; opacity: .8; }
 @media (pointer: coarse) { .ss-hp-rs { width: 30px; height: 30px; } }
+
+/* ───────── 분위기가 다른 채팅용 모양 둘: 📜 양피지(중세 · 무협) · ⌨ 터미널(SF) ─────────
+   깔끔 모양의 뼈대 위에 색 · 글꼴 · 테두리만 바꾼다. 장식은 얇은 선과 글자 간격으로만 — 그림 파일 없음 */
+body.ss-hp-f-m { --hp-font: 'JetBrains Mono', 'D2Coding', 'Cascadia Mono', 'Nanum Gothic Coding', Consolas, 'Malgun Gothic', monospace; }
+.ss-hp-pv i:first-child { background: color-mix(in srgb, var(--pv, #c9ccd3) 45%, #fff); }
+.ss-hp-pv.paper { background: #ece2cc; border-color: #b9a57e; border-radius: 3px; } .ss-hp-pv.paper i { background: #fbf6ea; border-color: #cdbb93; border-radius: 1px; } .ss-hp-pv.paper i:first-child { background: color-mix(in srgb, var(--pv, #b08a3c) 55%, #fbf6ea); }
+.ss-hp-pv.paper.dark { background: #1e1913; border-color: #5a4a35; } .ss-hp-pv.paper.dark i { background: #2a231a; border-color: #5a4a35; }
+.ss-hp-pv.term, .ss-hp-pv.term.dark { background: #070b0a; border-color: #23352f; border-radius: 2px; } .ss-hp-pv.term i { background: #0d1412; border-color: #23352f; border-radius: 0; } .ss-hp-pv.term i:first-child { background: var(--pv, #3fd6a6); height: 2px; align-self: end; }
+.ss-hp-choose.vibe > b { flex: 0 1 auto; } .ss-hp-choose.vibe .ss-hp-pv { flex: none; }
+/* 📜 양피지 */
+body.ss-skin-paper:not(.ss-hp-dark) :is(.ss-root.ss-hompy, .ss-root.ss-rt, .ss-hp-pick), body.ss-skin-paper:not(.ss-hp-dark).ss-retro dialog.ss-dlg, body.ss-skin-paper:not(.ss-hp-dark).ss-retro :is(#ss-hud, #ss-side .ss-side-mini, .ss-float) {
+    --hp-ol: #b9a57e; --hp-ink: var(--hp-ink-u, #33291d); --hp-dim: var(--hp-dim-u, #84735b); --hp-strip: #eadfc4; --hp-soft: #f5eddb; --hp-gl: #e6dabd; --hp-ln: #d6c7a4;
+    --hp-acc: hsl(var(--hp-h, 34) calc(58% * var(--hp-s, 1)) 36%); --hp-bgc: var(--hp-bg-u, #eadfc8); --hp-paper: var(--hp-paper-u, #fbf6ea);
+}
+body.ss-skin-paper.ss-hp-dark :is(.ss-root.ss-hompy, .ss-root.ss-rt, .ss-hp-pick), body.ss-skin-paper.ss-hp-dark.ss-retro dialog.ss-dlg, body.ss-skin-paper.ss-hp-dark.ss-retro :is(#ss-hud, #ss-side .ss-side-mini, .ss-float) {
+    --hp-ol: #6a583f; --hp-ink: var(--hp-ink-u, #ecdfc6); --hp-dim: var(--hp-dim-u, #a8977c); --hp-strip: #3a2f22; --hp-soft: #2f271d; --hp-gl: #3a3024; --hp-ln: #4c3f2e;
+    --hp-acc: hsl(var(--hp-h, 34) calc(62% * var(--hp-s, 1)) 64%); --hp-bgc: var(--hp-bg-u, #1c1711); --hp-paper: var(--hp-paper-u, #28211a); --ss-accInk: #1c1711 !important;
+}
+body.ss-skin-paper.ss-hp-r-0 { --hp-r: 3px; } body.ss-skin-paper.ss-hp-r-1 { --hp-r: 8px; } body.ss-skin-paper.ss-hp-r-2 { --hp-r: 16px; }
+body.ss-skin-paper .ss-root.ss-hompy { background-image: radial-gradient(rgba(110, 84, 40, .07) .6px, transparent .9px), radial-gradient(rgba(110, 84, 40, .05) .6px, transparent .9px); background-size: 5px 5px, 7px 7px; background-position: 0 0, 3px 4px; letter-spacing: 0; }
+body.ss-skin-paper .ss-hp-url { background: var(--hp-paper); border-bottom: 3px double var(--hp-ln); } body.ss-skin-paper .ss-hp-addr b { font-weight: 700; letter-spacing: .02em; }
+body.ss-skin-paper .ss-hp-marks { background: var(--hp-paper); border-bottom: 1px solid var(--hp-ln); }
+body.ss-skin-paper :is(.ss-hompy, .ss-rt) .ss-groups > button { font-weight: 500; letter-spacing: .06em; border-bottom-width: 1.5px; } body.ss-skin-paper :is(.ss-hompy, .ss-rt) .ss-groups > button.on { color: var(--hp-ink); border-bottom-color: var(--hp-acc); font-weight: 700; }
+body.ss-skin-paper .ss-hp-win { border: 1px solid var(--hp-ol); outline: 1px solid var(--hp-ln); outline-offset: -5px; box-shadow: 0 8px 22px rgba(74, 52, 18, .09); }
+body.ss-skin-paper.ss-hp-dark .ss-hp-win { box-shadow: none; }
+body.ss-skin-paper .ss-hp-wt { justify-content: center; padding: 14px 14px 2px; } body.ss-skin-paper .ss-hp-wt b { flex: 0 1 auto; text-align: center; font-size: .8em; font-weight: 700; letter-spacing: .24em; color: var(--hp-acc); text-transform: none; }
+body.ss-skin-paper .ss-hp-wt b::after { content: ''; display: block; width: 22px; height: 1px; margin: 7px auto 0; background: var(--hp-ol); }
+body.ss-skin-paper .ss-hp-win.main > .ss-hp-wt { padding-top: 16px; } body.ss-skin-paper .ss-hp-win.main > .ss-hp-wt b { font-size: 1.3em; letter-spacing: .06em; color: var(--hp-ink); }
+body.ss-skin-paper .ss-hp-wb { padding: 8px 14px 14px; } body.ss-skin-paper .ss-hp-right { padding: 8px 16px 16px; }
+body.ss-skin-paper :is(.ss-hompy, .ss-rt) .ss-tabs > button { letter-spacing: .04em; } body.ss-skin-paper :is(.ss-hompy, .ss-rt) .ss-tabs > button.on { border-bottom-color: var(--hp-acc) !important; }
+body.ss-skin-paper :is(.ss-hompy, .ss-rt) .ss-body :is(.ss-card, .ss-mini-w, .ss-item, .ss-rtile, .ss-attr, .ss-callout, .ss-prof, .ss-loan, .ss-reg, .ss-st-f, .ss-st-card, .ss-ct-row, .ss-prices > *, .ss-in, textarea, select) { border-color: var(--hp-ln); border-radius: var(--hp-r, 3px); background-color: var(--hp-soft); }
+body.ss-skin-paper :is(.ss-hompy, .ss-rt) .ss-body :is(.ss-btn, .ss-pill) { border-radius: 3px; border-color: var(--hp-ol); background: transparent; color: var(--hp-ink); letter-spacing: .03em; }
+body.ss-skin-paper :is(.ss-hompy, .ss-rt) .ss-body .ss-btn.pri { background: var(--hp-ink); border-color: var(--hp-ink); color: var(--hp-paper); }
+body.ss-skin-paper .ss-hp-bars i { height: 5px; border-radius: 0; background: var(--hp-gl); } body.ss-skin-paper .ss-hp-bars i b { border-radius: 0; background: var(--hp-acc); }
+body.ss-skin-paper .ss-hp-photo { border-radius: 4px; border: 1px solid var(--hp-ol); outline: 1px solid var(--hp-ln); outline-offset: 2px; background: var(--hp-soft); } body.ss-skin-paper .ss-hp-photo.mine img { border-radius: 3px; }
+body.ss-skin-paper .ss-hp-badges span { border-radius: 2px; background: none; border: 1px solid var(--hp-ln); } body.ss-skin-paper .ss-hp-today i { border-radius: 0; transform: rotate(45deg); width: 5px; height: 5px; }
+body.ss-skin-paper .ss-hp-deco-b, body.ss-skin-paper .ss-hompy .ss-head-a :is(.ss-chip, .ss-helpchip) { border-radius: 3px; border-color: var(--hp-ol); background: transparent; }
+body.ss-skin-paper .ss-hp-choose { border-color: var(--hp-ol); border-radius: 4px; } body.ss-skin-paper .ss-hp-choose button { border-radius: 3px; }
+body.ss-skin-paper .ss-root.ss-rt:not(.ss-hompy) { border: 1px solid var(--hp-ol); box-shadow: 0 8px 22px rgba(74, 52, 18, .12); } body.ss-skin-paper.ss-retro dialog.ss-dlg:not(.ss-full) { border: 1px solid var(--hp-ol) !important; border-radius: 6px !important; outline: 1px solid var(--hp-ln); outline-offset: -6px; }
+body.ss-skin-paper.ss-retro :is(#ss-hud, #ss-side .ss-side-mini) { border: 1px solid var(--hp-ol) !important; border-radius: 6px !important; box-shadow: 0 6px 18px rgba(74, 52, 18, .12) !important; }
+/* ⌨ 터미널 */
+body.ss-skin-term.ss-hp-dark :is(.ss-root.ss-hompy, .ss-root.ss-rt, .ss-hp-pick), body.ss-skin-term.ss-hp-dark.ss-retro dialog.ss-dlg, body.ss-skin-term.ss-hp-dark.ss-retro :is(#ss-hud, #ss-side .ss-side-mini, .ss-float) {
+    --hp-ol: hsl(var(--hp-h, 162) calc(26% * var(--hp-s, 1)) 26%); --hp-ink: var(--hp-ink-u, #d3e6df); --hp-dim: var(--hp-dim-u, #6f8a82); --hp-strip: hsl(var(--hp-h, 162) calc(40% * var(--hp-s, 1)) 14%); --hp-soft: hsl(var(--hp-h, 162) calc(18% * var(--hp-s, 1)) 9%);
+    --hp-gl: hsl(var(--hp-h, 162) calc(18% * var(--hp-s, 1)) 15%); --hp-ln: hsl(var(--hp-h, 162) calc(20% * var(--hp-s, 1)) 18%); --hp-acc: hsl(var(--hp-h, 162) calc(74% * var(--hp-s, 1)) 60%); --hp-bgc: var(--hp-bg-u, #060a09); --hp-paper: var(--hp-paper-u, #0c1211); --ss-accInk: #06110d !important;
+}
+body.ss-skin-term:not(.ss-hp-dark) :is(.ss-root.ss-hompy, .ss-root.ss-rt, .ss-hp-pick), body.ss-skin-term:not(.ss-hp-dark).ss-retro dialog.ss-dlg, body.ss-skin-term:not(.ss-hp-dark).ss-retro :is(#ss-hud, #ss-side .ss-side-mini, .ss-float) {
+    --hp-ol: hsl(var(--hp-h, 162) calc(14% * var(--hp-s, 1)) 70%); --hp-ink: var(--hp-ink-u, #17221f); --hp-dim: var(--hp-dim-u, #6d7f79); --hp-strip: hsl(var(--hp-h, 162) calc(40% * var(--hp-s, 1)) 90%); --hp-soft: hsl(var(--hp-h, 162) calc(14% * var(--hp-s, 1)) 96%);
+    --hp-gl: hsl(var(--hp-h, 162) calc(12% * var(--hp-s, 1)) 90%); --hp-ln: hsl(var(--hp-h, 162) calc(12% * var(--hp-s, 1)) 84%); --hp-acc: hsl(var(--hp-h, 162) calc(70% * var(--hp-s, 1)) 30%); --hp-bgc: var(--hp-bg-u, #eef2f1); --hp-paper: var(--hp-paper-u, #fafcfb);
+}
+body.ss-skin-term.ss-hp-r-0 { --hp-r: 2px; } body.ss-skin-term.ss-hp-r-1 { --hp-r: 6px; } body.ss-skin-term.ss-hp-r-2 { --hp-r: 12px; }
+body.ss-skin-term :is(.ss-root.ss-hompy, .ss-root.ss-rt) { letter-spacing: 0; font-variant-numeric: tabular-nums; }
+body.ss-skin-term.ss-hp-dark .ss-root.ss-hompy { background-image: repeating-linear-gradient(0deg, rgba(255, 255, 255, .022) 0 1px, transparent 1px 3px); }
+body.ss-skin-term .ss-hp-url, body.ss-skin-term .ss-hp-marks { background: var(--hp-paper); border-bottom: 1px solid var(--hp-ln); }
+body.ss-skin-term .ss-hp-addr b { font-weight: 700; letter-spacing: 0; } body.ss-skin-term .ss-hp-addr b::before { content: '> '; color: var(--hp-acc); } body.ss-skin-term .ss-hp-addr b::after { content: '_'; color: var(--hp-acc); margin-left: 2px; }
+@media (prefers-reduced-motion: no-preference) { @keyframes ss-hp-blink { 50% { opacity: 0; } } body.ss-skin-term:not(.ss-hp-still) .ss-hp-addr b::after { animation: ss-hp-blink 1.1s steps(1) infinite; } }
+body.ss-skin-term :is(.ss-hompy, .ss-rt) .ss-groups > button { font-size: .92em; font-weight: 500; letter-spacing: .08em; border-bottom-width: 1.5px; } body.ss-skin-term :is(.ss-hompy, .ss-rt) .ss-groups > button.on { color: var(--hp-acc); border-bottom-color: var(--hp-acc); }
+body.ss-skin-term .ss-hp-win { border: 1px solid var(--hp-ln); box-shadow: none; }
+body.ss-skin-term .ss-hp-wt { padding: 9px 12px 2px; } body.ss-skin-term .ss-hp-wt b { font-size: .78em; font-weight: 600; letter-spacing: .14em; color: var(--hp-acc); text-transform: uppercase; } body.ss-skin-term .ss-hp-wt b::before { content: '//'; color: var(--hp-dim); margin-right: 6px; letter-spacing: 0; }
+body.ss-skin-term .ss-hp-win.main > .ss-hp-wt b { font-size: 1.05em; letter-spacing: .04em; color: var(--hp-ink); text-transform: none; }
+body.ss-skin-term :is(.ss-hompy, .ss-rt) .ss-tabs > button.on { border-bottom-color: var(--hp-acc) !important; color: var(--hp-acc); }
+body.ss-skin-term :is(.ss-hompy, .ss-rt) .ss-body :is(.ss-card, .ss-mini-w, .ss-item, .ss-rtile, .ss-attr, .ss-callout, .ss-prof, .ss-loan, .ss-reg, .ss-st-f, .ss-st-card, .ss-ct-row, .ss-prices > *, .ss-in, textarea, select) { border-color: var(--hp-ln); border-radius: var(--hp-r, 2px); background-color: var(--hp-soft); }
+body.ss-skin-term :is(.ss-hompy, .ss-rt) .ss-body :is(.ss-btn, .ss-pill) { border-radius: 2px; border-color: var(--hp-ol); background: transparent; color: var(--hp-ink); }
+body.ss-skin-term :is(.ss-hompy, .ss-rt) .ss-body .ss-btn.pri { background: var(--hp-acc); border-color: var(--hp-acc); color: var(--ss-accInk, #fff); }
+body.ss-skin-term .ss-hp-bars i { height: 6px; border-radius: 0; background: var(--hp-gl); } body.ss-skin-term .ss-hp-bars i b { border-radius: 0; }
+body.ss-skin-term .ss-hp-photo { border-radius: 2px; border: 1px solid var(--hp-ln); background: var(--hp-soft); } body.ss-skin-term .ss-hp-photo.mine img { border-radius: 0; }
+body.ss-skin-term .ss-hp-badges span { border-radius: 2px; background: none; border: 1px solid var(--hp-ln); } body.ss-skin-term .ss-hp-today i { border-radius: 0; }
+body.ss-skin-term .ss-hp-deco-b, body.ss-skin-term .ss-hompy .ss-head-a :is(.ss-chip, .ss-helpchip), body.ss-skin-term .ss-hp-choose, body.ss-skin-term .ss-hp-choose button { border-radius: 2px; border-color: var(--hp-ol); background: transparent; }
+body.ss-skin-term .ss-root.ss-rt:not(.ss-hompy), body.ss-skin-term.ss-retro :is(#ss-hud, #ss-side .ss-side-mini) { border: 1px solid var(--hp-ol) !important; border-radius: 4px !important; box-shadow: none !important; }
+body.ss-skin-term.ss-retro dialog.ss-dlg:not(.ss-full) { border: 1px solid var(--hp-ol) !important; border-radius: 4px !important; }
+.ss-hp-choose.vibe button { padding: 4px 12px; }
