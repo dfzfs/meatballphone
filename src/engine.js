@@ -577,6 +577,7 @@ export function compute(limit, opts = {}) {
         adjEvents.set(a.t, info.alerts);
         if (a.at > lastAI && a.label && !a.silent) s.recent.push(a.label);
     };
+    opts.onStep?.(start, s); // 📈 그래프의 첫 점 = 처음 상태
     for (let i = start; i < n; i++) {
         while (ai < adj.length && adj[ai].at <= i) runAdjust(adj[ai++]);
         const m = chat[i];
