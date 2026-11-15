@@ -13,7 +13,7 @@ import { analyzeMessage } from './src/ai.js';
 import { mainBusy } from './src/prompts.js';
 import { confirmPopup, applyTheme, mascot, popup } from './src/kit.js';
 import { ensureUI, rerenderPanels, openRoll, panels, renderHud } from './src/shell.js';
-import { receivePing } from './src/contact.js';
+import { receivePing, sweepSent } from './src/contact.js';
 import { startViewTr, translateView, scheduleFill, checkKorean } from './src/translate.js';
 import { notify } from './src/notify.js';
 import { offerCard, followBranch } from './src/safe.js';
@@ -782,6 +782,7 @@ async function onChatChanged() {
     try { const meta = getMeta(); if (meta?.base && rebindToUser(meta)) saveMeta(); } catch (e) { ssNote('행동 묶음 옮기기 실패', e); } // 예전에 한 행동도 그 다음 내 메시지에 묶는다
     try { if (isActive() && ready()) { const n = slimLegacy(); if (n) { saveMeta(); console.log(LOG, `옛 연락 · 피드 기록 ${n}개를 줄였어요`); } } } catch (e) { ssWarn(LOG, 'slim', e); }
     refreshNow();
+    try { if (sweepSent()) { saveMeta(); refreshNow(); } } catch (e) { ssNote('지운 연락 기록 정리 실패', e); } // 업데이트 전에 지운 말풍선의 기록
     // 카드에 상태창이 들어 있으면 (이 채팅에 아직 없을 때) 한 번 물어본다
     setTimeout(() => { offerCard(setBase).catch(e => ssWarn(LOG, 'card', e)); }, 400);
 }

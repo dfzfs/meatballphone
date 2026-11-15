@@ -152,6 +152,20 @@ function hushSent(m, who) {
     const a = (getMeta()?.adjust ?? []).findLast(x => x?.set?.mod === 'contact' && x.label && !x.silent && (x.mid ? x.mid === m.id : x.label.includes(`${who}에게`) && x.label.endsWith(tail)));
     if (a) { a.silent = true; a.label = `${who}에게 보낸 메시지 (지움)`; }
 }
+// 업데이트 전에 지운 말풍선: 보낼 때 남긴 기록이 아직 「방금 한 일」로 AI에게 가고 있으면(마지막 AI 답 뒤의 것) 채팅을 열 때 한 번 조용하게 바꾼다
+export function sweepSent() {
+    const meta = getMeta(), cur = app.current, ct = cur?.state?.data?.contact;
+    if (!meta?.adjust?.length || !ct) return false;
+    let n = 0;
+    for (const a of meta.adjust) {
+        if (a?.set?.mod !== 'contact' || !a.label || a.silent || a._off || !(a.at > cur.lastAI)) continue;
+        const k = a.label.match(/^.*?로 (.+?)에게(?: 편지)?: ([\s\S]*)$/); if (!k) continue;
+        const th = ct.threads?.[k[1]] ?? [];
+        const alive = a.mid ? th.some(m => m.id === a.mid) : th.some(m => m.from === 'me' && short(msgText(m), 30) === k[2]);
+        if (!alive) { a.silent = true; a.label = `${k[1]}에게 보낸 메시지 (지움)`; n++; }
+    }
+    return n > 0;
+}
 function findMsg(nd, id) {
     for (const [who, th] of Object.entries(nd.threads)) { const k = th.findIndex(m => m.id === id); if (k >= 0) return { who, th, k, m: th[k] }; }
     return null;
