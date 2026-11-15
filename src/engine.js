@@ -71,6 +71,16 @@ export function drawerOps(m) {
     return Array.isArray(d) ? d : null;
 }
 // 실리는 왼쪽으로 스와이프할 때 지금 답(mes · extra)을 스와이프 칸에 저장하지 않아요 → 고친 것을 직접 같이 적어 둔다
+// 굳힌 답에 보일 칩: 굳힐 때 적어 둔 글 → 없으면(예전에 굳힌 답) 보관된 변화 줄을 그대로 (속마음 줄은 숨김)
+export function bakedLabels(m) {
+    if (!m || m.is_user) return null;
+    const saved = m.extra?.[MODULE]?.chips?.[m.swipe_id ?? 0];
+    if (Array.isArray(saved) && saved.length) return saved.map(String);
+    const ops = drawerOps(m);
+    if (!ops?.length) return null;
+    const out = ops.filter(([k]) => KEYMAP[String(k).trim().toLowerCase()] !== 'mind' && !String(k).startsWith('_')).map(([k, v]) => `${String(k).trim()} ${String(v).trim()}`.slice(0, 60));
+    return out.length ? out.slice(0, 14) : null;
+}
 export function syncSwipe(m) {
     const sid = m.swipe_id;
     if (typeof sid !== 'number' || !Array.isArray(m.swipes) || typeof m.swipes[sid] !== 'string') return;
@@ -911,6 +921,8 @@ export function squash(meta, keep = squashKeep()) {
         // 굳히기 전에 지금 기준점을 자동 세이브로 (분기·실수 대비, 최근 3개)
         meta.saves = arr(meta.saves).filter(x => !x.auto).concat(arr(meta.saves).filter(x => x.auto).slice(-1), [{ id: uid(), auto: true, name: '자동 세이브', t: Date.now(), at: meta.startAt ?? 0, key: meta.startKey ?? null, base: clone(meta.base), baseTurn: meta.baseTurn ?? 0, adjust: clone(meta.adjust ?? []), mods: { ...meta.mods }, difficulty: meta.difficulty }]);
     }
+    // 굳힌 답의 칩 (v2.7.23): 굳히면 그 답들은 다시 계산하지 않아서 칩이 사라졌다 → 굳히는 순간의 칩 글을 답에 적어 두고 계속 보여 준다
+    try { for (const [i, sn] of r.snaps) { const m = chat[i]; if (!m || !sn.labels?.length) continue; (((m.extra ??= {})[MODULE] ??= {}).chips ??= {})[m.swipe_id ?? 0] = sn.labels.slice(0, 14); syncSwipe(m); } } catch (e) { ssNote('굳힌 답 칩 적어 두기 실패', e); }
     meta.base = { core: r.state.core, data: r.state.data, tally: r.state.tally, days: r.state.days, day0: r.state.day0, gone: r.state.gone };
     meta.baseTurn = r.state.turn;
     meta.startAt = cut;

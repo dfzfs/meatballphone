@@ -22,7 +22,7 @@ export function pipDiag(i) {
     if (!isActive() || !ready() || !app.current) return { code: 'none', title: '이 채팅엔 상태창이 없어요' };
     const meta = getMeta();
     const sid = m.swipe_id ?? 0;
-    if (i < (meta?.startAt ?? 0)) return { code: 'baked', title: '오래된 답 — 굳힌 기록 안이에요', text: '긴 채팅 정리로 이 답까지의 변화는 이미 숫자에 합쳐져 있어요. 칩은 안 보여도 반영은 끝났어요.' };
+    if (i < (meta?.startAt ?? 0)) return { code: 'baked', title: '오래된 답 — 굳힌 기록 안이에요', text: '기록 정리(긴 채팅 · 상태창에서 한 일이 아주 많이 쌓였을 때)로 이 답까지의 변화는 이미 숫자에 합쳐져 있어요. 반영은 끝났고, 칩은 합칠 때의 모습 그대로 보여요. 이 답은 더 이상 고치거나 되감을 수 없어요.' };
     const sk = skipOf(m);
     if (sk) return { code: 'skipped', title: `건너뛴 답 — ${SKIP_NAME[sk] ?? sk}`, text: '이 답은 상태창 없이 보냈고, 변화도 계산하지 않아요 (일부러 그런 거예요). 이 답의 변화를 넣고 싶으면 「직접 적기」나 「AI로 다시 분석」을 눌러요.', acts: ['analyze', 'edit'] };
     const ops = msgOps(m);

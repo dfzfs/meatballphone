@@ -34,7 +34,8 @@ export function registerCommands() {
         name: 'ss-pip', aliases: ['ss-chip'],
         callback: async (_n, arg) => {
             const [a, b] = String(arg ?? '').trim().split(/\s+/);
-            const n = Number.isFinite(Number(a)) && a !== '' ? Number(a) : (app.current?.lastAI ?? (ctx().chat?.length ?? 1) - 1);
+            const lastStory = () => { const ch = ctx().chat ?? []; for (let k = ch.length - 1; k >= 0; k--) if (!ch[k]?.is_user && !ch[k]?.is_system) return k; return ch.length - 1; };
+            const n = Number.isFinite(Number(a)) && a !== '' ? Number(a) : ((app.current?.lastAI ?? -1) >= 0 ? app.current.lastAI : lastStory());
             const act = Number.isFinite(Number(a)) ? b : a;
             if (act) { const d = await pipFix(n, act === 'fix' ? 'auto' : act); return d?.title ?? ''; }
             openPip(n);

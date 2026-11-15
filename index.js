@@ -7,7 +7,7 @@ import {
 import { opInfo } from './src/engine.js';
 import {
     shiftSwipeAnchors, clampAdjust, noteGeneration, compute, buildInjection, setInjection, addAdjust, stashStatus, stashAllSwipes,
-    rebindToUser, shiftSwipeKeys, drawerOps, setDrawer, extractOps, ssValue, undoLast, hasStatus, autoBake, slimLegacy,
+    bakedLabels, rebindToUser, shiftSwipeKeys, drawerOps, setDrawer, extractOps, ssValue, undoLast, hasStatus, autoBake, slimLegacy,
 } from './src/engine.js';
 import { analyzeMessage } from './src/ai.js';
 import { mainBusy } from './src/prompts.js';
@@ -82,8 +82,10 @@ function decorateAll() {
         const i = Number(mesEl.getAttribute('mesid'));
         if (Number.isNaN(i)) return;
         if (streaming && i === chat.length - 1 && !chat[i]?.is_user) { mesEl.querySelectorAll(SLOT_SEL).forEach(x => x.remove()); doneEl.delete(mesEl); waitChips(); return; }
-        const snap = app.current.snaps.get(i);
         const m = chat[i];
+        // 굳힌 답(다시 계산하지 않는 옛 답)도 칩은 계속 보인다 (v2.7.23) — 굳힐 때 적어 둔 글 · 고치기 단추는 없음
+        let snap = app.current.snaps.get(i);
+        if (!snap && i < baked && m && !m.is_user) { const bl = bakedLabels(m); if (bl) snap = { labels: bl, roll: null, alerts: [], baked: true }; }
         const on0 = !!album && !!m && album.has(`${m.send_date}|${m.name}`);
         // v2.7.9: 칩이 있는 답도 내용이 그대로면 건너뛴다 (마지막 AI 답은 칩 점검 때문에 늘 다시) — 단, 칩 자리가 지워졌으면 다시
         const sig = i === lastAI ? null : snap
