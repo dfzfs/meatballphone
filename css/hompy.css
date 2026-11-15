@@ -6,11 +6,11 @@
 .ss-root.ss-hompy, .ss-root.ss-rt, .ss-hp-pick, body.ss-retro dialog.ss-dlg, body.ss-retro :is(#ss-hud, #ss-side .ss-side-mini, .ss-float) {
     --hp-ol: hsl(var(--hp-h, 340) calc(26% * var(--hp-s, 1)) 44%); --hp-ink: hsl(var(--hp-h, 340) calc(20% * var(--hp-s, 1)) 27%); --hp-dim: hsl(var(--hp-h, 340) calc(14% * var(--hp-s, 1)) 54%);
     --hp-strip: hsl(var(--hp-h, 340) calc(86% * var(--hp-s, 1)) 89%); --hp-soft: hsl(var(--hp-h, 340) calc(80% * var(--hp-s, 1)) 95.5%); --hp-gl: hsl(var(--hp-h, 340) calc(60% * var(--hp-s, 1)) 91%);
-    --hp-acc: hsl(var(--hp-h, 340) calc(58% * var(--hp-s, 1)) 62%); --hp-bgc: hsl(var(--hp-h, 340) calc(70% * var(--hp-s, 1)) 97.5%); --hp-paper: #fffefd;
+    --hp-ln: hsl(var(--hp-h, 340) calc(32% * var(--hp-s, 1)) 70%); --hp-acc: hsl(var(--hp-h, 340) calc(58% * var(--hp-s, 1)) 62%); --hp-bgc: hsl(var(--hp-h, 340) calc(70% * var(--hp-s, 1)) 97.5%); --hp-paper: #fffefd;
 }
 .ss-root.ss-hompy, .ss-root.ss-rt, body.ss-retro dialog.ss-dlg, body.ss-retro dialog.ss-dlg .ss-root, body.ss-retro :is(#ss-hud, #ss-side .ss-side-mini) {
     --ss-bg: var(--hp-paper) !important; --ss-surface: var(--hp-soft) !important; --ss-surface2: var(--hp-strip) !important; --ss-card: var(--hp-paper) !important; --ss-ink: var(--hp-ink) !important; --ss-dim: var(--hp-dim) !important;
-    --ss-line: var(--hp-gl) !important; --ss-acc: var(--hp-acc) !important; --ss-accInk: #fff !important; --ss-hi: var(--hp-acc) !important; --ss-r: 7px !important;
+    --ss-line: var(--hp-ln) !important; --ss-acc: var(--hp-acc) !important; --ss-accInk: #fff !important; --ss-hi: var(--hp-acc) !important; --ss-r: 7px !important;
 }
 .ss-root.ss-hompy { position: fixed; inset: 0; z-index: 5; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; padding: 0 !important; border-radius: 0; color: var(--hp-ink); background-color: var(--hp-bgc); font-size: calc((var(--hp-fs, 11px) + 1.5px) * var(--ss-fs)); }
 .ss-hompy.ss-hp-p-grid { background-image: linear-gradient(var(--hp-gl) 1px, transparent 1px), linear-gradient(90deg, var(--hp-gl) 1px, transparent 1px); background-size: 16px 16px; }
@@ -173,7 +173,10 @@ body.ss-retro :is(#ss-hud, #ss-side .ss-side-mini) .ss-tb .ss-t { border-radius:
 .ss-hompy .ss-mini-line > span { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
 
 /* 🧱 가운데 창의 내용을 여러 단으로 쌓기 — 가로로 길게 늘이지 않고 빈칸 없이 위아래 · 좌우로 채운다 (지도 · 달력 · 연락 · 홈은 제 모양 유지) */
-.ss-hompy .ss-hp-right > .ss-body:not(.ss-hp-merged):not([data-tab="map"]):not([data-tab="calendar"]):not([data-tab="contact"]):not([data-tab="home"]):not([data-tab="dice"]) { column-width: 250px; column-gap: 8px; }
+.ss-hompy.ss-hp-k-tetris .ss-hp-right > .ss-body:not(.ss-hp-merged):not([data-tab="map"]):not([data-tab="calendar"]):not([data-tab="contact"]):not([data-tab="home"]):not([data-tab="dice"]) { column-width: 250px; column-gap: 8px; }
+.ss-hompy.ss-hp-k-mix .ss-hp-right > .ss-body:not(.ss-hp-merged):not([data-tab="map"]):not([data-tab="calendar"]):not([data-tab="contact"]):not([data-tab="home"]):not([data-tab="dice"]) { column-count: 2; column-gap: 10px; }
+.ss-hompy.ss-hp-k-wide .ss-hp-all { column-width: auto; column-count: 1; } .ss-hompy.ss-hp-k-mix .ss-hp-all { column-width: auto; column-count: 2; }
+.ss-hompy.ss-hp-k-wide .ss-dice { grid-template-columns: minmax(0, 1fr); } .ss-hompy.ss-hp-k-wide .ss-dice > *, .ss-hompy.ss-hp-k-wide .ss-dice > .ss-dice-stage, .ss-hompy.ss-hp-k-wide .ss-dice > .ss-btn { grid-column: 1; grid-row: auto; position: static; }
 .ss-hompy .ss-body :is(.ss-card, .ss-callout, .ss-mini-w, .ss-item, .ss-rtile, .ss-attr, .ss-st-f, .ss-prof, .ss-loan, .ss-reg, .ss-row-btns, .ss-chips, .ss-pills, .ss-f, .ss-in, textarea, table, h4, .ss-sec-h, .ss-partbar, .ss-cashbox, .ss-ct-row, .ss-bub, .ss-log-row, .ss-hint) { break-inside: avoid; }
 .ss-hompy .ss-body :is(h4, .ss-sec-h) { break-after: avoid; }
 .ss-hompy .ss-body .ss-stack { display: block; } .ss-hompy .ss-body .ss-stack > * { margin-bottom: 4px; }
@@ -201,3 +204,12 @@ body.ss-retro.ss-retro-dot dialog.ss-dlg .ss-root:not(.ss-hompy) { font-family: 
 body.ss-retro.ss-retro-dot dialog.ss-dlg .ss-root :is(button, input, textarea, select, summary, b, small, h3, h4, h5) { font-family: inherit; }
 body.ss-retro dialog.ss-dlg .ss-root :is(.ss-in, textarea) { border-color: var(--hp-ol); }
 body.ss-retro dialog.ss-dlg :is(.popup-button-ok, .popup-button-cancel) { border: 1px solid var(--hp-ol); background: var(--hp-soft); color: var(--hp-ink); border-radius: 7px; }
+
+/* 칸마다 테두리를 또렷하게 — 어디까지가 한 칸인지 바로 보이게 */
+:is(.ss-hompy, .ss-rt) .ss-body :is(.ss-card, .ss-mini-w, .ss-item, .ss-rtile, .ss-attr, .ss-callout, .ss-prof, .ss-loan, .ss-reg, .ss-st-f, .ss-st-card, .ss-ct-row, .ss-prices > *, .ss-in, textarea, select) { border: 1px solid var(--hp-ol); }
+:is(.ss-hompy, .ss-rt) .ss-body :is(.ss-pill, .ss-chip, .ss-seg, .ss-seg > *) { border-color: var(--hp-ln); }
+.ss-hp-win { border-width: 1.5px; } .ss-hp-wt { border-bottom-width: 1.5px; }
+/* 글을 「…」로 자르지 않는다: 줄을 바꿔 다 보여 준다 (글씨 크기와 상관없이) */
+:is(.ss-hompy, .ss-rt) :is(.ss-body, .ss-hp-col, .ss-hp-wt) :is(span, b, small, p, dd, dt, li, em, label, summary, h4, h5, div) { text-overflow: clip !important; -webkit-line-clamp: unset !important; line-clamp: unset !important; overflow-wrap: anywhere; }
+:is(.ss-hompy, .ss-rt) :is(.ss-body, .ss-hp-col) :is(span, b, small, p, dd, dt, li, em, summary):not(.ss-badge):not(.ss-ava) { white-space: normal !important; }
+:is(.ss-hompy, .ss-rt) .ss-tabs > button, :is(.ss-hompy, .ss-rt) .ss-groups > button, :is(.ss-hompy, .ss-rt) .ss-body :is(.ss-btn, .ss-ib, .ss-pill) { white-space: nowrap !important; }

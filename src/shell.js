@@ -21,6 +21,7 @@ import { translateSheet, missingTr } from './translate.js';
 import { hintAfterAction } from './tips.js';
 import { storySection } from './story_ui.js';
 import { hompyHTML, fitHompy, photoHTML, hpLayout, hpMinor } from './hompy.js';
+import { setNoShort } from './util.js';
 import { openPromptWindow, openThemeWindow, openWizard } from './lazy.js';
 import { setBase, startBlank } from './engine.js';
 export { setBase, startBlank, openWizard, openPromptWindow, openThemeWindow }; // 다른 파일은 예전처럼 여기서 받아도 된다 (창은 눌렀을 때 불러옴 — lazy.js)
@@ -78,6 +79,11 @@ function groupBadge(g, s, meta) {
 
 // ───── 패널 ─────
 export function renderPanel(el) {
+    // 🪟 같은 모양(스킨)을 켰으면 화면의 글을 「…」로 줄이지 않고 줄을 바꿔 다 보여 준다
+    setNoShort(document.body.classList.contains('ss-retro') || settings().hompyFull !== false && !!el?._ss?.full);
+    try { return renderPanel0(el); } finally { setNoShort(false); }
+}
+function renderPanel0(el) {
     const st = el._ss ??= { tab: 'home', mode: 'view', work: null, ui: {} };
     const inSide = el.classList.contains('ss-panel-side');
     if (!isActive()) { el.innerHTML = `<div class="ss-root ss-scope"><div class="ss-empty"><i class="fa-solid fa-power-off"></i><b>이 채팅에서는 상태창이 꺼져 있어요</b><p>확장 설정에서 「이 채팅에서 켜기」를 누르세요.</p></div></div>`; bindPanel(el); return; }

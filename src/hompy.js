@@ -46,6 +46,8 @@ export function applyRetro() {
 export const WINS = { profile: '프로필', intro: '소개', stats: '상태', friends: '일촌', quest: '퀘스트', news: '뉴스', contact: '연락', mind: '속마음', cond: '상태 이상', fate: '저주 · 빚', music: 'BGM', custom: '내 탭', photo: '사진' };
 const WIN_T = { profile: 'profile', intro: 'about', stats: 'status', photo: 'photo' };
 const FS = { s: 9.5, m: 11, l: 12.5 }; // 글씨 크기(px) — 고르지 않았으면 화면 배율이 큰 기기(노트북 150%↑)는 작게
+const PACK = { tetris: '테트리스 (여러 단)', mix: '혼합 (두 단)', wide: '넓게 (한 단)' }; // 가운데 창의 칸 쌓는 방식
+const packOf = () => (PACK[settings().hpPack] ? settings().hpPack : 'tetris');
 const fsOf = () => (FS[settings().hpFs] ? settings().hpFs : (window.devicePixelRatio || 1) >= 1.5 ? 's' : 'm');
 const COLW = ['130px', 'clamp(150px, 15%, 200px)', 'clamp(210px, 23%, 320px)'];
 let editWins = false; // 창 옮기기 중 (창마다 ▲▼⇄✕ 단추)
@@ -76,6 +78,7 @@ async function openDeco(redraw) {
             <h4>바탕 무늬</h4><div class="ss-row-btns">${seg('pat', patOf(), Object.entries(PATTERNS))}</div>
             <h4>글꼴</h4><div class="ss-row-btns">${seg('font', set.hpDot !== false ? '1' : '0', [['1', '도트 글꼴'], ['0', '실리 글꼴']])}</div>
             <div class="ss-row-btns"><small>글씨 크기</small>${seg('fs', fsOf(), [['s', '작게'], ['m', '보통'], ['l', '크게']])}</div>
+            <div class="ss-row-btns"><small>칸 쌓기</small>${seg('pack', packOf(), Object.entries(PACK))}</div>
             <h4>창 자리</h4><div class="ss-row-btns"><button class="ss-btn sm pri" data-choice="edit:1"><i class="fa-solid fa-up-down-left-right"></i> 창 옮기기 ${editWins ? '끝내기' : '시작'}</button><small class="ss-hint">창마다 ▲▼(순서) · ⇄(반대쪽 줄) · ✕(숨기기) 단추가 생겨요.</small></div>
             <div class="ss-row-btns"><small>가운데 창 위치</small>${seg('main', L.main, [['l', '왼쪽'], ['c', '가운데'], ['r', '오른쪽']])}</div>
             <div class="ss-row-btns"><small>왼쪽 줄 폭</small>${seg('lw', String(L.lw), [['0', '좁게'], ['1', '보통'], ['2', '넓게']])}</div>
@@ -90,6 +93,7 @@ async function openDeco(redraw) {
         if (k === 'main') saveLayout({ ...L, main: v }); if (k === 'lw' || k === 'rw') saveLayout({ ...L, [k]: Number(v) });
         if (k === 'reset') set.hpLayout = {};
         if (k === 'fs') set.hpFs = v;
+        if (k === 'pack') set.hpPack = v;
         if (k === 'minor') { const m = hpMinor(); set.hpMinor = m.includes(v) ? m.filter(x => x !== v) : [...m, v]; }
         if (k === 'skin') set.hpSkinHud = set.hpSkinHud === false;
         if (k === 'edit') editWins = !editWins;
@@ -202,7 +206,7 @@ export function hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, 
     const LY = hpLayout(), mk = (k) => (LY.off.includes(k) ? '' : win(k, WIN_T[k] ?? WINS[k], BODY[k] ? BODY[k]() : miniWidgets(s, [k]), BODY[k] ? '' : 'x'));
     const L = LY.l.map(mk).join(''), R = LY.r.map(mk).join('');
     const mainBody = restHTML;
-    return `<div class="${rootCls} ss-hompy ss-hp-p-${patOf()} ${settings().hpDot !== false ? 'ss-hp-dot' : ''} ${enter ? 'ss-hp-enter' : ''}" style="--hp-h:${hue};--hp-s:${sat};--hp-fs:${FS[fsOf()]}px">
+    return `<div class="${rootCls} ss-hompy ss-hp-k-${packOf()} ss-hp-p-${patOf()} ${settings().hpDot !== false ? 'ss-hp-dot' : ''} ${enter ? 'ss-hp-enter' : ''}" style="--hp-h:${hue};--hp-s:${sat};--hp-fs:${FS[fsOf()]}px">
         <div class="ss-hp-url ss-hp-top"><i></i><i></i><i></i><span class="ss-hp-nav" aria-hidden="true">‹ › ⟳</span><span class="ss-hp-addr">meatball.home/<b>${esc(short(c.title || TITLE, 30))}</b></span>${headHTML}<button class="ss-hp-x" data-hp="close" title="닫기"><i class="fa-solid fa-xmark"></i></button><em></em></div>
         <div class="ss-hp-marks"><div class="ss-hp-index">${groupsHTML}</div><span class="ss-hp-count">TURN <b>${s.turn ?? 0}</b> · TOTAL <b>${total}</b></span>${editWins ? '<button class="ss-hp-deco-b on" data-hp="editdone">✓ 창 옮기기 끝</button>' : ''}<button class="ss-hp-deco-b" data-hp="deco" title="색 · 무늬 · 글꼴 · 창 자리 · 보일 창">🎨 꾸미기</button></div>
         ${(() => {

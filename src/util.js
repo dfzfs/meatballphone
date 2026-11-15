@@ -13,7 +13,9 @@ export const NUM_FMT = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 2
 export const fmtNum = (n) => NUM_FMT.format(Number(n));
 export const signed = (n) => (n > 0 ? `+${fmtNum(n)}` : n < 0 ? `−${fmtNum(Math.abs(n))}` : '±0');
 export const uid = () => Math.random().toString(36).slice(2, 9);
-export const short = (t, n) => { t = String(t ?? '').replace(/\s+/g, ' ').trim(); return t.length > n ? t.slice(0, n - 1) + '…' : t; };
+let noShort = false; // 🪟 상태창 화면을 그리는 동안만 켠다 (shell.js renderPanel) — 그동안은 글을 「…」로 줄이지 않는다
+export const setNoShort = (on) => { noShort = !!on; };
+export const short = (t, n) => { t = String(t ?? '').replace(/\s+/g, ' ').trim(); return !noShort && t.length > n ? t.slice(0, n - 1) + '…' : t; };
 export const splitBar = (val) => String(val ?? '').split('|').map(x => x.trim());
 export function rand(n) { // 1..n
     const buf = new Uint32Array(1);
