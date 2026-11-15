@@ -172,17 +172,6 @@ body.ss-retro :is(#ss-hud, #ss-side .ss-side-mini) .ss-tb .ss-t { border-radius:
 .ss-hp-homebody .ss-home-grid > :is([data-w="news"], [data-w="quest"]) { display: none; } /* 옆의 뉴스 · 퀘스트 창에 전부 보임 */
 .ss-hompy .ss-mini-line > span { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: break-word; }
 
-/* 🧱 가운데 창의 내용을 여러 단으로 쌓기 — 가로로 길게 늘이지 않고 빈칸 없이 위아래 · 좌우로 채운다 (지도 · 달력 · 연락 · 홈은 제 모양 유지) */
-.ss-hompy.ss-hp-k-tetris .ss-hp-right > .ss-body:not(.ss-hp-merged):not([data-tab="map"]):not([data-tab="calendar"]):not([data-tab="contact"]):not([data-tab="home"]):not([data-tab="dice"]) { column-width: 250px; column-gap: 8px; }
-.ss-hompy.ss-hp-k-mix .ss-hp-right > .ss-body:not(.ss-hp-merged):not([data-tab="map"]):not([data-tab="calendar"]):not([data-tab="contact"]):not([data-tab="home"]):not([data-tab="dice"]) { column-count: 2; column-gap: 10px; }
-.ss-hompy.ss-hp-k-wide .ss-hp-all { column-width: auto; column-count: 1; } .ss-hompy.ss-hp-k-mix .ss-hp-all { column-width: auto; column-count: 2; }
-.ss-hompy.ss-hp-k-wide .ss-dice { grid-template-columns: minmax(0, 1fr); } .ss-hompy.ss-hp-k-wide .ss-dice > *, .ss-hompy.ss-hp-k-wide .ss-dice > .ss-dice-stage, .ss-hompy.ss-hp-k-wide .ss-dice > .ss-btn { grid-column: 1; grid-row: auto; position: static; }
-.ss-hompy .ss-body :is(.ss-card, .ss-callout, .ss-mini-w, .ss-item, .ss-rtile, .ss-attr, .ss-st-f, .ss-prof, .ss-loan, .ss-reg, .ss-row-btns, .ss-chips, .ss-pills, .ss-f, .ss-in, textarea, table, h4, .ss-sec-h, .ss-partbar, .ss-cashbox, .ss-ct-row, .ss-bub, .ss-log-row, .ss-hint) { break-inside: avoid; }
-.ss-hompy .ss-body :is(h4, .ss-sec-h) { break-after: avoid; }
-.ss-hompy .ss-body .ss-stack { display: block; } .ss-hompy .ss-body .ss-stack > * { margin-bottom: 4px; }
-/* 「모음」: 창은 넓게, 플레이 기록 칸은 두 줄로 */
-.ss-hp-all { column-width: 300px; }
-.ss-hompy .ss-rtile { display: inline-grid; width: calc(50% - 4px); margin: 0 2px 4px 0; vertical-align: top; padding: 4px 7px; box-sizing: border-box; }
 /* 재산: 소지금 띠는 작게, 물건 · 물가는 촘촘히 */
 .ss-hompy .ss-cashbox { padding: 5px 9px; gap: 8px; } .ss-hompy .ss-cashbox b { font-size: 1.15em; } .ss-hompy .ss-cashbox > i { font-size: 1.1em; }
 .ss-hompy .ss-prices { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 4px; } .ss-hompy .ss-prices > * { padding: 3px 6px; min-height: 0; }
@@ -213,8 +202,3 @@ body.ss-retro dialog.ss-dlg :is(.popup-button-ok, .popup-button-cancel) { border
 :is(.ss-hompy, .ss-rt) :is(.ss-body, .ss-hp-col, .ss-hp-wt) :is(span, b, small, p, dd, dt, li, em, label, summary, h4, h5, div) { text-overflow: clip !important; -webkit-line-clamp: unset !important; line-clamp: unset !important; overflow-wrap: break-word !important; word-break: keep-all; }
 :is(.ss-hompy, .ss-rt) :is(.ss-body, .ss-hp-col) :is(p, dd, li, small, b):not(.ss-badge):not(.ss-ava) { white-space: normal !important; }
 :is(.ss-hompy, .ss-rt) .ss-tabs > button, :is(.ss-hompy, .ss-rt) .ss-groups > button, :is(.ss-hompy, .ss-rt) .ss-body :is(.ss-btn, .ss-ib, .ss-pill, .ss-chip, .ss-role, .ss-stage, [class*="chip"], [class*="tag"], [class*="badge"]), :is(.ss-hompy, .ss-rt) .ss-body :is(.ss-btn, .ss-ib, .ss-pill, .ss-chip, [class*="chip"], [class*="tag"]) * { white-space: nowrap !important; }
-/* 여러 단으로 나눌 때: 칸 하나하나는 쪼개지지 않게 (목록 통째로는 나뉘어도 됨) · 머리띠는 단 전체에 걸치게 → 한쪽 단이 비지 않는다 */
-.ss-hompy .ss-body :is(.ss-card, .ss-room, .ss-item, .ss-rtile, .ss-quest, .ss-article, .ss-goss, .ss-post, .ss-snspost, .ss-ach, .ss-memo-note, .ss-good, .ss-loan, .ss-reg, .ss-prof, .ss-race, .ss-fx, .ss-ev, .ss-mod, .ss-modgrp, .ss-callout, .ss-st-f, .ss-st-card, .ss-attr, .ss-price, .ss-rrow, .ss-undo-row, .ss-reply, .ss-pair-adj, .ss-note, details, table, li) { break-inside: avoid; }
-.ss-hompy .ss-body :is(.ss-partbar, .ss-mast, .ss-tab-mast, .ss-goss-h, .ss-quest-h, .ss-shop-h, .ss-place-h, .ss-achbar, .ss-cashbox, .ss-mindbar, .ss-rombar, .ss-outbar, .ss-timebar, .ss-hero, .ss-snsbar, .ss-cal-head) { column-span: all; margin-bottom: 6px; }
-.ss-hompy .ss-body > .ss-seg, .ss-hompy .ss-body > * > .ss-seg:first-child, .ss-hompy .ss-body > .ss-row-btns:first-child { column-span: all; margin-bottom: 6px; }
-.ss-hompy .ss-body :is(.ss-quests, .ss-news, .ss-gossip, .ss-posts, .ss-feed, .ss-rooms, .ss-achs, .ss-goods, .ss-board, .ss-album, .ss-memo) { display: block; } .ss-hompy .ss-body :is(.ss-quests, .ss-news, .ss-gossip, .ss-posts, .ss-feed, .ss-rooms, .ss-achs, .ss-goods, .ss-album) > * { margin-bottom: 6px; }
