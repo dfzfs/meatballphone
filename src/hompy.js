@@ -46,8 +46,8 @@ export function applyRetro() {
 export const WINS = { profile: '프로필', intro: '소개', stats: '상태', friends: '일촌', quest: '퀘스트', news: '뉴스', contact: '연락', mind: '속마음', cond: '상태 이상', fate: '저주 · 빚', music: 'BGM', custom: '내 탭', photo: '사진' };
 const WIN_T = { profile: 'profile', intro: 'about', stats: 'status', photo: 'photo' };
 const FS = { s: 9.5, m: 11, l: 12.5 }; // 글씨 크기(px) — 고르지 않았으면 화면 배율이 큰 기기(노트북 150%↑)는 작게
-const PACK = { tetris: '테트리스 (여러 단)', mix: '혼합 (두 단)', wide: '넓게 (한 단)' }; // 가운데 창의 칸 쌓는 방식
-const packOf = () => (PACK[settings().hpPack] ? settings().hpPack : 'tetris');
+const PACK = { mix: '혼합 (두 단)', tetris: '테트리스 (여러 단)', wide: '넓게 (한 단 · 예전처럼)' }; // 가운데 창의 칸 쌓는 방식
+const packOf = () => (PACK[settings().hpPack] ? settings().hpPack : 'mix'); // 기본은 혼합(두 단)
 const fsOf = () => (FS[settings().hpFs] ? settings().hpFs : (window.devicePixelRatio || 1) >= 1.5 ? 's' : 'm');
 const COLW = ['130px', 'clamp(150px, 15%, 200px)', 'clamp(210px, 23%, 320px)'];
 let editWins = false; // 창 옮기기 중 (창마다 ▲▼⇄✕ 단추)

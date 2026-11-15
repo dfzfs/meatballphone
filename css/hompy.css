@@ -23,7 +23,7 @@
 .ss-hp-url { position: relative; flex: 0 0 auto; display: flex; align-items: center; gap: 6px; padding: 3px 8px; background: var(--hp-strip); border-bottom: 1px solid var(--hp-ol); min-width: 0; }
 .ss-hp-url > i { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--hp-paper); border: 1px solid var(--hp-ol); }
 .ss-hp-nav { flex: 0 0 auto; color: var(--hp-ol); letter-spacing: .35em; margin: 0 2px 0 4px; }
-.ss-hp-addr { flex: 0 1 auto; min-width: 60px; padding: 0 10px; border-radius: 999px; background: var(--hp-paper); border: 1px solid var(--hp-ol); color: var(--hp-dim); overflow-wrap: anywhere; }
+.ss-hp-addr { flex: 0 1 auto; min-width: 60px; padding: 0 10px; border-radius: 999px; background: var(--hp-paper); border: 1px solid var(--hp-ol); color: var(--hp-dim); overflow-wrap: break-word; }
 .ss-hp-addr b { color: var(--hp-ink); }
 .ss-hp-url > em { position: absolute; left: 0; bottom: -1px; height: 2px; width: 0; background: var(--hp-acc); }
 .ss-hompy .ss-head { flex: 1 1 auto; min-width: 0; padding: 0; margin: 0; border: 0; flex-wrap: nowrap; justify-content: flex-end; }
@@ -48,7 +48,7 @@
 .ss-hp-col-in { display: grid; gap: 7px; align-content: start; }
 .ss-hp-win { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--hp-paper); border: 1px solid var(--hp-ol); border-radius: 7px; box-shadow: 2px 2px 0 var(--hp-strip); overflow: hidden; }
 .ss-hp-wt { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 0 7px; background: var(--hp-strip); border-bottom: 1px solid var(--hp-ol); line-height: 1.6; }
-.ss-hp-wt b { min-width: 0; overflow-wrap: anywhere; } .ss-hp-wt i { flex: 0 0 auto; font-style: normal; color: var(--hp-ol); letter-spacing: .1em; font-size: .9em; }
+.ss-hp-wt b { min-width: 0; overflow-wrap: break-word; } .ss-hp-wt i { flex: 0 0 auto; font-style: normal; color: var(--hp-ol); letter-spacing: .1em; font-size: .9em; }
 .ss-hp-wtools { display: flex; gap: 2px; flex: 0 0 auto; } .ss-hp-wtools button { all: unset; cursor: pointer; padding: 0 4px; border: 1px solid var(--hp-ol); border-radius: 4px; background: var(--hp-paper); font-size: .85em; line-height: 1.35; } .ss-hp-wtools button:hover { background: var(--hp-soft); }
 .ss-hp-editing .ss-hp-col .ss-hp-win { border-style: dashed; } .ss-hp-deco-b.on { background: var(--hp-acc); color: #fff; }
 .ss-hp-wb { padding: 6px 7px; min-width: 0; display: grid; gap: 5px; }
@@ -58,24 +58,24 @@
 .ss-hp-photo { position: relative; aspect-ratio: 1; border: 1px solid var(--hp-ol); border-radius: 6px; cursor: pointer; display: grid; place-items: center; overflow: hidden; background: repeating-linear-gradient(90deg, var(--hp-soft) 0 7px, var(--hp-paper) 7px 14px); }
 .ss-hp-photo img { width: 88%; height: 88%; object-fit: contain; } .ss-hp-photo.mine img { width: 100%; height: 100%; object-fit: cover; }
 .ss-hp-prof-t { display: grid; gap: 4px; min-width: 0; }
-.ss-hp-today { display: grid; padding: 2px 6px; border: 1px solid var(--hp-ol); border-radius: 5px; background: var(--hp-soft); } .ss-hp-today small { color: var(--hp-acc); font-size: .88em; } .ss-hp-today b { overflow-wrap: anywhere; }
-.ss-hp-name { overflow-wrap: anywhere; line-height: 1.3; }
-.ss-hp-intro { margin: 0; color: var(--hp-dim); overflow-wrap: anywhere; }
-.ss-hp-list { margin: 0; padding: 0 0 0 1.1em; cursor: pointer; display: grid; gap: 2px; } .ss-hp-list li { overflow-wrap: anywhere; } .ss-hp-list li::marker { color: var(--hp-acc); }
-.ss-hp-mini { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 1px 8px; } .ss-hp-mini dt { color: var(--hp-dim); } .ss-hp-mini dd { margin: 0; overflow-wrap: anywhere; }
+.ss-hp-today { display: grid; padding: 2px 6px; border: 1px solid var(--hp-ol); border-radius: 5px; background: var(--hp-soft); } .ss-hp-today small { color: var(--hp-acc); font-size: .88em; } .ss-hp-today b { overflow-wrap: break-word; }
+.ss-hp-name { overflow-wrap: break-word; line-height: 1.3; }
+.ss-hp-intro { margin: 0; color: var(--hp-dim); overflow-wrap: break-word; }
+.ss-hp-list { margin: 0; padding: 0 0 0 1.1em; cursor: pointer; display: grid; gap: 2px; } .ss-hp-list li { overflow-wrap: break-word; } .ss-hp-list li::marker { color: var(--hp-acc); }
+.ss-hp-mini { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 1px 8px; } .ss-hp-mini dt { color: var(--hp-dim); } .ss-hp-mini dd { margin: 0; overflow-wrap: break-word; }
 .ss-hp-bars { display: grid; gap: 3px; }
 .ss-hp-bars > div { display: grid; grid-template-columns: minmax(2.4em, max-content) minmax(20px, 1fr) max-content; align-items: center; gap: 6px; }
-.ss-hp-bars span { overflow-wrap: anywhere; color: var(--hp-dim); }
+.ss-hp-bars span { overflow-wrap: break-word; color: var(--hp-dim); }
 .ss-hp-bars i { height: 7px; border-radius: 4px; background: var(--hp-soft); border: 1px solid var(--hp-ol); overflow: hidden; } .ss-hp-bars i b { display: block; height: 100%; background: var(--hp-acc); }
 .ss-hp-friends { display: grid; gap: 2px; }
 .ss-hp-friends button { all: unset; cursor: pointer; display: grid; grid-template-columns: 18px minmax(0, 1fr) max-content max-content; line-height: 1.5; align-items: center; gap: 6px; padding: 1px 3px; border-radius: 5px; } .ss-hp-friends button:hover { background: var(--hp-soft); }
-.ss-hp-friends span { display: flex; gap: 5px; align-items: baseline; min-width: 0; } .ss-hp-friends span { flex-wrap: wrap; } .ss-hp-friends :is(b, small) { overflow-wrap: anywhere; } .ss-hp-friends small { color: var(--hp-dim); font-size: .9em; }
+.ss-hp-friends span { display: flex; gap: 5px; align-items: baseline; min-width: 0; } .ss-hp-friends span { flex-wrap: wrap; } .ss-hp-friends :is(b, small) { overflow-wrap: break-word; } .ss-hp-friends small { color: var(--hp-dim); font-size: .9em; }
 .ss-hp-friends em { font-style: normal; color: #e0567f; font-size: .92em; } .ss-hp-friends em.t { color: #4a8fd6; }
 .ss-hp-friends .ss-ava { width: 18px !important; height: 18px !important; min-width: 0; margin: 0; font-size: 12px !important; line-height: 18px; border-radius: 5px; }
 /* 소식 창들: 홈의 미니 칸을 창 안에 그대로 */
 .ss-hp-win.x .ss-mini-w { padding: 0; border: 0; background: none !important; border-radius: 0; min-width: 0; }
 .ss-hp-win.x .ss-mini-line { gap: 5px; align-items: baseline; } .ss-hp-win.x .ss-mini-line > i { color: var(--hp-acc); }
-.ss-hp-col :is(.ss-mini-line > span, .ss-mini-quests *, .ss-ct-b small) { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; overflow-wrap: anywhere; }
+.ss-hp-col :is(.ss-mini-line > span, .ss-mini-quests *, .ss-ct-b small) { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; overflow-wrap: break-word; }
 /* 가운데 창: 지금 탭 */
 .ss-hp-right { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; scrollbar-width: thin; scrollbar-color: var(--hp-strip) transparent; }
 :is(.ss-hompy, .ss-rt) .ss-tabs { justify-content: flex-start !important; gap: 3px; border-bottom: 1px solid var(--hp-ol); }
@@ -119,7 +119,7 @@
 .ss-hp-main img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; object-position: center 35%; border-radius: 6px; border: 1px solid var(--hp-ol); background: var(--hp-soft); }
 .ss-hp-win[data-win="photo"] .ss-hp-main { margin: 0; }
 .ss-hp-main figcaption { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding-top: 2px; }
-.ss-hp-main figcaption > button { all: unset; cursor: pointer; flex: 1; min-width: 0; color: var(--hp-acc); overflow-wrap: anywhere; } .ss-hp-main figcaption > button i { color: var(--hp-dim); }
+.ss-hp-main figcaption > button { all: unset; cursor: pointer; flex: 1; min-width: 0; color: var(--hp-acc); overflow-wrap: break-word; } .ss-hp-main figcaption > button i { color: var(--hp-dim); }
 .ss-hp-main figcaption > span { display: flex; flex: 0 0 auto; opacity: .55; } .ss-hp-main figcaption > span:hover { opacity: 1; } .ss-hp-main figcaption .ss-ib { width: 22px; height: 20px; }
 /* 고르기 창 (프로필 그림 · 꾸미기) */
 .ss-hp-faces { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 14px; }
@@ -170,7 +170,7 @@ body.ss-retro :is(#ss-hud, #ss-side .ss-side-mini) .ss-tb .ss-t { border-radius:
 .ss-hp-right:has(> .ss-body.ss-hp-merged) > :is(.ss-toolrow, .ss-hidebar, .ss-instruct) { display: none; }
 .ss-hompy .ss-tabs > button > :is(.ss-dot, .ss-fresh, .ss-badge) { position: absolute; top: -2px; right: -2px; margin: 0; }
 .ss-hp-homebody .ss-home-grid > :is([data-w="news"], [data-w="quest"]) { display: none; } /* 옆의 뉴스 · 퀘스트 창에 전부 보임 */
-.ss-hompy .ss-mini-line > span { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+.ss-hompy .ss-mini-line > span { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: break-word; }
 
 /* 🧱 가운데 창의 내용을 여러 단으로 쌓기 — 가로로 길게 늘이지 않고 빈칸 없이 위아래 · 좌우로 채운다 (지도 · 달력 · 연락 · 홈은 제 모양 유지) */
 .ss-hompy.ss-hp-k-tetris .ss-hp-right > .ss-body:not(.ss-hp-merged):not([data-tab="map"]):not([data-tab="calendar"]):not([data-tab="contact"]):not([data-tab="home"]):not([data-tab="dice"]) { column-width: 250px; column-gap: 8px; }
@@ -209,7 +209,9 @@ body.ss-retro dialog.ss-dlg :is(.popup-button-ok, .popup-button-cancel) { border
 :is(.ss-hompy, .ss-rt) .ss-body :is(.ss-card, .ss-mini-w, .ss-item, .ss-rtile, .ss-attr, .ss-callout, .ss-prof, .ss-loan, .ss-reg, .ss-st-f, .ss-st-card, .ss-ct-row, .ss-prices > *, .ss-in, textarea, select) { border: 1px solid var(--hp-ol); }
 :is(.ss-hompy, .ss-rt) .ss-body :is(.ss-pill, .ss-chip, .ss-seg, .ss-seg > *) { border-color: var(--hp-ln); }
 .ss-hp-win { border-width: 1.5px; } .ss-hp-wt { border-bottom-width: 1.5px; }
-/* 글을 「…」로 자르지 않는다: 줄을 바꿔 다 보여 준다 (글씨 크기와 상관없이) */
-:is(.ss-hompy, .ss-rt) :is(.ss-body, .ss-hp-col, .ss-hp-wt) :is(span, b, small, p, dd, dt, li, em, label, summary, h4, h5, div) { text-overflow: clip !important; -webkit-line-clamp: unset !important; line-clamp: unset !important; overflow-wrap: anywhere; }
-:is(.ss-hompy, .ss-rt) :is(.ss-body, .ss-hp-col) :is(span, b, small, p, dd, dt, li, em, summary):not(.ss-badge):not(.ss-ava) { white-space: normal !important; }
-:is(.ss-hompy, .ss-rt) .ss-tabs > button, :is(.ss-hompy, .ss-rt) .ss-groups > button, :is(.ss-hompy, .ss-rt) .ss-body :is(.ss-btn, .ss-ib, .ss-pill) { white-space: nowrap !important; }
+/* 글을 「…」로 자르지 않는다: 줄을 바꿔 다 보여 준다 — 낱말 단위로만 끊는다 (한 글자씩 세로로 끊기지 않게) */
+:is(.ss-hompy, .ss-rt) :is(.ss-body, .ss-hp-col, .ss-hp-wt) :is(span, b, small, p, dd, dt, li, em, label, summary, h4, h5, div) { text-overflow: clip !important; -webkit-line-clamp: unset !important; line-clamp: unset !important; overflow-wrap: break-word !important; word-break: keep-all; }
+:is(.ss-hompy, .ss-rt) :is(.ss-body, .ss-hp-col) :is(p, dd, li, small, b):not(.ss-badge):not(.ss-ava) { white-space: normal !important; }
+:is(.ss-hompy, .ss-rt) .ss-tabs > button, :is(.ss-hompy, .ss-rt) .ss-groups > button, :is(.ss-hompy, .ss-rt) .ss-body :is(.ss-btn, .ss-ib, .ss-pill, .ss-chip, .ss-role, .ss-stage, [class*="chip"], [class*="tag"], [class*="badge"]), :is(.ss-hompy, .ss-rt) .ss-body :is(.ss-btn, .ss-ib, .ss-pill, .ss-chip, [class*="chip"], [class*="tag"]) * { white-space: nowrap !important; }
+/* 여러 단으로 나눌 때 칸이 단 사이에서 쪼개지지 않게 */
+.ss-hompy .ss-body :is([class*="card"], [class*="room"], [class*="item"], [class*="tile"], [class*="row"], details, section, article, fieldset, li, table, .ss-st-f), .ss-hompy .ss-hp-right > .ss-body > * > *, .ss-hompy .ss-hp-right > .ss-body > * > * > * { break-inside: avoid; }
