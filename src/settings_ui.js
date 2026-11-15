@@ -231,11 +231,11 @@ export function renderSettings() {
         if (a === 'report') return openReport();
         if (a === 'copydump') return app.copyDump?.();
         if (a === 'tipreset') { settings().tipNever = {}; settings().hintSeen = {}; saveSettings(); toastr.info('다시 추천해 드릴게요.', TITLE); return; }
-        if (a === 'partsreset') { const { resetParts, partsCount } = await import('./src/parts.js'); const n = partsCount(); resetParts(); toastr.info(n ? `숨겨 둔 ${n}개를 다시 보이게 했어요. (관계 탭의 「보일 것」은 관계 칸에서 따로 켜요)` : '숨긴 게 없어요.', TITLE); return; }
+        if (a === 'partsreset') { const { resetParts, partsCount } = await import('./parts.js'); const n = partsCount(); resetParts(); toastr.info(n ? `숨겨 둔 ${n}개를 다시 보이게 했어요. (관계 탭의 「보일 것」은 관계 칸에서 따로 켜요)` : '숨긴 게 없어요.', TITLE); return; }
         if (a === 'whatsnew') return app.showWhatsNew(true);
         if (a === 'help') return openHelp();
         if (a === 'toenglish') return convertToEnglish(e.target.closest('button'));
-        if (a === 'trprune') { const { pruneTr } = await import('./src/translate.js'); return pruneTr(); }
+        if (a === 'trprune') { const { pruneTr } = await import('./translate.js'); return pruneTr(); }
         if (a === 'romrec' || a === 'romoff') {
             const set = settings(), on = a === 'romrec';
             if (on) { set.romBond = true; set.romCap = true; set.romFacts = true; }

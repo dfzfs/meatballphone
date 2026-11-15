@@ -9,7 +9,7 @@ const MAX_LINES = 8;
 
 // 답마다의 값 모으기 → { xs: [메시지 번호…], cash: [..], aff: { 이름: [..] }, trust: { 이름: [..] } }
 export function trendData() {
-    const xs = [], cash = [], aff = {}, trust = {};
+    const xs = [], cash = [], aff = Object.create(null), trust = Object.create(null); // 이름이 constructor · toString 이어도 안전하게
     let last = '', tail = -1;
     const step = (i, s) => {
         const rel = s.data.rel?.user ?? [];

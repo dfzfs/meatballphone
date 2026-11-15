@@ -672,6 +672,7 @@ function opCond(s, val, info, L, T, key, rawKey) {
 function opCash(s, val, info, L, T, key, rawKey) {
     const w = ensure(s, 'wallet');
     const p = bareFix(parseNum(val), w.cash, info); if (!p) return;
+    if (!Number.isFinite(p.v) || Math.abs(p.v) > 1e15) return miss(info, rawKey, val); // 터무니없이 큰 숫자(AI 실수)는 반영하지 않고 ⚠ 못 읽은 줄로 (v2.8)
     const b = w.cash; w.cash = Math.max(0, p.mode === 'add' ? w.cash + p.v : p.v);
     if (w.cash > b) T.earn += w.cash - b; else T.spend += b - w.cash;
     if (w.cash !== b) L(`${w.currency} ${signed(w.cash - b)}`);
