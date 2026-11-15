@@ -451,6 +451,11 @@ export function normPlay(p) {
     return { mode: PLAY_MODES[p.mode] ? p.mode : 'rp', hero: String(p.hero ?? '').trim().slice(0, 40), cardIsWorld: !!p.cardIsWorld, cast: Array.isArray(p.cast) ? p.cast.map(String).map(x => x.trim()).filter(Boolean).slice(0, 20) : [] };
 }
 export function playOf(meta) { try { return normPlay((meta ?? (app.playTemp ? { play: app.playTemp } : getMeta()))?.play); } catch { return normPlay(null); } }
+// 풀사칭인데 주인공 이름이 유저(페르소나) 이름과 같은가 — 유저 「루시」가 지시만 하고 AI가 루시 몫까지 쓰는 경우
+// 이때 「유저는 이야기 속 인물이 아니다」라고 하면 AI가 헷갈리므로 규칙문을 따로 쓴다 (inj/gen.play.director.self)
+export function heroIsUser(p = playOf()) {
+    try { return p.mode === 'director' && !!p.hero && norm(p.hero) === norm(ctx().name1 ?? ''); } catch { return false; }
+}
 // 풀사칭이면 우리 글 속 {{user}}를 주인공 이름으로 (주인공이 없으면 '주인공')
 export function swapUser(text, meta) {
     const p = playOf(meta);

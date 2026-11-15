@@ -1,5 +1,5 @@
 // 확장 AI가 하는 일 (모두 토큰이 드는 호출)
-import { letterMode, instantLetter, contactSimple, app, ctx, settings, getMeta, MOD, NORM, normalize, ensureLove, LOVE_AXES, relAxes, fixLoveLadder, short, findBy, norm, dateStr, stamp, MODULE, LOG, DIFFS, diffOf, CONTACT_MODES, uid, msgText, fmtNum, playOf, normPlay, ssWarn, dayIndex } from './core.js';
+import { letterMode, instantLetter, contactSimple, app, ctx, settings, getMeta, MOD, NORM, normalize, ensureLove, LOVE_AXES, relAxes, fixLoveLadder, short, findBy, norm, dateStr, stamp, MODULE, LOG, DIFFS, diffOf, CONTACT_MODES, uid, msgText, fmtNum, playOf, normPlay, ssWarn, dayIndex, heroIsUser } from './core.js';
 import { P, aiGenerate, parseJSON, aiJSON } from './prompts.js';
 import { SCHEMA, modOn, parseNum } from './core.js';
 import { compute, buildInjection, tagKeysFor, extractOps, stripStatus, recentChat, chatCharacters, setDrawer } from './engine.js';
@@ -10,7 +10,7 @@ const tasteLine = () => { const t = app.current?.state?.data?.music?.taste || se
 export function playLine(p = playOf()) {
     const world = p.cardIsWorld ? P('gen.play.world') : '';
     const cast = p.cast.length ? ` — cast: ${p.cast.join(', ')}` : '';
-    return P(`gen.play.${p.mode}`, { world, cast, hero: p.hero || 'the main character' });
+    return P(heroIsUser(p) ? 'gen.play.director.self' : `gen.play.${p.mode}`, { world, cast, hero: p.hero || 'the main character' });
 }
 const diffLine = () => `Difficulty: ${DIFFS[diffOf()].name} — ${P(`diff.${diffOf()}`)}`;
 const contactModeLine = (mode) => (mode && mode !== 'auto' ? `Use mode "${mode}" (${CONTACT_MODES[mode]?.name}).` : 'Choose mode: phone for modern/sci-fi worlds with phones, instant for magic/radio/telepathy, letter for worlds without phones (letters take days).');
