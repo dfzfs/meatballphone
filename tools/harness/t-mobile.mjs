@@ -1,5 +1,5 @@
 // 모바일(폭 390 · 360 · 손가락): HUD 타일 판이 화면 안에 들어오고 · 글자가 안 잘리고 · 손가락으로 옮기기 · 크기 바꾸기가 되는지
-import { chromium } from '/opt/npm-tools/node_modules/playwright/index.mjs';
+import { chromium } from './pw.mjs';
 import { serve } from './server.mjs';
 import { makeStatus, sleep, check } from './lib.mjs';
 const srv = await serve(0); const port = srv.address().port;

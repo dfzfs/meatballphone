@@ -1,6 +1,6 @@
 // 처음 만들기 (마법사 · 기준 상태 세우기) — shell.js에서 떼어 냄
 import { DATA_V, app, ctx, settings, saveSettings, getMeta, saveMeta, MOD, MOD_IDS, EMPTY, NORM, normalize, DIFFS, GENRES, CONTACT_MODES, esc, clone, clamp, h, TITLE, LOG, PLAY_MODES, normPlay, playOf, mascotUrl, relFromProfiles, ssErr, ssWarn } from './core.js';
-import { gatherSources, loreNames, chatCharacters } from './engine.js';
+import { gatherSources, loreNames, chatCharacters, setBase, startBlank } from './engine.js';
 import { genModule, genGroup, GEN_GROUPS } from './ai.js';
 import { popup, askConfirm, busyBtn, seg, sec, mascot } from './kit.js';
 import { GROUPS, TAB_MOD } from './views.js';
@@ -8,31 +8,6 @@ import { GEN_MODES, HYBRID_TPL, skeleton, skeletonCore, skeletonHint } from './s
 import { REC_MODS, defaultModOn } from './core.js';
 
 // ───── 처음 만들기 ─────
-export async function setBase(base, mods, difficulty, play) {
-    const meta = getMeta(true);
-    const chat = ctx().chat ?? [];
-    const data = {};
-    for (const id of MOD_IDS) data[id] = base?.data?.[id] ? normalize(id, base.data[id]) : null;
-    meta.base = { core: NORM.core(base?.core ?? {}), data };
-    meta.baseTurn = 0;
-    meta.startAt = chat.length;
-    meta.startKey = chat.at(-1)?.send_date ?? null;
-    meta.adjust = [];
-    delete meta.wipe; // 🧹 칸 전체 삭제 표시도 새로 만들면 비움
-    meta.off = false;
-    meta.v = DATA_V;
-    meta.origin = clone(meta.base); // 처음 만든 상태 (카드에 붙이기 · 2회차용)
-    meta.chatId = ctx().getCurrentChatId?.() ?? null;
-    delete meta.newV5;
-    if (mods) meta.mods = { ...meta.mods, ...mods };
-    if (difficulty && DIFFS[difficulty]) meta.difficulty = difficulty;
-    if (play) meta.play = normPlay(play);
-    app.playTemp = null;
-    await saveMeta(true);
-    app.refreshNow();
-}
-export async function startBlank() { await setBase({ core: EMPTY.core(), data: {} }); toastr.info('빈 상태창을 만들었어요. 각 칸에서 AI로 채우거나 직접 채우세요.', TITLE); }
-
 export async function openWizard() {
     const c = ctx();
     const chars = chatCharacters();

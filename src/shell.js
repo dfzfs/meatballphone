@@ -19,10 +19,9 @@ import { FATE_ACTIONS } from './fate.js';
 import { EDIT, viewTr, letterMode } from './core.js';
 import { translateSheet, missingTr } from './translate.js';
 import { hintAfterAction } from './tips.js';
-import { openPromptWindow, openThemeWindow } from './windows.js';
-import { setBase, startBlank, openWizard } from './wizard.js';
-export * from './wizard.js'; // 떼어 낸 것 — 다른 파일은 예전처럼 여기서 받아도 된다
-export * from './windows.js'; // 떼어 낸 것 — 다른 파일은 예전처럼 여기서 받아도 된다
+import { openPromptWindow, openThemeWindow, openWizard } from './lazy.js';
+import { setBase, startBlank } from './engine.js';
+export { setBase, startBlank, openWizard, openPromptWindow, openThemeWindow }; // 다른 파일은 예전처럼 여기서 받아도 된다 (창은 눌렀을 때 불러옴 — lazy.js)
 
 export const panels = new Set();
 app.popup = popup;

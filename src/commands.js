@@ -4,7 +4,7 @@ import { buildInjection, addAdjust, KEYMAP, ssValue } from './engine.js';
 import { instructModule } from './ai.js';
 import { diffHTML, confirmPopup } from './kit.js';
 import { openSheet, openWizard, openRoll, openPromptWindow } from './shell.js';
-import { openHelp } from './help.js';
+import { openHelp } from './lazy.js';
 import { saveSlot, fullBackup, diagnose } from './safe.js';
 import { openReport } from './report.js';
 import { openPip, pipFix, pipDiag } from './pip.js';

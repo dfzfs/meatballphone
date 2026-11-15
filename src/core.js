@@ -395,6 +395,8 @@ function recErr(level, args) {
 }
 export function ssErr(...a) { recErr('error', a); console.error(...a); }
 export function ssWarn(...a) { recErr('warn', a); console.warn(...a); }
+// 넘어가도 되지만 흔적은 남길 것 — 콘솔엔 안 찍고 오류 보고문에만 남는다. 빈 catch { } 대신 쓴다
+export function ssNote(where, e) { recErr('note', [where, e]); }
 export function h(html) {
     const t = document.createElement('template');
     t.innerHTML = String(html).trim();
@@ -577,7 +579,7 @@ try {
     document.addEventListener('keydown', outside, { capture: true, passive: true });
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushMeta(); });
     window.addEventListener('pagehide', () => flushMeta());
-} catch { /* */ }
+} catch (e) { ssNote('나갈 때 저장 걸기 실패', e); }
 export function modOnRaw(id, meta = getMeta()) {
     if (!meta) return false;
     if (GLOBAL_OFF[id] && settings()[GLOBAL_OFF[id]] === false) return false; // v2.7.3: 모든 채팅에서 끈 칸

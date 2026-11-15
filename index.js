@@ -2,7 +2,7 @@
 // 어떤 카드·세계관에도 붙는 상태창. 모든 칸은 AI가 처음 채우고, 직접 편집 · 추가 지시 · 다시 생성이 된다.
 import {
     rev, ctxReset, app, ctx, settings, saveSettings, migrateParts, getMeta, saveMeta, isActive,
-    ready, modOn, esc, splitBar, TITLE, LOG, VERSION, MODULE, rand, ssErr, ssWarn,
+    ready, modOn, esc, splitBar, TITLE, LOG, VERSION, MODULE, rand, ssErr, ssWarn, ssNote,
 } from './src/core.js';
 import { opInfo } from './src/engine.js';
 import {
@@ -43,7 +43,7 @@ function waitChips() {
     chipWait = setInterval(() => {
         if (mainBusy() && ++n < 600) return;
         clearInterval(chipWait); chipWait = null;
-        try { decorateAll(); } catch { /* */ }
+        try { decorateAll(); } catch (e) { ssNote('칩 붙이기 실패', e); }
     }, 1000);
 }
 // v2.7.21: 칩이 붙은 뒤 다른 확장(번역 등)이 본문을 다시 그리며 칩 자리를 지우면, 다음 사건까지 칩이 안 보였다 (칩 점검 「칩 자리가 사라졌어요」)
@@ -440,7 +440,7 @@ function noticeRemoved() {
     toastr.warning('미트볼은 이제 상태창 기능만 AI에게 보내요. 「⑦ 내 추가 주입문」에 적어 두신 글은 더는 안 가요 — 필요하면 실리태번 작가 노트(Author\'s Note)로 옮겨 주세요. (적어 둔 글은 확장 설정 백업에 그대로 남아 있어요)', TITLE, { timeOut: 0, extendedTimeOut: 0, closeButton: true });
 }
 function whatsNewOnLoad(fresh) {
-    try { noticeRemoved(); } catch { /* */ }
+    try { noticeRemoved(); } catch (e) { ssNote('없어진 기능 알림 실패', e); }
     const s = settings();
     const key = noteKey();
     // 버전이 바뀔 때만 한 번 (같은 버전에서 「바뀐 점」 글만 고쳐졌을 땐 다시 안 띄움 — 너무 자주 뜬다는 의견)
@@ -825,9 +825,9 @@ function init() {
         try { const meta = getMeta(); if (meta?.base && clampAdjust(meta, ctx().chat?.length ?? 0)) await saveMeta(); } catch (e) { ssWarn(LOG, 'clamp', e); }
         refresh(true);
     });
-    on('GENERATION_STARTED', (type, opts, dry) => { if (!dry) { app.generatingAt = Date.now(); try { noteGeneration(type); } catch { /* */ } } });
-    on('GENERATION_ENDED', () => { app.generatingAt = 0; setTimeout(() => { try { decorateAll(); } catch { /* */ } }, 50); });
-    on('GENERATION_STOPPED', () => { app.generatingAt = 0; setTimeout(() => { try { decorateAll(); } catch { /* */ } }, 300); });
+    on('GENERATION_STARTED', (type, opts, dry) => { if (!dry) { app.generatingAt = Date.now(); try { noteGeneration(type); } catch (e) { ssNote('생성 시작 기록 실패', e); } } });
+    on('GENERATION_ENDED', () => { app.generatingAt = 0; setTimeout(() => { try { decorateAll(); } catch (e) { ssNote('칩 붙이기 실패', e); } }, 50); });
+    on('GENERATION_STOPPED', () => { app.generatingAt = 0; setTimeout(() => { try { decorateAll(); } catch (e) { ssNote('칩 붙이기 실패', e); } }, 300); });
     on('GENERATION_ENDED', onGenEnded);
     refreshNow();
     try { whatsNewOnLoad(fresh); } catch (e) { ssWarn(LOG, 'whatsnew', e); }

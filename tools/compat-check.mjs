@@ -20,7 +20,8 @@ const SRC = Object.fromEntries(ours.map(f => [f, read(path.join(ROOT, f))]));
 const ALL = Object.values(SRC).join('\n');
 // 확장 설정 서랍은 src/settings_ui.js로 옮겼다 (옛 판은 index.js) — 둘을 함께 본다
 const SETSRC = `${SRC['index.js']}\n${SRC['src/settings_ui.js'] ?? ''}`;
-const CSS = read(path.join(ROOT, 'style.css'));
+// 스타일은 css/ 폴더에 나눠 둠 (style.css는 @import만) — 전부 이어서 본다
+const CSS = [read(path.join(ROOT, 'style.css')), ...(fs.existsSync(path.join(ROOT, 'css')) ? fs.readdirSync(path.join(ROOT, 'css')).filter(f => f.endsWith('.css')).map(f => read(path.join(ROOT, 'css', f))) : [])].join('\n');
 let fails = 0, warns = 0;
 const ok = (c, msg, extra = '') => { if (c) console.log(`  ✔ ${msg}`); else { console.log(`  ✘ ${msg}${extra ? ` — ${extra}` : ''}`); fails++; } };
 const warn = (c, msg, extra = '') => { if (c) console.log(`  ✔ ${msg}`); else { console.log(`  ⚠ ${msg}${extra ? ` — ${extra}` : ''}`); warns++; } };

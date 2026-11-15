@@ -5,7 +5,7 @@ import { listProfiles } from './prompts.js';
 import { popup } from './kit.js';
 import { rerenderPanels, openSheet, openWizard, openPromptWindow, openThemeWindow } from './shell.js';
 import { translateSheet, convertToEnglish } from './translate.js';
-import { openHelp } from './help.js';
+import { openHelp } from './lazy.js';
 import { fullBackup, diagnose } from './safe.js';
 import { PRESETS, applyPreset, REL_SHOW } from './extra.js';
 import { FREQ_MODS } from './engine.js';

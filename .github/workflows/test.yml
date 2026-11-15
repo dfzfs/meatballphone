@@ -1,0 +1,27 @@
+# 올릴 때마다 시험대를 돌린다 — dev는 사용자에게 바로 나가는 판이라, 깨진 커밋을 여기서 먼저 잡는다
+name: 시험대
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 문법 검사
+        run: |
+          for f in index.js src/*.js; do cp "$f" /tmp/chk.mjs && node --check /tmp/chk.mjs || { echo "✘ $f"; exit 1; }; done
+      - name: 판 번호 맞는지 (manifest.json = src/core.js)
+        run: |
+          m=$(node -p "require('./manifest.json').version")
+          grep -q "VERSION = '$m'" src/core.js || { echo "✘ manifest.json은 $m 인데 src/core.js의 VERSION이 달라요"; exit 1; }
+      - name: Playwright 깔기
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: 시나리오 전부
+        run: node tools/harness/run-all.mjs

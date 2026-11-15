@@ -1,5 +1,5 @@
 // 「수치 기능만 켠 미트볼」 vs 「수치만 있는 가상의 단독 확장」 vs 「확장 없음」 — 폰 흉내(CPU 4배 느리게)
-import { chromium } from '/opt/npm-tools/node_modules/playwright/index.mjs';
+import { chromium } from './pw.mjs';
 import { serve } from './server.mjs';
 const RATE = Number(process.env.RATE || 4), HIST = Number(process.env.HIST || 120), TURNS = 20;
 const srv = await serve(0); const port = srv.address().port;

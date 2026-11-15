@@ -1,5 +1,5 @@
 // Shared helpers for harness scenarios (Playwright + fake ST)
-import { chromium } from '/opt/npm-tools/node_modules/playwright/index.mjs';
+import { chromium } from './pw.mjs';
 import { serve } from './server.mjs';
 
 export async function open({ ext2 = false, width = 1300, height = 900 } = {}) {

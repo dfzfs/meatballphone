@@ -1,6 +1,6 @@
 // 🔍 칩 점검 (v2.7.3): AI 답 밑 변동 칩이 안 보일 때 — 「변화를 못 읽었나(씹힘)」 · 「읽었는데 화면에 안 보이나」를 가려내고 손으로 다시 부른다
 // AI를 부르지 않는다 (「AI로 다시 분석」을 누를 때만 1회). 진단은 채팅 데이터 · 화면(DOM)만 본다.
-import { app, ctx, settings, saveSettings, getMeta, modOn, MOD, MODULE, esc, short, TITLE, isActive, ready } from './core.js';
+import { app, ctx, settings, saveSettings, getMeta, modOn, MOD, MODULE, esc, short, TITLE, isActive, ready, ssNote } from './core.js';
 import { msgOps, opInfo, isStoryAI, hasStatus, extractOps, drawerOps, setDrawer, stashStatus, syncSwipe } from './engine.js';
 import { choosePopup } from './kit.js';
 
@@ -112,7 +112,7 @@ export async function pipFix(i, act = 'auto') {
                 if (k >= 0) { const rest = t.slice(k).replace(/^<\/?\s*meatball\s*>?[^\n]*\n?/i, ''); const run = rest.match(/^(?:\s*(?:[-*•]\s*|\d+[.)]\s*)?[^<:：\n]{1,24}[:：][^\n]*\n?)*/)?.[0] ?? ''; m.mes = (t.slice(0, k) + rest.slice(run.length).replace(/^\s*<\/meatball>/i, '')).replace(/\s+$/, ''); if (Array.isArray(m.swipes) && typeof m.swipes[sid] === 'string') m.swipes[sid] = m.mes; }
             }
         }
-        try { c.updateMessageBlock?.(i, m); } catch { /* 다시 그리기 실패는 무시 */ }
+        try { c.updateMessageBlock?.(i, m); } catch (e) { ssNote('메시지 다시 그리기 실패', e); }
         await c.saveChat?.();
         app.redecorate?.(); app.refreshNow?.();
         toastr.success(`변화 ${ops.length}줄을 다시 읽었어요.`, TITLE);

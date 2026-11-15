@@ -15,17 +15,26 @@
 |---|---|---|
 | 바닥 | `src/util.js` | 숫자 · 글자 · 달력 계산. 아무것도 불러오지 않음 |
 | 바닥 | `src/core.js` | 상수 · 설정 · 채팅 메타 · 데이터 모양. `util.js`를 다시 내보냄 |
-| 계산 | `src/engine.js` | `<meatball>` 읽기 → 상태 다시 계산(`compute`) → 프롬프트 주입 |
+| 계산 | `src/ops.js` | 규칙: `<meatball>` 한 줄(키=값)을 상태에 반영 — 종류마다 `op이름` 함수 + `OPS` 표 |
+| 계산 | `src/engine.js` | `<meatball>` 읽기 → 상태 다시 계산(`compute`) → 프롬프트 주입. `ops.js`를 다시 내보냄 |
 | AI | `src/prompts.js` · `src/ai.js` · `src/translate.js` | AI 호출 · 번역 |
 | 기능 | `contact` · `dice` · `extra` · `fate` · `feeds` · `money` · `notify` · `safe` · `pip` · `tips` · `help` · `report` · `mascot` | 칸 하나씩 |
 | 화면 | `src/tiles.js` | 미니 위젯 · 타일 판 |
 | 화면 | `src/views.js` | 칸별 화면 · 관리 · 칸 공통 동작. `tiles.js`를 다시 내보냄 |
-| 틀 | `src/shell.js` | 패널 · HUD · 사이드. `wizard.js` · `windows.js`를 다시 내보냄 |
-| 틀 | `src/wizard.js` · `src/windows.js` | 처음 만들기 · 프롬프트/꾸미기 창 |
+| 틀 | `src/shell.js` | 패널 · HUD · 사이드 |
+| 틀 | `src/lazy.js` | 눌렀을 때 불러오는 창 목록 (`help.js` · `wizard.js` · `windows.js`) |
+| 틀 | `src/wizard.js` · `src/windows.js` | 처음 만들기 · 프롬프트/꾸미기 창 (눌렀을 때 불러옴) |
 | 맨 위 | `src/settings_ui.js` · `src/commands.js` | 확장 설정 서랍 · 슬래시 커맨드 |
 | 맨 위 | `index.js` | 이벤트 연결 · 칩 · 갱신 · 업데이트 알림 |
 
-- **새 변화량 종류**: `engine.js`의 `KEYMAP` · `KEY_MOD`에 키 → `op이름` 함수 → `OPS` 표.
+- **새 변화량 종류**: `ops.js`의 `KEYMAP` · `KEY_MOD`에 키 → `op이름` 함수 → `OPS` 표.
 - **옛 채팅 한 번 손보기**: `engine.js`의 `fixOldMeta`에 한 줄.
 - **위 파일의 함수를 아래 파일에서 불러야 할 때**: import하지 말고 `app.이름`에 걸어요. 건 것은 `core.js` 맨 위 목록에 적어요.
+- **넘어가도 되는 오류**: 빈 `catch { }` 대신 `ssNote('어디서', e)` — 콘솔엔 안 찍히고 오류 보고문에만 남아요.
+- **스타일**: `style.css`는 `@import`만 있고 내용은 `css/` 폴더에 순서대로 (`base` → `panel` → `hud` → `patches` → `tiles`). 뒤 파일이 앞 파일을 덮어써요.
+
+## 올릴 때마다 자동 시험 (`.github/workflows/test.yml`)
+
+깃허브에 올리면 문법 검사 → 판 번호 확인(`manifest.json` = `src/core.js`) → 시나리오 전부를 돌려요. 결과는 저장소의 Actions 탭에서 봐요.
+내 컴퓨터에서 돌릴 땐 Playwright가 `/opt/npm-tools`에 없으면 저장소 폴더에서 `npm install --no-save playwright` 한 번.
 
