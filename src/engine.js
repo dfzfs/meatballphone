@@ -485,7 +485,7 @@ function fixOldMeta(meta, chat) {
     if (!meta.editFix) { for (const a of meta.adjust ?? []) if (a?.an && a.set && /^(✏️|💬|🔄) /u.test(a.label ?? '')) { delete a.an; a.keep = true; } meta.editFix = true; }
 }
 const adjEvents = new Map();
-export const RACE_SPAN = 20; // 🏁 루트 비교가 보는 최근 메시지 수
+export const RACE_SPAN = 20; // 👑 루트 비교가 보는 최근 메시지 수
 export function compute(limit, opts = {}) {
     const c = ctx();
     const meta = getMeta();
@@ -516,7 +516,7 @@ export function compute(limit, opts = {}) {
     const seed = String(c.getCurrentChatId?.() ?? MODULE);
     let lastAI = -1;
     for (let i = n - 1; i >= start; i--) if (isStoryAI(chat[i])) { lastAI = i; break; }
-    // 🏁 루트 비교 (설정 relRace): 최근 RACE_SPAN개 메시지에서 인물별 호감 · 신뢰가 얼마나 움직였나 — 꺼져 있으면 null이라 아무것도 안 함
+    // 👑 루트 비교 (설정 relRace): 최근 RACE_SPAN개 메시지에서 인물별 호감 · 신뢰가 얼마나 움직였나 — 꺼져 있으면 null이라 아무것도 안 함
     const recent = !opts.bake && settings().relRace === true ? {} : null, recentFrom = n - RACE_SPAN;
     let ai = 0, fresh = null;
     markRomFrom(meta, chat);

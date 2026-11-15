@@ -2,7 +2,7 @@
 // 어떤 카드·세계관에도 붙는 상태창. 모든 칸은 AI가 처음 채우고, 직접 편집 · 추가 지시 · 다시 생성이 된다.
 import {
     rev, ctxReset, app, ctx, settings, saveSettings, migrateParts, getMeta, saveMeta, isActive,
-    ready, modOn, esc, splitBar, TITLE, LOG, VERSION, MODULE, rand, ssErr, ssWarn, ssNote,
+    ready, modOn, esc, splitBar, TITLE, LOG, VERSION, MODULE, rand, ssErr, ssWarn, ssNote, SLOT_SEL, isSlotEl,
 } from './src/core.js';
 import { opInfo } from './src/engine.js';
 import {
@@ -53,7 +53,7 @@ function needsChip(mesEl) {
     const i = Number(mesEl.getAttribute('mesid')); if (Number.isNaN(i)) return false;
     const snap = app.current?.snaps.get(i), set = settings();
     if (!snap || set.msgCard === 'off' || !(snap.labels.length || snap.roll)) return false;
-    return !mesEl.querySelector('.ss-slot')?.firstChild;
+    return ![...mesEl.querySelectorAll(SLOT_SEL)].some(x => x.firstChild);
 }
 function healChips() {
     healTimer = null;
@@ -81,7 +81,7 @@ function decorateAll() {
     document.querySelectorAll('#chat .mes').forEach(mesEl => {
         const i = Number(mesEl.getAttribute('mesid'));
         if (Number.isNaN(i)) return;
-        if (streaming && i === chat.length - 1 && !chat[i]?.is_user) { mesEl.querySelector('.ss-slot')?.remove(); doneEl.delete(mesEl); waitChips(); return; }
+        if (streaming && i === chat.length - 1 && !chat[i]?.is_user) { mesEl.querySelectorAll(SLOT_SEL).forEach(x => x.remove()); doneEl.delete(mesEl); waitChips(); return; }
         const snap = app.current.snaps.get(i);
         const m = chat[i];
         const on0 = !!album && !!m && album.has(`${m.send_date}|${m.name}`);
@@ -90,7 +90,7 @@ function decorateAll() {
             ? `y|${on0}|${set.msgCard}|${albumOn}|${out}|${i >= baked}|${m?.mes?.length}|${m?.swipe_id}|${!!(m && drawerOps(m))}|${snap.roll ? 1 : 0}|${snap.labels.join('\u0001')}`
             : `n|${on0}|${set.msgCard}|${albumOn}|${out}`;
         if (sig && doneEl.get(mesEl) === sig && (!albumOn || mesEl._ssStar?.isConnected !== false)
-            && (!snap || set.msgCard === 'off' || !(snap.labels.length || snap.roll) || mesEl.querySelector('.ss-slot')?.firstChild)) return;
+            && (!snap || set.msgCard === 'off' || !(snap.labels.length || snap.roll) || [...mesEl.querySelectorAll(SLOT_SEL)].some(x => x.firstChild))) return;
         const textEl = mesEl.querySelector('.mes_text');
         if (!textEl) return;
         if (sig) doneEl.set(mesEl, sig);
@@ -111,10 +111,10 @@ function decorateAll() {
         const pip = !hasCard && i === lastAI && m && !m.is_user ? pipWanted(i, m) : false;
         const host = textEl.parentElement ?? textEl;
         if (out) { if ((hasCard || pip) && !host.querySelector(':scope > .ss-slot.out')) { const sl = document.createElement('div'); sl.className = 'ss-slot out'; textEl.after(sl); } }
-        else if ((hasCard || pip) && !textEl.querySelector('.ss-slot, .custom-ss-slot')) { const sl = document.createElement('div'); sl.className = 'ss-slot'; textEl.appendChild(sl); }
+        else if ((hasCard || pip) && !textEl.querySelector(SLOT_SEL)) { const sl = document.createElement('div'); sl.className = 'ss-slot'; textEl.appendChild(sl); }
         if (outWas && !out) host.querySelector(':scope > .ss-slot.out')?.remove(); // 「본문 밖」을 끈 뒤 남은 것 (끈 그때 한 번만)
         const editBtn = m && i >= baked && drawerOps(m) && !hasStatus(m.mes) ? `<button class="ss-mchip edit" data-ss-edit="${i}" title="이 답의 상태 변화 고치기"><i class="fa-solid fa-pen"></i></button>` : '';
-        const inText = textEl.querySelectorAll('.ss-slot, .custom-ss-slot');
+        const inText = textEl.querySelectorAll(SLOT_SEL);
         const outer = out ? host.querySelector(':scope > .ss-slot.out') : null;
         const slots = outer ? [...inText, outer] : inText;
         const live = out ? outer : inText[0];
@@ -142,7 +142,7 @@ function decorateAll() {
 //    (미트볼이 칩 안쪽만 바꿀 땐 .ss-slot 자체는 안 지워져서 반복되지 않음)
 // ② 그 밖에 남이 본문을 바꿨으면 → 칩이 있어야 할 답에서 사라졌는지 살펴보고 다시 붙인다 (모아서 한 번 · 5초에 20번까지)
 let chatObs = null, slotTimer = 0;
-const isSlot = (n) => n.nodeType === 1 && (n.classList?.contains('ss-slot') || !!n.closest?.('.ss-slot'));
+const isSlot = (n) => n.nodeType === 1 && (isSlotEl(n) || !!n.closest?.(SLOT_SEL));
 function watchChat() {
     const chatEl = document.getElementById('chat');
     if (!chatEl || typeof MutationObserver === 'undefined') return;
@@ -152,7 +152,7 @@ function watchChat() {
         for (const m of muts) {
             for (const n of m.removedNodes) {
                 if (n.nodeType !== 1) continue;
-                if (n.classList.contains('ss-slot') || n.querySelector('.ss-slot')) slotGone = true;
+                if (isSlotEl(n) || n.querySelector(SLOT_SEL)) slotGone = true;
                 if (!isSlot(n)) foreign = true;
             }
             if (!foreign) for (const n of m.addedNodes) if (n.nodeType === 1 && !isSlot(n)) { foreign = true; break; }
@@ -240,12 +240,12 @@ app.showWhatsNew = (all = true) => showWhatsNew(all);
 // ───── 📣 업데이트 알림: 버전이 바뀌면 「바뀐 점」을 한 번 보여 준다 ─────
 const CHANGELOG = [
     { v: '2.7.22', title: '다인 · 풀사칭을 위한 선택 기능 · 더 가볍게 켜짐', items: [
-        ['🏁 루트 비교 (선택)', '관계 탭 › 보일 것 › 선택 기능에서 켜면 맨 위에 인물별 진행도를 나란히 보여 줘요. 앞선 사람에 👑, 최근 메시지 20개 동안의 변화는 ▲▼. 화면만 바뀌고 토큰은 0이에요.'],
+        ['👑 루트 비교 (선택)', '관계 탭 › 보일 것 › 선택 기능에서 켜면 맨 위에 인물별 진행도를 나란히 보여 줘요. 앞선 사람에 👑, 최근 메시지 20개 동안의 변화는 ▲▼. 화면만 바뀌고 토큰은 0이에요.'],
         ['💞 인물끼리 호감 (선택)', '유저 말고 인물 둘 사이도 수치로 쌓여요 (pairaff). 「인물끼리」 목록에 게이지 · 단계 · − ＋ 단추가 붙어요. 끄면 AI에게 가르치지 않고 적어 와도 반영하지 않아요.'],
         ['🎬 풀사칭 · 군상극', '주인공 없는 풀사칭은 관리 탭 › 플레이 방식에서 「주인공 없음 — 군상극」을 켜요. 인물끼리의 관계만 AI에게 가요. 유저 이름과 주인공 이름이 같은 풀사칭도 AI가 헷갈리지 않게 규칙문을 따로 써요.'],
         ['⚡ 빠른 세트', '만들기 창 맨 위에서 여성향 연애 · 다인 루트 미정 · 풀사칭 · 군상극을 고르면 플레이 방식과 쓸 기능이 한 번에 맞춰져요.'],
         ['📊 칸별 토큰', '프롬프트 · 토큰 창 › 「칸별로 보기」 — 어느 칸이 토큰을 많이 쓰는지 막대로 보여 줘요.'],
-        ['🚀 가볍게', '도움말 · 만들기 · 프롬프트 · 꾸미기 창은 눌렀을 때 불러와요. 조용히 넘기던 오류도 오류 보고문에 남아요.'],
+        ['⚙️ 가볍게', '도움말 · 만들기 · 프롬프트 · 꾸미기 창은 눌렀을 때 불러와요. 조용히 넘기던 오류도 오류 보고문에 남아요.'],
     ] },
     { v: '2.7.21', title: 'HUD · 미니창 새 모양 · 속마음 · 보일 것 × AI', items: [
         ['📱 모바일 HUD', '폰에서는 단추 줄이 판 아래로 내려가 칸이 화면 폭을 다 써요. 편집 배지도 손가락으로 누르기 쉽게 넓혔고, 아이폰에서 그림 올리기가 「너무 커요」로 막히던 것도 고쳤어요.'],

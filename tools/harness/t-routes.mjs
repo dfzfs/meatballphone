@@ -1,4 +1,4 @@
-// 선택 기능: 💞 인물끼리 호감 · 🏁 루트 비교 · 군상극 · 칸별 토큰 · 원클릭 세트
+// 선택 기능: 💞 인물끼리 호감 · 👑 루트 비교 · 군상극 · 칸별 토큰 · 원클릭 세트
 // 핵심: 꺼져 있으면 계산 · 주입문 · 화면 어디에도 안 걸린다 → 켜면 실제로 동작한다
 import { open, makeStatus, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open();
@@ -33,11 +33,12 @@ try {
         await eng.addAdjust({ ops: [['pairaff', 'Leon & Mira -5']], label: 't' }); await wait(150);
         out.manual = pair()?.aff === 14;
         out.onView = view().includes('pairadj') && view().includes('ss-pairs aff');
+        { const rl = app.current.state.data.rel, st = rl.stages; out.pairStage = eng.pairStage(rl, { aff: -8 }).name === st[0].name && eng.pairStage(rl, { aff: 100 }).name === st.at(-1).name; }
         // 다시 끄면: 수치는 계산에서 빠지고 주입문도 처음과 같다
         set.pairAff = false; await refresh();
         out.backOff = pair()?.aff === undefined && !/Leon↔Mira[^·\n]*\(/.test(inj()) && !guide().includes('pairaff');
         const injBase = inj(); // 지금 상태에서 선택 기능이 전부 꺼진 주입문
-        // ── 🏁 루트 비교
+        // ── 👑 루트 비교
         set.relRace = true; await refresh();
         out.recent = app.current.recent?.Leon?.aff === 3 && app.current.recent?.Mira?.aff === 1;
         const v = view();

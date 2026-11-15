@@ -49,7 +49,7 @@ export function pipDiag(i) {
     }
     if (set.msgCard === 'off') return { code: 'cardoff', title: '칩 표시가 꺼져 있어요', text: `변화 ${labels.length}개는 제대로 반영됐어요. 확장 설정 › 「메시지 변동 칩」이 「숨기기」예요.`, acts: [] };
     const mesEl = document.querySelector(`#chat .mes[mesid="${i}"]`);
-    const card = mesEl?.querySelector('.ss-slot .ss-msgcard:not(.pip)');
+    const card = mesEl?.querySelector(':is(.ss-slot, .custom-ss-slot) .ss-msgcard:not(.pip)');
     if (!mesEl) return { code: 'shown', title: '이 답은 지금 화면에 없어요', text: `변화 ${labels.length}개는 반영됐어요.` };
     if (!card) return { code: 'detached', title: '읽었는데 칩 자리가 사라졌어요 — 안 보이는 것', text: `변화 ${labels.length}개는 숫자에 반영됐어요 (${labels.slice(0, 4).join(' · ')}). 다른 확장(번역 등)이 본문을 다시 그리며 칩 자리를 지운 것 같아요. 「칩 다시 붙이기」를 눌러요.`, acts: ['redraw', 'outside'] };
     const r = card.getBoundingClientRect(), cs = getComputedStyle(card);

@@ -102,7 +102,7 @@ export async function openWizard() {
             el.querySelector('.ss-w-ens').checked = !!ps.play.ensemble;
             syncPlay();
             el.querySelectorAll('[data-mod]').forEach(i => { i.checked = ps.mods.includes(i.dataset.mod); i.closest('.ss-mod').classList.toggle('on', i.checked); });
-            const opt = Object.keys(ps.set).map(k => ({ relRace: '🏁 루트 비교', pairAff: '💞 인물끼리 호감' }[k])).filter(Boolean);
+            const opt = Object.keys(ps.set).map(k => ({ relRace: '👑 루트 비교', pairAff: '💞 인물끼리 호감' }[k])).filter(Boolean);
             note.textContent = `「${ps.name}」 — 기능 ${ps.mods.length}개${opt.length ? ` · ${opt.join(' · ')}도 켜요 (모든 채팅에 걸려요 · 관계 탭 › 보일 것에서 끌 수 있어요)` : ''}`;
             cost(); return;
         }

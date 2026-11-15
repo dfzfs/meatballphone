@@ -1,6 +1,6 @@
 // 🌐 상태창 번역: 확장 AI가 상태창을 영어로 만들면 → 번역 모델(따로 고른 싼 모델)이 한국어로 옮긴다
 // 「상태창 전체 번역」 버튼은 이미 있는 칸들을 통째로 번역한다.
-import { app, ctx, settings, esc, TITLE, LOG, MOD_IDS, MOD, modOn, getMeta, saveMeta, viewTr, trDict, ssWarn } from './core.js';
+import { app, ctx, settings, esc, TITLE, LOG, MOD_IDS, MOD, modOn, getMeta, saveMeta, viewTr, trDict, ssWarn, SLOT_SEL, isSlotEl } from './core.js';
 import { P, aiGenerate, parseJSON, mainBusy } from './prompts.js';
 import { commit } from './engine.js';
 
@@ -408,7 +408,7 @@ export const finLines = async (lines) => {
 
 // ───── 화면 번역기: 상태창 UI의 글자(텍스트 노드)만 바꾼다. 데이터·입력칸·속성(data-arg 등)·본편 메시지는 그대로 ─────
 // 미트볼이 직접 그린 화면만 (body에도 ss-nohud 같은 이름이 붙으므로 「ss-로 시작하는 아무거나」는 안 됨 → 실리 화면 전체가 번역됐었음)
-const SCOPE = '.ss-scope, .ss-root, .ss-panel, .ss-msgcard, .ss-slot, #ss-hud, #ss-side, #ss-float, #ss-settings, #ss-toasts, .ss-toasts';
+const SCOPE = '.ss-scope, .ss-root, .ss-panel, .ss-msgcard, .ss-slot, .custom-ss-slot, #ss-hud, #ss-side, #ss-float, #ss-settings, #ss-toasts, .ss-toasts';
 const SKIP = 'input, textarea, select, option, script, style, code, pre, .ss-pw, [contenteditable="true"], .ss-notr';
 let sorted = { d: null, n: -1, ver: -1, list: [] };
 const memo = new Map(); // 같은 글자는 한 번만 계산 (상태창을 다시 그릴 때마다 사전 전체를 돌지 않게)
@@ -472,18 +472,24 @@ export function trString(v, d = trDict()) {
     return out;
 }
 // 본편 메시지 글(.mes_text)은 절대 안 건드리되, 그 안에 붙는 미트볼 변동 칩(.ss-slot)만은 번역한다
+const MINE = `${SLOT_SEL}, .ss-msgcard`; // 채팅 안에서 미트볼이 그린 것
 function eligible(p) {
     if (p.closest(SKIP)) return false;
-    if (p.closest('#chat, .mes')) return !!p.closest('.ss-slot, .ss-msgcard'); // 채팅 안: 이름표·본문은 절대 안 건드리고, 미트볼 변동 칩만
+    if (p.closest('#chat, .mes')) return !!p.closest(MINE); // 채팅 안: 이름표·본문은 절대 안 건드리고, 미트볼 변동 칩만
     const sc = p.closest(SCOPE);
     return !!sc && sc !== document.body && sc !== document.documentElement;
 }
+const srcOf = new WeakMap(); // 글자 노드 → { src: 원래 글, out: 우리가 바꿔 적은 글 } (노드가 사라지면 같이 사라짐)
 function trNode(node, d) {
     const p = node.parentElement;
     if (!p || !eligible(p)) return;
-    const v = node.nodeValue;
+    const now = node.nodeValue;
+    // 우리가 바꿔 둔 글이면 원래 글에서 다시 옮긴다 — 짧은 낱말 짝이 먼저 걸려 반쯤 바뀐 글(「North 급행 Lift」)이 긴 이름 짝이 생긴 뒤에도 그대로 남던 것
+    const was = srcOf.get(node);
+    const v = was && was.out === now ? was.src : now;
     const out = trString(v, d);
-    if (out !== v) node.nodeValue = out;
+    if (out !== v) srcOf.set(node, { src: v, out }); else if (was) srcOf.delete(node);
+    if (out !== now) node.nodeValue = out;
 }
 function walk(root, d) {
     if (!root) return;
@@ -510,7 +516,7 @@ export function startViewTr() {
         for (const m of muts) {
             // 본편 메시지 글이 바뀐 것(스트리밍 · 다른 확장)은 미트볼 칩이 아니면 건너뛴다 — 답을 쓰는 동안 글자마다 훑던 것 (v2.7.3)
             const t = m.target;
-            if (t?.nodeType === 1 && t.closest?.('.mes_text') && !t.closest('.ss-slot, .ss-msgcard')) { let mine = false; for (const n of m.addedNodes) if (n.nodeType === 1 && (n.classList?.contains('ss-slot') || n.querySelector?.('.ss-slot, .ss-msgcard'))) { mine = true; break; } if (!mine) continue; }
+            if (t?.nodeType === 1 && t.closest?.('.mes_text') && !t.closest(MINE)) { let mine = false; for (const n of m.addedNodes) if (isSlotEl(n) || n.querySelector?.(MINE)) { mine = true; break; } if (!mine) continue; }
             for (const n of m.addedNodes) walk(n, d);
         }
     });
@@ -562,6 +568,9 @@ function noteStuck(list, o = null) {
 }
 // 번역할 낱말이 없는 글 (v2.7.19): 「HP +25」 「STR -1」 「d20」처럼 대문자 약어 · 숫자 · 기호뿐이면 번역기가 그대로 돌려줘서 「남은 글」에 영영 남았음
 const noWords = (k) => !/[a-z]{2,}/i.test(k.replace(/\b[A-Z]{1,5}\b|\bd\d+\b/g, ''));
+const LOOSE_N = 30; // 최근 답 · 알림 몇 개까지 볼지
+// 글에서 영어로 된 한 덩이 (앞의 그림 글자 · 한국어 머리말, 뒤의 +2 · ×3은 뺌): 「📍 North Express Lift +1」 → 「North Express Lift」
+const latinPart = (x) => (String(x).match(/[A-Za-z](?:[A-Za-z0-9'’&.,\- ]*[A-Za-z])?/) ?? [''])[0].trim();
 export function missingTr() {
     const s = app.current?.state; if (!s || !viewTr()) return [];
     if (missMemo.s === s && missMemo.v === trVer && missMemo.n === stuck.size) return missMemo.out; // 상태 · 사전이 그대로면 다시 안 훑음 (화면 그릴 때마다 불려서)
@@ -574,6 +583,15 @@ export function missingTr() {
             if (Object.hasOwn(d, k) && !(lockOf(k) === undefined && halfDone(k, d[k]))) continue;
             out.add(k);
         }
+    }
+    // 상태엔 이제 없지만 화면엔 남는 글: 답 아래 변동 칩(지나간 장소 · 쓴 물건 · 끝난 의뢰) · 알림함 — 사전으로 바꾼 뒤에도 영어로 남는 부분만
+    const loose = [];
+    const snaps = app.current?.snaps; if (snaps?.size) for (const sn of [...snaps.values()].slice(-LOOSE_N)) loose.push(...(sn.labels ?? []), ...(sn.alerts ?? []).map(a => a?.text ?? a));
+    for (const n of (meta?.notes ?? []).slice(-LOOSE_N)) loose.push(n.title, n.text);
+    for (const x of loose) {
+        if (typeof x !== 'string' || !hasLatin(x)) continue;
+        const k = latinPart(trString(x, d));
+        if (k && k.length >= 3 && k.length <= 200 && !noWords(k) && !Object.hasOwn(d, k)) out.add(k);
     }
     missMemo = { s, v: trVer, n: stuck.size, out: [...out] };
     return missMemo.out;

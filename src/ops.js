@@ -735,7 +735,7 @@ function opAff(s, val, info, L, T, key, rawKey) {
     if (nv > b && info.ai && romLive(s)) nv = b + romGain(s, info, r.name, key, nv - b); // 로맨스 보정: 상한
     if (key === 'aff' && r.noLove && nv > b) { if (info.ai) L(`🚫♥ ${r.name} (애정 꺼 둠)`); nv = b; } // 💗 애정 꺼 둔 사람: 안 오름 (내려가는 건 그대로)
     r[key] = nv;
-    if (info.recent && nv !== b) { const rc = (info.recent[r.name] ??= { aff: 0, trust: 0 }); rc[key] += nv - b; } // 🏁 루트 비교: 최근 변화 (설정 relRace를 켰을 때만 info.recent가 있음)
+    if (info.recent && nv !== b) { const rc = (info.recent[r.name] ??= { aff: 0, trust: 0 }); rc[key] += nv - b; } // 👑 루트 비교: 최근 변화 (설정 relRace를 켰을 때만 info.recent가 있음)
     if (m[3]) r.memo = m[3];
     if (r[key] !== b) L(`${key === 'aff' ? '♥' : '🤝'} ${r.name} ${signed(r[key] - b)}`);
     if (key === 'aff' && r[key] > b) jealousyFrom(s, r.name, r[key] - b, info);
@@ -769,7 +769,7 @@ function opPair(s, val, info, L, T, key, rawKey) {
 // 꺼져 있으면 AI가 적어 와도 아무 일도 안 한다 (저장된 수치는 그대로 남고, 화면 · 주입문에서만 빠짐)
 export const PAIR_STEP = 15; // AI가 한 번에 올리고 내릴 수 있는 폭
 export const pairFind = (rl, a, b) => (rl?.pairs ?? []).find(p => (norm(p.a) === norm(a) && norm(p.b) === norm(b)) || (norm(p.a) === norm(b) && norm(p.b) === norm(a)));
-export const pairStage = (rl, p) => { const st = rl?.stages?.length ? rl.stages : DEFAULT_STAGES; return st[clamp(stageIndex(st, p.aff ?? 0, 100), 0, st.length - 1)]; }; // 신뢰 축이 없어서 호감만으로 단계
+export const pairStage = (rl, p) => { const st = rl?.stages?.length ? rl.stages : DEFAULT_STAGES; const v = p.aff ?? 0; return st[clamp(stageIndex(st, v, v), 0, st.length - 1)]; }; // 축이 하나라 같은 값을 호감 · 신뢰 두 문턱에 다 댄다 (신뢰를 100으로 두면 우정 단계가 처음부터 끝까지 열렸음)
 function opPairaff(s, val, info, L, T, key, rawKey) {
     if (settings().pairAff !== true) return;
     const m = val.match(/^(.+?)\s*(?:&|와|과|,|↔)\s*(.+?)\s*([=+\-−]\s*\d+(?:\.\d+)?)\s*(?:\|\s*(.*))?$/);

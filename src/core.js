@@ -160,7 +160,7 @@ export const DEFAULTS = Object.freeze({
     relShowLife: true,       // 🌙 화면 밖 소식 목록
     relShowPairs: true,      // 인물끼리 관계 목록
     pairAff: false,          // 💞 인물끼리 호감 수치 (pairaff) — 끄면 AI에게 안 가르치고, 적어 와도 반영하지 않고, 화면에도 안 보임
-    relRace: false,          // 🏁 관계 탭 맨 위 「루트 비교」 — 화면만 (토큰 0). 끄면 최근 변화 집계도 안 함
+    relRace: false,          // 👑 관계 탭 맨 위 「루트 비교」 — 화면만 (토큰 0). 끄면 최근 변화 집계도 안 함
     relShowBtns: true,       // 카드 오른쪽 단추 (속마음 · 연락 · 이야기에서 빠짐 · 애정 끄기)
     trLlmFallback: true,     // 🌐 실리 번역기가 못 바꾼 글은 묻지 않고 번역 모델로 (v2.7.19)
     mindMode: 'off',         // 💭 속마음 (v2.7.21): off | thought(속마음 한 줄) | emoji(이모티콘) | kaomoji(카모지) — 본편 AI가 <meatball>에 같이 적음 (추가 호출 0)
@@ -383,6 +383,10 @@ export const ctx = () => {
     return ctxCache;
 };
 // 상태가 바뀔 수 있는 저장이 있었는지 세는 번호 (갱신 때 같은 계산을 또 하지 않게)
+// 답 아래 변동 칩 자리. 정규식이 본문에 넣은 <div class="ss-slot">은 실리태번이 메시지 HTML의 클래스에 custom-을 붙여 .custom-ss-slot이 된다
+// → 칩 자리를 찾는 곳은 전부 이 둘을 같이 본다 (하나만 보면 우리 칩을 남의 것으로 알고 다시 붙이기 · 번역을 헛돌린다)
+export const SLOT_SEL = '.ss-slot, .custom-ss-slot';
+export const isSlotEl = (n) => n?.nodeType === 1 && (n.classList.contains('ss-slot') || n.classList.contains('custom-ss-slot'));
 export const rev = { n: 0 };
 export const ctxReset = () => { ctxCache = null; }; // 채팅이 바뀌는 이벤트 시작에서 확실히 새로 받기
 
@@ -452,7 +456,7 @@ export const PLAY_MODES = {
 // set의 선택 기능은 「켜기」만 한다 (다른 채팅에서 켜 둔 것을 끄지 않음)
 export const PLAY_SETS = {
     romance: { name: '여성향 연애', icon: 'fa-heart', desc: '1:1 롤플 · 관계 · 연락 · 달력 중심', play: { mode: 'rp' }, mods: ['profile', 'rel', 'calendar', 'contact', 'map', 'memo', 'sns'], set: {} },
-    routes: { name: '다인 · 루트 미정', icon: 'fa-users', desc: '내가 주인공, 누구와 이어질지 모름 · 🏁 루트 비교 켬', play: { mode: 'multi' }, mods: ['profile', 'rel', 'calendar', 'contact', 'map', 'memo', 'gossip', 'sns'], set: { relRace: true } },
+    routes: { name: '다인 · 루트 미정', icon: 'fa-users', desc: '내가 주인공, 누구와 이어질지 모름 · 👑 루트 비교 켬', play: { mode: 'multi' }, mods: ['profile', 'rel', 'calendar', 'contact', 'map', 'memo', 'gossip', 'sns'], set: { relRace: true } },
     director: { name: '풀사칭', icon: 'fa-clapperboard', desc: '주인공도 AI가 씀 · 💞 인물끼리 호감 켬', play: { mode: 'director' }, mods: ['profile', 'stats', 'rel', 'calendar', 'map', 'memo', 'gossip'], set: { pairAff: true, relRace: true } },
     ensemble: { name: '풀사칭 · 군상극', icon: 'fa-people-group', desc: '주인공 없음 · 인물끼리의 관계만 추적', play: { mode: 'director', ensemble: true }, mods: ['profile', 'rel', 'calendar', 'map', 'memo', 'gossip', 'news'], set: { pairAff: true, relRace: true } },
 };

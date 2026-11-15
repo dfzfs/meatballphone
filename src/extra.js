@@ -139,11 +139,11 @@ export const REL_SHOW = [
 const relOn = (k) => settings()[k] !== false;
 // 선택 기능 (기본 꺼짐) — 「숫자만 / 다 보기」에는 안 묶인다. 끄면 계산 · 주입문 · 화면 어디에도 안 걸림
 export const REL_OPT = [
-    ['relRace', '🏁 루트 비교', '맨 위에 인물별 진행도를 나란히 — 누가 앞서는지 · 최근 메시지 20개 동안 얼마나 움직였는지 (화면만 · 토큰 0)'],
+    ['relRace', '👑 루트 비교', '맨 위에 인물별 진행도를 나란히 — 누가 앞서는지 · 최근 메시지 20개 동안 얼마나 움직였는지 (화면만 · 토큰 0)'],
     ['pairAff', '💞 인물끼리 호감', '유저 말고 인물 둘 사이의 호감도 수치로 쌓아요 (AI가 pairaff로 적음 · 주입문에 한 줄 늘어요). 끄면 AI에게 안 가르치고 적어 와도 반영하지 않아요'],
 ];
 const optOn = (k) => settings()[k] === true;
-// 🏁 루트 비교: 호감 높은 순으로 한 줄씩. recent = 최근 메시지 동안의 변화 (compute가 relRace를 켰을 때만 줌)
+// 👑 루트 비교: 호감 높은 순으로 한 줄씩. recent = 최근 메시지 동안의 변화 (compute가 relRace를 켰을 때만 줌)
 function raceHTML(d, st, AX, STG, ens) {
     const recent = app.current?.recent ?? {};
     const delta = (n) => (n > 0 ? `<em class="up" title="최근 메시지 20개 동안">▲${n}</em>` : n < 0 ? `<em class="down" title="최근 메시지 20개 동안">▼${-n}</em>` : '<em class="flat" title="최근 메시지 20개 동안 변화 없음">–</em>');
@@ -151,12 +151,12 @@ function raceHTML(d, st, AX, STG, ens) {
     if (ens) {
         const ps = d.pairs.filter(p => Number.isFinite(p.aff)).sort((a, b) => b.aff - a.aff);
         if (ps.length < 2) return '';
-        return sec('🏁 루트 비교 <small>인물끼리 · 호감 높은 순</small>', `<div class="ss-race">${ps.slice(0, 12).map((p, i) => `<div class="ss-race-r ${i === 0 && p.aff > 0 && p.aff > ps[1].aff ? 'lead' : ''}"><span class="ss-race-n"><b>${esc(p.a)} ↔ ${esc(p.b)}</b>${p.label ? `<small>${esc(p.label)}</small>` : ''}</span>${bar(p.aff)}<span class="ss-race-v">${p.aff}</span></div>`).join('')}</div>`);
+        return sec('👑 루트 비교 <small>인물끼리 · 호감 높은 순</small>', `<div class="ss-race">${ps.slice(0, 12).map((p, i) => `<div class="ss-race-r ${i === 0 && p.aff > 0 && p.aff > ps[1].aff ? 'lead' : ''}"><span class="ss-race-n"><b>${esc(p.a)} ↔ ${esc(p.b)}</b>${p.label ? `<small>${esc(p.label)}</small>` : ''}</span>${bar(p.aff)}<span class="ss-race-v">${p.aff}</span></div>`).join('')}</div>`);
     }
     const us = d.user.filter(x => !x.out).sort((a, b) => (b.bond ? 1 : 0) - (a.bond ? 1 : 0) || b.aff - a.aff || b.trust - a.trust);
     if (us.length < 2) return '';
     const top = us.find(x => !x.noLove), second = us.filter(x => !x.noLove)[1];
-    return sec(`🏁 루트 비교 <small>${esc(AX.aff)} 높은 순 · ▲▼는 최근 메시지 20개</small>`, `<div class="ss-race">${us.slice(0, 12).map(r => {
+    return sec(`👑 루트 비교 <small>${esc(AX.aff)} 높은 순 · ▲▼는 최근 메시지 20개</small>`, `<div class="ss-race">${us.slice(0, 12).map(r => {
         const g = st[clamp(r.stage ?? stageIndex(st, r.aff, r.trust), 0, st.length - 1)], rc = recent[r.name];
         const lead = r === top && r.aff > 0 && (!second || r.aff > second.aff);
         return `<div class="ss-race-r ${lead ? 'lead' : ''} ${r.noLove ? 'off' : ''}"><span class="ss-race-n"><b>${lead ? '👑 ' : ''}${r.bond ? '💍 ' : ''}${esc(r.name)}</b><small>${r.noLove ? '우정만' : STG && g ? esc(g.name) : esc(r.label)}</small></span>${bar(r.aff)}<span class="ss-race-v" title="${esc(AX.aff)} ${r.aff} · ${esc(AX.trust)} ${r.trust}">${r.aff}<small>/${r.trust}</small></span>${delta(rc?.aff ?? 0)}</div>`;
