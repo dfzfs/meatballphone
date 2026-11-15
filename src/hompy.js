@@ -160,6 +160,7 @@ export function initHompy() {
         const el = b.closest('.ss-panel');
         if (b.dataset.hp === 'close') { el?.closest('dialog')?.querySelector('.popup-button-ok')?.click(); return; }
         if (b.dataset.hp === 'mv') { const [key, how] = String(b.dataset.arg).split(':'); moveWin(key, how, [...(b.closest('.ss-hp-col')?.querySelectorAll('[data-win]') ?? [])].map(x => x.dataset.win)); if (el?.isConnected) app.renderPanel?.(el); return; }
+        if (b.dataset.hp === 'fold' && el?._ss) { const o = el._ss.hpOpen ?? (el._ss.hpOpen = []), i = o.indexOf(b.dataset.arg); if (i >= 0) o.splice(i, 1); else o.push(b.dataset.arg); app.renderPanel?.(el); return; } // 「모음」 칸 펼치기 · 접기
         if (b.dataset.hp === 'solo' && el?._ss) { Object.assign(el._ss, { tab: b.dataset.arg, hpSolo: b.dataset.arg, mode: 'view', ui: {} }); app.renderPanel?.(el); return; } // 이 칸만 크게
         if (b.dataset.hp === 'all' && el?._ss) { el._ss.hpSolo = null; el._ss.mode = 'view'; app.renderPanel?.(el); return; } // 묶음 전체로
         if (b.dataset.hp === 'editdone') { editWins = false; if (el?.isConnected) app.renderPanel?.(el); return; }

@@ -86,7 +86,7 @@ for (const width of [1300, 390]) {
               const minorsOn = hpm.hpMinor().filter(k => !!window.__SS_TEST__).length === 3;
               const etc = [...el.querySelectorAll('.ss-hp-right > .ss-tabs > button')].find(b => b.textContent.includes('모음'));
               if (etc) { etc.click(); await wait(400); const subs = [...el.querySelectorAll('.ss-hp-win.sub')].map(x => x.dataset.sub);
-                el.querySelector('.ss-hp-win.sub > .ss-hp-wt').click(); await wait(300); const solo = !el.querySelector('.ss-hp-all') && !!el.querySelector('.ss-hp-back');
+                const shut = !el.querySelector('.ss-hp-all .ss-hp-wb'); el.querySelector('.ss-hp-win.sub > .ss-hp-wt').click(); await wait(300); const opened = shut && el.querySelectorAll('.ss-hp-all .ss-hp-wb').length === 1; el.querySelector('.ss-hp-win.sub.open [data-hp="solo"]').click(); await wait(300); const solo = opened && !el.querySelector('.ss-hp-all') && !!el.querySelector('.ss-hp-back');
                 el.querySelector('.ss-hp-back').click(); await wait(300);
                 out.collection = (minorsOn && subs.length >= 2 && !names.includes('플레이 기록') && solo && !!el.querySelector('.ss-hp-all')) || JSON.stringify([names, subs, solo]); }
               else out.collection = names.length <= 2 || JSON.stringify(names); }

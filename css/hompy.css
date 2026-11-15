@@ -177,11 +177,11 @@ body.ss-retro :is(#ss-hud, #ss-side .ss-side-mini) .ss-tb .ss-t { border-radius:
 .ss-hompy .ss-prices { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 4px; } .ss-hompy .ss-prices > * { padding: 3px 6px; min-height: 0; }
 .ss-hompy .ss-item { padding: 4px 6px; margin-bottom: 4px; }
 /* 주사위: 왼쪽에 큰 주사위, 오른쪽에 고르는 것들 */
-.ss-hompy .ss-dice { display: grid; grid-template-columns: minmax(150px, 22%) minmax(0, 1fr) minmax(0, 1fr); gap: 6px 10px; align-items: start; }
-.ss-hompy .ss-dice > * { grid-column: 2 / -1; min-width: 0; margin: 0; }
-.ss-hompy .ss-dice > .ss-dice-stage { grid-column: 1; grid-row: 1; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 12px 8px; position: sticky; top: 0; }
+.ss-hompy .ss-dice { display: grid; grid-template-columns: minmax(150px, 22%) minmax(0, 1fr) minmax(0, 1fr); gap: 0 10px; align-items: start; }
+.ss-hompy .ss-dice > * { grid-column: 2 / -1; min-width: 0; margin: 0 0 6px; }
+.ss-hompy .ss-dice > .ss-dice-stage { grid-column: 1; grid-row: 1 / span 20; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 12px 8px; position: sticky; top: 0; }
 .ss-hompy .ss-dice .ss-die { width: min(150px, 80%); height: auto; aspect-ratio: 1; }
-.ss-hompy .ss-dice > .ss-btn { grid-column: 1; grid-row: 2; align-self: start; padding: 6px 8px; }
+
 .ss-hompy .ss-body :is(.ss-in, textarea.ss-in) { font-size: 1em; padding: 3px 7px; min-height: 0; }
 .ss-hompy .ss-dice .ss-seg { gap: 3px; } .ss-hompy .ss-dice :is(.ss-pills, .ss-row-btns) { gap: 4px; }
 @media (max-width: 860px) { .ss-hompy .ss-dice { grid-template-columns: minmax(0, 1fr); } .ss-hompy .ss-dice > *, .ss-hompy .ss-dice > .ss-dice-stage, .ss-hompy .ss-dice > .ss-btn { grid-column: 1; grid-row: auto; position: static; } }
@@ -202,3 +202,20 @@ body.ss-retro dialog.ss-dlg :is(.popup-button-ok, .popup-button-cancel) { border
 :is(.ss-hompy, .ss-rt) :is(.ss-body, .ss-hp-col, .ss-hp-wt) :is(span, b, small, p, dd, dt, li, em, label, summary, h4, h5, div) { text-overflow: clip !important; -webkit-line-clamp: unset !important; line-clamp: unset !important; overflow-wrap: break-word !important; word-break: keep-all; }
 :is(.ss-hompy, .ss-rt) :is(.ss-body, .ss-hp-col) :is(p, dd, li, small, b):not(.ss-badge):not(.ss-ava) { white-space: normal !important; }
 :is(.ss-hompy, .ss-rt) .ss-tabs > button, :is(.ss-hompy, .ss-rt) .ss-groups > button, :is(.ss-hompy, .ss-rt) .ss-body :is(.ss-btn, .ss-ib, .ss-pill, .ss-chip, .ss-role, .ss-stage, [class*="chip"], [class*="tag"], [class*="badge"]), :is(.ss-hompy, .ss-rt) .ss-body :is(.ss-btn, .ss-ib, .ss-pill, .ss-chip, [class*="chip"], [class*="tag"]) * { white-space: nowrap !important; }
+
+/* 🎲 주사위 그림이 곧 굴리기 단추 */
+.ss-die-btn { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; flex: none; min-height: 0 !important; width: auto !important; border-radius: 12px !important; padding: 4px; transition: transform .12s; font-size: 1em !important; }
+.ss-die-btn:hover { transform: scale(1.05) rotate(-4deg); } .ss-die-btn:active { transform: scale(.94); } .ss-die-btn:focus-visible { outline: 2px solid var(--ss-hi); }
+.ss-die-btn small { color: var(--ss-dim); font-size: .82em; white-space: nowrap; }
+.ss-hompy .ss-dice .ss-die-btn { width: 100% !important; }
+/* 📊 플레이 기록: 작은 칸으로 한눈에 */
+:is(.ss-hompy, .ss-rt) .ss-rgrid { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 4px; }
+:is(.ss-hompy, .ss-rt) .ss-rtile { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 5px; row-gap: 0; align-items: baseline; padding: 4px 7px; }
+:is(.ss-hompy, .ss-rt) .ss-rtile i { margin: 0; font-size: .85em; } :is(.ss-hompy, .ss-rt) .ss-rtile small { font-size: .85em; }
+:is(.ss-hompy, .ss-rt) .ss-rtile b { grid-column: 1 / -1; font-size: 1.05em; } :is(.ss-hompy, .ss-rt) .ss-rtile span { grid-column: 1 / -1; font-size: .8em; }
+/* 「모음」: 처음엔 제목만 한 줄로 — 누르면 그 칸이 아래에 펼쳐진다 */
+.ss-hp-all { column-width: auto; display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-start; }
+.ss-hp-all > .ss-hp-win.sub { margin: 0; } .ss-hp-all > .ss-hp-win.sub.shut { flex: 0 0 auto; } .ss-hp-all > .ss-hp-win.sub.open { flex: 1 1 100%; order: 2; }
+.ss-hp-all > .ss-hp-win.sub.shut > .ss-hp-wt { border-bottom: 0; padding: 4px 9px; gap: 8px; } .ss-hp-all .ss-hp-wt { cursor: pointer; }
+/* 📰 뉴스 제목 · 기사 제목은 명조(궁서)체 그대로 */
+:is(.ss-hompy, .ss-rt, dialog.ss-dlg .ss-root) :is(.ss-mast b, .ss-article .ss-art-h b, .ss-art-b, .ss-letter-body) { font-family: 'Gungsuh', '궁서', 'GungSeo', var(--ss-serif) !important; -webkit-font-smoothing: auto; }

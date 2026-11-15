@@ -97,7 +97,7 @@ export function diceView(s, d, ui) {
     return `<div class="ss-dice">
         ${s.pendingRoll ? `<div class="ss-callout warn"><i class="fa-solid fa-bell"></i><div><b>AI가 판정을 요청했어요</b><span>${esc(s.pendingRoll.label)}${s.pendingRoll.dc ? ` · 난이도 ${s.pendingRoll.dc}` : ''}</span></div></div>` : ''}
         <div class="ss-dice-stage ${r ? `res-${r.cls}` : ''}">
-            <div class="ss-die" data-sys="${r?.sys ?? sys}">${dieSVG(r?.sys ?? sys, r ? (r.sys === 'free' ? r.roll : r.roll) : sys === 'd100' ? '%' : '20')}</div>
+            <button class="ss-die-btn ss-rollbtn" data-act="roll" title="눌러서 ${sys} 굴리기"><div class="ss-die" data-sys="${r?.sys ?? sys}">${dieSVG(r?.sys ?? sys, r ? (r.sys === 'free' ? r.roll : r.roll) : sys === 'd100' ? '%' : '20')}</div><small>눌러서 ${sys} 굴리기</small></button>
             <div class="ss-dice-side">${resultHTML(r)}${breakdown(r)}</div>
         </div>
         ${r ? `<div class="ss-row-btns"><button class="ss-btn" data-act="rollin"><i class="fa-solid fa-arrow-turn-down"></i> 입력창에 넣기</button><button class="ss-btn pri" data-act="rollsend"><i class="fa-solid fa-paper-plane"></i> 바로 보내기</button></div>` : ''}
@@ -112,7 +112,6 @@ export function diceView(s, d, ui) {
             <div class="ss-f"><span>추가 보정</span><div class="ss-step"><button data-act="dextra" data-arg="-1">−</button><b>${D.extra > 0 ? '+' : ''}${D.extra}</b><button data-act="dextra" data-arg="1">+</button></div></div>
             <div class="ss-f grow"><span>성공 확률</span><div class="ss-prob"><div class="ss-prob-t"><i style="width:${pct}%"></i></div><b>${pct}%</b></div></div>
         </div>
-        <button class="ss-btn pri big ss-rollbtn" data-act="roll"><i class="fa-solid fa-dice-d20"></i> ${sys} 굴리기</button>
         ${d.quick.length ? sec('빠른 판정', `<div class="ss-pills">${d.quick.map((q, i) => `<button class="ss-pill" data-act="quick" data-arg="${i}"><i class="fa-solid fa-bolt"></i> ${esc(q.name)}${q.attr ? ` <small>${esc(q.attr)}</small>` : ''}</button>`).join('')}</div>`) : ''}
         ${sec('자유 굴림', `<div class="ss-pills">${['d4', 'd6', '2d6', 'd8', 'd10', 'd12', 'd20', 'd100'].map(x => `<button class="ss-pill" data-act="freeq" data-arg="${x}">${x}</button>`).join('')}</div>
             <div class="ss-inline"><input class="ss-in ss-free" placeholder="예: 3d6+2" value="${esc(ui.free ?? '')}"><button class="ss-btn" data-act="free">굴리기</button></div>`)}
