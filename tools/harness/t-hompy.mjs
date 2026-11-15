@@ -17,7 +17,7 @@ for (const width of [1300, 390]) {
             const dlg = el.closest('dialog'); dlg.classList.add('ss-dlg'); dlg.style.cssText = 'position:fixed;inset:0;width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;padding:0;border:0;overflow:auto;';
             el.querySelector('[data-act="fullscreen"]').click(); await wait(400);
             out.fullIsHompy = !!el.querySelector('.ss-hompy .ss-hp-book') && el.querySelector('.ss-hompy').classList.contains('ss-hp-enter');
-            out.parts = ['.ss-hp-url', '.ss-hp-left .ss-hp-photo img', '.ss-hp-right .ss-body', '.ss-hp-index .ss-groups', '.ss-hp-today'].filter(q => !el.querySelector(q)).join(' ') || true;
+            out.parts = ['.ss-hp-url', '.ss-hp-left .ss-hp-photo img', '.ss-hp-right .ss-body', '.ss-hp-index .ss-groups', '.ss-hp-today', '.ss-hp-top .ss-head [data-act="fullscreen"]'].filter(q => !el.querySelector(q)).join(' ') || true;
             await wait(600);
             out.imgsLoad = [...el.querySelectorAll('.ss-hompy img[src*="/img/meatcon/"]')].every(i => i.naturalWidth > 0);
             // 화면에 딱 맞음: 넓은 화면에선 수첩이 창 안에 다 들어오고 안쪽(오른쪽 쪽)만 스크롤
@@ -38,6 +38,9 @@ for (const width of [1300, 390]) {
             out.photoEmpty = !!el.querySelector('.ss-hp-right .ss-hp-addphoto [data-hp="photo"]') && !el.querySelector('.ss-hp-main');
             core.getMeta().hpPhoto = { src: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', cap: '우리 집 <b>고양이</b>' }; shell.rerenderPanels(true); await wait(200);
             out.photoShown = !!el.querySelector('.ss-hp-main img') && el.querySelector('.ss-hp-main figcaption').textContent.includes('<b>고양이</b>') && !el.querySelector('.ss-hp-addphoto');
+            { const fig = el.querySelector('.ss-hp-main'), body = el.querySelector('.ss-hp-right .ss-body'); out.photoOnTop = !!(fig.compareDocumentPosition(body) & Node.DOCUMENT_POSITION_FOLLOWING);
+              el.querySelector('[data-hp="photopos"]').click(); await wait(300); const f2 = el.querySelector('.ss-hp-main'), b2 = el.querySelector('.ss-hp-right .ss-body');
+              out.photoMovesDown = core.getMeta().hpPhoto.pos === 'bottom' && !!(b2.compareDocumentPosition(f2) & Node.DOCUMENT_POSITION_FOLLOWING); }
             el.querySelector('[data-hp="photodel"]').click(); await wait(300);
             out.photoRemoved = !core.getMeta().hpPhoto && !!el.querySelector('.ss-hp-addphoto');
             // 틀 안에서 묶음 · 탭 이동

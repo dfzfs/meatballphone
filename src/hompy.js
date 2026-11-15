@@ -46,8 +46,9 @@ function mood(s, meta, nNew) {
 function photoHTML(meta) {
     const p = meta.hpPhoto;
     if (!p?.src) return '<div class="ss-hp-addphoto"><button class="ss-btn sm ghost" data-hp="photo"><i class="fa-solid fa-image"></i> 여기에 큰 사진 넣기</button></div>';
-    return `<figure class="ss-hp-main"><img src="${esc(p.src)}" alt=""><figcaption><button data-hp="cap" title="눌러서 한마디 고치기">${p.cap ? esc(p.cap) : '<i>한마디 적기…</i>'}</button>
-        <span><button class="ss-ib" data-hp="photo" title="사진 바꾸기"><i class="fa-solid fa-image"></i></button><button class="ss-ib" data-hp="photodel" title="사진 빼기"><i class="fa-solid fa-trash-can"></i></button></span></figcaption></figure>`;
+    const top = p.pos !== 'bottom';
+    return `<figure class="ss-hp-main ${top ? 'top' : ''}"><img src="${esc(p.src)}" alt=""><figcaption><button data-hp="cap" title="눌러서 한마디 고치기">${p.cap ? esc(p.cap) : '<i>한마디 적기…</i>'}</button>
+        <span><button class="ss-ib" data-hp="photopos" title="${top ? '사진을 홈 맨 아래로' : '사진을 홈 맨 위로'}"><i class="fa-solid ${top ? 'fa-arrow-down' : 'fa-arrow-up'}"></i></button><button class="ss-ib" data-hp="photo" title="사진 바꾸기"><i class="fa-solid fa-image"></i></button><button class="ss-ib" data-hp="photodel" title="사진 빼기"><i class="fa-solid fa-trash-can"></i></button></span></figcaption></figure>`;
 }
 // 사진 단추 (패널마다 걸지 않고 문서에 한 번)
 export function initHompy() {
@@ -61,9 +62,10 @@ export function initHompy() {
         const done = () => { saveMeta(); if (el?.isConnected) app.renderPanel?.(el); };
         try {
             if (b.dataset.hp === 'photodel') { delete meta.hpPhoto; return done(); }
+            if (b.dataset.hp === 'photopos') { if (meta.hpPhoto) meta.hpPhoto.pos = meta.hpPhoto.pos === 'bottom' ? 'top' : 'bottom'; return done(); }
             if (b.dataset.hp === 'cap') { const v = await askInput('사진 아래 한마디', '비워 두면 지워져요.', meta.hpPhoto?.cap ?? ''); if (v === null || !meta.hpPhoto) return; meta.hpPhoto.cap = short(v.trim(), 80); return done(); }
             const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
-            inp.onchange = async () => { try { const f = inp.files?.[0]; if (!f) return; meta.hpPhoto = { src: await shrinkImage(f, 900, 0.82), cap: meta.hpPhoto?.cap ?? '' }; done(); } catch (err) { ssErr(err); toastr.error('사진을 넣지 못했어요. 다른 그림으로 해 보세요.', TITLE); } };
+            inp.onchange = async () => { try { const f = inp.files?.[0]; if (!f) return; meta.hpPhoto = { src: await shrinkImage(f, 900, 0.82), cap: meta.hpPhoto?.cap ?? '', pos: meta.hpPhoto?.pos ?? 'top' }; done(); } catch (err) { ssErr(err); toastr.error('사진을 넣지 못했어요. 다른 그림으로 해 보세요.', TITLE); } };
             inp.click();
         } catch (err) { ssErr(err); }
     }, true);
@@ -78,10 +80,11 @@ export function hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, 
     const friends = rel ? rel.user.filter(r => !r.out).sort((a, b) => b.aff + b.trust - a.aff - a.trust).slice(0, 3) : [];
     const AX = rel ? relAxes(rel) : null;
     const mini = [cal ? ['날짜', `${dateShort(cal)} ${cal.time}`] : null, here ? ['장소', here] : null, w ? ['재산', `${fmtNum(w.cash)} ${w.currency ?? ''}`] : null].filter(Boolean);
+    const photo = tab === 'home' ? photoHTML(meta) : '', photoTop = !!photo && !!meta.hpPhoto?.src && meta.hpPhoto.pos !== 'bottom';
     return `<div class="${rootCls} ss-hompy ${enter ? 'ss-hp-enter' : ''}">
         <div class="ss-hp-url"><i></i><i></i><i></i><span>https://meatball.home/<b>${esc(short(c.title || TITLE, 30))}</b></span><button class="ss-hp-x" data-hp="close" aria-hidden="false" title="닫기"><i class="fa-solid fa-xmark"></i></button><em></em></div>
         <div class="ss-hp-book">
-            <div class="ss-hp-top"><span class="ss-hp-count">TURN <b>${s.turn ?? 0}</b> <i>|</i> TOTAL <b>${total}</b></span><b class="ss-hp-title">${esc(c.title || TITLE)}</b><span class="ss-hp-star" aria-hidden="true">★</span></div>
+            <div class="ss-hp-top"><span class="ss-hp-count">TURN <b>${s.turn ?? 0}</b> <i>|</i> TOTAL <b>${total}</b></span><b class="ss-hp-title">${esc(c.title || TITLE)}</b>${headHTML}</div>
             <aside class="ss-hp-left">
                 <div class="ss-hp-today"><small>TODAY IS…</small><b>${esc(feel)}</b></div>
                 <div class="ss-hp-photo" data-hp="face" role="button" title="눌러서 프로필 그림 바꾸기"><img src="${esc(faceSrc(con))}" alt=""><i class="ss-hp-tape"></i></div>
@@ -93,7 +96,7 @@ export function hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, 
                 <div class="ss-hp-deco" aria-hidden="true"><img src="${conUrl('box')}" alt=""><img src="${conUrl('roll')}" alt=""></div>
             </aside>
             <div class="ss-hp-rings" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-            <section class="ss-hp-right">${headHTML}${pauseHTML}${restHTML}${tab === 'home' ? photoHTML(meta) : ''}</section>
+            <section class="ss-hp-right">${pauseHTML}${photoTop ? restHTML.replace('<main class="ss-body"', () => `${photo}<main class="ss-body"`) : restHTML + photo}</section>
             <div class="ss-hp-index">${groupsHTML}</div>
         </div>
     </div>`;
