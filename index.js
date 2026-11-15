@@ -27,6 +27,7 @@ import { registerCommands } from './src/commands.js';
 import { renderSettings } from './src/settings_ui.js';
 import { initStory } from './src/story.js';
 import { initStoryUI } from './src/story_ui.js';
+import { initHompy } from './src/hompy.js';
 
 try { startErrorCapture(); } catch { /* 오류 기록은 없어도 동작 */ }
 
@@ -844,6 +845,7 @@ function init() {
     renderSettings();
     registerCommands();
     registerMacros();
+    try { initHompy(); } catch (e) { ssWarn(LOG, 'hompy', e); } // 📒 미니홈피 화면의 사진 단추
     try { initStory(); initStoryUI(); } catch (e) { ssWarn(LOG, 'story', e); } // 🧭 이야기 장치 (v2.8 · 켠 장치가 없으면 아무 일도 안 함)
     if (settings().autoRegex) installRegex(false);
     try { startViewTr(); } catch (e) { ssWarn(LOG, 'viewtr', e); }

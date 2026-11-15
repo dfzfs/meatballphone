@@ -154,7 +154,7 @@ export function fitTiles(root) {
     long.forEach((i, n) => { ins[i].style.zoom = String(Math.max(0.3, Math.floor(r2[n] * 100) / 100)); });
 }
 // 그림 올리기: 긴 변 max px로 줄여 webp — 설정 파일이 커지지 않게
-async function shrinkImage(file, max = 128, q = 0.85) {
+export async function shrinkImage(file, max = 128, q = 0.85) {
     const bmp = await createImageBitmap(file);
     const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
     const cv = document.createElement('canvas'); cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k);

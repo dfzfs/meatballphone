@@ -20,6 +20,7 @@ import { EDIT, viewTr, letterMode } from './core.js';
 import { translateSheet, missingTr } from './translate.js';
 import { hintAfterAction } from './tips.js';
 import { storySection } from './story_ui.js';
+import { hompyHTML } from './hompy.js';
 import { openPromptWindow, openThemeWindow, openWizard } from './lazy.js';
 import { setBase, startBlank } from './engine.js';
 export { setBase, startBlank, openWizard, openPromptWindow, openThemeWindow }; // 다른 파일은 예전처럼 여기서 받아도 된다 (창은 눌렀을 때 불러옴 — lazy.js)
@@ -141,8 +142,11 @@ export function renderPanel(el) {
     const sub2 = [cal && modOn('calendar', meta) ? `${dateShort(cal)} ${cal.time}` : '', here && modOn('map', meta) ? `📍 ${here}` : ''].filter(Boolean).join(' · ');
     const d0 = DIFFS[diffOf(meta)];
     const nNew = unreadNotes(meta);
-    el.innerHTML = `<div class="ss-root ss-scope ${inSide ? 'in-side' : ''} ${meta.paused ? 'paused' : ''} ${settings().bottomNav ? 'navbottom' : ''}">
-        <header class="ss-head">
+    // 조각으로 만들어 두고 → 평소엔 그대로 이어 붙이고, 전체화면(미니홈피)일 땐 수첩 틀 안에 넣는다 (hompy.js)
+    const dlg0 = el.closest('dialog'), isFull = dlg0 ? dlg0.classList.contains('ss-full') : !!st.full; // 창이 뜨기 전(첫 그리기)엔 여는 쪽이 적어 둔 값으로
+    const hp = !inSide && isFull && settings().hompyFull !== false;
+    const rootCls = `ss-root ss-scope ${inSide ? 'in-side' : ''} ${meta.paused ? 'paused' : ''} ${settings().bottomNav && !hp ? 'navbottom' : ''}`;
+    const headHTML = `<header class="ss-head">
             ${settings().mascotBuddy !== false ? `<span class="ss-head-cat" data-act="help" title="궁금한 게 있으면 저를 눌러요 🐾 (미트볼 도우미)">${mascot(meta.paused ? 'sleep' : nNew ? 'surprise' : 'idle', 'head', 'bob')}</span>` : ''}
             <div class="ss-head-t"><b>${esc(c.title || TITLE)}</b>${sub2 ? `<small>${esc(sub2)}</small>` : ''}</div>
             <div class="ss-head-a">
@@ -157,14 +161,16 @@ export function renderPanel(el) {
                 <button class="ss-ib" data-act="fullscreen" title="${!inSide && settings().sheetFull ? '전체화면 끄기' : '전체화면'}"><i class="fa-solid ${!inSide && settings().sheetFull ? 'fa-compress' : 'fa-expand'}"></i></button>
                 ${inSide ? `<button class="ss-ib" data-act="sidemini" title="작게"><i class="fa-solid fa-down-left-and-up-right-to-center"></i></button>` : ''}
             </div>
-        </header>
-        ${meta.paused ? `<div class="ss-pausebar">${mascot('sleep', 'xs') || '<i class="fa-solid fa-pause"></i>'} 일시정지 중 — AI에게 상태를 보내지 않아요<button class="ss-btn sm" data-act="pause">재개</button></div>` : ''}
-        <nav class="ss-groups">${gs.map(x => `<button class="${x === g ? 'on' : ''}" data-act="group" data-arg="${x.id}"><i class="fa-solid ${x.icon}"></i><span>${x.name}</span>${x === g ? '' : groupBadge(x, s, meta)}</button>`).join('')}</nav>
-        ${groupTabs(g, meta).length > 1 ? `<nav class="ss-tabs">${groupTabs(g, meta).map(t => `<button class="${t === tab ? 'on' : ''}" data-act="tab" data-arg="${t}"><i class="fa-solid ${TAB_INFO(t).icon}"></i>${esc(TAB_INFO(t).name)}${isHidden(t === 'home' ? 'core' : TAB_MOD(t), meta) ? '<i class="fa-solid fa-eye-slash ss-hid" title="가림 — AI에게 안 보냄"></i>' : ''}${badgeFor(t, s, meta)}</button>`).join('')}</nav>` : ''}
+        </header>`;
+    const pauseHTML = `${meta.paused ? `<div class="ss-pausebar">${mascot('sleep', 'xs') || '<i class="fa-solid fa-pause"></i>'} 일시정지 중 — AI에게 상태를 보내지 않아요<button class="ss-btn sm" data-act="pause">재개</button></div>` : ''}`;
+    const groupsHTML = `<nav class="ss-groups">${gs.map(x => `<button class="${x === g ? 'on' : ''}" data-act="group" data-arg="${x.id}"><i class="fa-solid ${x.icon}"></i><span>${x.name}</span>${x === g ? '' : groupBadge(x, s, meta)}</button>`).join('')}</nav>`;
+    const restHTML = `${groupTabs(g, meta).length > 1 ? `<nav class="ss-tabs">${groupTabs(g, meta).map(t => `<button class="${t === tab ? 'on' : ''}" data-act="tab" data-arg="${t}"><i class="fa-solid ${TAB_INFO(t).icon}"></i>${esc(TAB_INFO(t).name)}${isHidden(t === 'home' ? 'core' : TAB_MOD(t), meta) ? '<i class="fa-solid fa-eye-slash ss-hid" title="가림 — AI에게 안 보냄"></i>' : ''}${badgeFor(t, s, meta)}</button>`).join('')}</nav>` : ''}
         ${hidden ? `<div class="ss-hidebar"><i class="fa-solid fa-eye-slash"></i><span>가린 칸 — AI에게 이 칸을 안 보내는 중이에요. 화면·직접 편집·변화 기록은 그대로예요.</span><button class="ss-btn sm" data-act="hidetog">다시 보내기</button></div>` : ''}
         ${tools || instruct ? `<div class="ss-toolrow"><div class="ss-toolrow-t"><i class="fa-solid ${info.icon}"></i>${esc(info.name)}</div>${tools}</div>${instruct}` : ''}
-        <main class="ss-body" data-tab="${tab}">${body}</main>
-    </div>`;
+        <main class="ss-body" data-tab="${tab}">${body}</main>`;
+    const enter = hp && !st.hpShown; st.hpShown = hp;
+    el.innerHTML = hp ? hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, s, meta, nNew, enter, tab: st.mode === 'view' ? tab : '' })
+        : `<div class="${rootCls}">${headHTML}${pauseHTML}${groupsHTML}${restHTML}</div>`;
     if (st.mode !== 'edit' && st.mode !== 'json' && tab !== 'manage' && (pseudo || data)) applyParts(el, tab); // 👁 보일 것 (v2.7.19)
     if (st.mode === 'edit') bindEditor(el.querySelector('.ss-editor'), st.work, EDIT[mod], () => {
         const box = el.querySelector('.ss-editor'); const all0 = [...box.querySelectorAll('details')]; const open = all0.filter(d => d.open).map(d => all0.indexOf(d));
@@ -311,6 +317,7 @@ export async function openSheet(tab, opt = {}) {
     el._ss = { tab: tab ?? 'home', mode: 'view', work: null, ui: {} };
     const full = opt.full ?? settings().sheetFull;
     if (opt.full) settings().sheetFull = true;
+    el._ss.full = !!full;
     panels.add(el);
     renderPanel(el);
     await popup(el, { large: true, full });
