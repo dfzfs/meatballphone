@@ -1,7 +1,7 @@
 // 🧪 실험실 (v2.8) — 이야기 장치 묶음. 전부 선택 기능(기본 끔): 끄면 주입 · 계산 · 저장이 모두 0
 // 켰는지는 settings().lab[id] === true 로만 본다. 채팅마다의 자료는 meta.lab (없으면 만들지 않는다)
 // 화면(창)은 labwin.js — 눌렀을 때 불러온다 (lazy.js)
-import { app, ctx, settings, saveSettings, getMeta, saveMeta, norm, short, findBy, uid, clamp, nowTick, stamp, dateStr, TITLE, isActive, ready, relAxes, ssNote, clone, randInt } from './core.js';
+import { esc, app, ctx, settings, saveSettings, getMeta, saveMeta, norm, short, findBy, uid, clamp, nowTick, stamp, dateStr, TITLE, isActive, ready, relAxes, ssNote, clone, randInt } from './core.js';
 import { stripStatus, recentChat, chatCharacters, addAdjust, commit } from './engine.js';
 import { aiGenerate, aiJSON, P } from './prompts.js';
 import { trendData } from './trend.js';
@@ -158,7 +158,7 @@ async function rollMeddle(L) {
     if (kind === 'nick') { e.text = `♥ ${r.name} ♥`; (L.nick ??= {})[r.name] = e.text; }
     if (kind === 'block') { const nd = clone(ct); findBy(nd.contacts, rival.name).blocked = true; await commit('contact', nd, ''); e.text = rival.name; }
     L.meddle = [...(L.meddle ?? []), e].slice(-20); L.meddleNow = e;
-    toastr.warning(kind === 'memo' ? `${r.name}이(가) 상태창에 낙서를 남겼어요: 「${e.text}」` : kind === 'nick' ? `${r.name}이(가) 자기 이름을 「${e.text}」(으)로 바꿔 놨어요.` : `${r.name}이(가) ${e.text}의 연락처를 차단해 놨어요.`, TITLE, { timeOut: 9000 });
+    toastr.warning(kind === 'memo' ? `${esc(r.name)}이(가) 상태창에 낙서를 남겼어요: 「${esc(e.text)}」` : kind === 'nick' ? `${esc(r.name)}이(가) 자기 이름을 「${esc(e.text)}」(으)로 바꿔 놨어요.` : `${esc(r.name)}이(가) ${esc(e.text)}의 연락처를 차단해 놨어요.`, TITLE, { timeOut: 9000 });
 }
 export async function undoMeddle(id) {
     const L = labData(); const e = L?.meddle?.find(x => x.id === id); if (!e) return;
@@ -259,8 +259,17 @@ export function labInjection() {
 app.labInject = labInjection;
 
 // ───── 이벤트: AI 답을 받은 뒤 한 번 ─────
-async function onReply() {
-    if (!anyOn() || !live()) return;
+// (실리가 「답 받음」을 알릴 때는 아직 상태가 새 답을 반영하기 전이라, 조금 뒤에 — 상태를 새로 계산한 다음 — 돈다)
+let replyTimer = null;
+function onReply(id, type) {
+    if (type === 'impersonate' || type === 'quiet' || !anyOn()) return;
+    clearTimeout(replyTimer);
+    replyTimer = setTimeout(() => afterReply().catch(e => ssNote('lab reply', e)), 150);
+}
+async function afterReply() {
+    if (!anyOn()) return;
+    try { app.refreshNow?.(); } catch (e) { ssNote('lab refresh', e); }
+    if (!live()) return;
     const L = labData(true); if (!L) return;
     L.seen = Date.now();
     if (labOn('ghost')) L.ghost = Math.random() < 0.12 ? pickGhost() : null; else delete L.ghost;
@@ -271,11 +280,12 @@ async function onReply() {
     if (L.drop) delete L.drop;
     if (labOn('market')) tickMarket(L);
     if (labOn('pet')) { (settings().labPet ??= { xp: 0 }).xp++; saveSettings(); }
-    if (labOn('capsule')) for (const c of L.capsules ?? []) if (!c.told && nowTick(st()) >= c.open) { c.told = true; toastr.info(`⏳ ${c.from === 'me' ? '내가 묻어 둔' : `${c.from}의`} 타임캡슐이 열릴 때가 됐어요. (실험실 › 타임캡슐)`, TITLE, { timeOut: 9000 }); }
+    if (labOn('capsule')) for (const c of L.capsules ?? []) if (!c.told && nowTick(st()) >= c.open) { c.told = true; toastr.info(`⏳ ${c.from === 'me' ? '내가 묻어 둔' : `${esc(c.from)}의`} 타임캡슐이 열릴 때가 됐어요. (실험실 › 타임캡슐)`, TITLE, { timeOut: 9000 }); }
     try { if (labOn('meddle')) await rollMeddle(L); else delete L.meddleNow; } catch (e) { ssNote('lab meddle', e); }
     applyGlitch();
     const every = Number(L.scanEvery) || 0; L.since = (L.since ?? 0) + 1;
     saveMeta();
+    try { app.refreshNow?.(); } catch (e) { ssNote('lab refresh', e); } // 방금 정한 것(유령 · 빚 · 긴장 …)이 다음 답의 안내에 실리게
     if (every > 0 && L.since >= every && ['know', 'promise', 'hook'].some(labOn)) ledgerScan().catch(e => ssNote('lab scan', e));
 }
 export function initLab() {

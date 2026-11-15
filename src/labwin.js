@@ -86,7 +86,7 @@ async function act(a, arg, btn, sec) {
         case 'susclear': delete labData().sus; break;
         case 'mirror': case 'memory': case 'diary': if (!who) return; await ai(() => AI[a](who)); break;
         case 'memdel': { const D = labData(); if (D?.ai?.memory) delete D.ai.memory[arg]; break; }
-        case 'phone': { if (!who) return; const caught = await ai(() => AI.phone(who)); if (caught) toastr.warning(`${who}에게 들켰어요! 다음 답에서 반응해요.`, TITLE); break; }
+        case 'phone': { if (!who) return; const caught = await ai(() => AI.phone(who)); if (caught) toastr.warning(`${esc(who)}에게 들켰어요! 다음 답에서 반응해요.`, TITLE); break; }
         case 'council': case 'dream': await ai(() => AI[a]()); break;
         case 'meddleundo': await undoMeddle(arg); break;
         case 'tzero': Object.assign(labData(true), { t: 0, tFire: false, calm: 0 }); break;
