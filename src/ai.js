@@ -244,6 +244,34 @@ export async function truthReply(who, state) {
     const out = await aiGenerate('phone', P('ai.truth', { who, app: ct.app }), body, 900);
     return finLines(stripStatus(out).split(/\r?\n/).map(x => x.replace(nameRe(who), '').replace(/^["“](.*)["”]$/, '$1').trim()).filter(Boolean).slice(0, 5));
 }
+// 👥 단체방 (v2.8): 방에 있는 인물들이 내 말에 · 서로에게 반응한다 → [{ who, text }]. 인물끼리 호감(pairs)이 있으면 같이 준다
+// (모델 · 프로필은 메신저 답장과 같은 칸)
+export async function groupReply(room, state) {
+    const ct = state.data.contact, r = ct.rooms?.[room]; if (!r) return [];
+    const members = r.members.slice(0, 6), d = state.data, lite = contactSimple();
+    const has = (n) => members.some(m => norm(m) === norm(n));
+    const who = (m) => (m.from === 'me' ? '{{user}}' : m.who || '?');
+    const people = members.map(m => {
+        const prof = d.profile ? findBy(d.profile.list, m) : null, card = chatCharacters().find(ch => norm(ch.name) === norm(m)), rel = d.rel ? findBy(d.rel.user, m) : null;
+        const dir = findBy(ct.contacts, m)?.prompt;
+        return [`## ${m}`, prof ? short(`${prof.summary} ${prof.fields.map(f => `${f.k}: ${f.v}`).join(' / ')}`, lite ? 250 : 900) : card ? short(card.description, lite ? 250 : 700) : '',
+            rel ? `→ {{user}}: ${rel.label || '-'} · ${relAxes(d.rel).aff} ${rel.aff} · ${relAxes(d.rel).trust} ${rel.trust}` : '', dir ? `USER'S DIRECTION for ${m} (highest priority): ${dir}` : ''].filter(Boolean).join('\n');
+    });
+    const pairs = (d.rel?.pairs ?? []).filter(p => has(p.a) && has(p.b)).map(p => `${p.a} & ${p.b}: ${[p.label, Number.isFinite(Number(p.aff)) ? `closeness ${p.aff} (-100..100)` : '', p.memo].filter(Boolean).join(' · ')}`);
+    const body = [`World: ${state.core.title} — ${short(state.core.summary, 500)}`, d.calendar ? `Now: ${dateStr(d.calendar)} ${d.calendar.time}` : '',
+        `MEMBERS\n${people.join('\n\n')}`, pairs.length ? `PAIRS (how the members feel about each other)\n${pairs.join('\n')}` : '',
+        `Recent story (for context):\n${recentChat(lite ? 3 : 6)}`,
+        `Room so far:\n${r.msgs.slice(-(lite ? 8 : 24)).map(m => `${who(m)}: ${msgText(m)}`).join('\n') || '(empty)'}`].filter(Boolean).join('\n\n');
+    const out = stripStatus(await aiGenerate('phone', P('ai.group', { room, app: ct.app, members: members.join(', ') }), body, 1000));
+    const got = [];
+    for (const line of out.split(/\r?\n/)) {
+        const m = line.replace(/^\s*(?:[-*•]\s*)?/, '').match(/^\**([^:：*]{1,40}?)\**\s*[:：]\s*(.+)$/); if (!m) continue;
+        const name = members.find(x => norm(x) === norm(m[1])); if (!name) continue;
+        const text = m[2].replace(/^["“](.*)["”]$/, '$1').trim(); if (text) got.push({ who: name, text });
+    }
+    const top = got.slice(0, 6), texts = await finLines(top.map(x => x.text));
+    return texts.length === top.length ? top.map((x, i) => ({ who: x.who, text: texts[i] || x.text })) : top;
+}
 export async function letterReply(who, state, { courier, rush }, sends = null) {
     const ct = state.data.contact;
     const sys = P('ai.letter', { who, app: ct.app, courier: courier || ct.app, rush: rush ? `${who} paid extra for an express courier so it arrives fast — it may show a little in the letter (eagerness).` : '' }) + remoteRule(who) + sendRule(state, who);

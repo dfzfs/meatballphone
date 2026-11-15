@@ -1,7 +1,7 @@
 // 📱/✉️ 연락: 메신저 · 즉시 통신 · 편지 (배달 수단 · 도착 시간 · 급행)
 import { letterMode, contactSimple, instantLetter, SIMPLE_THREAD, app, settings, getMeta, modOn, esc, short, clone, findBy, norm, uid, randInt, rand, clamp, num, fmtNum, nowTick, wholeTick, tickUnit, waitText, slotsPerDay, useDays, saveSettings, stamp, CONTACT_MODES, TITLE, COURIER_PRESETS, touchContact, msgText, ssErr, ssWarn } from './core.js';
 import { commit, addAdjust, dueLetters, inTransit, affMul, PIN_LINES } from './engine.js';
-import { phoneReply, letterReply, pingMessage, summarizeThread, truthReply } from './ai.js';
+import { phoneReply, letterReply, pingMessage, summarizeThread, truthReply, groupReply } from './ai.js';
 import { avatar, ai1, emptyBox, askInput, askConfirm, busyBtn, choosePopup } from './kit.js';
 
 const isLetter = (d) => letterMode(d);
@@ -25,7 +25,8 @@ function listView(s, d, ui) {
     return `<div class="ss-ct">
         <div class="ss-ct-top"><div class="ss-ct-app"><i class="fa-solid ${modeInfo.icon}"></i><b>${esc(d.app)}</b><small>${esc(modeInfo.name)}</small></div>
             <button class="ss-btn sm ghost" data-act="cmode" title="연락 방식 바꾸기"><i class="fa-solid fa-right-left"></i> 방식</button>
-            <button class="ss-btn sm ss-truth-btn" data-act="ctruth" title="최면 어플 — 부른 사람이 솔직하게만 답하고 시키는 말을 따라요 (연락과 따로 · 본편에 안 감)"><i class="fa-solid fa-hurricane"></i> 최면 어플</button></div>
+            <button class="ss-btn sm ss-truth-btn" data-act="ctruth" title="최면 어플 — 부른 사람이 솔직하게만 답하고 시키는 말을 따라요 (연락과 따로 · 본편에 안 감)"><i class="fa-solid fa-hurricane"></i> 최면 어플</button>
+            ${settings().groupChat === true ? '<button class="ss-btn sm" data-act="croom" title="단체방 — 인물 여럿이 한 방에서 내 말에 · 서로에게 반응해요 (연락과 따로 · 본편에 안 감)"><i class="fa-solid fa-people-group"></i> 단체방</button>' : ''}</div>
         ${due.length ? `<div class="ss-callout mail"><i class="fa-solid fa-envelope-open-text"></i><div><b>도착한 편지 ${due.length}통</b><span>${due.map(x => esc(x.who)).join(', ')}${due.some(x => x.m.rush) ? ' · 💨 급행 포함' : ''}</span></div><button class="ss-btn sm pri" data-act="copen" data-arg="${esc(due[0].who)}">열기</button></div>` : ''}
         ${transit.length ? `<div class="ss-card ss-transit"><div class="ss-sec-h"><h4><i class="fa-solid fa-truck-fast"></i> 배달 중</h4></div>${transit.map(x => {
             const total = Math.max(1, (x.m.arrive ?? 0) - (x.m.at ?? 0));
@@ -193,7 +194,39 @@ function truthList(s, d, ui) {
         <div class="ss-ct-list">${ns.map(n => { const th = d.truth?.[n] ?? []; const last = th.at(-1); return `<div class="ss-ct-row" data-act="copen" data-arg="${esc(n)}">${avatar(n)}<div class="ss-ct-b"><b>${esc(n)}</b><small>${esc(last ? short(msgText(last), 46) : '아직 안 물어봤어요')}</small></div>${th.length ? `<i class="ss-badge">${th.length}</i>` : ''}</div>`; }).join('') || emptyBox('부를 사람이 없어요 — 연락처나 관계에 사람을 먼저 추가해요', 'fa-user-secret')}</div>
     </div>`;
 }
+// ───── 👥 단체방 (v2.8 · 선택 기능 · 설정 groupChat) ─────
+// 인물 여럿이 있는 방: 내 말에 · 서로에게 반응한다 (인물끼리 호감이 있으면 그대로 반영). 대화는 ct.rooms에 따로 쌓이고 본편 AI에게 가지 않는다.
+const roomOn = () => settings().groupChat === true;
+function roomList(s, d, ui) {
+    const rooms = Object.entries(d.rooms ?? {});
+    const cand = [...new Set([...names(d), ...(s.data.rel?.user ?? []).filter(r => !r.out).map(r => r.name)])];
+    return `<div class="ss-ct">
+        <div class="ss-ct-top"><div class="ss-ct-app"><i class="fa-solid fa-people-group"></i><b>단체방</b><small>${esc(d.app)}</small></div>
+            <button class="ss-btn sm ghost" data-act="croom" title="연락으로 돌아가기"><i class="fa-solid fa-right-left"></i> 연락으로</button></div>
+        <div class="ss-ct-list">${rooms.map(([name, r]) => { const last = r.msgs.at(-1); return `<div class="ss-ct-row" data-act="cropen" data-arg="${esc(name)}"><span class="ss-room-ico"><i class="fa-solid fa-people-group"></i></span><div class="ss-ct-b"><b>${esc(name)} <small>${r.members.length + 1}</small></b><small>${esc(last ? `${last.from === 'me' ? '나' : last.who || ''}: ${short(msgText(last), 40)}` : r.members.join(', '))}</small></div></div>`; }).join('') || emptyBox('아직 방이 없어요 — 아래에서 만들어요', 'fa-people-group')}</div>
+        <div class="ss-card ss-room-new"><div class="ss-sec-h"><h4><i class="fa-solid fa-plus"></i> 새 방 만들기</h4></div>
+            ${cand.length >= 2 ? `<input class="ss-in ss-rname" placeholder="방 이름 (예: 길드 단톡방)" maxlength="30">
+            <div class="ss-room-pick">${cand.map(n => `<label class="ss-tog"><input type="checkbox" class="ss-rmem" value="${esc(n)}"><span>${esc(n)}</span></label>`).join('')}</div>
+            <div class="ss-row-btns"><button class="ss-btn sm pri" data-act="crnew">만들기</button><small class="ss-hint">2~6명을 골라요. 말을 걸 때마다 확장 AI 1회.</small></div>` : '<p class="ss-hint">방에 넣을 사람이 2명 이상 있어야 해요 — 연락처나 관계에 사람을 먼저 추가해요.</p>'}</div>
+    </div>`;
+}
+function roomView(s, d, ui) {
+    const r = d.rooms?.[ui.room]; if (!r) return roomList(s, d, { rooms: true });
+    const bub = (m) => { const mine = m.from === 'me'; return `<div class="ss-bub ${mine ? 'me' : 'grp'}" data-id="${esc(m.id)}">${mine ? '' : `<small class="ss-bub-who">${avatar(m.who || '?')} ${esc(m.who || '?')}</small>`}<span class="${/\n/.test(m.text ?? '') ? 'ss-pre' : ''}">${esc(m.text)}</span>
+        <div class="ss-bub-meta">${esc(m.date || '')}</div><div class="ss-bub-acts"><button class="ss-ib" data-act="crmsgdel" data-arg="${esc(m.id)}" title="지우기"><i class="fa-solid fa-trash-can"></i></button></div></div>`; };
+    return `<div class="ss-phone ss-room">
+        <div class="ss-phone-top"><button class="ss-ib" data-act="cback"><i class="fa-solid fa-chevron-left"></i></button><span class="ss-room-ico"><i class="fa-solid fa-people-group"></i></span><div class="ss-ct-b"><b>${esc(ui.room)}</b><small>${esc(r.members.join(', '))}</small></div>
+            <button class="ss-ib" data-act="crmem" data-arg="${esc(ui.room)}" title="멤버 초대 · 내보내기"><i class="fa-solid fa-user-plus"></i></button>
+            <button class="ss-ib" data-act="crclear" data-arg="${esc(ui.room)}" title="대화 비우기"><i class="fa-solid fa-broom"></i></button>
+            <button class="ss-ib" data-act="crdel" data-arg="${esc(ui.room)}" title="방 지우기"><i class="fa-solid fa-trash-can"></i></button></div>
+        <div class="ss-thread">${r.msgs.map(bub).join('') || '<div class="ss-hint center">아직 조용해요. 먼저 말을 걸어 보세요.</div>'}</div>
+        <div class="ss-phone-in"><textarea class="ss-in ss-cin" rows="1" placeholder="단체방에 메시지 보내기">${esc(ui.draft ?? '')}</textarea><button class="ss-btn pri ss-send" data-act="csend" title="보내기"><i class="fa-solid fa-paper-plane"></i></button></div>
+        <div class="ss-phone-opt"><label class="ss-tog"><input type="checkbox" class="ss-switch ss-creply" ${ui.noReply ? '' : 'checked'}><span>보내면 반응 받기 ${ai1}</span></label>
+            <button class="ss-btn sm ghost" data-act="crpoke" title="내가 말하지 않고 방에 있는 사람들끼리 떠들게 해요 (AI 1회)">${ai1} 지켜보기</button></div>
+    </div>`;
+}
 export function contactView(s, d, ui) {
+    if (ui.rooms && roomOn()) return ui.room ? roomView(s, d, ui) : roomList(s, d, ui);
     if (ui.truth) return `<div class="ss-truth">${ui.who ? phoneView(s, { ...d, mode: 'phone', threads: d.truth ?? {}, summaries: {} }, ui) : truthList(s, d, ui)}</div>`;
     if (!ui.who) return listView(s, d, ui);
     return isLetter(d) ? letterView(s, d, ui) : phoneView(s, d, ui);
@@ -295,6 +328,28 @@ async function getTruthReply(el, who, replaceId = null) {
         await commit('contact', nd, '');
         redraw(el);
     } catch (e) { ssErr(e); toastr.error(`답을 받지 못했어요: ${esc(e.message)}`, TITLE); redraw(el); }
+}
+// 👥 단체방: 내 말 → 방 사람들의 반응
+async function sendRoom(el, s, room, text) {
+    const nd = clone(s.data.contact); const r = nd.rooms?.[room]; if (!r) return;
+    r.msgs.push({ id: uid(), from: 'me', text, date: stamp(s), at: wholeTick(s), arrive: wholeTick(s), kind: 'text', read: true });
+    await commit('contact', nd, '');
+    redraw(el);
+    if (!el._ss.ui.noReply) await getRoomReply(el, room);
+}
+async function getRoomReply(el, room) {
+    const thread = el.querySelector('.ss-thread');
+    thread?.insertAdjacentHTML('beforeend', '<div class="ss-bub typing"><span><i></i><i></i><i></i></span></div>');
+    if (thread) thread.scrollTop = thread.scrollHeight;
+    try {
+        const s = curState();
+        const lines = await groupReply(room, s);
+        if (!lines.length) throw new Error('빈 답이 왔어요');
+        const nd = clone(curState().data.contact); const r = nd.rooms?.[room]; if (!r) return;
+        r.msgs.push(...lines.map(l => ({ id: uid(), from: 'them', who: l.who, text: l.text, date: stamp(s), at: wholeTick(s), arrive: wholeTick(s), kind: 'text' })));
+        await commit('contact', nd, '');
+        redraw(el);
+    } catch (e) { ssErr(e); toastr.error(`반응을 받지 못했어요: ${esc(e.message)}`, TITLE); redraw(el); }
 }
 async function sendPhone(el, s, who, text, extra = {}) {
     const ui = el._ss.ui;
@@ -539,7 +594,48 @@ export const CONTACT_ACTIONS = {
     },
     copen: (el, arg) => { const truth = !!el._ss.ui?.truth && el._ss.tab === 'contact'; el._ss.tab = 'contact'; el._ss.ui = truth ? { who: arg, truth: true } : { who: arg }; app.renderPanel(el); if (!truth) markRead(arg); },
     talk: (el, arg) => CONTACT_ACTIONS.copen(el, arg),
-    cback: (el) => { el._ss.ui = el._ss.ui?.truth ? { truth: true } : {}; app.renderPanel(el); },
+    cback: (el) => { el._ss.ui = el._ss.ui?.truth ? { truth: true } : el._ss.ui?.rooms ? { rooms: true } : {}; app.renderPanel(el); },
+    // 👥 단체방 (v2.8)
+    croom: (el) => { el._ss.ui = el._ss.ui?.rooms || !roomOn() ? {} : { rooms: true }; app.renderPanel(el); },
+    cropen: (el, arg) => { el._ss.ui = { rooms: true, room: arg }; app.renderPanel(el); },
+    crnew: async (el, arg, btn, s) => {
+        const name = el.querySelector('.ss-rname')?.value.trim(); const members = [...el.querySelectorAll('.ss-rmem:checked')].map(x => x.value);
+        if (!name) { toastr.info('방 이름을 적어요.', TITLE); return; }
+        if (members.length < 2 || members.length > 6) { toastr.info('2~6명을 골라요.', TITLE); return; }
+        if (s.data.contact.rooms?.[name]) { toastr.info('같은 이름의 방이 있어요.', TITLE); return; }
+        const nd = clone(s.data.contact); (nd.rooms ??= {})[name] = { members, msgs: [] };
+        await commit('contact', nd, '');
+        el._ss.ui = { rooms: true, room: name }; app.renderPanel(el);
+    },
+    crmem: async (el, arg, btn, s) => {
+        const r = s.data.contact.rooms?.[arg]; if (!r) return;
+        const cand = [...new Set([...r.members, ...names(s.data.contact), ...(s.data.rel?.user ?? []).filter(x => !x.out).map(x => x.name)])];
+        const box = document.createElement('div'); box.className = 'ss-root ss-scope';
+        box.innerHTML = `<h3>멤버 초대 · 내보내기</h3><p class="ss-hint">누르면 바로 들어오거나 나가요 (2~6명).</p><div class="ss-row-btns">${cand.map(n => `<button class="ss-btn sm ${r.members.includes(n) ? 'pri' : 'ghost'}" data-choice="${esc(n)}">${r.members.includes(n) ? '✓ ' : '+ '}${esc(n)}</button>`).join('')}</div>`;
+        const pick = await choosePopup(box); if (!pick) return;
+        const nd = clone(s.data.contact); const nr = nd.rooms[arg]; const inRoom = nr.members.includes(pick);
+        if (inRoom && nr.members.length <= 2) { toastr.info('방에는 2명 이상 있어야 해요.', TITLE); return; }
+        if (!inRoom && nr.members.length >= 6) { toastr.info('6명까지 들어올 수 있어요.', TITLE); return; }
+        nr.members = inRoom ? nr.members.filter(n => n !== pick) : [...nr.members, pick];
+        nr.msgs.push({ id: uid(), from: 'them', who: pick, text: inRoom ? '(방을 나갔어요)' : '(방에 들어왔어요)', date: stamp(s), at: wholeTick(s), arrive: wholeTick(s), kind: 'text' });
+        await commit('contact', nd, ''); redraw(el);
+    },
+    crclear: async (el, arg, btn, s) => {
+        if (!(s.data.contact.rooms?.[arg]?.msgs.length) || !(await askConfirm(`「${esc(arg)}」 대화를 비울까요?`))) return;
+        const nd = clone(s.data.contact); nd.rooms[arg].msgs = [];
+        await commit('contact', nd, ''); redraw(el);
+    },
+    crdel: async (el, arg, btn, s) => {
+        if (!s.data.contact.rooms?.[arg] || !(await askConfirm(`「${esc(arg)}」 방을 지울까요? 대화도 같이 사라져요.`))) return;
+        const nd = clone(s.data.contact); delete nd.rooms[arg];
+        await commit('contact', nd, ''); el._ss.ui = { rooms: true }; app.renderPanel(el);
+    },
+    crmsgdel: async (el, arg, btn, s) => {
+        const room = el._ss.ui?.room; const nd = clone(s.data.contact); const r = nd.rooms?.[room]; if (!r) return;
+        r.msgs = r.msgs.filter(m => m.id !== arg);
+        await commit('contact', nd, ''); redraw(el);
+    },
+    crpoke: async (el, arg, btn) => { const room = el._ss.ui?.room; if (!room) return; busyBtn(btn, true, ''); try { await getRoomReply(el, room); } finally { busyBtn(btn, false); } },
     // 🔕 꺼 둔 연락을 무시하고 불러내기
     cwake: async (el, arg, btn, s) => {
         const nd = clone(s.data.contact); const c = findBy(nd.contacts, arg); if (c?.away) { delete c.away; await commit('contact', nd, ''); }
@@ -566,7 +662,7 @@ export const CONTACT_ACTIONS = {
         { const w = el.querySelector('.ss-lwhen'); if (w && QUICK.includes(w.value) && settings().letterQuick !== w.value) { settings().letterQuick = w.value; saveSettings(); } }
         ui.draft = '';
         busyBtn(btn, true, '');
-        try { if (ui.truth) await sendTruth(el, s, who, text); else if (isLetter(s.data.contact)) await sendLetter(el, s, who, text); else await sendPhone(el, s, who, text); }
+        try { if (ui.rooms && ui.room) await sendRoom(el, s, ui.room, text); else if (ui.truth) await sendTruth(el, s, who, text); else if (isLetter(s.data.contact)) await sendLetter(el, s, who, text); else await sendPhone(el, s, who, text); }
         finally { busyBtn(btn, false); }
     },
     creply: (el) => getPhoneReply(el, el._ss.ui.who),

@@ -27,3 +27,10 @@
 .ss-scope .ss-sets { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; }
 .ss-scope .ss-sets button { text-align: left; display: flex; flex-direction: column; gap: 2px; }
 .ss-scope .ss-sets button small { color: var(--ss-dim); font-weight: 400; white-space: normal; }
+
+/* 👥 단체방 (v2.8) */
+.ss-room-ico { flex: 0 0 auto; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--ss-surface2, var(--ss-bg)); color: var(--ss-acc); border: 1px solid var(--ss-line); }
+.ss-room-new { margin-top: 10px; display: grid; gap: 8px; }
+.ss-room-pick { display: flex; flex-wrap: wrap; gap: 6px 12px; }
+.ss-bub.grp .ss-bub-who { display: flex; align-items: center; gap: 5px; margin: 0 0 3px 2px; font-weight: 600; color: var(--ss-dim); }
+.ss-bub.grp .ss-bub-who :is(img, .ss-av) { width: 20px; height: 20px; font-size: 11px; }
