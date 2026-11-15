@@ -207,7 +207,7 @@ export function relView(s, d, ui) {
     const ens = playOf().ensemble, PA = optOn('pairAff');
     const race = optOn('relRace') ? raceHTML(d, st, AX, STG, ens) : '';
     const pairRow = (p) => `<div><b>${esc(p.a)}</b><i class="fa-solid fa-arrows-left-right"></i><b>${esc(p.b)}</b>${p.label ? chip(esc(p.label)) : ''}${PA ? `${STG && Number.isFinite(p.aff) ? chip(esc(pairStage(d, p).name)) : ''}<span class="ss-pair-adj"><button class="ss-ib" data-act="pairadj" data-arg="${esc(`${p.a}|${p.b}|-5`)}" title="${esc(AX.aff)} −5">−</button><button class="ss-ib" data-act="pairadj" data-arg="${esc(`${p.a}|${p.b}|+5`)}" title="${esc(AX.aff)} +5">+</button></span>` : ''}${p.memo ? `<small>${esc(p.memo)}</small>` : ''}${PA ? meter(AX.aff, p.aff ?? 0, 'love') : ''}</div>`;
-    const trendBar = d.user.length ? `<div class="ss-row-btns"><button class="ss-btn sm ghost" data-act="trend" title="애정 · 우정 · 돈이 어떻게 변해 왔는지 (AI 0회)"><i class="fa-solid fa-chart-line"></i> 변화 그래프</button></div>` : '';
+    const trendBar = d.user.length ? `<div class="ss-row-btns"><button class="ss-btn sm ghost" data-act="trend" title="애정 · 우정 · 돈이 어떻게 변해 왔는지 (AI 0회)"><i class="fa-solid fa-chart-line"></i> 변화 그래프</button><button class="ss-btn sm ghost" data-act="lab" title="실험실 — 이야기 장치 켜고 끄기"><i class="fa-solid fa-flask"></i> 실험실</button></div>` : '';
     return `${ladderBar}${showBar}${ens ? '' : mindBar}${ens ? '' : romBar}${race}${trendBar}${ens && !d.user.length ? '' : `<div class="ss-stack">${d.user.map(card).join('') || emptyBox('관계가 없어요', 'fa-people-arrows')}</div>`}
         ${life.length ? sec('🌙 화면 밖 소식', `<div class="ss-stack">${life.map(x => `<div class="ss-ev"><b>${esc(x.who)}</b><small>${esc(x.text)}${x.date ? ` · ${esc(x.date)}` : ''}</small></div>`).join('')}</div>`) : ''}
         ${relOn('relShowPairs') && d.pairs.length ? sec('인물끼리', `<div class="ss-pairs ${PA ? 'aff' : ''}">${d.pairs.map(pairRow).join('')}</div>`) : ens ? emptyBox('인물끼리의 관계가 아직 없어요', 'fa-people-arrows') : ''}
@@ -262,6 +262,7 @@ export const REL_ACTIONS = {
         return addAdjust({ ops: [['_merge', `${arg} => ${to}`]], label: `🔗 ${arg} → ${to} 합침` });
     },
     trend: () => openTrend(),
+    lab: () => app.openLab?.(),
     pairadj: (el, arg) => { const [a, b, v] = arg.split('|'); if (!a || !b || !/^[+-]\d+$/.test(v ?? '')) return; return addAdjust({ ops: [['pairaff', `${a} & ${b} ${v}`]], label: `💞 ${a}↔${b} ${v}` }); },
     relshow: (el, arg) => {
         const set = settings();
@@ -319,6 +320,7 @@ export const REL_ACTIONS = {
             box.innerHTML = `<div class="ss-wz-head"><i class="fa-solid fa-heart-circle-question"></i><div><b>${esc(arg)}의 속마음</b><small>${esc(stamp(s))} · ${esc(arg)}은(는) 모르는 일이에요</small></div></div><blockquote class="ss-pre">${esc(text)}</blockquote>
                 ${settings().albumOn !== false ? '<div class="ss-row-btns"><button class="ss-btn sm" data-save="1"><i class="fa-regular fa-star"></i> 앨범에 저장</button></div>' : ''}`;
             box.addEventListener('click', async (e) => { const b = e.target.closest('[data-save]'); if (!b) return; await addAlbum({ kind: 'peek', who: arg, text, when: stamp(s), here: s.data.map?.here ?? '' }); b.disabled = true; b.innerHTML = '<i class="fa-solid fa-star"></i> 저장했어요'; });
+            app.labPeek?.(arg); // 🧪 실험실 › 엿보기엔 대가가 있다 (꺼져 있으면 아무 일도 안 함)
             await app.popup(box);
         } catch (e) { toastr.error(`엿보지 못했어요: ${esc(e.message)}`, TITLE); busyBtn(btn, false); }
     },

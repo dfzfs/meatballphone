@@ -7,4 +7,6 @@ export const openHelp = later(() => import('./help.js'), 'openHelp');
 export const openWizard = later(() => import('./wizard.js'), 'openWizard');
 export const openPromptWindow = later(() => import('./windows.js'), 'openPromptWindow');
 export const openThemeWindow = later(() => import('./windows.js'), 'openThemeWindow');
+export const openLab = later(() => import('./labwin.js'), 'openLab'); // 🧪 실험실 (v2.8)
+app.openLab = openLab; // extra.js(관계 탭 단추)가 부른다
 app.openHelp = openHelp; // help.js가 불리면 진짜 함수로 바뀐다

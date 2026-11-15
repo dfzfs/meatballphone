@@ -34,3 +34,39 @@
 .ss-room-pick { display: flex; flex-wrap: wrap; gap: 6px 12px; }
 .ss-bub.grp .ss-bub-who { display: flex; align-items: center; gap: 5px; margin: 0 0 3px 2px; font-weight: 600; color: var(--ss-dim); }
 .ss-bub.grp .ss-bub-who :is(img, .ss-av) { width: 20px; height: 20px; font-size: 11px; }
+
+/* 🧪 실험실 (v2.8) */
+.ss-lab .ss-lab-g { margin: 14px 0 4px; font-size: .95em; opacity: .75; border-bottom: 1px solid var(--ss-line); padding-bottom: 3px; }
+.ss-lab .ss-lab-f { padding: 8px 10px; margin: 6px 0; border: 1px solid var(--ss-line); border-radius: 10px; background: var(--ss-card, transparent); }
+.ss-lab .ss-lab-f.on { border-color: var(--ss-acc); }
+.ss-lab .ss-lab-f > .ss-hint { margin: 2px 0 0; }
+.ss-lab .ss-lab-b { margin-top: 8px; display: grid; gap: 6px; }
+.ss-lab .ss-lab-row { display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed var(--ss-line); }
+.ss-lab .ss-lab-row > span { min-width: 0; overflow-wrap: anywhere; }
+.ss-lab .ss-lab-btns { display: flex; gap: 4px; flex: 0 0 auto; font-style: normal; }
+.ss-lab .ss-lab-add { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ss-lab .ss-lab-add .ss-in { flex: 1 1 140px; min-width: 0; }
+.ss-lab .ss-lab-add .ss-lab-n { flex: 0 0 70px; }
+.ss-lab .ss-lab-card { padding: 8px 10px; border-radius: 8px; background: var(--ss-surface2, var(--ss-bg)); border: 1px solid var(--ss-line); }
+.ss-lab .ss-lab-card .ss-pre { margin: 6px 0 0; white-space: pre-wrap; }
+.ss-lab .ss-lab-kv { display: grid; grid-template-columns: max-content 1fr; gap: 3px 10px; margin-top: 6px; }
+.ss-lab .ss-lab-kv small { opacity: .7; }
+.ss-lab .ss-lab-meter { position: relative; height: 20px; border-radius: 10px; background: var(--ss-surface2, var(--ss-bg)); border: 1px solid var(--ss-line); overflow: hidden; }
+.ss-lab .ss-lab-meter b { position: absolute; inset: 0 auto 0 0; background: var(--ss-acc); opacity: .45; }
+.ss-lab .ss-lab-meter span { position: relative; display: block; text-align: center; font-size: .85em; line-height: 20px; }
+.ss-lab .ss-lab-pet { display: flex; gap: 12px; align-items: center; }
+.ss-lab .ss-lab-pet img { width: 72px; height: 72px; object-fit: contain; }
+.ss-lab .ss-lab-pet > div { flex: 1; display: grid; gap: 6px; }
+.ss-lab :is(.ss-lab-who, select.ss-in) { width: auto; max-width: 180px; }
+/* 🌫 믿을 수 없는 상태창 — 화면만 (계산은 그대로). 움직임을 줄이도록 설정한 사람에겐 안 움직인다 */
+@keyframes ss-jit { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(.6px, -.4px); } 50% { transform: translate(-.5px, .5px); } 75% { transform: translate(.4px, .3px); } }
+@keyframes ss-sway { 0%, 100% { transform: rotate(-.6deg); } 50% { transform: rotate(.6deg); } }
+@keyframes ss-flick { 0%, 92%, 100% { opacity: 1; filter: none; } 94% { opacity: .55; filter: blur(.6px) hue-rotate(40deg); } 96% { opacity: .9; } }
+body.ss-glitch .ss-root:not(.ss-lab) :is(b, .ss-num, .ss-bar, h4) { text-shadow: 1px 0 rgba(255, 0, 80, .55), -1px 0 rgba(0, 200, 255, .55); }
+body.ss-glitch-hard .ss-root:not(.ss-lab) .ss-card:nth-of-type(3n+2) { filter: blur(1.2px) contrast(1.3); }
+body.ss-drunk .ss-root:not(.ss-lab) .ss-card { filter: blur(.4px); }
+@media (prefers-reduced-motion: no-preference) {
+    body.ss-glitch .ss-root:not(.ss-lab) :is(b, .ss-num, h4) { animation: ss-jit .28s steps(2) infinite; }
+    body.ss-glitch-hard .ss-root:not(.ss-lab) { animation: ss-flick 3.5s infinite; }
+    body.ss-drunk .ss-root:not(.ss-lab) .ss-card { animation: ss-sway 3s ease-in-out infinite; }
+}

@@ -9,6 +9,7 @@ export const VERSION = '2.7.23';
 export const INJECT_KEY = 'statussim_state';
 export const INJECT_KEY2 = 'statussim_people';
 export const INJECT_KEY3 = 'statussim_romance'; // 로맨스 보정 · 내 주입문 (v2.6)
+export const INJECT_KEY4 = 'statussim_lab'; // 🧪 실험실 (v2.8) — 켠 장치의 안내 줄 (하나도 안 켜면 빈 글)
 export const PROMPT_IN_CHAT = 1;
 export const ROLE_SYSTEM = 0;
 
@@ -18,6 +19,7 @@ export const mascotUrl = (n) => new URL(`../img/mascot_${MASCOTS.includes(n) ? n
 // 모듈끼리 서로 부르는 함수·현재 상태를 담는 곳 (순환 import 방지)
 // ── app에 거는 것 전부 (새로 걸면 여기에도 적는다 · 거는 파일이 아직 안 불렸을 수 있으니 부를 땐 app.x?.() 로) ──
 //   addTrPairs       거는 곳: translate.js           부르는 곳: core.js, skeleton.js
+//   labInject · labPeek  거는 곳: lab.js          부르는 곳: engine.js(setInjection), extra.js
 //   askBond          거는 곳: index.js               부르는 곳: (같은 파일)
 //   chipOutWas       거는 곳: index.js               부르는 곳: (같은 파일)
 //   colMenu          거는 곳: views.js               부르는 곳: (같은 파일)

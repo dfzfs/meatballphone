@@ -22,6 +22,7 @@
 | 화면 | `src/tiles.js` | 미니 위젯 · 타일 판 |
 | 화면 | `src/views.js` | 칸별 화면 · 관리 · 칸 공통 동작. `tiles.js`를 다시 내보냄 |
 | 틀 | `src/shell.js` | 패널 · HUD · 사이드 |
+| 기능 | `src/lab.js` · `src/labwin.js` | 🧪 실험실 (v2.8): 선택 장치 묶음 — `lab.js`는 계산 · 주입 · 이벤트(처음부터 불림), `labwin.js`는 창(눌렀을 때 불림). 새 장치: `LAB` 목록 → `labInjection`(AI에게 갈 줄) · `onReply`(답 받은 뒤) → `labwin.js`의 `BODY` · `act` |
 | 틀 | `src/lazy.js` | 눌렀을 때 불러오는 창 목록 (`help.js` · `wizard.js` · `windows.js`) |
 | 틀 | `src/wizard.js` · `src/windows.js` | 처음 만들기 · 프롬프트/꾸미기 창 (눌렀을 때 불러옴) |
 | 맨 위 | `src/settings_ui.js` · `src/commands.js` | 확장 설정 서랍 · 슬래시 커맨드 |

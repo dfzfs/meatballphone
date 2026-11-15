@@ -1,7 +1,7 @@
 // 상태 엔진: <meatball> 변화량 → 상태 재계산 · 직접 편집 기록 · 프롬프트 주입
 import {
     letterMode, instantLetter, contactSimple, app, ctx, settings, getMeta, saveMeta, modOn, MOD_IDS, MOD, EMPTY, DIFFS, NORM, normalize, clone, clamp, num, norm, findBy, splitBar, fmtNum, short, dayIndex, addDays, dateStr, eventsOn, parseDate, nowTick, tickUnit, stamp, esc,
-    waitText, setAlias, TITLE, INJECT_KEY, INJECT_KEY2, INJECT_KEY3, trLook, trBack, viewTr, weekday, PROMPT_IN_CHAT, ROLE_SYSTEM, MODULE, AI_PARTS, aiOff, uid, diffOf, LOG, loveIndex, CONTACT_MODES, tidy, msgText, DEFAULT_STAGES, arr, playOf, swapUser, ssWarn, relAxes, INJ, isHidden, modOnRaw, DATA_V, normPlay, ssNote, heroIsUser,
+    waitText, setAlias, TITLE, INJECT_KEY, INJECT_KEY2, INJECT_KEY3, INJECT_KEY4, trLook, trBack, viewTr, weekday, PROMPT_IN_CHAT, ROLE_SYSTEM, MODULE, AI_PARTS, aiOff, uid, diffOf, LOG, loveIndex, CONTACT_MODES, tidy, msgText, DEFAULT_STAGES, arr, playOf, swapUser, ssWarn, relAxes, INJ, isHidden, modOnRaw, DATA_V, normPlay, ssNote, heroIsUser,
 } from './core.js';
 import { P } from './prompts.js';
 import { pairStage, KEYMAP, KEY_MOD, seeded, effSum, today, applyLines, seasonOf, pickWeather, stageIndex, noLoveStage, updateStage, startDay, applyOp, stagesOn, dateFromIndex } from './ops.js';
@@ -1684,6 +1684,9 @@ export function setInjection(inj) {
     c.setExtensionPrompt(INJECT_KEY2, inj?.people ?? '', PROMPT_IN_CHAT, depth, false, ROLE_SYSTEM);
     const rd = clamp(parseInt(settings().romDepth, 10) || 0, 0, 20);
     c.setExtensionPrompt(INJECT_KEY3, inj?.romance ?? '', PROMPT_IN_CHAT, rd, false, ROLE_SYSTEM);
+    // 🧪 실험실 (v2.8): 켠 장치가 하나도 없으면 빈 글 → 아무 영향 없음
+    let lab = ''; try { lab = inj ? (app.labInject?.() ?? '') : ''; } catch (e) { ssNote('lab inject', e); }
+    c.setExtensionPrompt(INJECT_KEY4, lab, PROMPT_IN_CHAT, depth, false, ROLE_SYSTEM);
 }
 
 // ───── 생성 재료 ─────

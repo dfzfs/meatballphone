@@ -1,0 +1,289 @@
+// 🧪 실험실 (v2.8) — 이야기 장치 묶음. 전부 선택 기능(기본 끔): 끄면 주입 · 계산 · 저장이 모두 0
+// 켰는지는 settings().lab[id] === true 로만 본다. 채팅마다의 자료는 meta.lab (없으면 만들지 않는다)
+// 화면(창)은 labwin.js — 눌렀을 때 불러온다 (lazy.js)
+import { app, ctx, settings, saveSettings, getMeta, saveMeta, norm, short, findBy, uid, clamp, nowTick, stamp, dateStr, TITLE, isActive, ready, relAxes, ssNote, clone, randInt } from './core.js';
+import { stripStatus, recentChat, chatCharacters, addAdjust, commit } from './engine.js';
+import { aiGenerate, aiJSON, P } from './prompts.js';
+import { trendData } from './trend.js';
+
+// ───── 장치 목록 (창의 순서 · 설명) ─────
+export const LAB = [
+    { id: 'loop', g: '되감기', icon: '🔁', name: '회귀자 모드', cost: '토큰 0~1줄', desc: '다시 생성 · 지운 횟수를 「회차」로 세요. 같은 장면을 여러 번 되돌리면 인물이 희미한 기시감을 느껴요.' },
+    { id: 'ghost', g: '되감기', icon: '👻', name: '버린 스와이프의 유령', cost: '가끔 100토큰쯤', desc: '버려진 스와이프에서 있었던 일이 가끔 꿈 · 환청 · 말실수로 새어 나와요.' },
+    { id: 'debt', g: '되감기', icon: '🎲', name: '운명의 빚', cost: '토큰 0~1줄', desc: '다시 생성할 때마다 빚이 1 쌓이고, 5가 되면 다음 답에서 작은 불운으로 갚아요.' },
+    { id: 'know', g: '장부', icon: '🧠', name: '누가 뭘 아는지', cost: '매 턴 몇 줄', desc: '사실마다 「아는 사람」을 적어 두고, 모르는 인물이 아는 척하지 않게 AI에게 알려요.' },
+    { id: 'promise', g: '장부', icon: '🤝', name: '약속 장부', cost: '매 턴 몇 줄', desc: '내가 한 약속 · 거짓말을 적어 둬요. 지키면 우정이 오르고 어기면 깎여요.' },
+    { id: 'hook', g: '장부', icon: '🧵', name: '떡밥 장부', cost: '매 턴 몇 줄', desc: 'AI가 던져 놓고 잊은 복선을 적어 두고, 오래되면 「이제 회수해」로 다시 보내요.' },
+    { id: 'mask', g: '숨은 수치', icon: '🎭', name: '겉 호감과 진짜 호감', cost: '매 턴 몇 줄', desc: '상태창엔 겉 수치만 보이고, 진짜 수치는 여기서 엿봐야 보여요. 우정이 오를수록 차이가 줄어요.' },
+    { id: 'peek', g: '숨은 수치', icon: '👁', name: '엿보기엔 대가가 있다', cost: '토큰 0~1줄', desc: '속마음 · 진짜 호감 · 폰을 자주 엿보면 「눈치」가 쌓여 인물이 의심하기 시작해요.' },
+    { id: 'scar', g: '숨은 수치', icon: '🩹', name: '관계의 흉터', cost: '매 턴 1~3줄', desc: '호감이 한 번에 크게 깎였던 일은 흉터로 남아, 비슷한 상황에서 더 예민하게 굴어요.' },
+    { id: 'mirror', g: '숨은 수치', icon: '🪞', name: '역상태창', cost: '누를 때 AI 1회', desc: '그 인물이 나를 평가한 상태창 — 첫인상 · 나를 저장한 이름 · 오해 · 신뢰.' },
+    { id: 'memory', g: '숨은 수치', icon: '🕳', name: '기억 왜곡', cost: 'AI 1회 + 매 턴 몇 줄', desc: '인물이 지난 일을 자기 식으로(유리하게 · 흐릿하게) 기억해요. 본편에서도 그 기억대로 말해요.' },
+    { id: 'meddle', g: '침범', icon: '✍', name: '인물이 내 상태창에 손댄다', cost: '토큰 0~1줄', desc: '질투나 애정이 높은 인물이 가끔 낙서를 남기거나 · 자기 이름을 바꿔 놓거나 · 다른 사람을 차단해 놔요 (되돌릴 수 있어요).' },
+    { id: 'glitch', g: '침범', icon: '🌫', name: '믿을 수 없는 상태창', cost: '토큰 0', desc: '정신력 · 이성이 낮거나 취하면 상태창 화면이 흔들리고 깨져 보여요 (계산은 그대로).' },
+    { id: 'phone', g: '침범', icon: '📱', name: '폰 훔쳐보기', cost: '누를 때 AI 1회', desc: '그 인물의 검색 기록 · 메모 · 보내려다 지운 메시지를 봐요. 들킬 수 있어요.' },
+    { id: 'council', g: '침범', icon: '🗳', name: '뒷담 회의록', cost: '누를 때 AI 1회', desc: '내가 없는 사이 인물들이 나에 대해 나눈 이야기의 회의록.' },
+    { id: 'tension', g: '이야기', icon: '🎬', name: '긴장도 감독', cost: '토큰 0~1줄', desc: '평화가 길어지면 긴장이 차올라 사건을 부르고, 사건 뒤엔 쉬는 구간을 줘요.' },
+    { id: 'forecast', g: '이야기', icon: '🌦', name: '감정 예보', cost: '토큰 0', desc: '최근 변화의 기울기로 인물별 내일 날씨를 보여 줘요.' },
+    { id: 'realtime', g: '이야기', icon: '🕰', name: '현실 시간 연동', cost: '토큰 0~1줄', desc: '실제로 하루 넘게 안 오면 인물이 「어디 갔었어」로 반응해요.' },
+    { id: 'capsule', g: '이야기', icon: '⏳', name: '타임캡슐', cost: '토큰 0 (인물 캡슐은 AI 1회)', desc: '지금 쓴 글을 며칠 뒤에 열리게 봉인해요. 인물에게서 캡슐을 받을 수도 있어요.' },
+    { id: 'mail', g: '이야기', icon: '📻', name: '채팅 간 우편', cost: '누를 때 AI 1회', desc: '이 채팅의 인물이 다른 채팅으로 편지를 부쳐요. 다른 채팅에서 온 편지는 여기 떨어뜨릴 수 있어요.' },
+    { id: 'diary', g: '소소한 것', icon: '📔', name: '인물 시점 일기', cost: '누를 때 AI 1회', desc: '그 인물이 쓴 오늘의 일기.' },
+    { id: 'dream', g: '소소한 것', icon: '💤', name: '꿈', cost: '누를 때 AI 1회', desc: '오늘 일과 수치를 섞은 꿈 한 토막.' },
+    { id: 'taste', g: '소소한 것', icon: '🎁', name: '취향 도감', cost: '토큰 0', desc: '인물별로 드러난 좋아하는 것 · 싫어하는 것을 모아 봐요.' },
+    { id: 'fortune', g: '소소한 것', icon: '🔮', name: '오늘의 운세', cost: '토큰 0~1줄', desc: '하루 한 번 뽑기. 그날의 작은 운이 이야기에 살짝 묻어나요.' },
+    { id: 'market', g: '소소한 것', icon: '📈', name: '시세', cost: '토큰 0', desc: '날마다 값이 출렁이는 다섯 품목을 사고팔아요 (재산 칸 필요).' },
+    { id: 'recap', g: '소소한 것', icon: '🎬', name: '플레이 결산 카드', cost: '토큰 0', desc: '지금까지의 플레이를 한 장 그림으로 저장해요.' },
+    { id: 'pet', g: '소소한 것', icon: '🐱', name: '미트볼 키우기', cost: '토큰 0', desc: 'AI 답을 받을 때마다 미트볼이 조금씩 자라요 (모든 채팅 공통).' },
+];
+export const labOn = (id) => settings().lab?.[id] === true;
+const anyOn = () => { const l = settings().lab; return !!l && Object.values(l).some(v => v === true); };
+export function labSet(id, on) { (settings().lab ??= {})[id] = !!on; saveSettings(); applyGlitch(); app.refreshNow?.(); }
+// 이 채팅의 실험실 자료 (create = 없으면 만든다)
+export function labData(create = false) { const m = getMeta(); if (!m) return null; if (create) m.lab ??= {}; return m.lab ?? null; }
+export const labSave = () => { saveMeta(); app.refreshNow?.(); };
+const st = () => app.current?.state ?? null;
+const live = () => { try { return isActive() && ready() && !!st(); } catch { return false; } };
+export const people = () => (st()?.data?.rel?.user ?? []).filter(r => !r.out);
+const chat = () => ctx().chat ?? [];
+const chatId = () => { try { return String(ctx().getCurrentChatId?.() ?? ''); } catch { return ''; } };
+const hash = (t) => { let h = 2166136261; for (const c of String(t)) { h ^= c.codePointAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+const cut = (t, n) => short(String(t ?? '').replace(/\s+/g, ' ').trim(), n);
+
+// ───── 🔁 회차 ─────
+export function loopInfo() {
+    const c = chat(); let total = labData()?.loopDel ?? 0, top = { n: 0, i: -1 };
+    c.forEach((m, i) => { if (m.is_user || m.is_system) return; const n = Math.max(0, (m.swipes?.length ?? 1) - 1); total += n; if (n > top.n) top = { n, i }; });
+    let last = c.length - 1; while (last >= 0 && (c[last].is_user || c[last].is_system)) last--;
+    return { total, top, scene: last >= 0 ? Math.max(0, (c[last].swipes?.length ?? 1) - 1) : 0 };
+}
+// ───── 👻 버린 스와이프 한 토막 ─────
+function pickGhost() {
+    const c = chat(), pool = [];
+    for (let i = Math.max(0, c.length - 40); i < c.length - 1; i++) {
+        const m = c[i]; if (m.is_user || m.is_system || (m.swipes?.length ?? 0) < 2) continue;
+        m.swipes.forEach((t, k) => { if (k !== m.swipe_id && typeof t === 'string' && t.trim().length > 80) pool.push(t); });
+    }
+    if (!pool.length) return null;
+    const t = stripStatus(pool[randInt(0, pool.length - 1)]).replace(/\s+/g, ' ').trim();
+    const a = Math.max(0, Math.floor(t.length / 3) - 20);
+    return t.slice(a, a + 260);
+}
+// ───── 🩹 흉터: 한 번에 크게 깎인 곳 ─────
+export function findScars() {
+    let d; try { d = trendData(); } catch (e) { ssNote('lab scar', e); return []; }
+    const AX = st()?.data?.rel ? relAxes(st().data.rel) : { aff: '애정', trust: '우정' }, out = [];
+    for (const [axis, o] of [['aff', d.aff], ['trust', d.trust]]) for (const name of Object.keys(o)) {
+        let best = null; const a = o[name];
+        for (let i = 1; i < a.length; i++) { if (a[i] === null || a[i - 1] === null) continue; const drop = a[i - 1] - a[i]; if (drop >= 10 && (!best || drop > best.drop)) best = { name, axis: AX[axis], drop, at: d.xs[i] }; }
+        if (best) out.push(best);
+    }
+    return out.sort((x, y) => y.drop - x.drop).slice(0, 5);
+}
+// ───── 🌦 예보: 최근 변화의 기울기 ─────
+export function forecast() {
+    let d; try { d = trendData(); } catch { return []; }
+    return people().map(r => {
+        const a = (d.aff[r.name] ?? []).filter(v => v !== null), t = (d.trust[r.name] ?? []).filter(v => v !== null);
+        const slope = (x) => (x.length >= 2 ? x[x.length - 1] - x[Math.max(0, x.length - 6)] : 0);
+        const sa = slope(a), s2 = slope(t), sum = sa + s2;
+        const sky = sum >= 8 ? ['☀️', '맑음 — 빠르게 가까워지는 중'] : sum >= 2 ? ['🌤', '대체로 맑음'] : sum > -2 ? ['☁️', '변화 없음'] : sum > -8 ? ['🌧', '흐리고 비'] : ['⛈', '폭풍 — 급하게 멀어지는 중'];
+        return { name: r.name, icon: sky[0], text: `${sky[1]}${r.jealous >= 50 ? ' · 한때 질투' : ''}`, sa, s2 };
+    });
+}
+// ───── 🎭 겉과 진짜: 이름으로 정해지는 가면 (저장 없음) ─────
+export function maskOf(r) {
+    const h = hash(`${chatId()}|${norm(r.name)}`), hide = h % 2 === 0, off = 8 + (h >>> 3) % 18;
+    const k = (100 - clamp(r.trust, 0, 100)) / 100, d = Math.round(off * k) * (hide ? 1 : -1);
+    return { real: clamp(r.aff + d, -100, 100), hide, d };
+}
+// 👁 엿봤다 (extra.js의 속마음 엿보기 · 이 창의 엿보기 · 폰)
+export function addSus(name, n = 1) { if (!labOn('peek') || !name) return; const L = labData(true); if (!L) return; (L.sus ??= {})[name] = (L.sus[name] ?? 0) + n; saveMeta(); }
+app.labPeek = addSus;
+
+// ───── 🌫 화면 깨짐 ─────
+export function applyGlitch() {
+    const b = document.body; if (!b) return;
+    let low = 1, drunk = 0;
+    if (labOn('glitch') && live()) for (const x of st().data.stats?.bars ?? []) {
+        const r = x.max > 0 ? x.cur / x.max : 1;
+        if (/정신|이성|멘탈|sanity|\bsan\b|mental/i.test(x.name)) low = Math.min(low, r);
+        if (/취기|취함|만취|drunk|intox/i.test(x.name)) drunk = Math.max(drunk, r);
+    }
+    b.classList.toggle('ss-glitch', low < 0.3); b.classList.toggle('ss-glitch-hard', low < 0.12); b.classList.toggle('ss-drunk', drunk > 0.6);
+}
+
+// ───── 🔮 운세 ─────
+const FORTUNES = [['대길', '뭘 해도 한 박자씩 잘 맞는 날'], ['길', '뜻밖의 사람에게서 도움이 오는 날'], ['길', '잃어버린 것을 되찾는 날'], ['중길', '말 한마디가 오래 남는 날 — 좋은 쪽으로'], ['평', '아무 일 없는 게 복인 날'], ['평', '기다리면 오는 날, 서두르면 놓치는 날'], ['소흉', '사소한 물건이 말썽을 부리는 날'], ['소흉', '약속 시간이 자꾸 어긋나는 날'], ['흉', '비밀이 새기 쉬운 날 — 입조심'], ['흉', '돈이 새는 날 — 지갑 조심'], ['대흉', '되는 일이 없는 날, 그래도 한 사람은 내 편인 날'], ['길', '오래된 인연이 다시 닿는 날']];
+export const today = () => { const c = st()?.data?.calendar; return c ? dateStr(c) : new Date().toDateString(); };
+export function drawFortune() { const L = labData(true); if (!L) return null; const f = FORTUNES[randInt(0, FORTUNES.length - 1)]; L.fortune = { day: today(), tone: f[0], text: f[1] }; labSave(); return L.fortune; }
+
+// ───── 📈 시세 ─────
+const GOODS = [['곡물', 20], ['철광', 60], ['향신료', 150], ['비단', 400], ['마석', 1200]];
+export function market(create = false) {
+    const L = labData(create); if (!L) return null;
+    if (!L.market && create) L.market = { day: today(), n: 0, items: GOODS.map(([n, p]) => ({ n, p, h: [p] })), own: {} };
+    return L.market ?? null;
+}
+function tickMarket(L) {
+    const m = L.market; if (!m) return; m.n = (m.n ?? 0) + 1;
+    const cal = !!st()?.data?.calendar; if (cal ? m.day === today() : m.n % 5) return;
+    m.day = today();
+    for (const it of m.items) { const base = GOODS.find(g => g[0] === it.n)?.[1] ?? it.p; it.p = Math.max(1, Math.round(it.p * (1 + (Math.random() - 0.47) * 0.3) + (base - it.p) * 0.05)); it.h = [...it.h, it.p].slice(-12); }
+}
+export async function trade(name, qty) {
+    const m = market(true), it = m?.items.find(x => x.n === name), w = st()?.data?.wallet; if (!it || !w) return '재산 칸이 있어야 해요.';
+    const have = m.own[name] ?? 0;
+    if (qty > 0 && w.cash < it.p * qty) return '돈이 모자라요.';
+    if (qty < 0 && have < -qty) return '가진 게 모자라요.';
+    m.own[name] = have + qty; if (!m.own[name]) delete m.own[name];
+    await addAdjust({ ops: [['cash', `${qty > 0 ? '-' : '+'}${it.p * Math.abs(qty)}`]], label: `📈 ${name} ${Math.abs(qty)}개 ${qty > 0 ? '삼' : '팖'}` });
+    labSave(); return '';
+}
+
+// ───── 🐱 미트볼 키우기 (모든 채팅 공통) ─────
+const PET_TITLES = ['아기 미트볼', '꼬마 미트볼', '동네 미트볼', '든든한 미트볼', '노련한 미트볼', '전설의 미트볼'];
+export function pet() { const xp = settings().labPet?.xp ?? 0, lv = Math.floor(Math.sqrt(xp / 5)); return { xp, lv, title: PET_TITLES[Math.min(PET_TITLES.length - 1, Math.floor(lv / 3))], next: 5 * (lv + 1) ** 2, gear: ['🎀', '🧣', '🎩', '👑', '🪽'].slice(0, Math.min(5, Math.floor(lv / 2))) }; }
+
+// ───── ✍ 손대기 ─────
+const SCRIBBLES = ['다른 사람 말고 나만 봐. — {n}', '오늘 누구 만났어? — {n}', '{n} 다녀감 ♥', '이거 보면 연락해. 바로. — {n}', '잊지 마. 넌 내 사람이야. — {n}', '왜 답이 늦어? — {n}'];
+async function rollMeddle(L) {
+    L.meddleNow = null;
+    const cand = people().filter(r => r.jealous >= 50 || r.aff >= 75); if (!cand.length || Math.random() > 0.1) return;
+    const r = cand[randInt(0, cand.length - 1)], kinds = ['memo', 'nick'];
+    const ct = st().data.contact, rival = people().filter(x => x.name !== r.name && x.aff >= 30).sort((a, b) => b.aff - a.aff)[0];
+    if (r.jealous >= 70 && rival && ct && findBy(ct.contacts, rival.name) && !findBy(ct.contacts, rival.name).blocked) kinds.push('block');
+    const kind = kinds[randInt(0, kinds.length - 1)], e = { id: uid(), who: r.name, kind, date: stamp(st()) };
+    if (kind === 'memo') e.text = SCRIBBLES[randInt(0, SCRIBBLES.length - 1)].replace('{n}', r.name);
+    if (kind === 'nick') { e.text = `♥ ${r.name} ♥`; (L.nick ??= {})[r.name] = e.text; }
+    if (kind === 'block') { const nd = clone(ct); findBy(nd.contacts, rival.name).blocked = true; await commit('contact', nd, ''); e.text = rival.name; }
+    L.meddle = [...(L.meddle ?? []), e].slice(-20); L.meddleNow = e;
+    toastr.warning(kind === 'memo' ? `${r.name}이(가) 상태창에 낙서를 남겼어요: 「${e.text}」` : kind === 'nick' ? `${r.name}이(가) 자기 이름을 「${e.text}」(으)로 바꿔 놨어요.` : `${r.name}이(가) ${e.text}의 연락처를 차단해 놨어요.`, TITLE, { timeOut: 9000 });
+}
+export async function undoMeddle(id) {
+    const L = labData(); const e = L?.meddle?.find(x => x.id === id); if (!e) return;
+    if (e.kind === 'nick' && L.nick) delete L.nick[e.who];
+    if (e.kind === 'block') { const ct = st()?.data?.contact; if (ct && findBy(ct.contacts, e.text)) { const nd = clone(ct); findBy(nd.contacts, e.text).blocked = false; await commit('contact', nd, ''); } }
+    L.meddle = L.meddle.filter(x => x.id !== id); labSave();
+}
+
+// ───── 확장 AI를 부르는 것들 ─────
+function about(who) {
+    const d = st().data, prof = d.profile ? findBy(d.profile.list, who) : null, card = chatCharacters().find(ch => norm(ch.name) === norm(who)), rel = d.rel ? findBy(d.rel.user, who) : null;
+    return [`World: ${st().core.title} — ${short(st().core.summary, 400)}`, d.calendar ? `Now: ${dateStr(d.calendar)} ${d.calendar.time}` : '',
+        prof ? `About ${who}: ${short(`${prof.summary} ${prof.fields.map(f => `${f.k}: ${f.v}`).join(' / ')}`, 1500)}` : card ? `About ${who}: ${short(card.description, 1200)}` : '',
+        rel ? `Relationship with {{user}}: ${rel.label || '-'} · ${relAxes(d.rel).aff} ${rel.aff} · ${relAxes(d.rel).trust} ${rel.trust} · ${rel.memo}` : '',
+        `Recent story:\n${recentChat(8)}`].filter(Boolean).join('\n\n');
+}
+const text = async (sys, body, max = 700) => stripStatus(await aiGenerate('peek', sys, body, max)).trim();
+const keep = (L, key, who, v, n = 8) => { const box = (L.ai ??= {})[key] ??= {}; box[who] = [...(box[who] ?? []), { ...v, date: stamp(st()) }].slice(-n); };
+export const kept = (key, who) => labData()?.ai?.[key]?.[who] ?? [];
+export const AI = {
+    // 🪞 역상태창
+    mirror: async (who) => {
+        const j = await aiJSON('peek', P('lab.mirror', { who }), about(who), 700);
+        const L = labData(true); keep(L, 'mirror', who, { j: { nick: cut(j.nick, 30), first: cut(j.first, 120), now: cut(j.now, 120), wrong: cut(j.wrong, 140), trust: clamp(Math.round(Number(j.trust) || 0), 0, 100), like: cut(j.like, 100), annoy: cut(j.annoy, 100) } }, 3); labSave();
+    },
+    // 🕳 기억 왜곡
+    memory: async (who) => { const t = await text(P('lab.memory', { who }), about(who), 600); const L = labData(true); keep(L, 'memory', who, { t: cut(t, 700) }, 1); labSave(); },
+    // 📱 폰 훔쳐보기 (들킬 수 있음)
+    phone: async (who) => {
+        const j = await aiJSON('peek', P('lab.phone', { who }), about(who), 800);
+        const L = labData(true), sus = L.sus?.[who] ?? 0, caught = Math.random() < Math.min(0.7, 0.2 + sus * 0.1);
+        keep(L, 'phone', who, { j: { saved: cut(j.saved, 30), search: (Array.isArray(j.search) ? j.search : []).slice(0, 5).map(x => cut(x, 60)), memo: cut(j.memo, 200), unsent: cut(j.unsent, 200) }, caught }, 3);
+        if (caught) L.caught = who; addSus(who, caught ? 2 : 1); labSave();
+        return caught;
+    },
+    // 📔 일기
+    diary: async (who) => { const t = await text(P('lab.diary', { who }), about(who), 800); const L = labData(true); keep(L, 'diary', who, { t: cut(t, 1200) }); labSave(); },
+    // 🗳 뒷담 회의록
+    council: async () => {
+        const ps = people().slice().sort((a, b) => Math.abs(b.aff) + Math.abs(b.trust) - Math.abs(a.aff) - Math.abs(a.trust)).slice(0, 5); if (ps.length < 2) throw new Error('인물이 2명 이상 있어야 해요');
+        const d = st().data, pairs = (d.rel?.pairs ?? []).map(p => `${p.a} & ${p.b}: ${[p.label, Number.isFinite(Number(p.aff)) ? `closeness ${p.aff}` : ''].filter(Boolean).join(' · ')}`).slice(0, 12);
+        const body = [`World: ${st().core.title} — ${short(st().core.summary, 400)}`, `PEOPLE\n${ps.map(r => `${r.name} → {{user}}: ${r.label || '-'} · ${relAxes(d.rel).aff} ${r.aff} · ${relAxes(d.rel).trust} ${r.trust}${r.jealous ? ` · jealousy ${r.jealous}` : ''}`).join('\n')}`, pairs.length ? `PAIRS\n${pairs.join('\n')}` : '', `Recent story:\n${recentChat(8)}`].filter(Boolean).join('\n\n');
+        const t = await text(P('lab.council', { members: ps.map(r => r.name).join(', ') }), body, 1000); const L = labData(true); keep(L, 'council', '_', { t: cut(t, 1600) }, 5); labSave();
+    },
+    // 💤 꿈
+    dream: async () => { const g = pickGhost(); const t = await text(P('lab.dream'), [`World: ${st().core.title}`, `Recent story:\n${recentChat(8)}`, g ? `A moment from a timeline that never happened (may bleed in):\n${g}` : ''].filter(Boolean).join('\n\n'), 500); const L = labData(true); keep(L, 'dream', '_', { t: cut(t, 700) }); labSave(); },
+    // ⏳ 인물의 타임캡슐
+    capsule: async (who, days) => { const t = await text(P('lab.capsule', { who, days }), about(who), 600); const L = labData(true); (L.capsules ??= []).push({ id: uid(), from: who, text: cut(t, 900), at: nowTick(st()), open: nowTick(st()) + days, date: stamp(st()) }); labSave(); },
+    // 📻 다른 채팅으로 편지
+    mail: async (who) => { const t = await text(P('lab.mail', { who }), about(who), 500); const box = settings().labMail ??= []; box.push({ id: uid(), chat: chatId(), who, world: cut(st().core.title, 60), text: cut(t, 700), at: Date.now() }); settings().labMail = box.slice(-30); saveSettings(); },
+};
+// 🧠🤝🧵 장부 정리 (켠 장부만 · AI 1회)
+export async function ledgerScan() {
+    if (!live()) return 0;
+    const want = ['know', 'promise', 'hook'].filter(labOn); if (!want.length) return 0;
+    const L = labData(true), have = [...(L.facts ?? []).map(x => x.text), ...(L.promises ?? []).map(x => x.text), ...(L.hooks ?? []).map(x => x.text)];
+    const sys = P('lab.ledger', { parts: [want.includes('know') ? '"facts":[{"text":"…","knows":["Name"]}] — secrets or notable events where it matters WHO knows: list only the characters who witnessed it or were told ({{user}} counts as "{{user}}")' : '', want.includes('promise') ? '"promises":[{"text":"…","to":"Name","due":"when, or empty"}] — commitments or lies {{user}} made to someone' : '', want.includes('hook') ? '"hooks":[{"text":"…"}] — foreshadowing, mysteries, objects or remarks that were set up but not yet paid off' : ''].filter(Boolean).join('; ') });
+    const j = await aiJSON('analyze', sys, [`People: ${people().map(r => r.name).join(', ') || '-'}`, `Already listed (do not repeat):\n${have.map(x => `- ${x}`).join('\n') || '(none)'}`, `Recent story:\n${recentChat(14)}`].join('\n\n'), 900);
+    const fresh = (x) => { const t = cut(x?.text, 120); return t && !have.some(h => norm(h) === norm(t)) ? t : ''; };
+    let n = 0; const at = chat().length;
+    if (want.includes('know')) for (const f of (Array.isArray(j.facts) ? j.facts : []).slice(0, 4)) { const t = fresh(f); if (t) { (L.facts ??= []).push({ id: uid(), text: t, knows: (Array.isArray(f.knows) ? f.knows : []).map(x => cut(x, 30)).filter(Boolean).slice(0, 8), at }); n++; } }
+    if (want.includes('promise')) for (const f of (Array.isArray(j.promises) ? j.promises : []).slice(0, 4)) { const t = fresh(f); if (t) { (L.promises ??= []).push({ id: uid(), text: t, to: cut(f.to, 30), due: cut(f.due, 40), state: 'open', at }); n++; } }
+    if (want.includes('hook')) for (const f of (Array.isArray(j.hooks) ? j.hooks : []).slice(0, 4)) { const t = fresh(f); if (t) { (L.hooks ??= []).push({ id: uid(), text: t, at }); n++; } }
+    for (const k of ['facts', 'promises', 'hooks']) if (L[k]?.length > 40) L[k] = L[k].slice(-40);
+    L.since = 0; labSave(); return n;
+}
+// 약속 지킴 · 어김 → 우정
+export async function settlePromise(id, kept) {
+    const L = labData(); const p = L?.promises?.find(x => x.id === id); if (!p || p.state !== 'open') return;
+    p.state = kept ? 'kept' : 'broken';
+    const r = p.to ? findBy(people(), p.to) : null;
+    if (r) await addAdjust({ ops: [['trust', `${r.name} ${kept ? '+2' : '-4'}`]], label: `🤝 ${r.name}와(과)의 약속 ${kept ? '지킴' : '어김'}: ${short(p.text, 40)}` });
+    labSave();
+}
+
+// ───── AI에게 가는 글 (켠 장치만 · 하나도 없으면 빈 글) ─────
+export function labInjection() {
+    if (!anyOn() || !live()) return '';
+    const L = labData() ?? {}, out = [], ps = people();
+    if (labOn('loop')) { const n = loopInfo().scene; if (n >= 2) out.push(`DÉJÀ VU: {{user}} has already lived this exact moment ${n} times and rewound it. No character can know that, but one of them may feel a faint déjà vu — a pause, a half-remembered line, "have we done this before?" — once, subtly. Do not explain it.`); }
+    if (labOn('ghost') && L.ghost) out.push(`ECHO OF A DISCARDED TIMELINE: in a version of events that never happened, this took place: «${L.ghost}». It may leak into this reply once as something unreal — a dream fragment, a stray image, a slip of the tongue that the speaker cannot explain. Never treat it as fact.`);
+    if (labOn('debt') && L.debtDue) out.push('FATE COLLECTS: {{user}} has been bending fate too often. In this reply something small but unlucky happens to {{user}} — bad timing, a mishap, a minor loss. Proportionate, never catastrophic, and woven into the scene.');
+    if (labOn('know') && L.facts?.length) out.push(`KNOWLEDGE LEDGER — who knows what. A character NOT listed for a fact does not know it and must not act, hint or react as if they do, until they learn it in the story:\n${L.facts.slice(-10).map(f => `- ${f.text} — known to: ${f.knows.join(', ') || 'no one but {{user}}'}`).join('\n')}`);
+    if (labOn('promise')) { const open = (L.promises ?? []).filter(p => p.state === 'open').slice(-6); if (open.length) out.push(`PROMISES {{user}} made (the other person remembers; keeping them builds trust, breaking them or being caught lying costs it):\n${open.map(p => `- ${p.to ? `to ${p.to}: ` : ''}${p.text}${p.due ? ` (by ${p.due})` : ''}`).join('\n')}`); }
+    if (labOn('hook')) { const hs = (L.hooks ?? []).filter(h => !h.done); const old = hs.find(h => chat().length - (h.at ?? 0) >= 25); if (hs.length) out.push(`LOOSE THREADS set up earlier and not yet paid off:\n${hs.slice(-5).map(h => `- ${h.text}`).join('\n')}${old ? `\nThe oldest — «${old.text}» — has waited long enough: bring it back naturally within the next few replies.` : ''}`); }
+    if (labOn('mask') && ps.length) { const AX = relAxes(st().data.rel).aff; const ms = ps.filter(r => r.aff !== 0).slice(0, 5).map(r => ({ r, m: maskOf(r) })).filter(x => Math.abs(x.m.d) >= 3); if (ms.length) out.push(`MASKS (hidden from {{user}}; the status shows only the surface number):\n${ms.map(({ r, m }) => `- ${r.name}: shows ${AX} ${r.aff}, truly feels ${m.real} — ${m.hide ? 'hides how much they care; it slips out only when cornered, drunk, jealous or alone' : 'acts warmer than they feel; the distance shows in small moments'}`).join('\n')}`); }
+    if (labOn('peek')) { const sus = Object.entries(L.sus ?? {}).filter(([n, v]) => v >= 3 && findBy(ps, n)); if (sus.length) out.push(`SUSPICION: ${sus.map(([n]) => n).join(', ')} ${sus.length > 1 ? 'have' : 'has'} begun to feel that {{user}} somehow knows their private thoughts — a little guarded, may test {{user}} or ask about it.`); }
+    if (labOn('phone') && L.caught) out.push(`CAUGHT: ${L.caught} noticed {{user}} going through their phone. ${L.caught} reacts to that in this reply, in character.`);
+    if (labOn('scar') && L.scars?.length) out.push(`SCARS (old hurts that never fully healed — in a similar situation the person reacts more sharply and forgives more slowly, even if things are good now):\n${L.scars.map(x => `- ${x.name}: ${x.axis} once fell by ${x.drop} at a single moment`).join('\n')}`);
+    if (labOn('memory')) { const ms = ps.map(r => [r.name, kept('memory', r.name).at(-1)?.t]).filter(x => x[1]).slice(0, 3); if (ms.length) out.push(`HOW THEY REMEMBER IT (each person's own version — it may differ from what really happened, and they believe it):\n${ms.map(([n, t]) => `- ${n}: ${cut(t, 300)}`).join('\n')}`); }
+    if (labOn('meddle') && L.meddleNow) { const e = L.meddleNow; out.push(`MEDDLING: ${e.who} secretly ${e.kind === 'memo' ? `left a note in {{user}}'s things: «${e.text}»` : e.kind === 'nick' ? `changed their own name in {{user}}'s contacts to «${e.text}»` : `blocked ${e.text} on {{user}}'s phone`}. {{user}} may have noticed. ${e.who} can be confronted about it and reacts in character.`); }
+    if (labOn('tension')) { if (L.tFire) out.push('PACING: it has been calm for a long while. Introduce a real complication in this reply — an interruption, bad news, a rival, a discovery — something that fits the scene and demands a reaction.'); else if (L.calm > 0) out.push('PACING: a big moment just passed. Keep this reply a breather — quieter, room for the characters to react and talk.'); }
+    if (labOn('realtime') && L.seen) { const days = (Date.now() - L.seen) / 864e5; if (days >= 0.85) out.push(`ABSENCE: {{user}} has been gone for about ${days < 1.5 ? 'a day' : `${Math.round(days)} days`}. A character who would notice may remark on it once ("where have you been?"), in a way that fits the story.`); }
+    if (labOn('fortune') && L.fortune?.day === today()) out.push(`TODAY'S FORTUNE for {{user}}: ${L.fortune.tone} — «${L.fortune.text}». Let it tint one small moment of luck today, lightly; never mention the fortune itself.`);
+    if (labOn('mail') && L.drop) out.push(`A LETTER FROM ANOTHER WORLD has turned up near {{user}} — from «${L.drop.who}» of «${L.drop.world}»: «${cut(L.drop.text, 400)}». Someone finds it or it is simply there; nobody knows how it arrived.`);
+    return out.length ? `[STORY DEVICES — extra direction from the status extension. Follow quietly; never mention these notes]\n${out.join('\n')}` : '';
+}
+app.labInject = labInjection;
+
+// ───── 이벤트: AI 답을 받은 뒤 한 번 ─────
+async function onReply() {
+    if (!anyOn() || !live()) return;
+    const L = labData(true); if (!L) return;
+    L.seen = Date.now();
+    if (labOn('ghost')) L.ghost = Math.random() < 0.12 ? pickGhost() : null; else delete L.ghost;
+    if (labOn('debt')) { if (L.debtDue) L.debt = Math.max(0, (L.debt ?? 0) - 5); L.debtDue = (L.debt ?? 0) >= 5; }
+    if (labOn('tension')) { if (L.tFire) { L.t = 15; L.calm = 3; L.tFire = false; } else { L.calm = Math.max(0, (L.calm ?? 0) - 1); L.t = Math.min(100, (L.t ?? 0) + (L.tStep ?? 7)); if (L.t >= 100) L.tFire = true; } }
+    if (labOn('scar')) L.scars = findScars();
+    if (L.caught) delete L.caught;
+    if (L.drop) delete L.drop;
+    if (labOn('market')) tickMarket(L);
+    if (labOn('pet')) { (settings().labPet ??= { xp: 0 }).xp++; saveSettings(); }
+    if (labOn('capsule')) for (const c of L.capsules ?? []) if (!c.told && nowTick(st()) >= c.open) { c.told = true; toastr.info(`⏳ ${c.from === 'me' ? '내가 묻어 둔' : `${c.from}의`} 타임캡슐이 열릴 때가 됐어요. (실험실 › 타임캡슐)`, TITLE, { timeOut: 9000 }); }
+    try { if (labOn('meddle')) await rollMeddle(L); else delete L.meddleNow; } catch (e) { ssNote('lab meddle', e); }
+    applyGlitch();
+    const every = Number(L.scanEvery) || 0; L.since = (L.since ?? 0) + 1;
+    saveMeta();
+    if (every > 0 && L.since >= every && ['know', 'promise', 'hook'].some(labOn)) ledgerScan().catch(e => ssNote('lab scan', e));
+}
+export function initLab() {
+    const { eventSource, event_types: E } = ctx();
+    const on = (name, fn) => { if (E[name]) eventSource.on(E[name], (...a) => { try { const r = fn(...a); r?.catch?.(e => ssNote(`lab ${name}`, e)); } catch (e) { ssNote(`lab ${name}`, e); } }); };
+    on('MESSAGE_RECEIVED', onReply);
+    on('MESSAGE_DELETED', () => { if (labOn('loop') && live()) { const L = labData(true); L.loopDel = (L.loopDel ?? 0) + 1; saveMeta(); } });
+    on('GENERATION_STARTED', (type, _o, dry) => { if (dry || !labOn('debt') || !live() || (type !== 'swipe' && type !== 'regenerate')) return; const L = labData(true); L.debt = (L.debt ?? 0) + 1; saveMeta(); });
+    on('CHAT_CHANGED', () => setTimeout(applyGlitch, 800));
+    setTimeout(applyGlitch, 1500);
+}

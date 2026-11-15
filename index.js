@@ -25,6 +25,7 @@ import { openPip, pipWanted, markSkip } from './src/pip.js';
 import { maybeTip, maybeLaterWarn } from './src/tips.js';
 import { registerCommands } from './src/commands.js';
 import { renderSettings } from './src/settings_ui.js';
+import { initLab } from './src/lab.js';
 
 try { startErrorCapture(); } catch { /* 오류 기록은 없어도 동작 */ }
 
@@ -842,6 +843,7 @@ function init() {
     renderSettings();
     registerCommands();
     registerMacros();
+    try { initLab(); } catch (e) { ssWarn(LOG, 'lab', e); } // 🧪 실험실 (v2.8 · 켠 장치가 없으면 아무 일도 안 함)
     if (settings().autoRegex) installRegex(false);
     try { startViewTr(); } catch (e) { ssWarn(LOG, 'viewtr', e); }
     try { watchChat(); } catch (e) { ssWarn(LOG, 'slots', e); }

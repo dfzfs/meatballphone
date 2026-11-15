@@ -5,7 +5,7 @@ import { listProfiles } from './prompts.js';
 import { popup } from './kit.js';
 import { rerenderPanels, openSheet, openWizard, openPromptWindow, openThemeWindow } from './shell.js';
 import { translateSheet, convertToEnglish } from './translate.js';
-import { openHelp } from './lazy.js';
+import { openHelp, openLab } from './lazy.js';
 import { fullBackup, diagnose } from './safe.js';
 import { PRESETS, applyPreset, REL_SHOW } from './extra.js';
 import { FREQ_MODS } from './engine.js';
@@ -189,7 +189,7 @@ export function renderSettings() {
             <label>마스코트 누르면 나는 소리<select class="text_pole" data-s="mascotSound">${MASCOT_SOUNDS.map(([v, t]) => o('mascotSound', v, t)).join('')}</select></label>
             <label>효과음 크기 <small class="ss-mvol">${s.mascotVolume}</small><input type="range" min="0" max="100" step="5" data-s="mascotVolume" value="${s.mascotVolume}"></label>
             <div class="ss-set-btns"><button class="menu_button" data-s-act="mascotsound"><i class="fa-solid fa-volume-high"></i> 소리 미리 듣기</button></div>
-            <div class="ss-set-btns"><button class="menu_button" data-s-act="diag"><i class="fa-solid fa-stethoscope"></i> 자가 진단 · 고치기</button><button class="menu_button" data-s-act="report"><i class="fa-solid fa-bug"></i> 오류 보고문</button><button class="menu_button" data-s-act="copydump" title="최근 메시지 원문 · 상태 전체 · 편집 기록 · 주입문 (가리지 않음 · 고쳐 달라고 붙여 넣는 용)"><i class="fa-solid fa-clipboard"></i> 지금 상태 복사</button><button class="menu_button" data-s-act="backup"><i class="fa-solid fa-box-archive"></i> 이 채팅 전체 백업</button></div>
+            <div class="ss-set-btns"><button class="menu_button" data-s-act="lab"><i class="fa-solid fa-flask"></i> 🧪 실험실 (이야기 장치)</button><button class="menu_button" data-s-act="diag"><i class="fa-solid fa-stethoscope"></i> 자가 진단 · 고치기</button><button class="menu_button" data-s-act="report"><i class="fa-solid fa-bug"></i> 오류 보고문</button><button class="menu_button" data-s-act="copydump" title="최근 메시지 원문 · 상태 전체 · 편집 기록 · 주입문 (가리지 않음 · 고쳐 달라고 붙여 넣는 용)"><i class="fa-solid fa-clipboard"></i> 지금 상태 복사</button><button class="menu_button" data-s-act="backup"><i class="fa-solid fa-box-archive"></i> 이 채팅 전체 백업</button></div>
             <b class="ss-set-h">다른 확장과 같이 쓰기</b>
             <label class="checkbox_label"><input type="checkbox" data-s="stashTags" ${s.stashTags ? 'checked' : ''}> &lt;meatball&gt;을 읽은 뒤 본문에서 떼어 보관 <small>(추천 · 요약·번역·로그 복사 확장에 변화량 줄이 안 보여요. 고칠 땐 변동 칩의 ✏️)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="legacyStatus" ${s.legacyStatus !== false ? 'checked' : ''}> 옛 &lt;status&gt; 태그도 미트볼 것으로 읽고 숨기기 <small>(v2.5 이전 채팅용 · <b>다른 프리셋이 &lt;status&gt;를 쓰면 끄세요</b> — 끄면 &lt;meatball&gt;만 건드려요)</small></label>
@@ -235,6 +235,7 @@ export function renderSettings() {
         if (a === 'partsreset') { const { resetParts, partsCount } = await import('./parts.js'); const n = partsCount(); resetParts(); toastr.info(n ? `숨겨 둔 ${n}개를 다시 보이게 했어요. (관계 탭의 「보일 것」은 관계 칸에서 따로 켜요)` : '숨긴 게 없어요.', TITLE); return; }
         if (a === 'whatsnew') return app.showWhatsNew(true);
         if (a === 'help') return openHelp();
+        if (a === 'lab') return openLab();
         if (a === 'toenglish') return convertToEnglish(e.target.closest('button'));
         if (a === 'trprune') { const { pruneTr } = await import('./translate.js'); return pruneTr(); }
         if (a === 'romrec' || a === 'romoff') {
