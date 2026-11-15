@@ -134,6 +134,7 @@ export const DEFAULTS = Object.freeze({
     sceneFilter: true,       // 최근 대화에 나온 인물만 자세히 주입, 나머지는 이름만
     sceneTurns: 6,           // 장면 판단에 볼 최근 메시지 수
     pinCap: 8,               // 주입할 고정 메모 최대 개수
+    contactStayRemote: true, // 🚫 연락 속 인물이 「갈게 · 만나자」 하지 않기 (v2.7.23 · 만남은 본편에서)
     contactRecall: 'mid',    // 🧠 연락 속 인물이 지난 대화를 얼마나 읽고 답할지 (v2.7.23): short (최근 14줄 · 편지 8통) · mid (약 6천 자) · long (약 2만 자) · all (보관된 것 전부)
     letterQuick: 's3',       // 💨 편지 퀵 속도 (v2.7.23): now (바로) · s1 · s2 · s3 (시간대 뒤) — 한 시간대 빨라질 때마다 기본 요금만큼 더
     bindContact: false, bindNews: false, bindGossip: false, bindBoard: false, bindSns: false, // 📦 부가 기능을 채팅에 붙일지 (v2.7.23 · 기본 = 따로 보관: 기록을 안 쌓고 · 되감기 안 됨 · 「방금 한 일」로 안 감)
