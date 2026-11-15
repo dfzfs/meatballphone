@@ -39,7 +39,7 @@ for (const width of [1300, 390]) {
             out.windows = ['.ss-hp-win[data-win="profile"]', '.ss-hp-win[data-win="stats"]', '.ss-hp-win.main', '.ss-hp-marks [data-hp="deco"]'].filter(q => !el.querySelector(q)).join(' ') || true;
             core.settings().hpTheme = 2; core.settings().hpLayout = { off: ['stats'] }; shell.rerenderPanels(true); await wait(200);
             { const r = el.querySelector('.ss-hompy'); out.customize = r.style.getPropertyValue('--hp-h') === '215' && !el.querySelector('.ss-hp-win[data-win="stats"]'); }
-            el.querySelector('[data-hp="deco"]').click(); await wait(400);
+            (await import('/ext/src/hompy.js'))._decoMode(true); el.querySelector('[data-hp="deco"]').click(); await wait(400);
             { const pk = document.querySelector('.ss-hp-pick'); out.decoOpens = !!pk && pk.querySelectorAll('.ss-hp-sw').length === 9 && !!pk.querySelector('[data-choice="skin:dot"]') && !!pk.querySelector('[data-hpr="fs"]') && !!pk.querySelector('[data-hpc="hpInk"]') && !!pk.querySelector('[data-hpr="hue"]') && !!pk.querySelector('[data-choice="dark:dark"]') && !!pk.querySelector('[data-choice="setsave:1"]') && !!pk.querySelector('[data-choice="win:stats"]') && !!pk.querySelector('[data-choice="hudskin:1"]');
               pk?.querySelector('[data-choice="theme:0"]')?.click(); await wait(400); out.decoSets = core.settings().hpTheme === 0 && document.body.style.getPropertyValue('--hp-h') === '340' && document.body.classList.contains('ss-retro');
               document.querySelectorAll('dialog').forEach(d => { if (d.querySelector('.ss-hp-pick')) d.querySelector('.popup-button-ok')?.click(); }); await wait(300); }
@@ -79,6 +79,34 @@ for (const width of [1300, 390]) {
               Object.assign(S0, { hpSkin: 'clean', hpFsPx: 16, hpInk: '#112233' }); hpm.applyRetro(); shell.rerenderPanels(true); await wait(300);
               { const r3 = el.querySelector('.ss-hompy'), cs = getComputedStyle(r3); out.skinClean = (!B.classList.contains('ss-skin-dot') && !cs.fontFamily.includes('MeatballDot') && cs.backgroundImage === 'none' && getComputedStyle(el.querySelector('.ss-hp-hearts')).display === 'none' && r3.style.getPropertyValue('--hp-fs') === '16px' && cs.color === 'rgb(17, 34, 51)') || [B.className, cs.fontFamily, cs.color, r3.style.cssText].join(' | '); }
               Object.assign(S0, { hpFsPx: 0, hpInk: '' }); hpm.applyRetro(); shell.rerenderPanels(true); await wait(200);
+              // 더 깊은 꾸미기: 부분별 꾸밈(CSS로) · 나쁜 값은 버림 · 내 CSS · 창 안 내용 · 내가 만든 창 · 메뉴 이름 · 자유 배치(끌어서 저장) · 한 번에 고르기 · 되돌리기
+              Object.assign(S0, { hpSkin: 'clean', hpParts: { wt: { ink: '#ff0000', bg: 'red;}body{display:none', r: 999 }, win: { r: 22, bw: 2 } }, hpCss: '.ss-hompy .ss-hp-wb { letter-spacing: 1px; } </style><script>x</script> @import url(x);', hpProf: { badges: false }, hpTitles: { stats: '<b>내 상태' }, hpGroupNames: { [el.querySelector('.ss-groups > button').dataset.arg]: '우리집' }, hpUserWins: [{ id: 'u1', type: 'note', title: '메모', text: '<img src=x onerror=1> 할 일' }, { id: 'bad', type: 'note', title: 'x', text: 'x' }] });
+              hpm.applyRetro(); shell.rerenderPanels(true); await wait(300);
+              { const css = document.getElementById('ss-hp-user').textContent, w1 = el.querySelector('.ss-hp-win[data-win="stats"]') ?? el.querySelector('.ss-hp-win[data-win="profile"]'), wide = innerWidth > 640 || !!el.querySelector('.ss-hompy.ss-hp-athome');
+                out.partCss = (css.includes('color:#ff0000') && !css.includes('display:none') && !css.includes('999px') && css.includes('border-radius:22px') && !/<\/?style|@import/i.test(css) && css.includes('letter-spacing: 1px')) || css.slice(0, 300);
+                out.partApplied = !wide || (getComputedStyle(w1).borderRadius === '22px' && getComputedStyle(w1.querySelector('.ss-hp-wt b')).color === 'rgb(255, 0, 0)') || getComputedStyle(w1).borderRadius;
+                const u = el.querySelector('.ss-hp-win[data-win="u1"]'), st2 = el.querySelector('.ss-hp-win[data-win="stats"] .ss-hp-wt b');
+                out.contentOpts = !wide || (!el.querySelector('.ss-hp-badges') && !!u && !u.querySelector('img') && u.textContent.includes('할 일') && !el.querySelector('.ss-hp-win[data-win="bad"]') && (!st2 || st2.textContent === '<b>내 상태') && el.querySelector('.ss-groups > button span').textContent === '우리집') || [!!u, st2?.textContent, el.querySelector('.ss-groups > button span').textContent].join('|'); }
+              if (innerWidth > 640) {
+                Object.assign(S0, { hpFreeOn: true, hpFree: {} }); shell.rerenderPanels(true); await wait(300);
+                const book = el.querySelector('.ss-hp-book.free'), pw = book?.querySelector('.ss-hp-win[data-win="profile"]'), mw = book?.querySelector('.ss-hp-win.main');
+                const noDrag = !book?.querySelector('.ss-hp-rs') && getComputedStyle(pw).position === 'absolute' && !!mw;
+                el.querySelector('.ss-hp-marks [data-hp="deco"]').click(); await wait(400); document.querySelector('.ss-hp-pick [data-choice="mode:1"]').click(); await wait(400); document.querySelector('.ss-hp-pick [data-choice="edit:1"]').click(); await wait(500);
+                const pw2 = el.querySelector('.ss-hp-book.free.ss-hp-editing .ss-hp-win[data-win="profile"]'), wt = pw2?.querySelector('.ss-hp-wt'), r0 = wt.getBoundingClientRect(), ev = (type, x, y) => wt.dispatchEvent(new PointerEvent(type, { bubbles: true, clientX: x, clientY: y, pointerId: 7, button: 0 }));
+                ev('pointerdown', r0.left + 20, r0.top + 5); ev('pointermove', r0.left + 140, r0.top + 65); ev('pointerup', r0.left + 140, r0.top + 65); await wait(100);
+                const saved = S0.hpFree?.[innerWidth > 1100 ? 'wide' : 'tab']?.profile;
+                out.freeDrag = (noDrag && !!pw2.querySelector('.ss-hp-rs') && saved && saved.x > 3 && saved.y > 3) || JSON.stringify([noDrag, saved]);
+                el.querySelector('[data-hp="editdone"]').click(); await wait(200); shell.rerenderPanels(true); await wait(200);
+                out.freeKept = Math.abs(Number(el.querySelector('.ss-hp-win[data-win="profile"]').style.getPropertyValue('--x')) - saved.x) < 0.01;
+                Object.assign(S0, { hpFreeOn: false, hpFree: {} });
+              }
+              Object.assign(S0, { hpParts: {}, hpCss: '', hpProf: {}, hpTitles: {}, hpGroupNames: {}, hpUserWins: [] }); hpm.applyRetro(); shell.rerenderPanels(true); await wait(200);
+              el.querySelector('[data-hp="deco"]').click(); await wait(400); document.querySelector('.ss-hp-pick [data-choice="mode:0"]')?.click(); await wait(400); document.querySelector('.ss-hp-pick [data-choice="preset:3"]').click(); await wait(500);
+              const presetOk = S0.hpSkin === 'dot' && S0.hpDark === 'dark' && B.classList.contains('ss-skin-dot') && B.classList.contains('ss-hp-dark');
+              document.querySelector('.ss-hp-pick [data-choice="undo:1"]')?.click(); await wait(500);
+              out.presetUndo = (presetOk && S0.hpSkin === 'clean' && !B.classList.contains('ss-hp-dark')) || [presetOk, S0.hpSkin, S0.hpDark].join('|');
+              document.querySelectorAll('dialog').forEach(d => { if (d.querySelector('.ss-hp-pick')) d.querySelector('.popup-button-ok')?.click(); }); await wait(300);
+              Object.assign(S0, { hpSkin: 'clean', hpDark: 'light', hpTheme: 0, hpPattern: 'grid' }); hpm.applyRetro(); shell.rerenderPanels(true); await wait(200);
               out.profileCard = !!el.querySelector('.ss-hp-badges') || innerWidth <= 640 && !el.querySelector('.ss-hompy.ss-hp-athome') ; }
             out.closeButton = !!el.querySelector('.ss-hp-url [data-hp="close"]');
             // 🖼 홈의 큰 사진: 없으면 단추만 · 넣으면 보임 · 한마디 · 빼기 · 다른 탭엔 없음

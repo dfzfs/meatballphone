@@ -134,6 +134,7 @@ export const DEFAULTS = Object.freeze({
     hpTheme: 0,              // 📒 미니홈피 포인트 색 (hompy.js THEMES의 번호 · 'c' = 직접 고른 색 hpHue · hpSat)
     // hpSkin: (없음 = 아직 안 고름 → 깔끔으로 보이고 「모양 고르기」 줄이 뜬다) · 'clean' · 'dot'
     hpDark: 'light',         // 📒 밝기: light · dark · auto(기기 따라)
+    // 📒 올린 것(모든 채팅 공통 · 세트/코드에는 안 들어감): hpCover 머리 그림 · hpBgImg 바탕 그림(hpBgTile 바둑판) · hpFontFile 글꼴 파일 · hpMoodFaces 기분별 내 그림 · hpCss 내 CSS
     hpSets: [],              // 📒 저장한 꾸밈 세트 [{ name, data }] — 채팅에 묶으면 meta.hpSet = 이름
     hpWins: {},              // 📒 미니홈피에서 끈 창 ({ stats: false } …)
     hpFace: 'auto',          // 📒 미니홈피 프로필 그림: auto(기분 따라) · con:이름 · my:번호
