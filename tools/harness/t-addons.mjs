@@ -26,7 +26,7 @@ try {
         const put = async (mod, fn) => { const nd = core.clone(st().data[mod]); fn(nd); await eng.commit(mod, nd, ''); await wait(250); };
         let calls = 0; const ai0 = window.__ai; window.__ai = () => { calls++; return '한 줄 답'; };
         out.settingsUI = setUI; out.settingsLoadsOnTick = setLoads; out.settingsBack = setBack;
-        out.notLoadedUntilNeeded = notLoaded && loaded() && typeof app.extraInject === 'function' && pr.PROMPT_DEFS.filter(d => /^(hompy|addon)\./.test(d.key)).length === 3;
+        out.notLoadedUntilNeeded = notLoaded && loaded() && typeof app.extraInject === 'function' && pr.PROMPT_DEFS.filter(d => /^(hompy|addon)\./.test(d.key)).length === 4;
         const KEYS = ['trendMore', 'mergeContact', 'gearOn', 'ambientOn', 'ambientShop', 'giftTaste', 'promiseClock', 'guestbook', 'guestbookAuto', 'ledgerPromise'];
         const allOff = () => { for (const k of KEYS) set[k] = false; };
         await window.__addUser('hi'); await window.__addAI('s\n<meatball>\naff: Mira +5\naff: Leon +30\ntrust: Leon +10\n</meatball>'); await wait(300);

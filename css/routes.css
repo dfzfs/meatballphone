@@ -144,3 +144,6 @@ body.ss-drunk .ss-root .ss-card { filter: blur(.4px); }
 .ss-wave .ss-sec p { margin: 4px 0; }
 .ss-wave .ss-wv-note { background: color-mix(in srgb, var(--ss-acc) 6%, var(--ss-surface)); border-left: 3px solid var(--ss-acc); }
 .ss-wave > h3 { margin: 0 0 4px; padding: 10px 14px; border-radius: var(--ss-r, 10px); background: color-mix(in srgb, var(--ss-acc) 12%, var(--ss-surface)); }
+
+.ss-wave .ss-wv-il small:first-child { display: inline-block; min-width: 5.5em; color: var(--ss-dim); } .ss-wave .ss-wv-il.mine { color: var(--ss-ink); }
+.ss-wave .ss-wv-note.mine { border-left-color: var(--ss-dim); background: var(--ss-surface); }

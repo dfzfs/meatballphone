@@ -10,6 +10,7 @@ import { aiGenerate, P, mainBusy, PROMPT_DEFS, PROMPT_MAP } from './prompts.js';
 // 이 파일이 쓰는 프롬프트는 여기서 등록한다 — 파일을 안 불러오면 「프롬프트 · 토큰」 창의 목록도 원래 그대로
 for (const d of [
     { key: 'hompy.guest', group: 'call', label: '📝 방명록 (인물이 남기는 한 줄)', when: '방명록 › 「받기」 · 자동 방명록 (1번 = 1호출)', text: 'You are {who}. {who} drops by {{user}}\'s personal page and leaves ONE short guestbook note — the kind of thing {who} would actually write given their personality, the current relationship and what just happened (a tease, a thank-you, a complaint, a reminder, a shy hello…). In {who}\'s own voice and in {outLang}, one line, at most 60 characters. No narration, no name prefix, no quotation marks, no emoji unless {who} would use them.' },
+    { key: 'hompy.reply', group: 'call', label: '📝 방명록 답글 (내가 남긴 글에 인물이 답)', when: '파도타기 › 내가 남긴 방명록 › 「답글 받기」 (1번 = 1호출)', text: 'You are {who}. {{user}} left a note on {who}\'s personal guestbook: «{note}». Write {who}\'s short reply under it — in {who}\'s own voice, fitting the relationship right now. In {outLang}, one line, at most 60 characters. No narration, no name prefix, no quotation marks.' },
     { key: 'hompy.ilchon', group: 'call', label: '💬 일촌평 (인물이 붙이는 한마디)', when: '일촌 › 「일촌평 받기」 (1번 = 1호출)', text: 'You are {who}. Write the short tagline {who} would put next to {{user}}\'s name on a friends list — how {who} sees {{user}} right now, given the relationship stage and recent events. In {who}\'s voice and in {outLang}, a single phrase of at most 20 characters. No quotation marks, no name prefix, no explanation.' },
 ]) if (!PROMPT_MAP[d.key]) { PROMPT_DEFS.push(d); PROMPT_MAP[d.key] = d; }
 
@@ -211,7 +212,7 @@ export function initMinihome() {
     if (E?.MESSAGE_RECEIVED) eventSource.on(E.MESSAGE_RECEIVED, (...a) => { try { onReply(...a); } catch (e) { ssNote('guestbook reply', e); } });
 }
 // 🌐 화면 번역(영어로 저장 · 화면만 한국어): 방명록 · 일촌평 글도 번역할 글에 들어가게 — translate.js가 모으는 app.storyTexts 뒤에 덧붙인다
-app.gbTexts = () => { const out = []; try { for (const g of gbData()?.list ?? []) { if (g.text) out.push(g.text); if (g.reply) out.push(g.reply); } for (const x of Object.values(gbData()?.ilchon ?? {})) if (x?.text) out.push(x.text); } catch (e) { ssNote('guestbook texts', e); } return out; };
+app.gbTexts = () => { const out = []; try { for (const g of gbData()?.list ?? []) { if (g.text) out.push(g.text); if (g.reply) out.push(g.reply); } for (const x of Object.values(gbData()?.ilchon ?? {})) if (x?.text) out.push(x.text); for (const x of gbData()?.sent ?? []) if (x.reply) out.push(x.reply); } catch (e) { ssNote('guestbook texts', e); } return out; };
 { const prevTexts = app.storyTexts; app.storyTexts = () => { let a = []; try { a = prevTexts?.() ?? []; } catch (e) { ssNote('story texts', e); } return [...a, ...app.gbTexts()]; }; }
 
 // ───── 💬 일촌평 ─────
@@ -263,3 +264,33 @@ export function timelineExtra() {
     for (const x of m?.story?.scars ?? []) out.push({ kind: 'scar', date: '', label: `🩹 ${x.name}: ${x.axis} −${x.drop}`, at: x.at });
     return out;
 }
+
+// ───── ✍ 내가 남기는 것: 그 사람 홈피의 방명록 · 내가 붙이는 일촌평 ─────
+// 본편 AI에게는 가지 않는다 (이야기 밖 놀이). 자료는 meta.gbook.sent · meta.gbook.myIlchon
+// 내가 남긴 글 (새 것이 앞) → [{ id, to, text, date, reply? }]
+export function myNotes(to = '') { const a = Array.isArray(gbData()?.sent) ? [...gbData().sent].reverse() : []; return to ? a.filter(x => norm(x.to) === norm(to)) : a; }
+export function sendNote(to, text) {
+    if (!gbOn() || !live()) return null;
+    const r = findBy(st().data.rel?.user ?? [], to), t = cut(text, 200); if (!r || !t || selfNames().has(norm(r.name))) return null;
+    const G = gbData(true); if (!G) return null;
+    const e = { id: uid(), to: r.name, text: t, date: stamp(st()), at: chat().length };
+    G.sent = [...(Array.isArray(G.sent) ? G.sent : []), e].slice(-GB_MAX);
+    gbSave(); try { app.socNote?.(e); } catch (err) { ssNote('guestbook soc', err); }
+    return e;
+}
+// 그 글에 인물이 답글 (AI 1회)
+export async function noteReplyAI(id) {
+    if (!gbOn() || !live()) return null;
+    const e = gbData()?.sent?.find(x => x.id === id); if (!e) return null;
+    const raw = await aiGenerate('ping', P('hompy.reply', { who: e.to, note: e.text }), gbAbout(e.to, st()), 200);
+    const got = app.socFeel ? app.socFeel(raw) : { text: raw, feel: 0 };
+    const text = cut(stripStatus(got.text).split(/\r?\n/).map(x => x.trim()).filter(Boolean)[0]?.replace(/^["“「『]+|["”」』]+$/g, '') ?? '', 160);
+    if (!text) throw new Error('빈 답이 왔어요');
+    const cur = gbData()?.sent?.find(x => x.id === id); if (!cur) return null;
+    cur.reply = text; gbSave();
+    try { if (got.feel) app.socApply?.(cur.to, got.feel, `gb:${cur.id}`, '방명록'); } catch (err) { ssNote('guestbook feel', err); }
+    return cur;
+}
+export function deleteMyNote(id) { const G = gbData(); if (!G?.sent?.some(x => x.id === id)) return false; G.sent = G.sent.filter(x => x.id !== id); gbSave(); try { app.socSweep?.(); } catch (err) { ssNote('guestbook sweep', err); } return true; }
+export const myIlchonOf = (name) => { const x = own(gbData()?.myIlchon, name); return typeof x === 'string' ? x : ''; };
+export function setMyIlchon(name, text) { const G = gbData(true); if (!G || !name) return false; const t = cut(text, 40); if (t) (G.myIlchon ??= {})[name] = t; else if (G.myIlchon) delete G.myIlchon[name]; gbSave(); return true; }

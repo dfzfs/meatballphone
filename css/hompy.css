@@ -1064,3 +1064,12 @@ body.ss-skin-dot:not(.ss-hp-dark) .ss-rt:not(.ss-hompy) .ss-head small { color: 
 .ss-hp-hex input { width: 7.4em; min-height: 32px; padding: 0 8px; border: 1px solid var(--ss-line); border-radius: 7px; background: transparent; color: inherit; font: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .ss-hp-sheet .ss-hp-hex input { border-color: var(--e-ln); } .ss-hp-sheet .ss-hp-hex small { color: var(--e-dim); }
 @media (max-width: 640px), (hover: none) and (pointer: coarse) { .ss-hp-hex input { min-height: 44px; } }
+
+/* 👣 TODAY(프로필 창) · 💬 일촌평 창 · 📝 방명록 창 (minihome_ui.js) */
+.ss-hp-tdy { margin: 6px 0 0; font-size: .85em; letter-spacing: .04em; text-align: center; color: var(--hp-dim, var(--ss-dim)); } .ss-hp-tdy b { color: var(--ss-acc); } .ss-hp-tdy i { font-style: normal; opacity: .5; }
+.ss-hp-ilchons { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.ss-hp-ilchons button, .ss-hp-gbline { all: unset; cursor: pointer; display: flex; gap: 6px; align-items: baseline; width: 100%; box-sizing: border-box; padding: 2px 4px; border-radius: 5px; overflow-wrap: anywhere; }
+.ss-hp-ilchons button:hover, .ss-hp-gbline:hover { background: color-mix(in srgb, var(--ss-acc) 10%, transparent); }
+.ss-hp-ilchons span { flex: 1; min-width: 0; } .ss-hp-ilchons em { font-style: normal; font-size: .88em; color: var(--hp-dim, var(--ss-dim)); white-space: nowrap; }
+.ss-hp-gbline { font-size: .95em; } .ss-hp-gbline b { color: var(--ss-acc); }
+.ss-hp-ilchons button:focus-visible, .ss-hp-gbline:focus-visible { outline: 2px solid var(--ss-acc); outline-offset: 1px; }
