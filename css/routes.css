@@ -147,3 +147,10 @@ body.ss-drunk .ss-root .ss-card { filter: blur(.4px); }
 
 .ss-wave .ss-wv-il small:first-child { display: inline-block; min-width: 5.5em; color: var(--ss-dim); } .ss-wave .ss-wv-il.mine { color: var(--ss-ink); }
 .ss-wave .ss-wv-note.mine { border-left-color: var(--ss-dim); background: var(--ss-surface); }
+
+/* 묶음 줄: 묶음이 일곱 개가 되어 좁은 곳(미니바 · 폰)에서 끝 글자가 잘렸다 → 이름이 길면 두 줄로 꺾이고, 가로로 늘어놓는 모양(미니홈피 · 도트)은 다음 줄로 넘긴다 */
+.ss-groups > button span { white-space: normal; word-break: keep-all; overflow-wrap: anywhere; line-height: 1.15; text-align: center; }
+:is(.ss-hompy, .ss-rt) .ss-groups { flex-wrap: wrap; row-gap: 4px; }
+:is(.ss-hompy, .ss-rt) .ss-groups > button span { white-space: nowrap; }
+.ss-wave.ss-wv-tab > .ss-row-btns { margin: 6px 0; }
+@media (max-width: 640px) { :is(.ss-hompy, .ss-rt) .ss-groups > button { padding-inline: 2px; min-width: 0; } :is(.ss-hompy, .ss-rt) .ss-groups > button span { white-space: normal; } }

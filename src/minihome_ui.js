@@ -74,7 +74,24 @@ async function openBox(who) {
     if (!cur) { try { gbSeen(); } catch (e) { ssNote('wave seen', e); } }
     return popup(box, { large: true });
 }
+// 📝 방명록 탭 (사람 묶음): 내 홈피에 온 글 · 내가 남긴 글 · 파도타기 — 팝업을 안 열고도 본다
+const tabNote = (g) => `<div class="ss-wv-note" data-id="${esc(g.id)}"><div><b>${esc(g.who)}</b> <small>${esc(g.date ?? '')}${g.kind === 'scribble' ? ' · 낙서' : ''}</small></div><p>${esc(g.text)}</p>${g.reply ? `<p class="re">↳ ${esc(g.reply)}</p>` : ''}${g.kind === 'scribble' ? '' : `<div class="ss-row-btns"><button class="ss-btn sm ghost" data-act="gbreply" data-arg="${esc(g.id)}">${g.reply ? '답글 고치기' : '답글'}</button><button class="ss-btn sm ghost" data-act="gbdel" data-arg="${esc(g.id)}" title="지우기"><i class="fa-solid fa-trash-can"></i></button></div>`}</div>`;
+app.hpGuestTab = () => {
+    try {
+        const tc = todayCount(), got = wall(), sent = myNotes(), ppl = visitable().slice(0, 16);
+        return `<div class="ss-wave ss-wv-tab"><p class="ss-hint"><b>TODAY</b> ${tc.today} · <b>TOTAL</b> ${tc.total} — 인물들이 내 홈피에 남기고 간 글이에요. 본편 AI에게는 가지 않아요.</p>
+            <div class="ss-row-btns"><button class="ss-btn pri" data-act="gbget">${ai1} 누군가에게 방명록 받기</button></div>
+            ${sec(`내 홈피에 온 글 <small>${got.length}</small>`, got.map(tabNote).join('') || '<p class="ss-hint">아직 아무도 다녀가지 않았어요.</p>')}
+            ${sec(`내가 남긴 글 <small>${sent.length}</small>`, sent.map(n => `<div class="ss-wv-note mine"><div><b>나 → ${esc(n.to)}</b> <small>${esc(n.date ?? '')}</small></div><p>${esc(n.text)}</p>${n.reply ? `<p class="re">↳ <b>${esc(n.to)}</b> ${esc(n.reply)}</p>` : ''}<div class="ss-row-btns"><button class="ss-btn sm ghost" data-act="hpwave" data-arg="${esc(n.to)}">${esc(n.to)}의 홈피로</button></div></div>`).join('') || '<p class="ss-hint">남의 홈피에 글을 남기려면 아래에서 그 사람 홈피로 가요.</p>')}
+            ${ppl.length ? sec('🌊 파도타기', `<div class="ss-row-btns">${ppl.map(v => `<button class="ss-btn sm ghost" data-act="hpwave" data-arg="${esc(v.name)}">${esc(v.name)}</button>`).join('')}</div>`) : ''}</div>`;
+    } catch (e) { ssNote('guest tab', e); return '<p class="ss-hint">방명록을 그리지 못했어요.</p>'; }
+};
+const tabDone = () => { try { app.rerenderPanels?.(true); scheduleFill(); } catch (e) { ssNote('guest tab', e); } };
 export const openWave = (name) => openBox(name);
 export const openWall = () => openBox(null);
 // 단추 연결 (shell.js가 모르는 data-act는 여기서 찾는다)
-app.extraActions = { ...(app.extraActions ?? {}), hpwave: (el, arg) => { if (waveOn()) return openWave(arg); }, hpwall: () => { if (waveOn()) return openWall(); } };
+app.extraActions = { ...(app.extraActions ?? {}),
+    gbget: async (el, arg, btn) => { if (!gbOn()) return; if (btn) { btn.disabled = true; btn.classList.add('busy'); } try { await gbWrite(''); } catch (e) { toastr.error(esc(e?.message ?? String(e)), TITLE); } finally { if (btn) { btn.disabled = false; btn.classList.remove('busy'); } } try { gbSeen(); } catch (e) { ssNote('guest seen', e); } tabDone(); },
+    gbreply: async (el, arg) => { const g = gbList().find(x => x.id === arg); if (!g) return; const t = await askInput('답글', `${g.who}의 글에 답글 (비우면 지워요)`, g.reply ?? ''); if (t === null) return; gbReply(arg, t); tabDone(); },
+    gbdel: (el, arg) => { gbDelete(arg); tabDone(); },
+    hpwave: (el, arg) => { if (waveOn()) return openWave(arg); }, hpwall: () => { if (waveOn()) return openWall(); } };

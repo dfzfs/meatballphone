@@ -46,12 +46,13 @@ const INSTRUCT_HINT = {
 
 // ───── 탭 ─────
 // v2.7.3: 앨범 · 플레이 기록은 확장 설정에서 모든 채팅에 끌 수 있어요
-const PSEUDO_ON = { album: 'albumOn', record: 'recordOn', guide: 'guideOn' };
+const PSEUDO_ON = { album: 'albumOn', record: 'recordOn', guide: 'guideOn', guest: () => settings().hpWave === true && settings().guestbook === true }; // 글 = 그 설정이 꺼져 있지 않을 때 · 함수 = 참일 때만
 VIEW.guide = (s, d, ui) => guideView(ui); // 🗝 공략 탭 (story_ui.js)
+VIEW.guest = () => app.hpGuestTab?.() ?? '<p class="ss-hint">방명록을 불러오는 중이에요.</p>'; // 📝 방명록 탭 (사람 묶음 · minihome_ui.js)
 // 🧩 부가 기능 탭 (관리 옆): 켠 선택 기능의 화면을 묶음별로 모은다 — 공략 · 사람/관계 · 장부 · 이야기 흐름 · 연락 (켜고 끄기는 관리 › 쓸 기능 › 부가 기능)
 VIEW.extra = (s, d, ui) => extraHTML(s, ui, { guide: settings().guideOn !== false ? guideView(ui) : '', rel: storyPick(STORY_HOME.rel, ui), memo: storyPick(STORY_HOME.memo, ui), flow: storyPick(STORY_HOME.flow, ui), contact: storyPick(STORY_HOME.contact, ui) });
 function groupTabs(g, meta) {
-    return g.tabs.filter(t => (PSEUDO.has(t) ? !PSEUDO_ON[t] || settings()[PSEUDO_ON[t]] !== false : modOn(TAB_MOD(t), meta)));
+    return g.tabs.filter(t => (PSEUDO.has(t) ? (typeof PSEUDO_ON[t] === 'function' ? PSEUDO_ON[t]() : !PSEUDO_ON[t] || settings()[PSEUDO_ON[t]] !== false) : modOn(TAB_MOD(t), meta)));
 }
 // 즐겨찾기 그룹 (★) — 있으면 맨 앞
 function allGroups() {
@@ -247,7 +248,7 @@ function renderPanel0(el) {
     if (tab === 'manage') { try { secH = [...el.querySelectorAll(SEC_Q)].map(n => n.offsetHeight); } catch { secH = null; } }
     if (!(hp && mountHompy(el, html))) el.innerHTML = html; // ⚡ 미니홈피는 바뀐 창만 갈아 끼운다 (hompy.js)
     if (secH?.length) { const ns = el.querySelectorAll(SEC_Q); if (ns.length === secH.length) ns.forEach((n, i) => { if (secH[i] > 0) n.style.containIntrinsicSize = `auto ${secH[i]}px`; }); }
-    if (!merged && st.mode !== 'edit' && st.mode !== 'json' && tab !== 'manage' && tab !== 'extra' && (pseudo || data)) applyParts(el, tab); // 👁 보일 것 (v2.7.19)
+    if (!merged && st.mode !== 'edit' && st.mode !== 'json' && tab !== 'manage' && tab !== 'extra' && tab !== 'guest' && (pseudo || data)) applyParts(el, tab); // 👁 보일 것 (v2.7.19)
     labelIcons(el);
     if (!isFloat) queueMicrotask(placeCtFloat); else compactFloat(el);
     if (hp) fitHompy(el); // 📐 미니홈피: 홈 쪽 · 프로필 쪽을 한 화면에 맞춘다

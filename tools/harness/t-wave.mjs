@@ -47,6 +47,13 @@ try {
         window.__ai = () => { calls++; return '"잘 지내지? 또 올게."'; };
         const id = box().querySelector('.ss-wv-note').dataset.id; box().querySelector(`[data-wv="del:${id}"]`).click(); await wait(300);
         out.del = !box().querySelector('.ss-wv-note:not(.mine)') && calls === 3;
+        // 사람 묶음의 「방명록」 탭 (파도타기 + 방명록을 켰을 때만)
+        el._ss.tab = 'guest'; el._ss.ui = {}; el._ss.group = null; app.renderPanel(el); await wait(400);
+        out.guestTab = !!el.querySelector('.ss-wv-tab [data-act="gbget"]') && el.querySelector('.ss-wv-tab').textContent.includes('TODAY') && !!el.querySelector('.ss-wv-tab [data-act="hpwave"][data-arg="Mira"]');
+        const c0 = calls; el.querySelector('.ss-wv-tab [data-act="gbget"]').click(); await wait(700);
+        out.guestTabGet = calls === c0 + 1 && !!el.querySelector('.ss-wv-tab .ss-wv-note [data-act="gbdel"]');
+        el.querySelector('.ss-wv-tab .ss-wv-note [data-act="gbdel"]').click(); await wait(400); out.guestTabDel = !el.querySelector('.ss-wv-tab .ss-wv-note [data-act="gbdel"]');
+        el._ss.tab = 'home'; el._ss.ui = {}; el._ss.group = null; app.renderPanel(el); await wait(300);
         // 다시 끄면 예전 그대로
         S.hpWave = false; app.renderPanel(el); await wait(300);
         out.offAgain = friends().every(b => b.dataset.act === 'tab') && !el.querySelector('.ss-hp-tdy') && !el.querySelector('.ss-hp-win[data-win="ilchon"]') && !el.querySelector('.ss-hp-win[data-win="guest"]');

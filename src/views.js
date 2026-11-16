@@ -299,14 +299,14 @@ export const GROUPS = [
     { id: 'home', name: '홈', icon: 'fa-house', tabs: ['home', 'music', 'album', 'record'] },
     { id: 'me', name: '나', icon: 'fa-user', tabs: ['profile', 'stats', 'dice', 'wallet', 'fate', 'ach', 'memo', 'custom'] },
     { id: 'world', name: '세계', icon: 'fa-earth-asia', tabs: ['map', 'calendar', 'shop', 'base'] },
-    { id: 'people', name: '사람', icon: 'fa-user-group', tabs: ['rel', 'contact'] },
+    { id: 'people', name: '사람', icon: 'fa-user-group', tabs: ['rel', 'contact', 'guest'] }, // guest = 📝 방명록 (파도타기 + 방명록을 켰을 때만 보임 · minihome_ui.js)
     { id: 'feed', name: '소식', icon: 'fa-bullhorn', tabs: ['quest', 'news', 'gossip', 'board', 'sns'] },
     { id: 'manage', name: '관리', icon: 'fa-sliders', tabs: ['manage'] },
     { id: 'extra', name: '부가 기능', icon: 'fa-puzzle-piece', tabs: ['extra'] }, // 🧩 관리 옆의 묶음 — 켠 부가 기능의 화면 (칸이 아니라 쓸 기능 목록에는 안 나온다)
 ];
 // 칸(데이터)이 아닌 탭 — 늘 켜져 있고 편집 도구가 없다
-export const PSEUDO = new Set(['home', 'manage', 'album', 'record', 'guide', 'extra']);
-const PSEUDO_INFO = { home: { name: '홈', icon: 'fa-house' }, manage: { name: '관리', icon: 'fa-sliders' }, album: { name: '추억 앨범', icon: 'fa-star' }, record: { name: '플레이 기록', icon: 'fa-chart-simple' }, guide: { name: '공략', icon: 'fa-key' }, extra: { name: '부가 기능', icon: 'fa-puzzle-piece' } };
+export const PSEUDO = new Set(['home', 'manage', 'album', 'record', 'guide', 'extra', 'guest']);
+const PSEUDO_INFO = { home: { name: '홈', icon: 'fa-house' }, manage: { name: '관리', icon: 'fa-sliders' }, album: { name: '추억 앨범', icon: 'fa-star' }, record: { name: '플레이 기록', icon: 'fa-chart-simple' }, guide: { name: '공략', icon: 'fa-key' }, extra: { name: '부가 기능', icon: 'fa-puzzle-piece' }, guest: { name: '방명록', icon: 'fa-pen-to-square' } };
 export const TAB_MOD = (tab) => (tab === 'base' ? 'home' : tab === 'home' ? 'core' : tab);
 export const TAB_INFO = (tab) => (PSEUDO_INFO[tab] ?? (tab === 'base' ? MOD.home : MOD[tab]) ?? { name: tab, icon: 'fa-circle' });
 
