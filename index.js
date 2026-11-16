@@ -36,7 +36,11 @@ const REGEX_IDS = { show: 'b7c1a0e2-5a1d-4f0e-9a51-55a1a0c05501', strip: 'b7c1a0
 // ───── 메시지 변동 칩 ─────
 // 칩이 없는 옛 답(굳힌 기록)은 한 번 손본 뒤엔 건너뛴다 — 긴 채팅에서 갱신마다 수천 개를 훑던 것 줄이기 (v2.7)
 let doneEl = new WeakMap();
-app.redecorate = () => { doneEl = new WeakMap(); };
+app.redecorate = () => { doneEl = new WeakMap(); decoDirty = true; };
+// 같은 상태 · 같은 화면을 방금 훑었으면 전부 다시 돌지 않고 마지막 답 몇 개만 본다 (한 턴에 두 번씩 모든 답을 돌던 것 — 「생성 완료」 신호 뒤의 두 번째)
+let decoStamp = null, decoDs = '', decoDirty = true;
+// 꼬리만 훑기: 화면 앞쪽(첫 답 · 설정 · 앨범 · 굳힌 자리)이 그대로이고 답이 뒤에 더해지기만 했으면, 칩 글이 달라진 첫 답부터만 본다 (예전엔 턴마다 화면의 모든 답을 돌았음)
+let decoHead = '', decoCount = 0, decoLastId = -1, decoSnaps = null, decoLastAI = -1, decoLen = 0;
 // v2.7.18: 답을 쓰는 동안 숨긴 칩은 「생성 완료」 신호에서만 다시 붙였다 → 정지 버튼 · 다른 확장의 조용한 생성 뒤엔 한동안 칩이 사라졌음
 // → 숨길 때마다 생성이 끝났는지 1초마다 살펴보고, 끝나면 바로 다시 붙인다
 let chipWait = null;
@@ -56,8 +60,15 @@ function needsChip(mesEl) {
     const i = Number(mesEl.getAttribute('mesid')); if (Number.isNaN(i)) return false;
     const snap = app.current?.snaps.get(i), set = settings();
     if (!snap || set.msgCard === 'off' || !(snap.labels.length || snap.roll)) return false;
-    return ![...mesEl.querySelectorAll(SLOT_SEL)].some(x => x.firstChild);
+    return !slotAlive(mesEl);
 }
+// 칩이 붙어 있나: 지난번에 채운 칩 자리를 기억해 두고 그것부터 본다 (긴 채팅에서 답마다 querySelectorAll을 돌던 것) — 그 자리가 지워졌으면 예전처럼 직접 찾는다
+function slotAlive(mesEl) {
+    const s = mesEl._ssLive; if (s && s.firstChild && mesEl.contains(s)) return true;
+    for (const x of mesEl.querySelectorAll(SLOT_SEL)) if (x.firstChild) { mesEl._ssLive = x; return true; }
+    return false;
+}
+const sameLabels = (a, b) => { if (a === b) return true; if (!a || !b || a.length !== b.length) return false; for (let k = 0; k < a.length; k++) if (a[k] !== b[k]) return false; return true; };
 function healChips() {
     healTimer = null;
     if (!app.current || mainBusy()) return;
@@ -66,6 +77,7 @@ function healChips() {
     const lost = [...document.querySelectorAll('#chat .mes')].filter(needsChip);
     if (!lost.length) return;
     for (const el of lost) doneEl.delete(el);
+    decoDirty = true;
     try { decorateAll(); } catch (e) { ssWarn(LOG, 'heal', e); }
 }
 function decorateAll() {
@@ -79,26 +91,40 @@ function decorateAll() {
     const album = albumOn ? new Set((getMeta()?.album ?? []).filter(x => x.kind === 'mes').map(x => x.key)) : null; // 앨범 확인을 답마다 다시 찾지 않게
     const lastAI = app.current.lastAI;
     const outWas = app.chipOutWas ?? false; app.chipOutWas = out;
-    if (outWas !== out) doneEl = new WeakMap(); // 칩 자리를 바꿨으면 모든 답을 한 번 다시
+    if (outWas !== out) { doneEl = new WeakMap(); decoDirty = true; } // 칩 자리를 바꿨으면 모든 답을 한 번 다시
     const streaming = mainBusy(); // v2.7.15: 답이 써지는 중인 마지막 메시지엔 칩을 안 붙인다 (글자마다 지워졌다 붙으며 깜빡이던 것) — 다 쓰면 붙음
-    document.querySelectorAll('#chat .mes').forEach(mesEl => {
+    const stampDs = `${domSig()}|${getMeta()?.album?.length ?? 0}|${baked}|${chat.length}`;
+    const quick = !decoDirty && !streaming && decoStamp === app.current && decoDs === stampDs;
+    const chatEl0 = document.getElementById('chat'), firstId = chatEl0?.firstElementChild?.getAttribute('mesid'), lastId = Number(chatEl0?.lastElementChild?.getAttribute('mesid')), count = chatEl0?.childElementCount ?? 0;
+    const head = `${firstId}|${set.msgCard}|${albumOn}|${out}|${getMeta()?.album?.length ?? 0}|${baked}`;
+    let from = -1; // -1 = 전부
+    if (!quick && !decoDirty && !streaming && decoSnaps && head === decoHead && count >= decoCount && lastId >= decoLastId && chat.length >= decoLen && Number.isFinite(lastId)) {
+        const cur = app.current.snaps; from = Math.min(decoLastAI < 0 ? Infinity : decoLastAI, decoLen - 1, decoLastId);
+        for (const [k, sn] of cur) { if (k >= from) continue; const p = decoSnaps.get(k); if (!p || !!p.roll !== !!sn.roll || (p.miss?.length ?? 0) !== (sn.miss?.length ?? 0) || !sameLabels(p.labels, sn.labels)) from = k; }
+        for (const k of decoSnaps.keys()) if (k < from && !cur.has(k)) from = k;
+        if (!(from >= 0)) from = -1;
+    }
+    decoStamp = app.current; decoDs = stampDs; decoDirty = false;
+    decoHead = head; decoCount = count; decoLastId = Number.isFinite(lastId) ? lastId : -1; decoSnaps = app.current.snaps; decoLastAI = lastAI ?? -1; decoLen = chat.length;
+    const one = (mesEl) => {
         const i = Number(mesEl.getAttribute('mesid'));
         if (Number.isNaN(i)) return;
-        if (streaming && i === chat.length - 1 && !chat[i]?.is_user) { mesEl.querySelectorAll(SLOT_SEL).forEach(x => x.remove()); doneEl.delete(mesEl); waitChips(); return; }
+        if (streaming && i === chat.length - 1 && !chat[i]?.is_user) { mesEl.querySelectorAll(SLOT_SEL).forEach(x => x.remove()); doneEl.delete(mesEl); decoDirty = true; waitChips(); return; }
         const m = chat[i];
         // 굳힌 답(다시 계산하지 않는 옛 답)도 칩은 계속 보인다 (v2.7.23) — 굳힐 때 적어 둔 글 · 고치기 단추는 없음
         let snap = app.current.snaps.get(i);
         if (!snap && i < baked && m && !m.is_user) { const bl = bakedLabels(m); if (bl) snap = { labels: bl, roll: null, alerts: [], baked: true }; }
-        const on0 = !!album && !!m && album.has(`${m.send_date}|${m.name}`);
+        const on0 = !!album && album.size > 0 && !!m && album.has(`${m.send_date}|${m.name}`); // 앨범이 비었으면 답마다 열쇠 글자를 만들지 않는다
         // v2.7.9: 칩이 있는 답도 내용이 그대로면 건너뛴다 (마지막 AI 답은 칩 점검 때문에 늘 다시) — 단, 칩 자리가 지워졌으면 다시
-        const sig = i === lastAI ? null : snap
-            ? `y|${on0}|${set.msgCard}|${albumOn}|${out}|${i >= baked}|${m?.mes?.length}|${m?.swipe_id}|${!!(m && drawerOps(m))}|${snap.roll ? 1 : 0}|${snap.miss?.length ?? 0}|${snap.labels.join('\u0001')}`
-            : `n|${on0}|${set.msgCard}|${albumOn}|${out}`;
-        if (sig && doneEl.get(mesEl) === sig && (!albumOn || mesEl._ssStar?.isConnected !== false)
-            && (!snap || set.msgCard === 'off' || !(snap.labels.length || snap.roll) || [...mesEl.querySelectorAll(SLOT_SEL)].some(x => x.firstChild))) return;
+        // (v2.8: 예전엔 답마다 긴 글자열 서명을 새로 만들어 비교했다 — 긴 채팅에서 갱신 시간의 절반. 이제 값만 하나씩 비교하고, 바뀐 답만 새로 적는다)
+        const isLast = i === lastAI, p = isLast ? null : doneEl.get(mesEl), lv = i >= baked, hasOps = !!snap && !!(m && drawerOps(m));
+        const same = !!p && p.y === !!snap && p.on0 === on0 && p.mc === set.msgCard && p.al === albumOn && p.out === out
+            && (!snap || (p.lv === lv && p.ml === m?.mes?.length && p.sw === m?.swipe_id && p.ops === hasOps && p.roll === !!snap.roll && p.miss === (snap.miss?.length ?? 0) && sameLabels(p.labels, snap.labels)));
+        if (same && (!albumOn || mesEl._ssStar?.isConnected !== false)
+            && (!snap || set.msgCard === 'off' || !(snap.labels.length || snap.roll) || slotAlive(mesEl))) return;
         const textEl = mesEl.querySelector('.mes_text');
         if (!textEl) return;
-        if (sig) doneEl.set(mesEl, sig);
+        if (!isLast) doneEl.set(mesEl, { y: !!snap, on0, mc: set.msgCard, al: albumOn, out, lv, ml: m?.mes?.length, sw: m?.swipe_id, ops: hasOps, roll: !!snap?.roll, miss: snap?.miss?.length ?? 0, labels: snap ? snap.labels.slice() : null });
         // 🖼️ 추억 앨범 버튼 (메시지 ⋯ 메뉴 옆)
         const btns = mesEl.querySelector('.mes_buttons');
         if (btns && m && !m.is_system && albumOn) {
@@ -123,6 +149,7 @@ function decorateAll() {
         const outer = out ? host.querySelector(':scope > .ss-slot.out') : null;
         const slots = outer ? [...inText, outer] : inText;
         const live = out ? outer : inText[0];
+        mesEl._ssLive = (hasCard || pip) ? live ?? null : null;
         for (const slot of slots) {
             if (slot !== live || (!hasCard && !pip)) { if (slot.dataset.ssk !== '') { slot.innerHTML = ''; slot.style.display = 'none'; slot.dataset.ssk = ''; } continue; }
             if (pip) {
@@ -142,7 +169,10 @@ function decorateAll() {
             slot.style.display = '';
             slot.innerHTML = `<div class="ss-msgcard ss-scope">${snap.labels.filter(l => !l.startsWith('🎲')).slice(0, 14).map(l => `<span class="ss-mchip ${/[−-]\d/.test(l) ? 'neg' : /\+\d/.test(l) ? 'pos' : ''}">${esc(l)}</span>`).join('')}${missBtn}${rollBtn}${editBtn}</div>`;
         }
-    });
+    };
+    if (quick) { let el = document.getElementById('chat')?.lastElementChild; for (let k = 0; el && k < 4; k++, el = el.previousElementSibling) if (el.classList.contains('mes')) one(el); }
+    else if (from >= 0) { for (let el = chatEl0.lastElementChild; el; el = el.previousElementSibling) { if (!el.classList.contains('mes')) continue; one(el); if (Number(el.getAttribute('mesid')) < from) break; } }
+    else document.querySelectorAll('#chat .mes').forEach(one);
 }
 // #chat 감시자는 하나 (예전엔 둘이 같은 곳을 따로 지켜봤음 — 「칩 자리가 지워짐」 · 「칩이 있어야 할 답에 칩이 없음」)
 // ① 번역 확장 등이 답 본문(.mes_text)을 통째로 다시 그려 칩 자리(.ss-slot)가 지워지면 → 잠깐 뒤 다시 붙인다
@@ -167,7 +197,7 @@ function watchChat() {
         // 스트리밍 중엔 본문이 글자마다 다시 그려진다 — 끝난 뒤 한 번만 붙인다
         if (slotGone && !mainBusy()) {
             clearTimeout(slotTimer);
-            slotTimer = setTimeout(() => { try { decorateAll(); } catch (e) { ssWarn(LOG, 'decorate', e); } }, 80);
+            slotTimer = setTimeout(() => { decoDirty = true; try { decorateAll(); } catch (e) { ssWarn(LOG, 'decorate', e); } }, 80);
             return;
         }
         if (foreign && !healTimer && app.current) healTimer = setTimeout(healChips, 250);

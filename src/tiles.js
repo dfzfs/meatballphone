@@ -133,7 +133,7 @@ export function tileBoard(s, attr, extra = '', lead = '') {
             ${app.colMenu ? `<div class="ss-t-menu col">${Object.entries(BOARD_BG).map(([k, x]) => `<span class="ss-bgp${(set.boardPreset ?? 'daisy') === k ? ' on' : ''}" role="button" ${A(`bgp:${k}`)} title="${esc(x.name)}" style="background-color:${x.bg ?? 'var(--ss-bg)'};${x.img ? `background-image:${x.img.replace(/"/g, '&quot;')};background-size:${x.size}` : ''}"></span>`).join('')}${col('board:bg', bs.bg, '#f6f1e7', '판 배경')}${col('board:bd', bs.bd, '#e3d9c6', '판 테두리')}<label class="ss-t up" title="판 배경 그림 (작게 줄여서 저장)"><input type="file" accept="image/*" data-bgup="${attr}" hidden>${set.tileDeco?.[`${attr}Bg`] ? '배경 그림 바꾸기' : '배경 그림'}</label>${set.tileDeco?.[`${attr}Bg`] ? `<span class="ss-t" role="button" ${A('bgdel')}>배경 그림 빼기</span>` : ''}${sel ? `<b>${esc(TILES[sel]?.name ?? sel)}</b>${col(`tile:${sel}:bg`, ts.bg, '#efe7d8', '칸 배경')}${col(`tile:${sel}:bd`, ts.bd, '#e3d9c6', '칸 테두리')}${col(`tile:${sel}:ink`, ts.ink, '#2a2218', '글자')}<span class="ss-t" role="button" ${A(`colreset:${sel}`)}>이 칸 처음대로</span>` : '<small>칸을 누르면 그 칸의 색도 바꿔요</small>'}<span class="ss-t" role="button" ${A('colreset:board')}>판 처음대로</span></div>` : ''}
             </div>`;
     }
-    const det = !edit && open && live.includes(open) && MINI[open] ? `<div class="ss-t-det">${MINI[open].html(s)}<span role="button" class="go" ${A(`go:${MINI[open].tab}`)}>자세히 ›</span></div>` : '';
+    const det = !edit && open && live.includes(open) && MINI[open] ? `<div class="ss-t-det">${MINI[open].html(s)}<span role="button" class="go" ${A(`go:${MINI[open].tab}`)} title="이 칸의 탭을 열어요">이 탭 열기 ›</span></div>` : '';
     const bgImg = set.tileDeco?.[`${attr}Bg`];
     return `<div class="ss-tb ${attr}${edit ? ' editing' : ''}" data-tb="${attr}"><div class="ss-tb-row"><div class="ss-tg" style="--cols:${g.cols}">${ghost}${tiles}${stk}</div>${extra || lead ? `<div class="ss-tb-acts">${lead}${extra}</div>` : ''}</div>${tools}${det}</div>`;
 }
@@ -154,17 +154,24 @@ export function fitTiles(root) {
     long.forEach((i, n) => { ins[i].style.zoom = String(Math.max(0.3, Math.floor(r2[n] * 100) / 100)); });
 }
 // 그림 올리기: 긴 변 max px로 줄여 webp — 설정 파일이 커지지 않게
-export async function shrinkImage(file, max = 128, q = 0.85) {
+// maxBytes(선택): 결과 글자 수가 이보다 크면 화질 · 크기를 조금씩 낮춰 다시 만든다 — 큰 그림이 설정 파일(settings.json)을 무겁게 하지 않게
+export async function shrinkImage(file, max = 128, q = 0.85, maxBytes = 0) {
     const bmp = await createImageBitmap(file);
-    const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
-    const cv = document.createElement('canvas'); cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k);
-    cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
-    const out = cv.toDataURL('image/webp', q);
-    if (out.startsWith('data:image/webp')) return out;
-    // 사파리(아이폰 · 아이패드)는 webp로 못 만들어 큰 PNG가 됨 → 투명한 그림만 PNG, 나머지는 JPEG로 (v2.7.21)
-    let clear = false;
-    try { const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; for (let i = 3; i < d.length; i += 4 * 7) if (d[i] < 250) { clear = true; break; } } catch { /* */ }
-    return clear ? out : cv.toDataURL('image/jpeg', q);
+    const enc = (m, qq) => {
+        const k = Math.min(1, m / Math.max(bmp.width, bmp.height));
+        const cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(bmp.width * k)); cv.height = Math.max(1, Math.round(bmp.height * k));
+        cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
+        const out = cv.toDataURL('image/webp', qq);
+        if (out.startsWith('data:image/webp')) return out;
+        // 사파리(아이폰 · 아이패드)는 webp로 못 만들어 큰 PNG가 됨 → 투명한 그림만 PNG, 나머지는 JPEG로 (v2.7.21)
+        let clear = false;
+        try { const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; for (let i = 3; i < d.length; i += 4 * 7) if (d[i] < 250) { clear = true; break; } } catch { /* */ }
+        return clear ? out : cv.toDataURL('image/jpeg', qq);
+    };
+    let out = enc(max, q);
+    for (let i = 0, m = max, qq = q; maxBytes > 0 && out.length > maxBytes && i < 6; i++) { m = Math.max(64, Math.round(m * 0.82)); qq = Math.max(0.5, qq - 0.06); out = enc(m, qq); }
+    try { bmp.close?.(); } catch { /* */ }
+    return out;
 }
 // 배경 그림 자르기 (v2.7.21): 판 모양 틀 안에서 끌어 옮기고 · 막대 · 휠 · 두 손가락으로 크기 → 잘라서 저장
 // 틀 비율 = 지금 그 판(HUD · 사이드 미니창)의 비율 → 판에 그대로 맞음 · 결과는 긴 변 640px

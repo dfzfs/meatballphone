@@ -84,7 +84,7 @@ try {
                 out.colors = (cs().color === 'rgb(16, 32, 48)' && cs().backgroundColor === 'rgb(255, 240, 240)' && cs().getPropertyValue('--hp-paper').trim() === '#f0fff0') || [cs().color, cs().backgroundColor, cs().getPropertyValue('--hp-paper')].join('|');
                 Object.assign(S, { hpInk: '', hpBg: '', hpPaper: '' });
                 // 글씨 크기
-                S.hpFsPx = 0; S.hpFs = 's'; await re(); const f1 = parseFloat(cs().fontSize); S.hpFs = 'l'; await re(); const f2 = parseFloat(cs().fontSize); S.hpFsPx = 17; await re(); const f3 = parseFloat(cs().fontSize);
+                S.hpFsPx = 0; S.hpFs = 's'; await re(); const f1 = parseFloat(cs().fontSize); S.hpFs = 'l'; await re(); const f2 = parseFloat(cs().fontSize); S.hpFsPx = 21; await re(); const f3 = parseFloat(cs().fontSize);
                 out.fontSize = (f2 > f1 && f3 > f2) || [f1, f2, f3].join('|'); S.hpFsPx = 0; S.hpFs = 'm';
                 // 글꼴 (도트 모양은 도트 글꼴 고정)
                 S.hpFont = 'g'; await re(); const ff1 = cs().fontFamily; S.hpFont = 's'; await re(); const ff2 = cs().fontFamily; out.font = (skin === 'dot' ? /MeatballDot/.test(ff2) : ff1 !== ff2 && /Serif|Myeongjo|Batang/i.test(ff2)) || [ff1.slice(0, 30), ff2.slice(0, 30)].join('|'); S.hpFont = 'g';

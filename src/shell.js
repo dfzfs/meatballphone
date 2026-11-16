@@ -16,7 +16,7 @@ import { CONTACT_ACTIONS , CONTACT_CHANGES } from './contact.js';
 import { FEED_ACTIONS, FEED_CHANGES } from './feeds.js';
 import { MONEY_ACTIONS } from './money.js';
 import { FATE_ACTIONS } from './fate.js';
-import { EDIT, viewTr, letterMode } from './core.js';
+import { EDIT, viewTr, letterMode, GLOBAL_OFF } from './core.js';
 import { translateSheet, missingTr } from './translate.js';
 import { hintAfterAction } from './tips.js';
 import { storySection } from './story_ui.js';
@@ -78,6 +78,40 @@ function groupBadge(g, s, meta) {
 }
 
 // ───── 패널 ─────
+// 🏷 아이콘만 있는 단추 (v2.8 · 애플 HIG: 뜻이 분명하지 않은 아이콘엔 이름): 화면 읽기용 이름(aria-label)은 전부, 눈에 보이는 이름은 헷갈리기 쉬운 것에
+const IB_LABEL = { peek: '속마음', talk: '연락', leave: (b) => (b.classList.contains('on') ? '다시 등장' : '퇴장'), nolove: '애정 끄기', love: '애정 켜기', relmerge: '합치기', memotog: (b) => (b.classList.contains('on') ? '고정됨' : '고정'), tostore: '창고로', dec: '버리기', ctext: '고치기', setweather: '날씨', cmenu: '더보기', trashit: '버리기' };
+function labelIcons(el) {
+    for (const b of el.querySelectorAll('button[title]:not([aria-label]), [role="button"][title]:not([aria-label]), summary[title]:not([aria-label])')) {
+        if (b.textContent.trim()) continue;
+        const t = b.getAttribute('title'); b.setAttribute('aria-label', t.split(/ — | \(| · /)[0].replace(/^[^0-9A-Za-z가-힣]+/, '').trim() || t);
+        const l = b.classList.contains('ss-ib') && !b.closest('.ss-head') ? IB_LABEL[b.dataset.act] : null; if (l) b.dataset.l = typeof l === 'function' ? l(b) : l;
+    }
+}
+// 🧭 기능 한눈에 (v2.8 · 미니홈피 홈): 켠 기능은 지금 값과 함께, 끈 기능은 한 줄 설명 + 켜기 — 뭐가 있는지 · 뭘 하는지 한 화면에서 보이게
+const FB_VAL = {
+    profile: (d) => `${d.list?.length ?? 0}명`, stats: (d) => (d.bars?.[0] ? `${d.bars[0].name} ${d.bars[0].cur}/${d.bars[0].max}` : ''), dice: (d) => d.system || '',
+    wallet: (d) => `${Number(d.cash ?? 0).toLocaleString()} ${d.currency ?? ''}`, fate: (d) => (d.curses?.length ? `걸린 것 ${d.curses.length}` : `카드 ${d.deck?.length ?? 0}장`),
+    ach: (d) => `${d.list.filter(a => a.done).length} / ${d.list.length}`, memo: (d) => `${d.list.length}개`, custom: (d) => (d.tabs?.[0] ? `${d.tabs[0].name}${d.tabs.length > 1 ? ` 외 ${d.tabs.length - 1}` : ''}` : ''),
+    map: (d) => d.here || `${d.places?.length ?? 0}곳`, calendar: (d) => `${d.m}/${d.d} ${d.time ?? ''}`, shop: (d) => `가게 ${d.shops?.length ?? 0}곳`, home: (d) => d.name || '',
+    rel: (d) => `${d.user?.length ?? 0}명`, contact: (d) => { const n = Object.values(d.unread ?? {}).reduce((a, b) => a + (Number(b) || 0), 0); return n ? `새 연락 ${n}` : d.app || ''; },
+    quest: (d) => `진행 ${d.list.filter(q => q.status === 'active').length}`, news: (d) => `${d.items.length}건`, gossip: (d) => `${d.issues.length}건`, board: (d) => `글 ${d.posts.length}`, sns: (d) => `글 ${d.posts.length}`, music: (d) => d.now?.title || '',
+};
+function featureBoard(s, meta) {
+    if (settings().hpBoard === false) return '';
+    const st = settings(), groups = GROUPS.filter(g => g.id !== 'manage').map(g => ({ g, tabs: g.tabs.filter(t => !PSEUDO.has(t) && MOD[TAB_MOD(t)]) })).filter(x => x.tabs.length).sort((a, b) => (a.g.id === 'home') - (b.g.id === 'home')); // 「그 밖에」(홈 묶음의 기능)는 맨 뒤
+    const card = (t) => {
+        const m = MOD[TAB_MOD(t)], gOff = GLOBAL_OFF[m.id] && st[GLOBAL_OFF[m.id]] === false, on = meta.mods?.[m.id] !== false && !gOff, d = s.data[m.id];
+        let val = ''; try { val = on && d ? String(FB_VAL[m.id]?.(d) ?? '') : ''; } catch { val = ''; }
+        if (on) return `<button class="ss-fb-card" data-act="tab" data-arg="${t}" title="${esc(m.name)} — ${esc(m.desc ?? '')}"><i class="fa-solid ${m.icon}"></i><b>${esc(m.name)}</b><em>${val ? esc(val) : d ? '열기' : '비어 있음'}</em></button>`;
+        return `<label class="ss-fb-card off" title="${gOff ? '확장 설정에서 모든 채팅에 꺼 둔 기능이에요' : '켜면 이 채팅에서 쓸 수 있어요'}"><i class="fa-solid ${m.icon}"></i><b>${esc(m.name)}</b><input type="checkbox" class="ss-switch" data-chg="mod" data-arg="${m.id}" ${gOff ? 'disabled' : ''}><small>${esc(m.desc ?? '')}</small></label>`;
+    };
+    const isOn = (t) => { const m = MOD[TAB_MOD(t)]; return meta.mods?.[m.id] !== false && !(GLOBAL_OFF[m.id] && st[GLOBAL_OFF[m.id]] === false); };
+    const all = groups.flatMap(x => x.tabs), onTabs = all.filter(isOn), offTabs = all.filter(t => !isOn(t));
+    // 켠 기능만 큰 카드로 (이름 + 지금 값) — 꺼 둔 기능은 아래 접는 줄에 설명과 스위치로
+    const tip = st.hpTip !== false ? `<div class="ss-fb-tip"><i class="fa-solid fa-lightbulb"></i><span><b>카드를 누르면 그 기능이 열려요.</b> 위(폰은 아래) 메뉴로도 옮겨 다녀요 · 모양은 「꾸미기」에서 · 모르는 건 「도우미」에게</span><button data-hp="tipoff" title="안내 닫기">알겠어요</button></div>` : '';
+    return `<section class="ss-fb">${tip}<div class="ss-fb-grid">${onTabs.map(card).join('')}</div>
+        ${offTabs.length ? `<details class="ss-fb-more" ${st.hpBoardOpen ? 'open' : ''}><summary><i class="fa-solid fa-plus"></i> 더 써 볼 기능 ${offTabs.length}개</summary><div class="ss-fb-grid off">${offTabs.map(card).join('')}</div></details>` : ''}</section>`;
+}
 export function renderPanel(el) {
     // 🪟 같은 모양(스킨)을 켰으면 화면의 글을 「…」로 줄이지 않고 줄을 바꿔 다 보여 준다
     setNoShort(document.body.classList.contains('ss-retro') || settings().hompyFull !== false && !!el?._ss?.full);
@@ -131,17 +165,18 @@ function renderPanel0(el) {
 
     const info = TAB_INFO(tab);
     const isFav = (settings().favTabs ?? []).includes(tab);
-    const favBtn = tab !== 'home' ? `<button class="ss-tool ${isFav ? 'on' : ''}" data-act="favtog" title="${isFav ? '즐겨찾기에서 빼기' : '즐겨찾기 (★ 그룹에 모아 보기)'}"><i class="fa-${isFav ? 'solid' : 'regular'} fa-star"></i></button>` : '';
+    const favBtn = tab !== 'home' ? `<button class="ss-tool ${isFav ? 'on' : ''}" data-act="favtog" title="${isFav ? '즐겨찾기에서 빼기' : '즐겨찾기 (★ 그룹에 모아 보기)'}"><i class="fa-${isFav ? 'solid' : 'regular'} fa-star"></i><span class="opt">즐겨찾기</span></button>` : '';
     // 🙈 가리기: 이 칸을 AI에게 안 보냄 (이 채팅 · 직접 다시 켤 때까지)
     const hmod = tab === 'home' ? 'core' : MOD[mod] ? mod : null;
     const hidden = !!(hmod && isHidden(hmod, meta));
-    const hideBtn = hmod && st.mode !== 'edit' && st.mode !== 'json' ? `<button class="ss-tool ${hidden ? 'on' : ''}" data-act="hidetog" title="${hidden ? 'AI에게 다시 보내기' : '가리기 — AI에게 이 칸을 안 보내요 (다시 켤 때까지)'}"><i class="fa-solid ${hidden ? 'fa-eye-slash' : 'fa-eye'}"></i></button>` : '';
+    const hideBtn = hmod && st.mode !== 'edit' && st.mode !== 'json' ? `<button class="ss-tool ${hidden ? 'on' : ''}" data-act="hidetog" title="${hidden ? 'AI에게 다시 보내기' : '가리기 — AI에게 이 칸을 안 보내요 (다시 켤 때까지)'}"><i class="fa-solid ${hidden ? 'fa-eye-slash' : 'fa-eye'}"></i><span>${hidden ? 'AI에게 숨김' : 'AI에게 숨기기'}</span></button>` : '';
     const tools = editable && data && st.mode !== 'edit' && st.mode !== 'json' ? `<div class="ss-tools">${favBtn}${hideBtn}
             <button class="ss-tool ${st.ui.instructOpen ? 'on' : ''}" data-act="instructtog" title="AI에게 이 칸을 고치라고 지시 (AI 1회)"><i class="fa-solid fa-wand-magic-sparkles"></i><span>AI로 수정</span></button>
             <button class="ss-tool" data-act="edit" title="직접 편집"><i class="fa-solid fa-pen"></i><span>편집</span></button>
-            <button class="ss-tool" data-act="json" title="JSON 편집"><i class="fa-solid fa-code"></i></button>
-            <button class="ss-tool" data-act="regen" title="이 칸만 다시 생성 (AI 1회)"><i class="fa-solid fa-rotate"></i></button>
-            ${mod !== 'core' ? `<button class="ss-tool danger" data-act="wipemod" title="이 칸 전체 삭제 — 내용과 기록을 찌꺼기 없이 (되돌릴 수 없음)"><i class="fa-solid fa-broom"></i></button>` : ''}</div>` : (favBtn || hideBtn) && (pseudo || !data) ? `<div class="ss-tools">${favBtn}${hideBtn}</div>` : '';
+            <details class="ss-tool-more"><summary class="ss-tool" title="더보기 — 다시 생성 · JSON 편집 · 전부 지우기"><i class="fa-solid fa-ellipsis"></i><span>더보기</span></summary><div class="ss-tool-pop">
+            <button class="ss-tool" data-act="regen" title="이 칸만 다시 생성 (AI 1회)"><i class="fa-solid fa-rotate"></i><span>다시 생성 <small>AI 1회</small></span></button>
+            <button class="ss-tool" data-act="json" title="JSON 편집"><i class="fa-solid fa-code"></i><span>JSON 편집</span></button>
+            ${mod !== 'core' ? `<button class="ss-tool danger" data-act="wipemod" title="이 칸 전체 삭제 — 내용과 기록을 찌꺼기 없이 (되돌릴 수 없음)"><i class="fa-solid fa-broom"></i><span>전부 지우기</span></button>` : ''}</div></details></div>` : (favBtn || hideBtn) && (pseudo || !data) ? `<div class="ss-tools">${favBtn}${hideBtn}</div>` : '';
     const instruct = st.ui.instructOpen && editable && data ? `<div class="ss-instruct"><textarea class="ss-in" rows="2" placeholder="${esc(INSTRUCT_HINT[mod] ?? '예: 스토리에 맞게 ○○를 추가하고 △△는 바꿔줘')}">${esc(st.ui.instructText ?? '')}</textarea>
         <div class="ss-row-btns"><button class="ss-btn pri sm" data-act="instruct">${ai1} 보내기</button><small class="ss-hint">바뀌는 내용을 먼저 보여 드려요.</small></div></div>` : '';
     const c = s.core, cal = s.data.calendar, here = s.data.map?.here;
@@ -161,7 +196,7 @@ function renderPanel0(el) {
         body = `<div class="ss-hp-all">${minors.map(t => `<section class="ss-hp-win sub ${open.includes(t) ? 'open' : 'shut'}" data-sub="${t}"><div class="ss-hp-wt" data-hp="fold" data-arg="${t}" role="button" title="${open.includes(t) ? '접기' : '눌러서 펼치기'}"><b><i class="fa-solid ${TAB_INFO(t).icon}"></i> ${esc(TAB_INFO(t).name)}</b>${open.includes(t) ? `<button class="ss-ib sm" data-hp="solo" data-arg="${t}" title="이 칸만 크게 열기 — 편집 · AI로 수정 · 다시 생성"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button>` : '<i class="fa-solid fa-chevron-down"></i>'}</div>${open.includes(t) ? `<div class="ss-hp-wb">${one(t)}</div>` : ''}</section>`).join('')}</div>`;
     } else if (hp && tab === 'home' && st.mode === 'view' && data && !hpLayout().off.includes('photo')) {
         // 홈: 큰 사진 옆에 홈 칸들 (사진이 없으면 「사진 넣기」 한 줄만)
-        body = `<div class="ss-hp-homewrap ${meta.hpPhoto?.src ? 'has' : ''} ${meta.hpPhoto?.pos === 'top' ? 'flip' : ''}">${photoHTML(meta)}<div class="ss-hp-homebody">${body}</div></div>`;
+        body = `<div class="ss-hp-homewrap ${meta.hpPhoto?.src ? 'has' : ''} ${meta.hpPhoto?.pos === 'top' ? 'flip' : ''}">${photoHTML(meta)}<div class="ss-hp-homebody">${body}${featureBoard(s, meta)}</div></div>`;
     }
     const rootCls = `ss-root ss-scope ${document.body.classList.contains('ss-retro') ? 'ss-rt' : ''} ${inSide ? 'in-side' : ''} ${meta.paused ? 'paused' : ''} ${settings().bottomNav && !hp ? 'navbottom' : ''}`;
     const headHTML = `<header class="ss-head">
@@ -171,13 +206,14 @@ function renderPanel0(el) {
                 <button class="ss-chip btn diff-${diffOf(meta)}" data-act="tab" data-arg="manage" title="난이도"><i class="fa-solid ${d0.icon}"></i> ${d0.name}</button>
                 <button class="ss-ib" data-act="inbox" title="알림함"><i class="fa-${nNew ? 'solid' : 'regular'} fa-bell"></i>${nNew ? `<i class="ss-badge">${nNew > 99 ? '99+' : nNew}</i>` : ''}</button>
                 <button class="ss-ib" data-act="search" title="검색"><i class="fa-solid fa-magnifying-glass"></i></button>
-                <button class="ss-ib" data-act="copydump" title="📋 지금 상태 복사 — 최근 메시지 원문 · 상태 전체 · 편집 기록 · 주입문을 한 번에 (고쳐 달라고 붙여 넣는 용 · AI 0회)"><i class="fa-solid fa-clipboard"></i></button>
                 <button class="ss-ib ${meta.paused ? 'on' : ''}" data-act="pause" title="${meta.paused ? '재개' : '일시정지 (AI에게 상태를 보내지 않음)'}"><i class="fa-solid ${meta.paused ? 'fa-play' : 'fa-pause'}"></i></button>
-                <button class="ss-ib" data-act="prompts" title="프롬프트 · 토큰"><i class="fa-solid fa-scroll"></i></button>
                 ${viewTr() ? (() => { const nTr = missingTr().length; return `<button class="ss-ib" data-act="trfix" title="🌐 번역 — ${nTr ? `아직 영어로 남은 글 ${nTr}개 번역하기 · ` : ''}이상하게 번역된 이름·낱말 고치기"><i class="fa-solid fa-language"></i>${nTr ? `<i class="ss-badge">${nTr > 99 ? '99+' : nTr}</i>` : ''}</button>`; })() : ''}
                 <button class="ss-helpchip" data-act="help" title="미트볼 도우미 — 모르는 기능을 물어보면 바로 답해요 (AI 0회)"><i class="fa-solid fa-circle-question"></i><span>도우미</span></button>
                 <button class="ss-ib" data-act="fullscreen" title="${!inSide && settings().sheetFull ? '전체화면 끄기' : '전체화면'}"><i class="fa-solid ${!inSide && settings().sheetFull ? 'fa-compress' : 'fa-expand'}"></i></button>
                 ${inSide ? `<button class="ss-ib" data-act="sidemini" title="작게"><i class="fa-solid fa-down-left-and-up-right-to-center"></i></button>` : ''}
+                <details class="ss-tool-more ss-head-more"><summary class="ss-ib" title="더보기 — 프롬프트 · 토큰 · 지금 상태 복사"><i class="fa-solid fa-ellipsis"></i></summary><div class="ss-tool-pop">
+                    <button class="ss-tool" data-act="prompts" title="프롬프트 · 토큰"><i class="fa-solid fa-scroll"></i><span>프롬프트 · 토큰</span></button>
+                    <button class="ss-tool" data-act="copydump" title="📋 지금 상태 복사 — 최근 메시지 원문 · 상태 전체 · 편집 기록 · 주입문을 한 번에 (고쳐 달라고 붙여 넣는 용 · AI 0회)"><i class="fa-solid fa-clipboard"></i><span>지금 상태 복사 <small>AI 0회</small></span></button></div></details>
             </div>
         </header>`;
     const pauseHTML = `${meta.paused ? `<div class="ss-pausebar">${mascot('sleep', 'xs') || '<i class="fa-solid fa-pause"></i>'} 일시정지 중 — AI에게 상태를 보내지 않아요<button class="ss-btn sm" data-act="pause">재개</button></div>` : ''}`;
@@ -191,6 +227,7 @@ function renderPanel0(el) {
     el.innerHTML = hp ? hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, s, meta, nNew, enter, homeGroup: tab === 'home' && st.mode === 'view' && !!data })
         : `<div class="${rootCls}">${headHTML}${pauseHTML}${groupsHTML}${restHTML}</div>`;
     if (!merged && st.mode !== 'edit' && st.mode !== 'json' && tab !== 'manage' && (pseudo || data)) applyParts(el, tab); // 👁 보일 것 (v2.7.19)
+    labelIcons(el);
     if (hp) fitHompy(el); // 📐 미니홈피: 홈 쪽 · 프로필 쪽을 한 화면에 맞춘다
     if (st.mode === 'edit') bindEditor(el.querySelector('.ss-editor'), st.work, EDIT[mod], () => {
         const box = el.querySelector('.ss-editor'); const all0 = [...box.querySelectorAll('details')]; const open = all0.filter(d => d.open).map(d => all0.indexOf(d));
@@ -534,7 +571,7 @@ export function ensureUI() {
     if (showSide && !side) {
         side = h(`<aside id="ss-side" class="ss-side ss-scope">
             <button class="ss-side-handle" data-side="cycle" title="상태창 (누를 때마다: 닫힘 → 미니 → 펼침)"><i class="fa-solid fa-gauge-high"></i><i class="ss-badge ss-hide"></i></button>
-            <div class="ss-side-mini"><div class="ss-mini-body"></div><div class="ss-mini-foot"><button class="ss-ib" data-side="full" title="펼치기"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button><button class="ss-ib" data-side="close" title="숨기기"><i class="fa-solid fa-xmark"></i></button></div></div>
+            <div class="ss-side-mini"><div class="ss-mini-body"></div><div class="ss-mini-foot"><button class="ss-ib lbl" data-side="full" title="펼치기 — 상태창 전체를 옆에 열어요"><i class="fa-solid fa-up-right-and-down-left-from-center"></i><span>펼치기</span></button><button class="ss-ib lbl" data-side="close" title="숨기기 — 옆 손잡이를 누르면 다시 나와요"><i class="fa-solid fa-xmark"></i><span>숨기기</span></button></div></div>
             <div class="ss-side-full"><div class="ss-panel ss-panel-side"></div><button class="ss-side-x" data-side="close" title="닫기"><i class="fa-solid fa-xmark"></i></button></div>
         </aside>`);
         document.body.appendChild(side);

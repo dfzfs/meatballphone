@@ -78,7 +78,7 @@ export function gossipView(s, d) {
         <div class="ss-stack">${list.map(x => `<article class="ss-goss h${x.heat}">
             <div class="ss-goss-h"><span class="ss-heat">${'🔥'.repeat(x.heat)}</span><b>${esc(x.title)}</b></div>
             <p>${esc(x.body)}</p>
-            <div class="ss-art-f">${x.about.map(n => chip(esc(n))).join('')}<small>${esc(x.date)}</small><button class="ss-ib" data-act="gdel" data-arg="${esc(x.id)}"><i class="fa-solid fa-trash-can"></i></button></div>
+            <div class="ss-art-f">${x.about.map(n => chip(esc(n))).join('')}<small>${esc(x.date)}</small><button class="ss-ib" data-act="gdel" title="이 소문 지우기" data-arg="${esc(x.id)}"><i class="fa-solid fa-trash-can"></i></button></div>
         </article>`).join('') || emptyBox('조용한 날이네요. 아직 소문이 없어요', 'fa-wine-glass')}</div>
         ${arcBox(d, '지난 호')}
         <button class="ss-btn" data-act="gnew">${ai1} 새 호 발행</button>

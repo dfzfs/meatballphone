@@ -6,7 +6,7 @@ import { avatar, askInput, choosePopup } from './kit.js';
 import { shrinkImage, MINI, miniWidgets } from './tiles.js';
 
 // 🎨 꾸밈 값: 보통은 설정(모든 채팅 공통). 이 채팅에 꾸밈 세트를 묶어 두었으면(meta.hpSet = 세트 이름) 그 세트 값이 먼저다 — 고쳐도 그 세트가 바뀐다
-const DECO_KEYS = ['hpPet', 'hpParts', 'hpTitles', 'hpGroupNames', 'hpProf', 'hpCounts', 'hpCardAlpha', 'hpFree', 'hpFreeOn', 'hpUserWins', 'hpSkin', 'hpPattern', 'hpFsPx', 'hpInk', 'hpBg', 'hpPaper', 'hpNavTop', 'hpTheme', 'hpHue', 'hpSat', 'hpFs', 'hpFont', 'hpCorner', 'hpGap', 'hpDark', 'hpMotion', 'hpLayout', 'hpMinor', 'hpFace'];
+const DECO_KEYS = ['hpPet', 'hpParts', 'hpTitles', 'hpGroupNames', 'hpProf', 'hpCounts', 'hpCardAlpha', 'hpFree', 'hpFreeOn', 'hpUserWins', 'hpSkin', 'hpPattern', 'hpFsPx', 'hpInk', 'hpBg', 'hpPaper', 'hpNavTop', 'hpTheme', 'hpHue', 'hpSat', 'hpFs', 'hpFont', 'hpCorner', 'hpGap', 'hpDark', 'hpMotion', 'hpLayout', 'hpMinor', 'hpFace', 'hpWall'];
 const boundSet = () => { try { const n = getMeta()?.hpSet; return n ? (settings().hpSets ?? []).find(x => x.name === n) ?? null : null; } catch { return null; } };
 const D = () => { const b = boundSet(); return b ? { ...settings(), ...b.data } : settings(); };
 const W = (k, v) => { const b = boundSet(); (b ? b.data : settings())[k] = v; };
@@ -37,7 +37,7 @@ async function pickFace(redraw) {
     if (pick.startsWith('del:')) { const i = Number(pick.slice(4)); set.hpFaces = mine.filter((_, k) => k !== i); const c = cur.startsWith('my:') ? Number(cur.slice(3)) : -1; W('hpFace', c === i ? 'none' : c > i ? `my:${c - 1}` : cur); saveSettings(); redraw(); return pickFace(redraw); }
     if (pick === 'upload') {
         const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
-        inp.onchange = async () => { try { const f = inp.files?.[0]; if (!f) return; set.hpFaces = [...(set.hpFaces ?? []), await shrinkImage(f, 320, 0.85)].slice(0, 12); W('hpFace', `my:${set.hpFaces.length - 1}`); saveSettings(); redraw(); } catch (err) { ssErr(err); toastr.error('그림을 넣지 못했어요. 다른 그림으로 해 보세요.', TITLE); } };
+        inp.onchange = async () => { try { const f = inp.files?.[0]; if (!f) return; set.hpFaces = [...(set.hpFaces ?? []), await shrinkImage(f, 320, 0.85, FACE_CAP)].slice(0, 12); W('hpFace', `my:${set.hpFaces.length - 1}`); saveSettings(); redraw(); } catch (err) { ssErr(err); toastr.error('그림을 넣지 못했어요. 다른 그림으로 해 보세요.', TITLE); } };
         inp.click(); return;
     }
     W('hpFace', pick); saveSettings(); redraw();
@@ -45,9 +45,12 @@ async function pickFace(redraw) {
 // 🎨 꾸미기 (모든 채팅 공통): 포인트 색 · 글씨 크기 · 창 자리 · 보일 창 (깔끔한 블로그 모양 — 무늬 · 도트 글꼴은 뺐다)
 export const THEMES = [['분홍', 340, 1], ['회색', 260, 0.08], ['하늘', 215, 1], ['민트', 150, 0.8], ['빨강', 2, 1], ['살구', 22, 1], ['노랑', 46, 1], ['보라', 268, 1]];
 const themeOf = () => { const d = D(); return d.hpTheme === 'c' ? ['직접', Math.max(0, Math.min(360, Number(d.hpHue) || 0)), Math.max(0, Math.min(1.2, Number(d.hpSat ?? 1)))] : THEMES[Number(d.hpTheme) || 0] ?? THEMES[0]; };
-const FONTS = { g: '고딕', s: '명조', r: '둥근 글꼴', m: '고정폭', u: '내 글꼴' }, CORNERS = ['각지게', '보통', '둥글게'], GAPS = ['촘촘', '보통', '넉넉'], DARKS = { light: '밝게', dark: '어둡게', auto: '기기 따라' };
+const FONTS = { g: '기본', s: '명조', r: '둥근 글꼴', m: '고정폭', u: '내 글꼴' }, CORNERS = ['각지게', '보통', '둥글게'], GAPS = ['촘촘', '보통', '넉넉'], DARKS = { light: '밝게', dark: '어둡게', auto: '기기 따라' };
 const pick3 = (v) => ([0, 1, 2].includes(Number(v)) && v !== null && v !== undefined && v !== '' ? Number(v) : 1);
 const SKIN_DEF = { note: ['g', 'light'], term: ['g', 'dark'], phone: ['g', 'light'], clean: ['g', 'light'], dot: ['g', 'light'] }; // 모양을 고르면 따라오는 글꼴 · 밝기
+// 🖼 배경화면 (v2.8 · 아이폰 · 갤럭시의 배경화면 고르기처럼): 그림 파일 없이 색 번짐만으로 — 고르면 창이 살짝 비치는 유리가 된다 (깔끔 · 폰 모양)
+export const WALLS = { dawn: ['새벽', 0], ocean: ['바다', 0], mint: ['민트', 0], peach: ['복숭아', 0], lilac: ['라일락', 0], sand: ['모래', 0], night: ['밤하늘', 1], forest: ['숲', 1] };
+export const wallOf = () => (WALLS[D().hpWall] && ['clean', 'phone'].includes(skinOf()) && !settings().hpBgImg ? D().hpWall : '');
 export const SKINS = { clean: '깔끔', dot: '도트', note: '노트', term: '사이버', phone: '폰' }, PATTERNS = { grid: '모눈', dot: '물방울', stripe: '줄무늬', none: '없음' };
 export const skinOf = () => (SKINS[D().hpSkin] ? D().hpSkin : 'clean'); // 고르지 않았으면 깔끔 (처음 열 때 고르는 줄이 뜬다)
 const patOf = () => (PATTERNS[D().hpPattern] ? D().hpPattern : 'grid');
@@ -56,7 +59,7 @@ const darkOn = () => { const v = D().hpDark; return v === 'dark' || v === 'auto'
 // 🪟 HUD · 미니창 · 보통 상태창에도 같은 색 · 테두리 (설정 hpSkinHud · 기본 켬): body에 색 값과 표시를 걸어 둔다
 export function applyRetro() {
     const b = document.body; if (!b) return; const d = D(), [, h, s] = themeOf(), on = settings().hpSkinHud !== false, dot = skinOf() === 'dot';
-    b.classList.toggle('ss-retro', on); for (const k of Object.keys(SKINS)) b.classList.toggle(`ss-skin-${k}`, skinOf() === k); b.classList.toggle('ss-hp-dark', darkOn()); b.classList.toggle('ss-hp-still', d.hpMotion === false); b.classList.toggle('ss-hp-navtop', d.hpNavTop === true);
+    b.classList.toggle('ss-retro', on); for (const k of Object.keys(SKINS)) b.classList.toggle(`ss-skin-${k}`, skinOf() === k); b.classList.toggle('ss-hp-dark', darkOn()); b.classList.toggle('ss-hp-still', d.hpMotion === false); b.classList.toggle('ss-hp-navtop', d.hpNavTop === true); for (const k of Object.keys(WALLS)) b.classList.toggle(`ss-hp-wall-${k}`, wallOf() === k); b.classList.toggle('ss-hp-wall', !!wallOf());
     for (const [p, v, all] of [['ss-hp-r-', pick3(d.hpCorner), [0, 1, 2]], ['ss-hp-g-', pick3(d.hpGap), [0, 1, 2]], ['ss-hp-f-', d.hpFont === 'u' && settings().hpFontFile ? 'u' : dot ? 'd' : FONTS[d.hpFont] && d.hpFont !== 'u' ? d.hpFont : 'g', [...Object.keys(FONTS), 'd']]]) for (const x of all) b.classList.toggle(p + x, x === v);
     b.style.setProperty('--hp-h', String(h)); b.style.setProperty('--hp-s', String(s));
     b.style.setProperty('--hp-fs', `${fsPx()}px`); // 다른 창(도우미 등)의 글씨 크기도 같이
@@ -98,17 +101,18 @@ const userWins = () => (Array.isArray(D().hpUserWins) ? D().hpUserWins.filter(w 
 const winName = (k) => WINS[k] ?? userWins().find(w => w.id === k)?.title ?? '';
 // 창 하나하나의 자리: settings().hpLayout = { l: [왼쪽 줄 순서], r: [오른쪽 줄 순서], off: [숨긴 창], main: 'c'|'l'|'r'(가운데 창 위치), lw · rw: 0~2(줄 폭) }
 export const WINS = { profile: '프로필', intro: '소개', stats: '상태', friends: '일촌', quest: '퀘스트', news: '뉴스', contact: '연락', mind: '속마음', cond: '상태 이상', fate: '저주 · 빚', music: 'BGM', custom: '내 탭', photo: '사진' };
-const WIN_T = { profile: 'profile', intro: 'about', stats: 'status', photo: 'photo' };
-const FS = { s: 11.5, m: 13, l: 14.5 }; // 글씨 크기(px) — 고르지 않았으면 화면 배율이 큰 기기(노트북 150%↑)는 작게
-const FS_DOT = { s: 9.5, m: 11, l: 12.5 };
-const fsPx = () => { const n = Number(D().hpFsPx); return n >= 8 && n <= 22 ? n : (skinOf() === 'dot' ? FS_DOT : FS)[fsOf()]; }; // 직접 정한 크기가 먼저
-const fsOf = () => (FS[D().hpFs] ? D().hpFs : (window.devicePixelRatio || 1) >= 1.5 ? 's' : 'm');
-const COLW = ['130px', 'clamp(150px, 15%, 200px)', 'clamp(210px, 23%, 320px)'];
+const FS = { s: 15, m: 16.5, l: 18.5 }; // v2.8: 전체적으로 한 단계씩 크게 (예전 11.5 · 13 · 14.5) // 글씨 크기(px) — 고르지 않았으면 화면 배율이 큰 기기(노트북 150%↑)는 작게
+const FS_DOT = { s: 12, m: 13.5, l: 15.5 };
+const fsPx = () => { const n = Number(D().hpFsPx); return n >= 8 && n <= 24 ? n : (skinOf() === 'dot' ? FS_DOT : FS)[fsOf()]; }; // 직접 정한 크기가 먼저
+const fsOf = () => (FS[D().hpFs] ? D().hpFs : 'm'); // 고르지 않았으면 보통 (예전엔 화면 배율이 큰 기기에서 「작게」가 기본이라 글씨가 너무 작았음)
+const COLW = ['170px', 'clamp(230px, 21%, 320px)', 'clamp(280px, 27%, 400px)']; // v2.8: 옆 줄을 넓게 (글씨를 키운 만큼)
 let editWins = false; // 창 옮기기 중 (창마다 ▲▼⇄✕ 단추)
+// 처음엔 꼭 필요한 창만 (프로필 · 상태 · 일촌 · 퀘스트 · 연락) — 한눈에 들어오게. 나머지는 꾸미기 › 창 › 「창 더하기」로 꺼내요 (홈의 「기능 한눈에」에서 값은 다 보임)
+const DEF_OFF = ['intro', 'news', 'mind', 'cond', 'fate', 'music', 'custom'];
 export function hpLayout() {
     const d = D().hpLayout ?? {}, all = [...Object.keys(WINS), ...userWins().map(w => w.id)], ok = (x) => (Array.isArray(x) ? x.filter(k => all.includes(k)) : null);
     const l = ok(d.l) ?? ['profile', 'intro', 'stats'], r0 = (ok(d.r) ?? []).filter(k => !l.includes(k));
-    return { l: [...new Set(l)], r: [...new Set([...r0, ...all.filter(k => !l.includes(k) && !r0.includes(k))])], off: ok(d.off) ?? [], main: ['l', 'c', 'r'].includes(d.main) ? d.main : 'c', lw: [0, 1, 2].includes(d.lw) ? d.lw : 1, rw: [0, 1, 2].includes(d.rw) ? d.rw : 1 };
+    return { l: [...new Set(l)], r: [...new Set([...r0, ...all.filter(k => !l.includes(k) && !r0.includes(k))])], off: ok(d.off) ?? DEF_OFF, main: ['l', 'c', 'r'].includes(d.main) ? d.main : 'c', lw: [0, 1, 2].includes(d.lw) ? d.lw : 1, rw: [0, 1, 2].includes(d.rw) ? d.rw : 1 };
 }
 // 한 탭(「모음」)으로 합칠 자잘한 탭 — 묶음 안에 2개 이상 켜져 있을 때만 합쳐진다
 export const MINOR_ALL = { music: '추천 음악', album: '추억 앨범', record: '플레이 기록', ach: '업적', memo: '메모', custom: '내 탭', dice: '주사위', fate: '운명' };
@@ -127,8 +131,16 @@ const devCls = () => (innerWidth > 1100 ? 'wide' : 'tab');
 const freeOn = () => D().hpFreeOn === true && innerWidth > 640; // 폰은 늘 한 줄
 const freePos = (key, def) => { const p = D().hpFree?.[devCls()]?.[key], n = (v, lo, hi, d) => numIn(v, lo, hi) ?? d; return p && typeof p === 'object' ? { x: n(p.x, 0, 95, def.x), y: n(p.y, 0, 300, def.y), w: n(p.w, 8, 100, def.w), h: n(p.h, 6, 200, def.h) } : def; };
 const posStyle = (p) => ` style="--x:${p.x};--y:${p.y};--w:${p.w};--h:${p.h}"`;
-const win = (key, title, body, cls = '', pos = null) => (body ? `<section class="ss-hp-win ${cls}" data-win="${key}"${pos ? posStyle(pos) : ''}><div class="ss-hp-wt"><b>${title}</b>${editWins ? '' : '<i class="ss-hp-hearts">♡♡♡</i>'}${editWins ? `<span class="ss-hp-wtools">${pos ? '' : `<button data-hp="mv" data-arg="${key}:up" title="위로">▲</button><button data-hp="mv" data-arg="${key}:down" title="아래로">▼</button><button data-hp="mv" data-arg="${key}:side" title="반대쪽 줄로">⇄</button>`}<button class="minus" data-hp="mv" data-arg="${key}:off" title="숨기기 (꾸미기 › 창에서 다시 더해요)">−</button></span>` : ''}</div><div class="ss-hp-wb">${body}</div>${pos && editWins ? '<i class="ss-hp-rs" title="당겨서 크기 바꾸기"></i>' : ''}</section>` : '');
-const pickImage = (max, q, done) => { const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.onchange = async () => { try { const f = inp.files?.[0]; if (f) done(await shrinkImage(f, max, q)); } catch (err) { ssErr(err); toastr.error('그림을 넣지 못했어요. 다른 그림으로 해 보세요.', TITLE); } }; inp.click(); };
+// 창 제목 옆 「열기 ›」: 이 창이 어느 탭의 요약인지 · 어디로 가면 더 볼 수 있는지 바로 보이게 (그 기능이 켜져 있을 때만)
+const WIN_TAB = { profile: 'profile', stats: 'stats', friends: 'rel', quest: 'quest', news: 'news', contact: 'contact', mind: 'rel', cond: 'stats', fate: 'fate', music: 'music', custom: 'custom' };
+const goBtn = (key) => { const t = WIN_TAB[key]; let on = false; try { on = !!t && modOn(t, getMeta()); } catch { /* */ } return on ? `<button class="ss-hp-go" data-act="tab" data-arg="${t}" title="이 창의 탭 열기">열기 ›</button>` : ''; };
+const win = (key, title, body, cls = '', pos = null) => (body ? `<section class="ss-hp-win ${cls}" data-win="${key}"${pos ? posStyle(pos) : ''}><div class="ss-hp-wt"><b>${title}</b>${editWins ? '' : `${goBtn(key)}<i class="ss-hp-hearts">♡♡♡</i>`}${editWins ? `<span class="ss-hp-wtools">${pos ? '' : `<button data-hp="mv" data-arg="${key}:up" title="위로">▲</button><button data-hp="mv" data-arg="${key}:down" title="아래로">▼</button><button data-hp="mv" data-arg="${key}:side" title="반대쪽 줄로">⇄</button>`}<button class="minus" data-hp="mv" data-arg="${key}:off" title="숨기기 (꾸미기 › 창에서 다시 더해요)">−</button></span>` : ''}</div><div class="ss-hp-wb">${body}</div>${pos && editWins ? '<i class="ss-hp-rs" title="당겨서 크기 바꾸기"></i>' : ''}</section>` : '');
+// 그림은 설정 파일에 글자로 들어간다 → 한 장의 크기를 묶어 두고(넘으면 화질 · 크기를 낮춰 다시), 다 합쳐 무거워지면 한 번 알려 준다
+const IMG_CAP = 380000, FACE_CAP = 70000, HEAVY = 3000000;
+export const decoBytes = () => { const st = settings(), len = (v) => (typeof v === 'string' ? v.length : 0); return len(st.hpCover) + len(st.hpBgImg) + len(st.hpFontFile) + (st.hpFaces ?? []).reduce((n, v) => n + len(v), 0) + Object.values(st.hpMoodFaces ?? {}).reduce((n, v) => n + len(v), 0); };
+let heavyTold = false;
+const heavyNote = () => { try { if (!heavyTold && decoBytes() > HEAVY) { heavyTold = true; toastr.info('꾸미기에 넣은 그림 · 글꼴이 꽤 커요. 저장이 느려지면 꾸미기에서 안 쓰는 것을 지워 주세요.', TITLE); } } catch { /* */ } };
+const pickImage = (max, q, done, cap = 0) => { const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.onchange = async () => { try { const f = inp.files?.[0]; if (f) done(await shrinkImage(f, max, q, cap)); } catch (err) { ssErr(err); toastr.error('그림을 넣지 못했어요. 다른 그림으로 해 보세요.', TITLE); } }; inp.click(); };
 // 🎛 꾸미기 모드 (아이폰 홈 화면 편집 · 갤럭시 테마처럼): 화면은 그대로 두고 아래 판에서 고르면 바로 바뀐다 — 「완료」로 저장 · 「취소」로 들어오기 전으로
 //   창은 살짝 흔들리고 −(숨기기) 단추가 붙는다 · 바꿀 곳(머리줄 · 창 제목 · 창 · 카드 · 단추)을 누르면 그 부분 꾸미기 · 사진에서 색 뽑기(머리 그림 · 바탕 그림)
 let ED = null; // { tab, part, snap, pal }
@@ -206,7 +218,7 @@ async function openDeco(redraw, focus = '') {
         const groups = [...(document.querySelector('.ss-hompy .ss-groups')?.querySelectorAll('button[data-arg]') ?? [])].map(b => [b.dataset.arg, b.dataset.n0 || b.textContent.trim()]);
         const colorRows = `${row('포인트 색', `<div class="ss-hp-faces sw">${THEMES.map(([n, h, s], i) => `<button class="ss-hp-sw ${ti === i ? 'on' : ''}" data-choice="theme:${i}" title="${n}" style="background:hsl(${h} ${Math.round(62 * s)}% 60%)"></button>`).join('')}<span class="ss-hp-sw mine ${custom ? 'on' : ''}" title="직접 고른 색" style="background:hsl(${hue} ${Math.round(62 * sat)}% 60%)"></span></div>`)}
             ${row('밝기', seg('dark', DARKS[d.hpDark] ? d.hpDark : 'light', Object.entries(DARKS)))}`;
-        const sizeRow = row('글씨 크기', seg('fs', Number(d.hpFsPx) ? '' : fsOf(), [['s', '작게'], ['m', '보통'], ['l', '크게']]) + (decoFull ? `<label class="ss-hp-range"><input type="range" min="9" max="18" step="0.5" value="${fsPx()}" data-hpr="fs"><small data-fsv>${fsPx()}px</small></label>` : ''));
+        const sizeRow = row('글씨 크기', seg('fs', Number(d.hpFsPx) ? '' : fsOf(), [['s', '작게'], ['m', '보통'], ['l', '크게']]) + (decoFull ? `<label class="ss-hp-range"><input type="range" min="11" max="22" step="0.5" value="${fsPx()}" data-hpr="fs"><small data-fsv>${fsPx()}px</small></label>` : ''));
         const head = `<div class="ss-hp-dhead"><h3>꾸미기</h3>${seg('mode', decoFull ? '1' : '0', [['0', '간단히'], ['1', '자세히']])}${undoSnap ? '<button class="ss-btn sm ghost" data-choice="undo:1"><i class="fa-solid fa-rotate-left"></i> 방금 것 되돌리기</button>' : ''}</div>
             ${bound ? `<p class="ss-hp-bound"><i class="fa-solid fa-link"></i> 이 채팅은 꾸밈 세트 <b>「${esc(bound.name)}」</b>를 써요 — 여기서 고치면 그 세트가 바뀌어요. <button class="ss-btn sm ghost" data-choice="unbind:1">풀기</button></p>` : ''}`;
         const pv = (p) => `<span class="ss-hp-pv ${p.hpSkin} ${p.hpDark === 'dark' ? 'dark' : ''}" style="--pv:hsl(${p.hpTheme === 'c' ? p.hpHue : (THEMES[p.hpTheme] ?? THEMES[0])[1]} ${Math.round(62 * (p.hpTheme === 'c' ? p.hpSat : 1))}% 58%)"><i></i><i></i><i></i></span>`;
@@ -276,7 +288,9 @@ async function decoAct(k, v, redraw) {
     if (k === 'suggest') set.hpSuggest = set.hpSuggest === false;
     if (k === 'allreset') { for (const x of DECO_KEYS) { const b = boundSet(); if (b) delete b.data[x]; else delete set[x]; } set.hpSkin = set.hpSkin ?? 'clean'; }
     if (k === 'theme') W('hpTheme', Number(v));
+    if (k === 'webfont') { set.webFont = v === '1'; loadWebFont(); }
     if (k === 'dark') W('hpDark', v); if (k === 'font') W('hpFont', v); if (k === 'fs') { W('hpFs', v); W('hpFsPx', 0); }
+    if (k === 'wall') { W('hpWall', WALLS[v] ? v : ''); delete set.hpBgImg; if (WALLS[v]) W('hpDark', WALLS[v][1] ? 'dark' : 'light'); }
     if (k === 'skin' && SKINS[v]) { W('hpSkin', v); W('hpFsPx', 0); W('hpFont', SKIN_DEF[v][0]); W('hpDark', SKIN_DEF[v][1]); } if (k === 'pat') W('hpPattern', v); if (k === 'navtop') W('hpNavTop', v === '1'); if (k === 'colreset') { W('hpInk', ''); W('hpBg', ''); W('hpPaper', ''); }
     if (k === 'corner') W('hpCorner', Number(v)); if (k === 'gap') W('hpGap', Number(v)); if (k === 'motion') W('hpMotion', v === '1'); if (k === 'pet') W('hpPet', v === '1');
     if (k === 'win') saveLayout({ ...L, off: L.off.includes(v) ? L.off.filter(x => x !== v) : [...L.off, v] });
@@ -300,10 +314,10 @@ async function decoAct(k, v, redraw) {
     if (k === 'hudskin') set.hpSkinHud = set.hpSkinHud === false;
     if (k === 'edit') editWins = ED ? true : !editWins;
     if (k === 'cover' && v === 'del') delete set.hpCover; if (k === 'bgimg' && v === 'del') delete set.hpBgImg; if (k === 'bgtile') set.hpBgTile = v === '1'; if (k === 'fontfile' && v === 'del') { delete set.hpFontFile; if (D().hpFont === 'u') W('hpFont', 'g'); } if (k === 'mfdel') { const m = { ...mf }; delete m[v]; set.hpMoodFaces = m; }
-    if (k === 'cover' && v === 'add') { pickImage(1400, 0.8, (src) => { set.hpCover = src; after(); }); return 'close'; }
-    if (k === 'bgimg' && v === 'add') { pickImage(1600, 0.8, (src) => { set.hpBgImg = src; after(); }); return 'close'; }
-    if (k === 'mface') { pickImage(320, 0.85, (src) => { set.hpMoodFaces = { ...(set.hpMoodFaces ?? {}), [v]: src }; after(); }); return 'close'; }
-    if (k === 'fontfile' && v === 'add') { pickFile('.woff2,.woff,.ttf,.otf', 1.5 * 1024 * 1024, (src) => { set.hpFontFile = src.replace(/^data:[^;]*;/, 'data:font/woff2;'); W('hpFont', 'u'); after(); }); return 'close'; }
+    if (k === 'cover' && v === 'add') { pickImage(1400, 0.8, (src) => { set.hpCover = src; after(); heavyNote(); }, IMG_CAP); return 'close'; }
+    if (k === 'bgimg' && v === 'add') { pickImage(1600, 0.8, (src) => { set.hpBgImg = src; after(); heavyNote(); }, IMG_CAP); return 'close'; }
+    if (k === 'mface') { pickImage(320, 0.85, (src) => { set.hpMoodFaces = { ...(set.hpMoodFaces ?? {}), [v]: src }; after(); }, FACE_CAP); return 'close'; }
+    if (k === 'fontfile' && v === 'add') { pickFile('.woff2,.woff,.ttf,.otf', 1.5 * 1024 * 1024, (src) => { set.hpFontFile = src.replace(/^data:[^;]*;/, 'data:font/woff2;'); W('hpFont', 'u'); after(); heavyNote(); }); return 'close'; }
     if (k === 'unbind' && meta) delete meta.hpSet;
     if (k === 'setsave') { const n = await askInput('꾸밈 세트 이름', '지금 꾸민 모양(색 · 글꼴 · 창 자리 · 부분별 꾸밈 등)을 이 이름으로 저장해요. 올린 그림 · 글꼴 파일 · 내 CSS는 들어가지 않아요.', ''); const name = short((n ?? '').trim(), 20); if (name) set.hpSets = [...sets.filter(x => x.name !== name), { name, data: cleanSet(snapshot()) }].slice(-20); }
     if (k === 'setimport') { const c = await askInput('꾸밈 코드 붙여넣기', 'MBH1: 로 시작하는 코드를 붙여 넣어요.', ''); if (c) { const got = fromCode(c); if (got) { set.hpSets = [...sets.filter(x => x.name !== got.name), got].slice(-20); toastr.success(`「${got.name}」 세트를 가져왔어요. 「적용」을 누르면 바뀌어요.`, TITLE); } else toastr.error('코드를 읽지 못했어요. 처음부터 끝까지 다 복사했는지 봐 주세요.', TITLE); } }
@@ -320,7 +334,7 @@ function sheetHTML() {
     const seg = (k, cur, opts) => `<span class="ss-hp-seg">${opts.map(([v, n]) => B(`${k}:${v}`, n, String(cur) === String(v))).join('')}</span>`;
     const row = (label, html) => `<div class="ss-hp-srow"><span>${label}</span><div>${html}</div></div>`;
     const pv = (p, n, arg, on) => B(arg, `<span class="ss-hp-pv ${p.hpSkin} ${p.hpDark === 'dark' ? 'dark' : ''}" style="--pv:hsl(${p.hpTheme === 'c' ? p.hpHue : (THEMES[p.hpTheme] ?? THEMES[0])[1]} ${Math.round(62 * (p.hpTheme === 'c' ? p.hpSat : 1))}% 58%)"><i></i><i></i><i></i></span>${n}`, on, 'card');
-    const TABS = [['look', '모양'], ['color', '색'], ['type', '글씨'], ['frame', '틀'], ['wins', '창'], ['parts', '부분']];
+    const TABS = [['look', '모양'], ['wall', '배경화면'], ['color', '색'], ['type', '글씨'], ['frame', '틀'], ['wins', '창'], ['parts', '부분']];
     let body = '';
     if (ED.part && PARTS[ED.part]) {
         const p = d.hpParts?.[ED.part] ?? {}, col = (k, n) => `<label class="ss-hp-color"><input type="color" data-pc="${k}" value="${hex(p[k]) || '#888888'}"><small>${n}${hex(p[k]) ? ' ✓' : ''}</small></label>${hex(p[k]) ? B(`pcl:${k}`, '✕', false, 'x') : ''}`;
@@ -329,14 +343,19 @@ function sheetHTML() {
             ${row('색', col('ink', '글자') + col('bg', '바탕') + col('bd', '테두리'))}${row('테두리', rng('bw', '굵기', 0, 4, 0.5, 1) + rng('r', '둥글기', 0, 28, 1, 12))}${row('글씨', rng('fs', '크기', 0.7, 1.6, 0.05, 1))}`;
     } else if (ED.tab === 'look') {
         body = `<div class="ss-hp-strip">${Object.entries(SKINS).map(([k, n]) => pv({ hpSkin: k, hpDark: SKIN_DEF[k][1], hpTheme: ti < 0 ? 0 : ti }, n, `skin:${k}`, skinOf() === k)).join('')}<i class="sep"></i>${Object.entries(VIBES).map(([k, [n, p]]) => pv(p, n, `vibe:${k}`, false)).join('')}</div>`;
+    } else if (ED.tab === 'wall') {
+        const ok = ['clean', 'phone'].includes(skinOf()), cur = wallOf();
+        body = ok ? `<div class="ss-hp-strip walls">${B('wall:', '<span class="ss-hp-wp none"></span>없음', !cur && !set.hpBgImg, 'card')}${Object.entries(WALLS).map(([k, [n]]) => B(`wall:${k}`, `<span class="ss-hp-wp ${k}"></span>${n}`, cur === k, 'card')).join('')}<i class="sep"></i>${B('bgimg:add', `<span class="ss-hp-wp mine"${set.hpBgImg ? ` style="background-image:url('${esc(set.hpBgImg)}')"` : ''}><i class="fa-solid fa-image"></i></span>내 사진`, !!set.hpBgImg, 'card')}</div>`
+            : `<div class="ss-hp-srow"><span>배경화면</span><div><small class="ss-hint">배경화면은 「깔끔」 · 「폰」 모양에서 써요.</small>${B('skin:clean', '깔끔 모양으로 바꾸기', false, 'txt')}</div></div>`;
     } else if (ED.tab === 'color') {
         body = `${row('밝기', seg('dark', DARKS[d.hpDark] ? d.hpDark : 'light', [['light', '밝게'], ['dark', '어둡게'], ['auto', '자동']]))}
             ${row('포인트', `<div class="ss-hp-faces sw">${THEMES.map(([n, h, s], i) => `<button class="ss-hp-sw ${ti === i ? 'on' : ''}" data-hp="ed" data-arg="theme:${i}" title="${n}" style="background:hsl(${h} ${Math.round(62 * s)}% 60%)"></button>`).join('')}${(ED.pal ?? []).map(([h, s], i) => `<button class="ss-hp-sw pal ${custom && Math.abs(hue - h) < 1 ? 'on' : ''}" data-hp="ed" data-arg="pal:${i}" title="사진에서 뽑은 색" style="background:hsl(${h} ${Math.round(62 * s)}% 60%)"></button>`).join('')}</div>${(ED.pal ?? []).length ? '<small class="ss-hint">네모는 사진에서 뽑은 색</small>' : ''}`)}
             ${row('직접', `<label class="ss-hp-range"><small>색상</small><input type="range" min="0" max="360" step="1" value="${hue}" data-hpr="hue" class="hue"></label><label class="ss-hp-range"><small>진하기</small><input type="range" min="0" max="1.2" step="0.05" value="${sat}" data-hpr="sat"></label>`)}
             ${row('바탕', ['Ink:글자', 'Bg:바탕', 'Paper:카드'].map(x => x.split(':')).map(([k, n]) => `<label class="ss-hp-color"><input type="color" data-hpc="hp${k}" value="${hex(d['hp' + k]) || (k === 'Ink' ? '#24262b' : '#ffffff')}"><small>${n}${hex(d['hp' + k]) ? ' ✓' : ''}</small></label>`).join('') + (hex(d.hpInk) || hex(d.hpBg) || hex(d.hpPaper) ? B('colreset:1', '기본색', false, 'txt') : '') + B('bgimg:add', `<i class="fa-solid fa-image"></i> 바탕 그림${set.hpBgImg ? ' 바꾸기' : ''}`, false, 'txt') + (set.hpBgImg ? B('bgimg:del', '빼기', false, 'txt') : ''))}`;
     } else if (ED.tab === 'type') {
-        body = `${row('크기', `<label class="ss-hp-range wide"><small>가</small><input type="range" min="9" max="18" step="0.5" value="${fsPx()}" data-hpr="fs"><small class="big">가</small><small data-fsv>${fsPx()}px</small></label>${Number(d.hpFsPx) ? B('fs:m', '기본 크기', false, 'txt') : ''}`)}
-            ${row('글꼴', dot && d.hpFont !== 'u' ? '<small class="ss-hint">도트 모양은 도트 글꼴이에요.</small>' : seg('font', d.hpFont === 'u' && set.hpFontFile ? 'u' : FONTS[d.hpFont] ? d.hpFont : 'g', Object.entries(FONTS).filter(([k]) => k !== 'u' || set.hpFontFile)) + B('fontfile:add', '<i class="fa-solid fa-font"></i> 글꼴 파일', false, 'txt'))}`;
+        body = `${row('크기', `<label class="ss-hp-range wide"><small>가</small><input type="range" min="11" max="22" step="0.5" value="${fsPx()}" data-hpr="fs"><small class="big">가</small><small data-fsv>${fsPx()}px</small></label>${Number(d.hpFsPx) ? B('fs:m', '기본 크기', false, 'txt') : ''}`)}
+            ${row('글꼴', dot && d.hpFont !== 'u' ? '<small class="ss-hint">도트 모양은 도트 글꼴이에요.</small>' : seg('font', d.hpFont === 'u' && set.hpFontFile ? 'u' : FONTS[d.hpFont] ? d.hpFont : 'g', Object.entries(FONTS).filter(([k]) => k !== 'u' || set.hpFontFile)) + B('fontfile:add', '<i class="fa-solid fa-font"></i> 글꼴 파일', false, 'txt'))}
+            ${row('기본 글꼴', seg('webfont', set.webFont === false ? '0' : '1', [['1', 'IBM Plex Sans KR 받아 쓰기'], ['0', '끄기']]) + '<small class="ss-hint">기기에 없으면 구글 글꼴에서 받아요.</small>')}`;
     } else if (ED.tab === 'frame') {
         body = `${row('모서리', `<label class="ss-hp-range wide"><small>각지게</small><input type="range" min="0" max="2" step="1" value="${pick3(d.hpCorner)}" data-hpr="corner"><small>둥글게</small></label>`)}
             ${row('여백', `<label class="ss-hp-range wide"><small>촘촘</small><input type="range" min="0" max="2" step="1" value="${pick3(d.hpGap)}" data-hpr="gap"><small>넉넉</small></label>`)}
@@ -400,18 +419,39 @@ export function fitHompy(el, tries = 0) {
     try { const gn = D().hpGroupNames ?? {}; root.querySelectorAll('.ss-groups > button[data-arg]').forEach(b => { const sp = b.querySelector('span'); if (!sp) return; if (!b.dataset.n0) b.dataset.n0 = sp.textContent; const n = gn[b.dataset.arg]; sp.textContent = n ? String(n).slice(0, 8) : b.dataset.n0; }); } catch { /* 꾸밈일 뿐 */ }
     if (matchMedia('(max-width: 640px)').matches) return;
     if (root.querySelector('.ss-hp-book.free') || root.classList.contains('ss-hp-edit')) { right?.classList.add('ss-hp-over'); cols.forEach(c => c.classList.add('ss-hp-over')); return; } // 자유 배치: 창마다 정한 크기 안에서 스크롤
+    // (v2.8 다이어트) 예전엔 줄마다 「재고 → 줄이고 → 다시 재고」를 최대 4번 돌려 화면 배치 계산을 여러 번 시켰다 (전체화면에서 한 턴 시간의 절반).
+    //  이제 ① 같은 창 크기 · 같은 내용 길이에서 지난번에 찾은 배율을 먼저 걸어 두고 ② 한 번에 다 잰 뒤 ③ 맞으면 그대로, 안 맞을 때만 예전처럼 다시 찾는다.
+    const memo = (fitHompy._z ??= new Map()); if (memo.size > 80) memo.clear();
+    const kb = `${innerWidth}x${innerHeight}|${root.getAttribute('style')}|${document.body.className}|${cols.length}`, keys = cols.map((c, i) => `${i}|${c.firstElementChild.innerHTML.length}|${kb}`);
+    cols.forEach((c, i) => { const m = memo.get(keys[i]); if (m && m.z < 1) c.firstElementChild.style.zoom = String(m.z); });
     if (!right || right.clientHeight < 60) { if (tries < 8) setTimeout(() => fitHompy(el, tries + 1), 80); return; } // 창이 아직 안 떴음
     const pad = (x) => { const cs = getComputedStyle(x); return parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom); };
-    for (const c of cols) { const inn = c.firstElementChild; if (!shrinkToFit(inn, c.clientHeight - pad(c), () => inn.scrollHeight)) c.classList.add('ss-hp-over'); else c.classList.remove('ss-hp-over'); }
-    // 가운데 창: 넘치면 내용을 더 작게 줄여 한 화면에 맞춘다 (0.5배까지 · 그래도 넘칠 때만 스크롤)
+    // 재기 (한 번에)
+    const rooms = cols.map(c => c.clientHeight - pad(c)), hs = cols.map(c => c.firstElementChild.scrollHeight);
     let used = 0; for (const ch of right.children) { if (ch === body) continue; const cs = getComputedStyle(ch); used += ch.offsetHeight + parseFloat(cs.marginTop) + parseFloat(cs.marginBottom); }
     const room = right.clientHeight - pad(right) - used - 8;
-    const hb = body.querySelector(':scope > .ss-hp-homewrap > .ss-hp-homebody'), target = hb ?? body;
+    const hb = body.querySelector(':scope > .ss-hp-homewrap > .ss-hp-homebody');
+    // 고르기
+    const over = cols.map((c, i) => {
+        const inn = c.firstElementChild, m = memo.get(keys[i]);
+        if (m ? (m.over || hs[i] * m.z <= rooms[i] + 2) : (rooms[i] <= 0 || hs[i] <= rooms[i] + 1)) { if (!m) memo.set(keys[i], { z: 1, over: false }); return m ? m.over : false; }
+        const ok = shrinkToFit(inn, rooms[i], () => inn.scrollHeight); memo.set(keys[i], { z: parseFloat(inn.style.zoom) || 1, over: !ok }); return !ok;
+    });
+    // 적기 (한 번에)
+    cols.forEach((c, i) => c.classList.toggle('ss-hp-over', over[i]));
     if (hb) { body.style.height = `${room}px`; }
     right.classList.add('ss-hp-over'); // 가운데 창은 글씨를 줄이지 않고, 넘치면 창 안에서 스크롤 (칸은 여러 단으로 쌓여 있음)
 }
 // 사진 단추 (패널마다 걸지 않고 문서에 한 번)
+// 🔤 기본 글꼴: IBM Plex Sans KR — 기기에 없으면 구글 글꼴에서 받아 쓴다 (꾸미기 › 글씨에서 끌 수 있음 · 끄거나 못 받으면 예전 고딕으로 보임)
+export function loadWebFont() {
+    try { const on = settings().webFont !== false && !globalThis.__SS_TEST__, el = document.getElementById('ss-plex');
+        if (!on) { el?.remove(); return; } if (el) return;
+        const l = document.createElement('link'); l.id = 'ss-plex'; l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap'; document.head.appendChild(l);
+    } catch (e) { ssErr(e); }
+}
 export function initHompy() {
+    loadWebFont();
     try { applyRetro(); } catch (e) { ssErr(e); }
     try { window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', () => applyRetro()); const C = ctx(); C.eventSource?.on?.(C.event_types?.CHAT_CHANGED ?? C.eventTypes?.CHAT_CHANGED, () => setTimeout(applyRetro, 300)); } catch (e) { ssErr(e); } // 채팅마다 다른 꾸밈 세트
     let rt = null; const refit = () => { clearTimeout(rt); rt = setTimeout(() => document.querySelectorAll('.ss-hompy').forEach(r => fitHompy(r.closest('.ss-panel'))), 120); };
@@ -479,6 +519,7 @@ export function initHompy() {
         if (b.dataset.hp === 'fold' && el?._ss) { const o = el._ss.hpOpen ?? (el._ss.hpOpen = []), i = o.indexOf(b.dataset.arg); if (i >= 0) o.splice(i, 1); else o.push(b.dataset.arg); app.renderPanel?.(el); return; } // 「모음」 칸 펼치기 · 접기
         if (b.dataset.hp === 'solo' && el?._ss) { Object.assign(el._ss, { tab: b.dataset.arg, hpSolo: b.dataset.arg, mode: 'view', ui: {} }); app.renderPanel?.(el); return; } // 이 칸만 크게
         if (b.dataset.hp === 'all' && el?._ss) { el._ss.hpSolo = null; el._ss.mode = 'view'; app.renderPanel?.(el); return; } // 묶음 전체로
+        if (b.dataset.hp === 'tipoff') { settings().hpTip = false; saveSettings(); app.rerenderPanels?.(true); return; }
         if (b.dataset.hp === 'skinpick') { const v = b.dataset.arg; if (SKINS[v]) { settings().hpSkin = v; settings().hpFont = SKIN_DEF[v][0]; settings().hpDark = SKIN_DEF[v][1]; } else settings().hpSkin = settings().hpSkin ?? 'clean'; saveSettings(); applyRetro(); app.rerenderPanels?.(true); app.renderHud?.(); return; } // 처음 한 번: 모양 고르기
         if (b.dataset.hp === 'vibe') { // 채팅 분위기에 맞는 모양 권하기: 이 채팅에만 적용 · 괜찮아요 · 다시 묻지 않기
             const meta0 = (() => { try { return getMeta(); } catch { return null; } })(), [how, key] = String(b.dataset.arg).split(':'), set0 = settings();
@@ -526,7 +567,7 @@ export function hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, 
     const bars = modOn('stats', meta) ? (d.stats?.bars ?? []).slice(0, [3, 6, 12].includes(Number(CN.bars)) ? Number(CN.bars) : 6) : [];
     const rel = d.rel && modOn('rel', meta) ? d.rel : null, AX = rel ? relAxes(rel) : null;
     const friends = rel ? rel.user.filter(r => !r.out).sort((x, y) => y.aff + y.trust - x.aff - x.trust).slice(0, [3, 6, 10].includes(Number(CN.friends)) ? Number(CN.friends) : 6) : [];
-    const mini = [cal ? ['날짜', `${dateShort(cal)} ${cal.time}`] : null, here ? ['장소', here] : null, w ? ['재산', `${fmtNum(w.cash)} ${w.currency ?? ''}`] : null].filter(Boolean);
+    const mini = [cal ? ['날짜', `${dateShort(cal)} ${cal.time}${cal.weather ? ` · ${cal.weather}` : ''}`] : null, here ? ['장소', here] : null, w ? ['재산', `${fmtNum(w.cash)} ${w.currency ?? ''}`] : null].filter(Boolean);
     const mine = String(D().hpFace ?? '').startsWith('my:') && !!settings().hpFaces?.[Number(String(D().hpFace).slice(3))];
     const home = !!homeGroup, photo = photoHTML(meta), hasPhoto = !!meta.hpPhoto?.src; // 홈 묶음에서는 사진이 가운데 창에 크게 → 옆의 사진 창은 안 띄움
     // 창 내용 (없으면 빈 글 → 창이 안 뜸)
@@ -542,12 +583,17 @@ export function hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, 
         photo: () => (!home && hasPhoto ? photo : ''),
     };
     for (const u of UW) BODY[u.id] = u.type === 'note' ? () => (u.text ? `<p class="ss-hp-note">${esc(u.text)}</p>` : '') : () => { const b = (d.stats?.bars ?? []).find(x => x.name === u.stat); return b ? `<div class="ss-hp-big"><b>${fmtNum(b.cur)}</b><small>/ ${fmtNum(b.max)} ${esc(b.name)}</small><i><em style="width:${b.max > 0 ? Math.max(0, Math.min(100, (b.cur / b.max) * 100)) : 0}%"></em></i></div>` : `<p class="ss-hint">「${esc(u.stat || '')}」 수치가 없어요.</p>`; };
-    const FREE = freeOn(), tOf = (k) => (TT[k] ? esc(TT[k]) : WIN_T[k] ?? esc(winName(k)));
+    const FREE = freeOn(), tOf = (k) => (TT[k] ? esc(TT[k]) : esc(winName(k)));
     const LY = hpLayout(), bodyOf = (k) => (LY.off.includes(k) ? '' : BODY[k] ? BODY[k]() : miniWidgets(s, [k])), mk = (k) => win(k, tOf(k), bodyOf(k), BODY[k] ? '' : 'x');
     const L = FREE ? '' : LY.l.map(mk).join(''), R = FREE ? '' : LY.r.map(mk).join('');
     const mainBody = restHTML;
+    // 홈: 옆 창에 이미 보이는 칸은 가운데 타일에서 뺀다 — 그 창이 실제로 떠 있을 때만 (창을 숨기면 타일이 다시 보인다 · 자유 배치도 같음)
+    const shown = (k) => (LY.l.includes(k) || LY.r.includes(k)) && !!bodyOf(k);
+    const dup = !home ? '' : ['stats', 'friends', 'quest', 'news', 'mind', 'cond', 'fate', 'music', 'custom'].filter(shown).map(k => `ss-hp-has-${k}`).join(' ');
+    const COVER = { bars: 'stats', date: 'stats', loc: 'stats', cash: 'stats', rel: 'friends' }, HOME_KEYS = ['bars', 'date', 'loc', 'cash', 'music', 'fate', 'cond', 'custom', 'quest', 'rel', 'news'];
+    const bare = home && !hasPhoto && !FREE && !miniWidgets(s, HOME_KEYS.filter(k => !shown(COVER[k] ?? k))); // 가운데에 남는 타일이 없음
     const cover = settings().hpCover;
-    return `<div class="${rootCls} ss-hompy ${ED ? 'ss-hp-edit ss-hp-picking' : ''} ss-hp-k-${skinOf()} ${skinOf() === 'dot' ? `ss-hp-dot ss-hp-p-${patOf()}` : ''} ${home ? 'ss-hp-athome' : ''} ${enter ? 'ss-hp-enter' : ''}" style="--hp-h:${hue};--hp-s:${sat};--hp-fs:${fsPx()}px">
+    return `<div class="${rootCls} ss-hompy ${ED ? 'ss-hp-edit ss-hp-picking' : ''} ss-hp-k-${skinOf()} ${skinOf() === 'dot' ? `ss-hp-dot ss-hp-p-${patOf()}` : ''} ${home ? 'ss-hp-athome' : ''} ${dup} ${bare ? 'ss-hp-home-bare' : ''} ${enter ? 'ss-hp-enter' : ''}" style="--hp-h:${hue};--hp-s:${sat};--hp-fs:${fsPx()}px">
         ${ED ? `<div class="ss-hp-edbar"><button data-hp="edcancel">취소</button><span><b>꾸미기</b><small>아래에서 고르거나, 바꿀 곳을 눌러요</small></span>${undoSnap ? '<button data-hp="ed" data-arg="undo:1" title="방금 것 되돌리기"><i class="fa-solid fa-rotate-left"></i></button>' : ''}<button class="pri" data-hp="eddone">완료</button></div>` : ''}
         <div class="ss-hp-url ss-hp-top ${cover ? 'has-cover' : ''}"${cover ? ` style="background-image:linear-gradient(180deg, rgba(0,0,0,.05), rgba(0,0,0,.45)), url('${esc(cover)}')"` : ''}><i class="ss-hp-dots"></i><i class="ss-hp-dots"></i><i class="ss-hp-dots"></i><span class="ss-hp-nav" aria-hidden="true">‹ › ⟳</span><span class="ss-hp-addr"><small>meatball.home/</small><b>${esc(short(c.title || TITLE, 30))}</b></span>${DD.hpPet === false ? '' : `<img class="ss-hp-pet" src="${esc(settings().hpMoodFaces?.[con] || conUrl(con))}" alt="" title="${esc(feel)}">`}${headHTML}<button class="ss-hp-x ss-hp-deco-m" data-hp="deco" title="꾸미기"><i class="fa-solid fa-palette"></i></button><button class="ss-hp-x" data-hp="close" title="닫기"><i class="fa-solid fa-xmark"></i></button><em></em></div>
         <div class="ss-hp-marks"><div class="ss-hp-index">${groupsHTML}</div><span class="ss-hp-count">TURN <b>${s.turn ?? 0}</b> · TOTAL <b>${total}</b></span>${editWins ? '<button class="ss-hp-deco-b on" data-hp="editdone">✓ 창 옮기기 끝</button>' : ''}<button class="ss-hp-deco-b" data-hp="deco" title="색 · 글씨 크기 · 창 자리 · 보일 창"><i class="fa-solid fa-palette"></i> 꾸미기</button></div>
@@ -574,7 +620,8 @@ export function hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, 
             const lcol = L ? `<aside class="ss-hp-col ss-hp-left"><div class="ss-hp-col-in ss-hp-left-in">${L}</div></aside>` : '', rcol = R ? `<aside class="ss-hp-col ss-hp-rcol"><div class="ss-hp-col-in">${R}</div></aside>` : '';
             const main = `<section class="ss-hp-win main"><div class="ss-hp-wt"><b>${esc(c.title || TITLE)}</b><i class="ss-hp-hearts">♡♡♡</i></div><div class="ss-hp-right">${pauseHTML}${mainBody}</div></section>`;
             const order = LY.main === 'l' ? [['m', main], ['l', lcol], ['r', rcol]] : LY.main === 'r' ? [['l', lcol], ['r', rcol], ['m', main]] : [['l', lcol], ['m', main], ['r', rcol]];
-            const cols = order.filter(([, h]) => h).map(([k]) => (k === 'm' ? 'minmax(0, 1fr)' : COLW[k === 'l' ? LY.lw : LY.rw])).join(' ');
+            const rwAuto = LY.rw; // 오른쪽 줄에 창이 4개 넘게 쌓이면 (폭을 직접 고르지 않았을 때) 넓게 — 좁은 줄에서 제목이 서너 줄로 꺾이던 것
+            const cols = order.filter(([, h]) => h).map(([k]) => (k === 'm' ? 'minmax(0, 1fr)' : COLW[k === 'l' ? LY.lw : rwAuto])).join(' ');
             return `<div class="ss-hp-book ${editWins ? 'ss-hp-editing' : ''}" style="grid-template-columns:${cols}">${order.map(([, h]) => h).join('')}</div>`;
         })()}
     </div>`;
