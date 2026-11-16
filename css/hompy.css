@@ -936,3 +936,9 @@ body.ss-retro .ss-toasts .ss-t-b small, body.ss-retro .ss-toasts .ss-t-b em, bod
 body.ss-retro .ss-toasts .ss-t-btn { background: var(--tp-paper, var(--ss-bg)); color: var(--tp-acc, var(--ss-ink)); border-color: var(--tp-acc, var(--ss-line)); } body.ss-retro .ss-toasts .ss-t-btn.ghost { color: var(--tp-dim, var(--ss-dim)); border-color: var(--tp-ol, var(--ss-line)); }
 body.ss-retro .ss-toasts :is(.ss-t-play, .ss-mini-play) { background: var(--tp-acc, var(--ss-acc)); }
 .ss-scope .ss-chips > .ss-chip, :is(.ss-hompy, .ss-rt) .ss-room .ss-chip { white-space: normal !important; overflow-wrap: anywhere !important; min-width: 0; flex-wrap: wrap; text-align: left; }
+/* 사진을 세로로 크게: 가운데 창 높이의 절반 넘게는 늘 사진 몫 — 앱 쪽은 위 40%까지만 쓰고, 넘치면 그 안에서만 스크롤 */
+@media (min-width: 641px) {
+    .ss-hompy .ss-hp-homewrap.has > .ss-hp-homebody { max-height: 40%; }
+    .ss-hompy .ss-hp-homewrap.has > .ss-hp-main { flex: 1 1 0; min-height: 58%; }
+    .ss-hompy .ss-hp-homewrap.has .ss-fb { margin-top: 2px; gap: 2px; } .ss-hompy .ss-hp-homewrap.has .ss-fb-more > summary { padding: 2px 10px; }
+}
