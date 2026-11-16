@@ -1769,6 +1769,24 @@ export async function loreText(limit) {
 export function recentChat(n) {
     return (ctx().chat ?? []).filter(m => !m.is_system).slice(-n).map(m => `${m.name}: ${short(stripStatus(m.mes), 700)}`).join('\n');
 }
+// 📎 하던 채팅에 붙이기: 이미 긴 채팅에서 상태창을 만들 때 — 최근 N개만으로는 앞에서 쌓인 돈 · 관계 · 물건을 모른다.
+//   요약 확장의 요약(가장 최근 것) · 작가 노트 · 앞쪽 이야기를 띄엄띄엄 훑은 줄을 같이 준다. AI 호출 수는 그대로고 보내는 글만 늘어난다.
+//   지난 답을 하나하나 다시 계산하지는 않는다 — setBase가 「지금」을 출발점(startAt)으로 잡고 그 뒤의 답부터 기록한다.
+export const LONG_CHAT = 30; // 이만큼 쌓인 채팅이면 만들기 창이 「하던 이야기에 붙여요」를 보여 준다
+export function storySoFar(maxLines = 24) {
+    const c = ctx(), chat = (c.chat ?? []).filter(m => m && !m.is_system), out = { summary: '', note: '', sample: '', lines: 0 };
+    try { for (let i = chat.length - 1; i >= 0; i--) { const mem = chat[i]?.extra?.memory; if (typeof mem === 'string' && mem.trim()) { out.summary = short(mem.trim(), 4000); break; } } } catch (e) { ssNote('요약 읽기', e); }
+    try { const n = c.chatMetadata?.note_prompt; if (typeof n === 'string' && n.trim()) out.note = short(n.trim(), 1500); } catch (e) { ssNote('작가 노트 읽기', e); }
+    try {
+        const older = chat.slice(0, Math.max(0, chat.length - (Number(settings().recentForGen) || 0)));
+        if (older.length) {
+            const step = Math.max(1, Math.ceil(older.length / maxLines)), lines = [];
+            for (let i = 0; i < older.length; i += step) { const t = short(String(stripStatus(older[i].mes ?? '')).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(), 220); if (t) lines.push(`#${i + 1} ${older[i].name}: ${t}`); }
+            out.sample = lines.join('\n'); out.lines = lines.length;
+        }
+    } catch (e) { ssNote('앞 이야기 훑기', e); }
+    return out;
+}
 export async function gatherSources(opt = {}) {
     const c = ctx(), set = settings();
     const parts = [];
@@ -1781,7 +1799,14 @@ export async function gatherSources(opt = {}) {
         }
     }
     if (opt.lore !== false) { const lt = await loreText(set.loreChars); if (lt) parts.push(`[LOREBOOK]\n${lt}`); }
+    if (opt.chat !== false && opt.long === true) { // 📎 하던 채팅에 붙이기 (만들기 창에서만 켠다)
+        const sf = storySoFar();
+        if (sf.summary) parts.push(`[STORY SUMMARY SO FAR]\n${sf.summary}`);
+        if (sf.note) parts.push(`[AUTHOR'S NOTE]\n${sf.note}`);
+        if (sf.sample) parts.push(`[EARLIER STORY — sampled lines, oldest first]\n${sf.sample}`);
+    }
     if (opt.chat !== false) { const rc = recentChat(set.recentForGen); if (rc) parts.push(`[RECENT CHAT]\n${rc}`); }
+    if (opt.chat !== false && opt.long === true) parts.push('[ONGOING STORY] This status window is being attached to a story that is already in progress. Fill every value as it stands NOW, at the latest message — current date and time, location, money, belongings, gauges, relationship levels, people already met, quests already taken — not as it was when the story began. When sources disagree, trust the most recent one.');
     return parts.join('\n\n');
 }
 export { CONTACT_MODES };

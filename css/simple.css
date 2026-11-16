@@ -33,3 +33,8 @@ body.ss-simple #ss-side .ss-mini-foot [data-side="full"] { display: none; }
 /* 칸 하나만 연 화면: 「보일 것」 고르기 · 방금 바뀐 곳 빨간 점은 기본 모드에서 */
 .ss-scope.ss-root.simple .ss-relshow,
 .ss-scope.ss-root.simple .ss-fresh { display: none; }
+
+/* 📎 하던 채팅에 붙이기 — 만들기 창 맨 위 안내 카드 (채팅이 30개 넘을 때만) */
+.ss-scope.ss-wizard .ss-wz-long { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; border-color: var(--ss-acc); }
+.ss-scope.ss-wizard .ss-wz-long p { margin: 0; }
+.ss-scope.ss-wizard .ss-wz-long .ss-tog small { color: var(--ss-dim); font-size: .82em; margin-left: 4px; }

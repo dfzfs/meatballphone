@@ -1,6 +1,6 @@
 // 처음 만들기 (마법사 · 기준 상태 세우기) — shell.js에서 떼어 냄
 import { DATA_V, app, ctx, settings, saveSettings, getMeta, saveMeta, MOD, MOD_IDS, EMPTY, NORM, normalize, DIFFS, GENRES, CONTACT_MODES, esc, clone, clamp, h, TITLE, LOG, PLAY_MODES, normPlay, playOf, mascotUrl, relFromProfiles, ssErr, ssWarn, PLAY_SETS } from './core.js';
-import { gatherSources, loreNames, loreChoice, setLorePick, chatCharacters, setBase, startBlank } from './engine.js';
+import { gatherSources, loreNames, loreChoice, setLorePick, chatCharacters, setBase, startBlank, storySoFar, LONG_CHAT } from './engine.js';
 import { genModule, genGroup, GEN_GROUPS } from './ai.js';
 import { popup, askConfirm, busyBtn, seg, sec, mascot } from './kit.js';
 import { GROUPS, TAB_MOD } from './views.js';
@@ -34,6 +34,11 @@ export async function openWizard() {
             <div><span>로어북</span><b>${lore.length ? lore.map(esc).join(', ') : '없음'}</b></div>
             <div><span>채팅</span><b>${chatN}개</b></div>
         </div>
+        ${(() => { if (chatN < LONG_CHAT) return ''; const sf = storySoFar(); // 📎 하던 채팅에 붙이기
+            return `<div class="ss-card ss-wz-long"><b>📎 하던 이야기에 붙여요</b>
+                <p>채팅이 ${chatN}개 있어요. <b>지금 시점</b>의 상태(돈 · 위치 · 관계 · 날짜)로 시작하고, 이 뒤의 답부터 기록해요. 지난 답을 하나하나 다시 계산하지는 않아요.</p>
+                <label class="ss-tog"><input type="checkbox" class="ss-switch ss-w-long" checked><span>앞 이야기도 훑어보기 <small>AI 호출 수는 그대로 · 보내는 글만 조금 늘어요</small></span></label>
+                <small class="ss-hint">읽는 것: 요약 확장의 요약 ${sf.summary ? '있음' : '없음'} · 작가 노트 ${sf.note ? '있음' : '없음'} · 앞 이야기 띄엄띄엄 ${sf.lines}줄 · 최근 채팅 ${settings().recentForGen}개. 「기본 틀만」은 AI를 안 써서 이야기를 읽지 못해요. 만든 뒤 숫자가 다르면 그 칸에서 바로 고치면 돼요.</small></div>`; })()}
         <section class="ss-sec"><div class="ss-sec-h"><h4>어떻게 쓸까요</h4></div>
             <div class="ss-seg wrap stack" data-w="start"><button data-v="simple" class="${W.start === 'simple' ? 'on' : ''}">🍙 심플<small>탭 없이 타일 판 하나 · 날짜 · 위치 · 수치 · 돈 · 관계만 · 팁 · 추천 · 알림 창 없음 — 처음이면 이쪽</small></button><button data-v="basic" class="${W.start === 'basic' ? 'on' : ''}">🍱 기본<small>탭이 있는 상태창 · 연락 · 상점 · 퀘스트 · 꾸미기까지 골라 켜요</small></button></div>
             <p class="ss-hint">이 채팅만 정해요. 나중에 언제든 넓히거나 줄일 수 있고, 그때 내용은 지워지지 않아요.</p>
@@ -242,7 +247,7 @@ export async function openWizard() {
         busyBtn(btn, true, '생성 중…');
         prog.innerHTML = settings().showMascot === false ? '' : `<div class="ss-mbanner">${mascot('think', 'md')}<span>열심히 만드는 중… 보통 1~2분 걸려요</span></div>`;
         results.core = null; results.data = {};
-        const sources = W.gm === 'tpl' ? '' : W.base === 'new' ? await gatherSources({ card: false, lore: false, chat: false, persona: src.persona }) : await gatherSources(src);
+        const sources = W.gm === 'tpl' ? '' : W.base === 'new' ? await gatherSources({ card: false, lore: false, chat: false, persona: src.persona }) : await gatherSources({ ...src, long: !!el.querySelector('.ss-w-long')?.checked });
         const cmode = W.cmode === 'auto' && g && g.contact !== 'auto' ? g.contact : W.cmode;
         opts = { sources, instruction: W.base === 'new' ? `${instruction}\n(Create a NEW world. Ignore any existing card/lorebook.)` : instruction, pmode: W.pmode, cmode, play: W.play === 'auto' ? null : normPlay({ mode: W.play, hero: el.querySelector('.ss-w-hero').value, ensemble: el.querySelector('.ss-w-ens').checked, cardIsWorld: el.querySelector('.ss-w-world').checked }) };
         results.play = opts.play;
