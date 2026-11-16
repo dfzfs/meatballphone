@@ -8,7 +8,7 @@ try {
         await window.__SS_TEST__.api.app.loadAddons(true);
         const app = window.__SS_TEST__.api.app, wait = (ms) => new Promise(r => setTimeout(r, ms));
         const st = () => app.current.state, out = {}, set = core.settings();
-        let calls = 0; const ai0 = window.__ai; window.__ai = (p, sys) => { calls++; return '"들렀다 가. 내일 봐."\n(둘째 줄은 버려져야 함)'; };
+        let calls = 0; const ai0 = window.__ai; window.__ai = (p, sys) => { calls++; return '"들렀다 가.\n내일 봐."'; }; // 줄이 나뉘어 와도 이어 붙인다 (첫 줄만 집으면 글이 중간에서 끊겼음)
         const P4 = () => JSON.stringify(Object.fromEntries(Object.entries(window.__prompts ?? {}).map(([k, v]) => [k, v?.value ?? ''])));
         // ── 끈 채로: 아무것도 안 남는다 ──
         await window.__addUser('hi'); await window.__addAI('s\n<meatball>\naff: Mira +5\naff: Leon +30\ncash: +100\n</meatball>'); await wait(300);

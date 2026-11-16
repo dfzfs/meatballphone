@@ -9,8 +9,8 @@ import { aiGenerate, P, mainBusy, PROMPT_DEFS, PROMPT_MAP } from './prompts.js';
 
 // 이 파일이 쓰는 프롬프트는 여기서 등록한다 — 파일을 안 불러오면 「프롬프트 · 토큰」 창의 목록도 원래 그대로
 for (const d of [
-    { key: 'hompy.guest', group: 'call', label: '📝 방명록 (인물이 남기는 한 줄)', when: '방명록 › 「받기」 · 자동 방명록 (1번 = 1호출)', text: 'You are {who}. {who} drops by {{user}}\'s personal page and leaves ONE short guestbook note — the kind of thing {who} would actually write given their personality, the current relationship and what just happened (a tease, a thank-you, a complaint, a reminder, a shy hello…). In {who}\'s own voice and in {outLang}, one line, at most 60 characters. No narration, no name prefix, no quotation marks, no emoji unless {who} would use them.' },
-    { key: 'hompy.reply', group: 'call', label: '📝 방명록 답글 (내가 남긴 글에 인물이 답)', when: '파도타기 › 내가 남긴 방명록 › 「답글 받기」 (1번 = 1호출)', text: 'You are {who}. {{user}} left a note on {who}\'s personal guestbook: «{note}». Write {who}\'s short reply under it — in {who}\'s own voice, fitting the relationship right now. In {outLang}, one line, at most 60 characters. No narration, no name prefix, no quotation marks.' },
+    { key: 'hompy.guest', group: 'call', label: '📝 방명록 (인물이 남기는 한 줄)', when: '방명록 › 「받기」 · 자동 방명록 (1번 = 1호출)', text: 'You are {who}. {who} drops by {{user}}\'s personal page and leaves ONE short guestbook note — the kind of thing {who} would actually write given their personality, the current relationship and what just happened (a tease, a thank-you, a complaint, a reminder, a shy hello…). In {who}\'s own voice and in {outLang}: one or two short sentences on a single line, always a finished thought (never stop mid-sentence). No narration, no name prefix, no quotation marks, no emoji unless {who} would use them.' },
+    { key: 'hompy.reply', group: 'call', label: '📝 방명록 답글 (내가 남긴 글에 인물이 답)', when: '파도타기 › 내가 남긴 방명록 › 「답글 받기」 (1번 = 1호출)', text: 'You are {who}. {{user}} left a note on {who}\'s personal guestbook: «{note}». Write {who}\'s short reply under it — in {who}\'s own voice, fitting the relationship right now. In {outLang}: one or two short sentences on a single line, always a finished thought (never stop mid-sentence). No narration, no name prefix, no quotation marks.' },
     { key: 'hompy.ilchon', group: 'call', label: '💬 일촌평 (인물이 붙이는 한마디)', when: '일촌 › 「일촌평 받기」 (1번 = 1호출)', text: 'You are {who}. Write the short tagline {who} would put next to {{user}}\'s name on a friends list — how {who} sees {{user}} right now, given the relationship stage and recent events. In {who}\'s voice and in {outLang}, a single phrase of at most 20 characters. No quotation marks, no name prefix, no explanation.' },
 ]) if (!PROMPT_MAP[d.key]) { PROMPT_DEFS.push(d); PROMPT_MAP[d.key] = d; }
 
@@ -18,6 +18,8 @@ const st = () => app.current?.state ?? null;
 const live = () => { try { return isActive() && ready() && !!st(); } catch { return false; } };
 const chat = () => ctx().chat ?? [];
 const cut = (t, n) => short(String(t ?? '').replace(/\s+/g, ' ').trim(), n);
+// AI가 준 짧은 글 다듬기: 줄이 나뉘어 와도 이어 붙이고(첫 줄만 집으면 중간에서 끊겼다) 따옴표 · 이름 머리말을 뗀다
+const oneLine = (raw, who, n) => cut(stripStatus(String(raw ?? '')).split(/\r?\n/).map(x => x.trim()).filter(Boolean).slice(0, 4).join(' ').replace(new RegExp(`^${String(who ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[:：]\\s*`), '').replace(/^["“「『]+|["”」』]+$/g, ''), n);
 const stagesOf = (rel) => (rel?.stages?.length ? rel.stages : DEFAULT_STAGES);
 // 「나」의 이름들 (페르소나 · 프로필의 유저 · 플레이 방식의 주인공) — 내가 내 홈피에 방명록을 남기거나 내 홈피로 파도타기하지 않게 뺀다
 export function selfNames(s = st()) {
@@ -164,8 +166,8 @@ export async function gbWrite(who = '', { auto = false } = {}) {
     if (!gbOn() || !live()) return null;
     const s = st(); who = who ? (findBy(s.data.rel?.user ?? [], who)?.name ?? '') : gbPick(s);
     if (!who || selfNames(s).has(norm(who))) return null; // 나 자신은 쓰지 않는다
-    const raw = await aiGenerate(auto ? 'autoping' : 'ping', P('hompy.guest', { who }), gbAbout(who, s), 200);
-    const text = cut(stripStatus(raw).split(/\r?\n/).map(x => x.trim()).filter(Boolean)[0]?.replace(/^["“「『]+|["”」』]+$/g, '') ?? '', 160);
+    const raw = await aiGenerate(auto ? 'autoping' : 'ping', P('hompy.guest', { who }), gbAbout(who, s), 800);
+    const text = oneLine(raw, who, 300);
     if (!text) throw new Error('빈 답이 왔어요');
     const G = gbData(true); if (!G) return null;
     const e = { id: uid(), who, text, date: stamp(st()), at: chat().length, ...(auto ? { auto: true } : {}) };
@@ -229,8 +231,8 @@ export function ilchonList(s = st()) { return (s?.data?.rel?.user ?? []).filter(
 export async function ilchonWrite(who) {
     if (!gbOn() || !live()) return null;
     const s = st(), r = findBy(s.data.rel?.user ?? [], who); if (!r || selfNames(s).has(norm(r.name))) return null;
-    const raw = await aiGenerate('ping', P('hompy.ilchon', { who: r.name }), gbAbout(r.name, s), 120);
-    const text = cut(stripStatus(raw).split(/\r?\n/).map(x => x.trim()).filter(Boolean)[0]?.replace(/^["“「『]+|["”」』]+$/g, '') ?? '', 40);
+    const raw = await aiGenerate('ping', P('hompy.ilchon', { who: r.name }), gbAbout(r.name, s), 600);
+    const text = oneLine(raw, r.name, 60);
     if (!text) throw new Error('빈 답이 왔어요');
     const G = gbData(true); if (!G) return null;
     (G.ilchon ??= {})[r.name] = { text, date: stamp(st()), stage: r.stage ?? -1 };
@@ -282,9 +284,9 @@ export function sendNote(to, text) {
 export async function noteReplyAI(id) {
     if (!gbOn() || !live()) return null;
     const e = gbData()?.sent?.find(x => x.id === id); if (!e) return null;
-    const raw = await aiGenerate('ping', P('hompy.reply', { who: e.to, note: e.text }), gbAbout(e.to, st()), 200);
+    const raw = await aiGenerate('ping', P('hompy.reply', { who: e.to, note: e.text }), gbAbout(e.to, st()), 800);
     const got = app.socFeel ? app.socFeel(raw) : { text: raw, feel: 0 };
-    const text = cut(stripStatus(got.text).split(/\r?\n/).map(x => x.trim()).filter(Boolean)[0]?.replace(/^["“「『]+|["”」』]+$/g, '') ?? '', 160);
+    const text = oneLine(got.text, e.to, 300);
     if (!text) throw new Error('빈 답이 왔어요');
     const cur = gbData()?.sent?.find(x => x.id === id); if (!cur) return null;
     cur.reply = text; gbSave();
