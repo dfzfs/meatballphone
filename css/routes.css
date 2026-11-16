@@ -134,3 +134,13 @@ body.ss-drunk .ss-root .ss-card { filter: blur(.4px); }
 .ss-wave .ss-wv-note { padding: 8px 10px; margin: 6px 0; border-radius: var(--ss-r, 10px); box-shadow: inset 0 0 0 1px var(--ss-line); background: var(--ss-surface); }
 .ss-wave .ss-wv-note p { margin: 4px 0; } .ss-wave .ss-wv-note p.re { color: var(--ss-dim); }
 .ss-wv-foot { margin-top: 6px; } .ss-wv-new { color: var(--ss-acc); }
+/* 🌊 파도타기 · 방명록: 칸마다 구분되게 — 머리는 포인트 색 띠, 칸은 옅은 바탕 카드, 칸 제목 앞에 색 막대 */
+.ss-wave .ss-wv-head { padding: 14px; border-radius: var(--ss-r, 10px); background: color-mix(in srgb, var(--ss-acc) 12%, var(--ss-surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ss-acc) 30%, transparent); }
+.ss-wave > .ss-row-btns { margin: 10px 0 4px; }
+.ss-wave .ss-sec { margin: 10px 0; padding: 10px 12px 12px; border-radius: var(--ss-r, 10px); background: var(--ss-surface2, var(--ss-surface)); box-shadow: inset 0 0 0 1px var(--ss-line); }
+.ss-wave .ss-sec-h { margin-bottom: 6px; padding-left: 8px; border-left: 3px solid var(--ss-acc); }
+.ss-wave .ss-sec-h h4 { color: var(--ss-ink); letter-spacing: 0; text-transform: none; font-size: .92em; }
+.ss-wave .ss-wv-kv { padding: 6px 8px; border-radius: 8px; background: var(--ss-surface); box-shadow: inset 0 0 0 1px var(--ss-line); }
+.ss-wave .ss-sec p { margin: 4px 0; }
+.ss-wave .ss-wv-note { background: color-mix(in srgb, var(--ss-acc) 6%, var(--ss-surface)); border-left: 3px solid var(--ss-acc); }
+.ss-wave > h3 { margin: 0 0 4px; padding: 10px 14px; border-radius: var(--ss-r, 10px); background: color-mix(in srgb, var(--ss-acc) 12%, var(--ss-surface)); }
