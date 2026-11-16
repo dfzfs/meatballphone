@@ -144,6 +144,7 @@ export const DEFAULTS = Object.freeze({
     hpFace: 'none',          // 📒 미니홈피 프로필 그림: none(비워 둠 · 눌러서 넣기) · auto(기분 따라 미트볼) · con:이름 · my:번호
     conPack: false,          // 🐱 콘팩 (v2.8): 미트볼콘 60개를 받아서 쓸지 — 기본은 꺼짐 (기본 14개만) · 프로필 그림 고르기에서 「콘팩 받기」
     hpFaces: [],             // 📒 내가 올린 프로필 그림 (최대 12장 · 긴 변 320px)
+    themeAsked: false,       // 🎨 모양 고르기 창을 이미 보여 줬나 (처음 만들 때 · 2.8로 올라온 뒤 한 번 · src/themeask.js)
     hompyFull: false,        // 📒 전체화면으로 열면 미니홈피 모양으로 (v2.8 · 화면만 · 기본 끔 — 확장 설정 › 데이터 · 화면에서 켬)
     sheetFull: false,        // 상태창을 전체화면으로 열기
     genBatch: true,          // 상태창 만들기: 관련 칸끼리 묶어서 한 번에 생성 (17번 → 6번)

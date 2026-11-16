@@ -185,6 +185,7 @@ export async function openWizard() {
             await setBase({ core: results.core, data: results.data }, mods, W.diff, results.play);
             applied = true;
             toastr.success('상태창을 만들었어요!', TITLE);
+            if (settings().themeAsked !== true) setTimeout(() => import('./themeask.js').then(m => m.askTheme('made')).catch(() => {}), 900); // 🎨 처음 만들었을 때 한 번: 모양 고르기
             el.closest('dialog')?.querySelector('.popup-button-ok')?.click();
             if (!document.querySelector('.ss-panel-pop')) setTimeout(() => app.newSheet(), 300);
         });

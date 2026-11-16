@@ -154,3 +154,14 @@ body.ss-drunk .ss-root .ss-card { filter: blur(.4px); }
 :is(.ss-hompy, .ss-rt) .ss-groups > button span { white-space: nowrap; }
 .ss-wave.ss-wv-tab > .ss-row-btns { margin: 6px 0; }
 @media (max-width: 640px) { :is(.ss-hompy, .ss-rt) .ss-groups > button { padding-inline: 2px; min-width: 0; } :is(.ss-hompy, .ss-rt) .ss-groups > button span { white-space: normal; } }
+
+/* 🎨 모양 고르기 창 (themeask.js) */
+.ss-themeask { width: min(560px, calc(100vw - 56px)); max-width: 100%; box-sizing: border-box; text-align: left; }
+.ss-themeask .ss-ta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(130px, 100%), 1fr)); gap: 10px; margin: 12px 0; }
+.ss-themeask .ss-ta-card { all: unset; box-sizing: border-box; min-width: 0; cursor: pointer; display: grid; justify-items: center; gap: 6px; padding: 14px 10px; border-radius: var(--ss-r, 10px); background: var(--ss-surface); box-shadow: inset 0 0 0 1px var(--ss-line); text-align: center; min-height: 44px; }
+.ss-themeask .ss-ta-card:hover, .ss-themeask .ss-ta-card:focus-visible { box-shadow: inset 0 0 0 2px var(--ss-acc); }
+.ss-themeask .ss-ta-card.on { box-shadow: inset 0 0 0 2px var(--ss-acc); background: color-mix(in srgb, var(--ss-acc) 8%, var(--ss-surface)); }
+.ss-themeask .ss-ta-card b { font-size: 1.05em; } .ss-themeask .ss-ta-card small { color: var(--ss-dim); line-height: 1.4; }
+.ss-themeask .ss-ta-card .ss-hp-pv, .ss-themeask .ss-ta-old { width: 88px; height: 60px; }
+.ss-themeask .ss-ta-old { display: grid; grid-template-rows: 10px 1fr 1fr; gap: 4px; padding: 6px; box-sizing: border-box; border-radius: 8px; background: var(--ss-bg); box-shadow: inset 0 0 0 1px var(--ss-line); }
+.ss-themeask .ss-ta-old i { border-radius: 4px; background: var(--ss-surface2, var(--ss-surface)); box-shadow: inset 0 0 0 1px var(--ss-line); }

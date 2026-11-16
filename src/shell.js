@@ -252,7 +252,7 @@ function renderPanel0(el) {
     labelIcons(el);
     if (!isFloat) queueMicrotask(placeCtFloat); else compactFloat(el);
     if (hp) fitHompy(el); // 📐 미니홈피: 홈 쪽 · 프로필 쪽을 한 화면에 맞춘다
-    if (st.mode === 'edit') bindEditor(el.querySelector('.ss-editor'), st.work, EDIT[mod], () => {
+    if (st.mode === 'edit' && el.querySelector('.ss-editor')) bindEditor(el.querySelector('.ss-editor'), st.work, EDIT[mod], () => { // 편집 틀이 안 그려진 탭(편집 중에 탭이 바뀐 경우 등)에서는 묶지 않는다
         const box = el.querySelector('.ss-editor'); const all0 = [...box.querySelectorAll('details')]; const open = all0.filter(d => d.open).map(d => all0.indexOf(d));
         box.innerHTML = editorHTML(st.work, EDIT[mod]);
         const all = [...box.querySelectorAll('details')]; open.forEach(i => all[i]?.setAttribute('open', ''));

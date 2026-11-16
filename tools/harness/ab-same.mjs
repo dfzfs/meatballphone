@@ -2,7 +2,7 @@
 //   node tools/harness/ab-same.mjs > /tmp/new.json ; EXT_DIR=<비교할 판 폴더> node tools/harness/ab-same.mjs > /tmp/old.json ; diff /tmp/old.json /tmp/new.json
 // 찍는 것: AI에게 가는 글 전부 · 계산된 상태 · 답마다의 칩 · 채팅에 저장된 것 · 프롬프트 목록 · 그래프 · 탭마다의 화면 · 불러온 파일 목록
 import { open, makeStatus } from './lib.mjs';
-const { page, close } = await open();
+const { page, close } = await open({ defaults: process.env.DEFAULTS === '1' });
 try {
     await makeStatus(page, ['profile', 'stats', 'wallet', 'rel', 'map', 'calendar']);
     const out = await page.evaluate(async () => {
