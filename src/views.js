@@ -15,7 +15,7 @@ import { snsView, musicView, customView, relView, achView, albumView, recordView
 import { slotsHTML, cardPack, carryFor } from './safe.js';
 import { presetHTML } from './extra.js';
 import { detectPlay, instructModule } from './ai.js';
-import { PLAY_MODES, normPlay, playOf } from './core.js';
+import { PLAY_MODES, normPlay, playOf, REC_MODS } from './core.js';
 import { busyBtn, confirmPopup, mascot } from './kit.js';
 import { freshDot, usedPrice, placeIcon, miniWidgets } from './tiles.js';
 export * from './tiles.js'; // 떼어 낸 것 — 다른 파일은 예전처럼 여기서 받아도 된다
@@ -308,14 +308,23 @@ const PSEUDO_INFO = { home: { name: '홈', icon: 'fa-house' }, manage: { name: '
 export const TAB_MOD = (tab) => (tab === 'base' ? 'home' : tab === 'home' ? 'core' : tab);
 export const TAB_INFO = (tab) => (PSEUDO_INFO[tab] ?? (tab === 'base' ? MOD.home : MOD[tab]) ?? { name: tab, icon: 'fa-circle' });
 
+// 🗂 관리 탭 묶음: 접힌 채로도 한 줄 요약이 보인다. 처음엔 「지금 플레이」만 펴져 있다
+const MG_DEF = { play: true };
+// 「쓸 기능」 머리줄의 한 번에 고르기 — 처음 만들 때(만들기 창)와 같은 세 단추. 끈 칸의 내용은 지워지지 않는다
+const MODSET_BTNS = '<button class="ss-btn sm ghost" data-act="modset" data-arg="rec" title="꼭 필요한 6칸(프로필 · 수치 · 재산 · 관계 · 지도 · 달력)만 켜요">추천만</button><button class="ss-btn sm ghost" data-act="modset" data-arg="all">전부</button><button class="ss-btn sm ghost" data-act="modset" data-arg="none">전부 끄기</button>';
+let clearedAdj = null; // 방금 「싹 지운」 편집 기록 (이 채팅 · 새로 고침 전까지만 되살릴 수 있다)
+const chatKey = () => { try { const c = ctx(); return `${c.groupId ?? ''}|${c.getCurrentChatId?.() ?? ''}`; } catch { return ''; } };
+const mgIsOpen = (id) => (settings().mgOpen ?? MG_DEF)[id] === true;
+const mg = (id, icon, name, sum, inner, cls = '') => { const o = mgIsOpen(id); return `<section class="ss-sec ss-mg ${o ? 'open' : ''} ${cls}" data-mg="${id}"><button type="button" class="ss-mg-h" data-act="mgfold" data-arg="${id}" aria-expanded="${o}"><i class="fa-solid ${icon}"></i><b>${name}</b><small>${sum}</small><i class="fa-solid fa-chevron-down ss-mg-chev"></i></button><div class="ss-mg-b"${o ? '' : ' hidden'}>${inner}</div></section>`; };
 export function manageHTML(s, ui = {}) {
     const meta = getMeta();
     const st = settings();
-    return `${sec('난이도', `${seg(Object.entries(DIFFS).map(([k, v]) => [k, `<i class="fa-solid ${v.icon}"></i> ${v.name}`]), diffOf(), 'diff')}<p class="ss-hint">${esc(DIFFS[diffOf()].desc)}</p>`)}
+    const p0 = playOf(meta), nOn = MOD_IDS.filter(id => modOn(id)).length;
+    // 🗂 여섯 묶음 (「언제 여나」로): 머리줄을 누르면 접고 펴요 (설정 mgOpen에 기억). 접어도 안의 단추는 숨기기만 해서 그대로 있어요
+    return `${mg('play', 'fa-gamepad', '지금 플레이', `${meta.paused ? '⏸ 일시정지 중 · ' : ''}${esc(DIFFS[diffOf()].name)} · ${esc(PLAY_MODES[p0.mode].name)}`, `
         ${sec('일시정지', `<div class="ss-row-btns"><button class="ss-btn ${meta.paused ? 'pri' : ''}" data-act="pause"><i class="fa-solid ${meta.paused ? 'fa-play' : 'fa-pause'}"></i> ${meta.paused ? '재개하기' : '일시정지'}</button><button class="ss-btn ghost" data-act="skiponce" ${meta.skipOnce ? 'disabled' : ''}><i class="fa-solid fa-forward"></i> ${meta.skipOnce ? '다음 1번 건너뜀 예약됨' : '다음 1번만 건너뛰기'}</button></div>
             <p class="ss-hint">퀵리플라이·OOC·잡담할 때 눌러 두면 AI에게 상태창을 보내지 않고 &lt;meatball&gt;도 요구하지 않아요. ${st.oocDetect ? 'OOC 자동 감지 켜짐 · ' : ''}${st.skipQuiet ? '조용한 생성(/gen 등) 자동 제외 켜짐' : ''}</p>`)}
-        ${sec('쓸 기능 <small>끈 기능은 데이터는 남고 AI에게만 안 보내요</small>', GROUPS.filter(g => g.id !== 'manage').map(g => ({ ...g, tabs: g.tabs.filter(t => !PSEUDO.has(t) && MOD[TAB_MOD(t)]) })).filter(g => g.tabs.length).map(g => `<div class="ss-modgrp"><small>${g.name}</small><div class="ss-mods">${g.tabs.map(t => MOD[TAB_MOD(t)]).map(m => { const gOff = GLOBAL_OFF[m.id] && st[GLOBAL_OFF[m.id]] === false; return `<label class="ss-mod ${meta.mods?.[m.id] === false || gOff ? '' : 'on'}" ${gOff ? 'title="확장 설정 › 기능 켜고 끄기에서 모든 채팅에 꺼 둔 칸이에요"' : ''}><input type="checkbox" class="ss-switch" data-chg="mod" data-arg="${m.id}" ${meta.mods?.[m.id] === false || gOff ? '' : 'checked'} ${gOff ? 'disabled' : ''}>
-            <i class="fa-solid ${m.icon}"></i><span><b>${m.name}</b><small>${gOff ? '모든 채팅에서 꺼 둠 — 확장 설정 › 기능 켜고 끄기' : m.desc}</small></span>${gOff ? '' : s.data[m.id] ? '' : '<em>비어 있음</em>'}</label>`; }).join('')}</div></div>`).join(''))}
+        ${sec('난이도', `${seg(Object.entries(DIFFS).map(([k, v]) => [k, `<i class="fa-solid ${v.icon}"></i> ${v.name}`]), diffOf(), 'diff')}<p class="ss-hint">${esc(DIFFS[diffOf()].desc)}</p>`)}
         ${(() => { const p = playOf(meta); return sec('<i class="fa-solid fa-masks-theater"></i> 플레이 방식', `${seg(Object.entries(PLAY_MODES).map(([k, v]) => [k, `<i class="fa-solid ${v.icon}"></i> ${v.name}`]), p.mode, 'playmode', 'class="ss-seg wrap"')}
             <p class="ss-hint">${esc(PLAY_MODES[p.mode].desc)}</p>
             ${p.mode === 'director' && !p.ensemble ? `<label class="ss-f wide"><span>주인공 (상태창의 「나」 — 돈·수치·관계를 이 사람 기준으로)</span><input class="ss-in" data-chg="playhero" value="${esc(p.hero)}" placeholder="예: 서이현"></label>` : ''}
@@ -323,8 +332,12 @@ export function manageHTML(s, ui = {}) {
             <label class="ss-tog"><input type="checkbox" class="ss-switch" data-chg="playworld" ${p.cardIsWorld ? 'checked' : ''}><span>카드 이름이 캐릭터가 아니라 세계관·봇 이름이에요</span></label>
             ${p.cast.length ? `<p class="ss-hint">등장인물: ${p.cast.map(esc).join(', ')}</p>` : ''}
             <div class="ss-row-btns"><button class="ss-btn sm" data-act="playauto">${ai1} 자동으로 알아보고 맞추기</button></div>`); })()}
-        ${modOn('profile') ? sec('프로필 모드', seg([['minimal', '최소 — 카드·로어북 그대로'], ['detailed', '상세 — 이 시트로만']], s.data.profile?.mode ?? 'minimal', 'pmode', 'class="ss-seg wrap"')) : ''}
-        ${sec('되돌리기', `<div class="ss-row-btns"><button class="ss-btn" data-act="undo" ${meta.adjust?.length ? '' : 'disabled'}><i class="fa-solid fa-rotate-left"></i> 마지막 편집 되돌리기</button></div><p class="ss-hint">${meta.adjust?.length ? `마지막: ${esc(meta.adjust.at(-1).label || '(이름 없는 편집)')}` : '되돌릴 편집이 없어요.'} · 상태창에서 직접 한 편집·구매·연락만 되돌려요 (AI 답의 변화는 ✏️ 칩으로).</p><details class="ss-more ss-undolist" ${ui?.undoOpen ? 'open' : ''}><summary>편집 기록 — 골라서 지우기 <small>(최근 ${Math.min(40, (meta.adjust ?? []).length)}개 · 버튼 하나 누른 것까지 모두)</small></summary>${(meta.adjust ?? []).slice(-40).reverse().map(a => `<div class="ss-undo-row"><span>${esc(short(adjName(a), 60))}${a.silent || !a.label ? ' <small class="ss-dim">(조용한 기록)</small>' : ''}</span><small class="ss-dim">${a.at}번 뒤</small><button class="ss-btn sm ghost" data-act="undoat" data-arg="${a.t}" title="이 기록 하나만 지우기 — 그 편집이 없던 일이 돼요"><i class="fa-solid fa-trash-can"></i></button></div>`).join('') || '<p class="ss-hint">지울 기록이 없어요.</p>'}<p class="ss-hint">지우면 그 편집이 <b>없던 일</b>이 돼요 (상태 · 알림 · AI에게 가는 「방금 한 일」 줄까지 · 찌꺼기 없이). 그 뒤의 기록은 그대로 다시 계산돼요. AI 답에서 바뀐 건 여기 없어요 — 그 답 밑 칩의 ✏️로 고쳐요. 칸 하나를 통째로 비우려면 그 탭 위의 🧹.</p></details>`)}
+        ${modOn('profile') ? sec('AI가 인물을 무엇으로 알게 할까요 <small>프로필 모드</small>', `${seg([['minimal', '카드 · 로어북대로 (최소)'], ['detailed', '이 상태창 프로필대로 (상세)']], s.data.profile?.mode ?? 'minimal', 'pmode', 'class="ss-seg wrap"')}<p class="ss-hint">${(s.data.profile?.mode ?? 'minimal') === 'detailed' ? '<b>상세</b>: 프로필 탭에 적힌 외모 · 성격 · 말투까지 AI에게 보내요. 캐릭터 카드가 부실하거나 프로필을 직접 다듬었을 때 좋아요 (토큰이 더 들어요).' : '<b>최소</b>: 인물 설명은 캐릭터 카드 · 로어북에 맡기고, 프로필은 한 줄 소개만 보내요. 카드가 이미 자세하면 이쪽이 가볍고 겹치지 않아요.'}</p>`) : ''}`)}
+        ${mg('mods', 'fa-puzzle-piece', '쓸 기능', `${nOn}칸 켬`, `
+        ${sec('쓸 기능 <small>끈 기능은 데이터는 남고 AI에게만 안 보내요</small>', GROUPS.filter(g => g.id !== 'manage').map(g => ({ ...g, tabs: g.tabs.filter(t => !PSEUDO.has(t) && MOD[TAB_MOD(t)]) })).filter(g => g.tabs.length).map(g => `<div class="ss-modgrp"><small>${g.name}</small><div class="ss-mods">${g.tabs.map(t => MOD[TAB_MOD(t)]).map(m => { const gOff = GLOBAL_OFF[m.id] && st[GLOBAL_OFF[m.id]] === false; return `<label class="ss-mod ${meta.mods?.[m.id] === false || gOff ? '' : 'on'}" ${gOff ? 'title="확장 설정 › 기능 켜고 끄기에서 모든 채팅에 꺼 둔 칸이에요"' : ''}><input type="checkbox" class="ss-switch" data-chg="mod" data-arg="${m.id}" ${meta.mods?.[m.id] === false || gOff ? '' : 'checked'} ${gOff ? 'disabled' : ''}>
+            <i class="fa-solid ${m.icon}"></i><span><b>${m.name}</b><small>${gOff ? '모든 채팅에서 꺼 둠 — 확장 설정 › 기능 켜고 끄기' : m.desc}</small></span>${gOff ? '' : s.data[m.id] ? '' : '<em>비어 있음</em>'}</label>`; }).join('')}</div></div>`).join(''), MODSET_BTNS)}`)}
+        ${mg('save', 'fa-floppy-disk', '저장 · 되돌리기', `세이브 ${meta.saves?.length ?? 0} · ${meta.lastBackup ? `백업 ${new Date(meta.lastBackup).toLocaleDateString('ko-KR')}` : '백업 없음'}`, `
+        ${sec('되돌리기', `<div class="ss-row-btns"><button class="ss-btn" data-act="undo" ${meta.adjust?.length ? '' : 'disabled'}><i class="fa-solid fa-rotate-left"></i> 마지막 편집 되돌리기</button><button class="ss-btn ghost" data-act="undoall" ${meta.adjust?.length ? '' : 'disabled'} title="편집 기록을 한 번에 전부 지워요 — 직접 한 편집이 모두 없던 일이 돼요"><i class="fa-solid fa-trash-can"></i> 편집 기록 싹 지우기</button>${clearedAdj && clearedAdj.key === chatKey() ? `<button class="ss-btn pri" data-act="undoallback"><i class="fa-solid fa-clock-rotate-left"></i> 방금 지운 기록 되살리기 (${clearedAdj.list.length}개)</button>` : ''}</div><p class="ss-hint">${meta.adjust?.length ? `마지막: ${esc(meta.adjust.at(-1).label || '(이름 없는 편집)')}` : '되돌릴 편집이 없어요.'} · 상태창에서 직접 한 편집·구매·연락만 되돌려요 (AI 답의 변화는 ✏️ 칩으로).</p><details class="ss-more ss-undolist" ${ui?.undoOpen ? 'open' : ''}><summary>편집 기록 — 골라서 지우기 <small>(최근 ${Math.min(40, (meta.adjust ?? []).length)}개 · 버튼 하나 누른 것까지 모두)</small></summary>${(meta.adjust ?? []).slice(-40).reverse().map(a => `<div class="ss-undo-row"><span>${esc(short(adjName(a), 60))}${a.silent || !a.label ? ' <small class="ss-dim">(조용한 기록)</small>' : ''}</span><small class="ss-dim">${a.at}번 뒤</small><button class="ss-btn sm ghost" data-act="undoat" data-arg="${a.t}" title="이 기록 하나만 지우기 — 그 편집이 없던 일이 돼요"><i class="fa-solid fa-trash-can"></i></button></div>`).join('') || '<p class="ss-hint">지울 기록이 없어요.</p>'}<p class="ss-hint">지우면 그 편집이 <b>없던 일</b>이 돼요 (상태 · 알림 · AI에게 가는 「방금 한 일」 줄까지 · 찌꺼기 없이). 그 뒤의 기록은 그대로 다시 계산돼요. AI 답에서 바뀐 건 여기 없어요 — 그 답 밑 칩의 ✏️로 고쳐요. 칸 하나를 통째로 비우려면 그 탭 위의 🧹.</p></details>`)}
         ${sec('<i class="fa-solid fa-floppy-disk"></i> 세이브', slotsHTML(meta))}
         ${sec('<i class="fa-solid fa-shield-heart"></i> 백업 · 카드', `<div class="ss-grid-btns">
             <button class="ss-btn" data-act="fullbackup"><i class="fa-solid fa-box-archive"></i> 전체 백업 (파일)</button>
@@ -333,18 +346,22 @@ export function manageHTML(s, ui = {}) {
             ${cardPack() ? '<button class="ss-btn ghost" data-act="carddetach"><i class="fa-solid fa-link-slash"></i> 카드에서 떼기</button>' : ''}
             <button class="ss-btn" data-act="export"><i class="fa-solid fa-file-export"></i> 템플릿 내보내기</button>
         </div><p class="ss-hint">전체 백업 = 기록·세이브·앨범까지 이 채팅의 상태창 전부${meta.lastBackup ? ` (마지막 백업 ${new Date(meta.lastBackup).toLocaleDateString('ko-KR')})` : ''} · 템플릿 = 지금 상태만 (다른 채팅·다른 사람용) · 카드에 붙이면 그 카드로 새 채팅을 열 때 바로 불러올 수 있어요${cardPack() ? ' — <b>지금 이 카드에 붙어 있어요 ✔</b>' : ''}.</p>`)}
-        ${sec('<i class="fa-solid fa-clapperboard"></i> 2회차', `<div class="ss-row-btns"><button class="ss-btn" data-act="carryprep"><i class="fa-solid fa-forward"></i> 2회차 준비</button>${carryFor() ? '<span class="ss-chip hi">준비됨 — 새 채팅에서 시작</span>' : ''}</div><p class="ss-hint">업적·엔딩·소지품 일부를 이어받아 같은 캐릭터 새 채팅에서 다시 시작해요.${meta.round > 1 ? ` 지금 ${meta.round}회차.` : ''}</p>`)}
+        ${sec('<i class="fa-solid fa-clapperboard"></i> 2회차', `<div class="ss-row-btns"><button class="ss-btn" data-act="carryprep"><i class="fa-solid fa-forward"></i> 2회차 준비</button>${carryFor() ? '<span class="ss-chip hi">준비됨 — 새 채팅에서 시작</span>' : ''}</div><p class="ss-hint">업적·엔딩·소지품 일부를 이어받아 같은 캐릭터 새 채팅에서 다시 시작해요.${meta.round > 1 ? ` 지금 ${meta.round}회차.` : ''}</p>`)}`)}
+        ${mg('tools', 'fa-sliders', '설정 · 도구', '모델 맞춤 · 프롬프트 · 꾸미기 · 번역', `
         ${sec('<i class="fa-solid fa-robot"></i> 모델 맞춤 설정 <small>한 번에 바꾸기</small>', `${presetHTML()}<p class="ss-hint">세부 설정은 확장 설정 서랍에서 바꿀 수 있어요.</p>`)}
-        ${sec('<i class="fa-solid fa-stethoscope"></i> 문제 해결', `<div class="ss-row-btns"><button class="ss-btn" data-act="diagnose"><i class="fa-solid fa-stethoscope"></i> 자가 진단 · 고치기</button><button class="ss-btn" data-act="pipcheck"><i class="fa-solid fa-magnifying-glass"></i> 마지막 답 칩 점검</button><button class="ss-btn" data-act="copydump"><i class="fa-solid fa-clipboard"></i> 지금 상태 복사</button><button class="ss-btn" data-act="perf"><i class="fa-solid fa-gauge-simple-high"></i> 부하 재기</button></div><p class="ss-hint">창이 안 뜨거나 숫자가 이상할 때 눌러 주세요. 망가진 기록을 찾아 고쳐요 (AI 호출 없음).</p>`)}
-        ${sec('전체', `<div class="ss-grid-btns">
-            <button class="ss-btn" data-act="wizard"><i class="fa-solid fa-wand-magic-sparkles"></i> 처음부터 다시 만들기</button>
+        ${sec('도구', `<div class="ss-grid-btns">
             <button class="ss-btn" data-act="fillempty">${ai1} 비어 있는 칸 채우기</button>
             <button class="ss-btn" data-act="prompts"><i class="fa-solid fa-scroll"></i> 프롬프트 · 토큰</button>
             <button class="ss-btn" data-act="themewin"><i class="fa-solid fa-palette"></i> 꾸미기</button>
             <button class="ss-btn" data-act="trsheet"><i class="fa-solid fa-language"></i> 상태창 전체 번역</button>
+        </div>`)}`)}
+        ${mg('fix', 'fa-stethoscope', '문제 해결', '자가 진단 · 칩 점검 · 오류 보고', `
+        ${sec('<i class="fa-solid fa-stethoscope"></i> 문제 해결', `<div class="ss-row-btns"><button class="ss-btn" data-act="diagnose"><i class="fa-solid fa-stethoscope"></i> 자가 진단 · 고치기</button><button class="ss-btn" data-act="pipcheck"><i class="fa-solid fa-magnifying-glass"></i> 마지막 답 칩 점검</button><button class="ss-btn" data-act="copydump"><i class="fa-solid fa-clipboard"></i> 지금 상태 복사</button><button class="ss-btn" data-act="perf"><i class="fa-solid fa-gauge-simple-high"></i> 부하 재기</button></div><p class="ss-hint">창이 안 뜨거나 숫자가 이상할 때 눌러 주세요. 망가진 기록을 찾아 고쳐요 (AI 호출 없음).</p>`)}`)}
+        ${mg('danger', 'fa-triangle-exclamation', '다시 만들기 · 끄기 · 삭제', '되돌리기 어려운 것', `<div class="ss-grid-btns">
+            <button class="ss-btn" data-act="wizard"><i class="fa-solid fa-wand-magic-sparkles"></i> 처음부터 다시 만들기</button>
             <button class="ss-btn" data-act="chatoff"><i class="fa-solid fa-power-off"></i> 이 채팅에서 끄기</button>
             <button class="ss-btn danger" data-act="reset"><i class="fa-solid fa-trash-can"></i> 이 채팅 상태창 삭제</button>
-        </div>`)}
+        </div>`, 'danger')}
         <div class="ss-hint">기록 ${meta.adjust?.length ?? 0}개 · 기준 메시지 #${meta.startAt} · 세이브 ${meta.saves?.length ?? 0} · 앨범 ${meta.album?.length ?? 0} · v${VERSION}</div>`;
 }
 
@@ -439,6 +456,24 @@ export const VIEW_ACTIONS = {
         else ui.mapVB = zoomBox(vb, arg === 'in' ? 1 / 1.4 : 1.4);
         app.renderPanel(el);
     },
+    modset: async (el, arg) => { // 쓸 기능 한 번에: 추천만 · 전부 · 전부 끄기
+        const meta = getMeta(true); meta.mods ??= {};
+        for (const id of MOD_IDS) meta.mods[id] = arg === 'rec' ? REC_MODS.includes(id) : arg === 'all';
+        await saveMeta(); app.refreshNow(); app.renderPanel(el);
+        toastr.info(arg === 'rec' ? '추천 6칸만 켰어요. 끈 칸의 내용은 그대로 남아 있어요.' : arg === 'all' ? '전부 켰어요.' : '전부 껐어요. 내용은 그대로 남아 있어요.', TITLE);
+    },
+    undoall: async (el) => { // 편집 기록 싹 지우기
+        const meta = getMeta(), n = meta?.adjust?.length ?? 0; if (!n) return;
+        if (!(await askConfirm(`편집 기록 ${n}개를 전부 지울까요? 상태창에서 직접 한 편집 · 구매 · 이동 · 연락이 모두 없던 일이 돼요. AI 답에서 바뀐 것은 그대로예요. (이 창을 새로 고치기 전까지는 「방금 지운 기록 되살리기」로 돌릴 수 있어요)`))) return;
+        clearedAdj = { key: chatKey(), list: meta.adjust }; meta.adjust = [];
+        el._ss.ui.undoOpen = true; await saveMeta(); app.refreshNow(); app.renderPanel(el); toastr.success(`편집 기록 ${n}개를 지웠어요.`, TITLE);
+    },
+    undoallback: async (el) => {
+        if (!clearedAdj || clearedAdj.key !== chatKey()) { clearedAdj = null; app.renderPanel(el); return; }
+        const meta = getMeta(true); meta.adjust = [...clearedAdj.list, ...(meta.adjust ?? [])]; clearedAdj = null;
+        await saveMeta(); app.refreshNow(); app.renderPanel(el); toastr.success('지운 기록을 되살렸어요.', TITLE);
+    },
+    mgfold: (el, arg) => { const set = settings(), cur = { ...(set.mgOpen ?? MG_DEF) }; cur[arg] = !cur[arg]; set.mgOpen = cur; saveSettings(); app.renderPanel(el); }, // 🗂 관리 탭 묶음 접고 펴기
     travel: (el, arg, btn, s) => {
         const p = findBy(s.data.map.places, arg); if (!p) return;
         const w = s.data.wallet;

@@ -1057,3 +1057,10 @@ body.ss-skin-dot:not(.ss-hp-dark) .ss-rt:not(.ss-hompy) .ss-head small { color: 
     .ss-rt:not(.ss-hompy) > .ss-groups > button { flex: 1 1 auto; min-width: 0; padding-left: 4px; padding-right: 4px; justify-content: center; white-space: nowrap; }
     body.ss-skin-dot .ss-rt:not(.ss-hompy) > .ss-groups { gap: 3px; }
 }
+
+/* 🎨 포인트 색 번호 칸 (#e2557b) — 색 단추 · 슬라이더 옆에 덧붙는다 */
+.ss-hp-hex { display: inline-flex; align-items: center; gap: 6px; margin: 6px 0 0; }
+.ss-hp-hex small { opacity: .75; white-space: nowrap; }
+.ss-hp-hex input { width: 7.4em; min-height: 32px; padding: 0 8px; border: 1px solid var(--ss-line); border-radius: 7px; background: transparent; color: inherit; font: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.ss-hp-sheet .ss-hp-hex input { border-color: var(--e-ln); } .ss-hp-sheet .ss-hp-hex small { color: var(--e-dim); }
+@media (max-width: 640px), (hover: none) and (pointer: coarse) { .ss-hp-hex input { min-height: 44px; } }

@@ -8,11 +8,20 @@ for (const full of [false, true]) {
             const core = await import('/ext/src/core.js'); const shell = await import('/ext/src/shell.js'); const app = window.__SS_TEST__.api.app, wait = (ms) => new Promise(r => setTimeout(r, ms)), S = core.settings(), out = {};
             await window.__addUser('hi'); await window.__addAI('s\n<meatball>\ncash: +1\n</meatball>'); await wait(300); window.__autoPopup = null;
             S.sheetFull = false; S.hpSkin = 'clean'; shell.openSheet('manage'); await wait(400);
+            // 🗂 여섯 묶음: 처음엔 「지금 플레이」만 펴져 있고 · 접힌 묶음의 단추도 그대로 있고(숨기기만) · 머리줄을 누르면 펴지고 기억된다
+            { const p0 = [...shell.panels].find(p => p.isConnected && p.classList.contains('ss-panel-pop')), gs = () => [...p0.querySelectorAll('.ss-body[data-tab="manage"] > .ss-sec.ss-mg')], body = (id) => p0.querySelector(`[data-mg="${id}"] .ss-mg-b`);
+                out.groups = gs().map(g => g.dataset.mg).join(',') === 'play,mods,save,tools,fix,danger';
+                out.onlyPlayOpen = !body('play').hidden && ['mods', 'save', 'tools', 'fix', 'danger'].every(id => body(id).hidden) && gs().every(g => g.querySelector('.ss-mg-h small').textContent.trim().length > 0);
+                out.foldedKeepsButtons = !!body('save').querySelector('[data-act="fullbackup"]') && !!body('fix').querySelector('[data-act="diagnose"]') && !!body('danger').querySelector('[data-act="reset"]') && !!body('tools').querySelector('[data-act="prompts"]');
+                p0.querySelector('[data-mg="save"] .ss-mg-h').click(); await wait(250);
+                out.foldOpens = !body('save').hidden && S.mgOpen?.save === true && p0.querySelector('[data-mg="save"] .ss-mg-h').getAttribute('aria-expanded') === 'true';
+                p0.querySelector('[data-mg="save"] .ss-mg-h').click(); await wait(250); out.foldCloses = body('save').hidden && S.mgOpen?.save === false;
+                S.mgOpen = { play: true, mods: true, save: true, tools: true, fix: true, danger: true }; app.renderPanel(p0); await wait(250); } // 아래 스크롤 시험은 다 편 채로 (길어야 스크롤이 생김)
             const el = [...shell.panels].find(p => p.isConnected && p.classList.contains('ss-panel-pop')); const dlg = el.closest('dialog'); dlg.classList.add('ss-dlg'); dlg.style.cssText = 'position:fixed;inset:0;width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;padding:0;border:0;overflow:auto;';
             if (full) { el.querySelector('[data-act="fullscreen"]').click(); await wait(700); }
             const secs = () => [...el.querySelectorAll('.ss-body[data-tab="manage"] > .ss-sec')];
             const scroller = () => { let n = secs()[0]?.parentElement; while (n && n !== document.documentElement) { const cs = getComputedStyle(n); if (/(auto|scroll)/.test(cs.overflowY) && n.scrollHeight > n.clientHeight + 4) return n; n = n.parentElement; } return document.scrollingElement; };
-            out.sections = secs().length >= 8 || secs().length;
+            out.sections = secs().length === 6 || secs().length;
             out.skipsOffscreen = !('contentVisibility' in document.body.style) || getComputedStyle(secs()[0]).contentVisibility === 'auto';
             const moved = [];
             for (const frac of [0.4, 0.75, 1]) {
