@@ -1003,3 +1003,57 @@ body.ss-skin-dot .ss-ctfloat { border-radius: 8px; border-width: 2px; box-shadow
 .ss-ctfloat .ss-bub-acts { opacity: .75; } .ss-ctfloat .ss-bub-acts .ss-ib { width: 28px; height: 28px; }
 
 .ss-ctfloat.docked { height: var(--ctf-h, 380px) !important; }
+
+/* ═════════ 메뉴 다듬기 (v2.8 검수): 모양 3 × 밝기 2 × 화면 3 × 탭 8을 기계로 훑어 나온 것만 — 대비 · 최소 글씨 · 누르는 자리 · 잘림 ═════════ */
+/* ① 대비. 옅은 바탕 위의 대표색 글씨가 2.9:1 안팎이라 흐렸다 (폰 모양의 창 제목 알약 · 단추 · 고른 탭 · 배지, 모든 모양의 AI 딱지).
+      글씨용 대표색(--hp-acct)을 따로 둔다: 밝은 바탕에서는 더 짙게, 어두운 바탕에서는 대표색 그대로. */
+body.ss-skin-phone:not(.ss-hp-dark) :is(.ss-root.ss-hompy, .ss-root.ss-rt, .ss-hp-pick) { --hp-acct: hsl(var(--hp-h, 338) calc(80% * var(--hp-s, 1)) 40%); --hp-accf: hsl(var(--hp-h, 338) calc(78% * var(--hp-s, 1)) 52%); --hp-accf2: hsl(calc(var(--hp-h, 338) + 44) calc(80% * var(--hp-s, 1)) 56%); }
+body.ss-skin-phone.ss-hp-dark :is(.ss-root.ss-hompy, .ss-root.ss-rt, .ss-hp-pick) { --hp-acct: var(--hp-acc); --hp-accf: var(--hp-acc); --hp-accf2: var(--hp-acc2); }
+body.ss-skin-phone .ss-hp-win:not(.main) > .ss-hp-wt b, body.ss-skin-phone .ss-hp-badges span, body.ss-skin-phone .ss-hp-badges b,
+body.ss-skin-phone :is(.ss-hompy, .ss-rt) .ss-body :is(.ss-btn, .ss-pill):not(.pri):not(.on):not(.danger), body.ss-skin-phone :is(.ss-hompy, .ss-rt) .ss-tabs > button.on { color: var(--hp-acct); }
+/* 채운 단추 위의 흰 글씨: 밝은 폰 모양은 채움을 조금 짙게(흰 글씨 3:1 → 4:1), 어두운 모양은 채움이 밝으니 글씨를 어둡게 (흰 글씨 2.7:1이었음) */
+body.ss-skin-phone:not(.ss-hp-dark) .ss-hompy .ss-groups > button.on, body.ss-skin-phone:not(.ss-hp-dark) :is(.ss-hompy, .ss-rt) .ss-body :is(.ss-btn.pri, .ss-pill.on) { background: linear-gradient(120deg, var(--hp-accf), var(--hp-accf2)); border-color: transparent; color: #fff; }
+body.ss-hp-dark :is(.ss-hompy, .ss-rt) .ss-body :is(.ss-btn.pri, .ss-pill.on), body.ss-hp-dark.ss-skin-phone .ss-hompy .ss-groups > button.on { color: #1b1420; }
+body.ss-hp-dark :is(.ss-hompy, .ss-rt) .ss-body :is(.ss-btn.pri, .ss-pill.on) .ss-ava { color: inherit; }
+body.ss-skin-phone.ss-hp-dark :is(.ss-hompy, .ss-rt) .ss-body .ss-pill.on { background: linear-gradient(120deg, var(--hp-accf), var(--hp-accf2)); }
+body:not(.ss-hp-dark) :is(.ss-hompy, .ss-rt) .ss-ai { color: color-mix(in srgb, var(--hp-acc) 68%, #000); }
+body:not(.ss-hp-dark) :is(.ss-hompy, .ss-rt) .ss-btn.pri .ss-ai { color: inherit; }
+
+/* ② 도트 모양의 작은 글씨 · 머리줄 아이콘. 메뉴 글씨가 9.7~10.6px까지 내려갔고, 머리줄 아이콘이 24×22라 알림 숫자가 옆 아이콘을 덮었다 */
+body.ss-skin-dot .ss-hompy .ss-head-a :is(.ss-chip, .ss-helpchip), body.ss-skin-dot .ss-rt:not(.ss-hompy) .ss-head-a :is(.ss-chip, .ss-helpchip) { font-size: max(11px, 1em); }
+body.ss-skin-dot :is(.ss-hompy, .ss-rt) .ss-toolrow .ss-tool { font-size: max(11px, .96em); }
+body.ss-skin-dot .ss-hompy .ss-head-a { gap: 3px; } body.ss-skin-dot .ss-hompy .ss-head-a .ss-ib { width: 28px; height: 24px; }
+body.ss-skin-dot .ss-hompy .ss-head-a .ss-ib .ss-badge { top: -4px; right: -2px; }
+
+/* ③ 손가락으로 누르는 자리 (손가락 기기에서만). 도트 모양만 44px 규칙에서 빠져 메뉴 36 · 탭 34 · 머리줄 아이콘 22px였고, 「꾸미기」는 모든 모양에서 30px였다 */
+@media (hover: none) and (pointer: coarse) {
+    .ss-hompy .ss-hp-deco-b { min-height: 44px; padding-inline: 14px; }
+    body.ss-skin-dot .ss-hompy .ss-groups > button, body.ss-skin-dot :is(.ss-hompy, .ss-rt) .ss-tabs > button { min-height: 44px; }
+    body.ss-skin-dot .ss-hompy .ss-head-a .ss-ib, body.ss-skin-dot .ss-hompy .ss-hp-url > .ss-hp-x { width: 36px; height: 36px; position: relative; }
+    body.ss-skin-dot .ss-hompy .ss-head-a .ss-ib::after, body.ss-skin-dot .ss-hompy .ss-hp-url > .ss-hp-x::after { content: ''; position: absolute; inset: -4px; }
+    body.ss-skin-dot .ss-hompy .ss-head-a :is(.ss-chip, .ss-helpchip) { min-height: 36px; }
+}
+
+/* ④ 폰 화면. 꾸미기 판의 탭 여덟 개가 한 줄에 안 들어가 「더보기」가 잘렸고, 꾸미기 중 위로 올라온 메뉴는 첫 칸이 화면 밖으로 밀렸고, 폰 모양의 아래 메뉴는 바탕이 없어 뒤 글씨가 비쳤다 */
+@media (max-width: 640px) {
+    .ss-hp-stabs { gap: 0; padding: 5px 4px; } .ss-hp-stabs button { flex: 1 1 auto; min-width: 40px; padding: 10px 3px; font-size: 12.5px; }
+    .ss-hompy.ss-hp-edit .ss-hp-marks { padding: 2px 4px; } .ss-hompy.ss-hp-edit .ss-hp-index { min-width: 0; flex: 1 1 auto; }
+    .ss-hompy.ss-hp-edit .ss-groups { justify-content: flex-start; width: 100%; margin: 0; padding: 0; overflow-x: auto; scrollbar-width: none; } .ss-hompy.ss-hp-edit .ss-groups > button { flex: 1 1 0; min-width: 0; padding-inline: 2px; gap: 4px; }
+    body.ss-skin-phone .ss-hompy:not(.ss-hp-edit) .ss-hp-marks { background: color-mix(in srgb, var(--hp-paper) 96%, transparent); border-top: 1px solid var(--hp-ln); }
+}
+/* 일반 팝업(전체화면 아님)도 손가락 크기 맞춤 */
+@media (hover: none) and (pointer: coarse) {
+    .ss-rt:not(.ss-hompy) .ss-head-a .ss-ib, body.ss-skin-dot .ss-rt:not(.ss-hompy) .ss-head-a .ss-ib { width: 36px; height: 36px; position: relative; }
+    .ss-rt:not(.ss-hompy) .ss-head-a .ss-ib::after { content: ''; position: absolute; inset: -4px; }
+    .ss-rt:not(.ss-hompy) .ss-head-a :is(.ss-helpchip, .ss-chip) { min-height: 32px; height: auto; position: relative; }
+    .ss-rt:not(.ss-hompy) .ss-head-a :is(.ss-helpchip, .ss-chip)::after { content: ''; position: absolute; inset: -6px 0; }
+    body.ss-skin-dot .ss-rt:not(.ss-hompy) .ss-groups > button { min-height: 44px; }
+    .ss-rt:not(.ss-hompy) .ss-head-a { gap: 0; } .ss-rt:not(.ss-hompy) .ss-head-a .ss-ib { width: 34px; }
+}
+body.ss-skin-dot:not(.ss-hp-dark) .ss-rt:not(.ss-hompy) .ss-head small { color: color-mix(in srgb, var(--hp-ink) 78%, transparent); opacity: 1; }
+.ss-rt:not(.ss-hompy) .ss-head-a > .ss-helpchip { order: -1; }
+@media (max-width: 640px) {
+    .ss-rt:not(.ss-hompy) > .ss-groups { flex-wrap: nowrap; gap: 0; }
+    .ss-rt:not(.ss-hompy) > .ss-groups > button { flex: 1 1 auto; min-width: 0; padding-left: 4px; padding-right: 4px; justify-content: center; white-space: nowrap; }
+    body.ss-skin-dot .ss-rt:not(.ss-hompy) > .ss-groups { gap: 3px; }
+}
