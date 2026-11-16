@@ -87,7 +87,7 @@ export function applyRetro() {
     b.classList.toggle('ss-retro', on); for (const k of Object.keys(SKINS)) b.classList.toggle(`ss-skin-${k}`, skinOf() === k); b.classList.toggle('ss-hp-dark', darkOn()); b.classList.toggle('ss-hp-still', d.hpMotion === false); b.classList.toggle('ss-hp-navtop', d.hpNavTop === true); for (const k of Object.keys(WALLS)) b.classList.toggle(`ss-hp-wall-${k}`, wallOf() === k); b.classList.toggle('ss-hp-wall', !!wallOf());
     for (const [p, v, all] of [['ss-hp-r-', pick3(d.hpCorner), [0, 1, 2]], ['ss-hp-g-', pick3(d.hpGap), [0, 1, 2]], ['ss-hp-f-', fontKey(), [...Object.keys(FONTS), 'd']]]) for (const x of all) b.classList.toggle(p + x, x === v);
     b.style.setProperty('--hp-h', String(h)); b.style.setProperty('--hp-s', String(s));
-    b.style.setProperty('--hp-fs', `${fsPx()}px`); // 다른 창(도우미 등)의 글씨 크기도 같이
+    b.style.setProperty('--hp-fs', `${fsUse()}px`); // 다른 창(도우미 등)의 글씨 크기도 같이
     // 팝업 알림(body 바로 아래에 뜸)도 지금 모양을 따르게: 스킨 색을 한 번 읽어 body에 --tp-○ 로 넣는다 (스킨 · 밝기 · 색을 바꿀 때마다)
     try { let pr = document.getElementById('ss-tp-probe'); if (!pr) { pr = document.createElement('div'); pr.id = 'ss-tp-probe'; pr.className = 'ss-root ss-rt'; pr.style.display = 'none'; pr.setAttribute('aria-hidden', 'true'); document.body.appendChild(pr); }
         const cs = getComputedStyle(pr); for (const k of ['paper', 'ink', 'dim', 'ol', 'acc', 'soft', 'strip', 'r', 'font']) { const v = cs.getPropertyValue(`--hp-${k}`).trim(); if (v) b.style.setProperty(`--tp-${k}`, v); else b.style.removeProperty(`--tp-${k}`); } } catch { /* 꾸밈일 뿐 */ }
@@ -132,6 +132,12 @@ export const WINS = { profile: '프로필', intro: '소개', stats: '상태', fr
 const FS = { s: 12.5, m: 14, l: 16 }; // v2.8: 전체적으로 한 단계씩 크게 (예전 11.5 · 13 · 14.5) // 글씨 크기(px) — 고르지 않았으면 화면 배율이 큰 기기(노트북 150%↑)는 작게
 const FS_DOT = { s: 10, m: 11.5, l: 13 };
 const fsPx = () => { const n = Number(D().hpFsPx); return n >= 8 && n <= 24 ? n : (skinOf() === 'dot' ? FS_DOT : FS)[fsOf()]; }; // 직접 정한 크기가 먼저
+// 브라우저의 「최소 글꼴 크기」(크롬 설정 → 글꼴): 이보다 작은 글씨는 브라우저가 강제로 키운다 → 슬라이더를 줄여도 글씨가 그대로고 칸만 작아져 넘친다.
+//   → 재 보고, 칸 크기의 기준(--hp-fs)을 그 크기 밑으로는 안 내리고, 글씨 설정에 이유를 알려 준다.
+let minFontC = null;
+const minFont = () => { if (minFontC != null) return minFontC; try { const sp = document.createElement('span'); sp.style.cssText = 'position:absolute;left:-99px;top:-99px;visibility:hidden;font:1px/1 sans-serif;white-space:nowrap'; sp.textContent = '가'; document.body.appendChild(sp); const hh = sp.getBoundingClientRect().height; sp.remove(); minFontC = hh > 2 ? Math.min(24, Math.round(hh)) : 0; } catch { minFontC = 0; } return minFontC; };
+const fsUse = (v) => Math.max(Number(v) || fsPx(), minFont());
+const minFontNote = () => (minFont() >= 9 ? `<small class="ss-hint ss-hp-minfont"><i class="fa-solid fa-circle-info"></i> 이 브라우저는 「최소 글꼴 크기」가 <b>${minFont()}px</b>로 정해져 있어서, 그보다 작은 글씨는 브라우저가 강제로 키워요. 더 줄이려면 브라우저 설정 → 모양 → 글꼴 맞춤설정 → 「최소 글꼴 크기」를 낮춰 주세요.</small>` : '');
 const fsOf = () => (FS[D().hpFs] ? D().hpFs : 'm'); // 고르지 않았으면 보통 (예전엔 화면 배율이 큰 기기에서 「작게」가 기본이라 글씨가 너무 작았음)
 const COLW = ['170px', 'clamp(230px, 21%, 320px)', 'clamp(280px, 27%, 400px)']; // v2.8: 옆 줄을 넓게 (글씨를 키운 만큼)
 let editWins = false; // 창 옮기기 중 (창마다 ▲▼⇄✕ 단추)
@@ -246,7 +252,7 @@ async function openDeco(redraw, focus = '') {
         const groups = [...(document.querySelector('.ss-hompy .ss-groups')?.querySelectorAll('button[data-arg]') ?? [])].map(b => [b.dataset.arg, b.dataset.n0 || b.textContent.trim()]);
         const colorRows = `${row('포인트 색', `<div class="ss-hp-faces sw">${THEMES.map(([n, h, s], i) => `<button class="ss-hp-sw ${ti === i ? 'on' : ''}" data-choice="theme:${i}" title="${n}" style="background:hsl(${h} ${Math.round(62 * s)}% 60%)"></button>`).join('')}<span class="ss-hp-sw mine ${custom ? 'on' : ''}" title="직접 고른 색" style="background:hsl(${hue} ${Math.round(62 * sat)}% 60%)"></span></div>`)}
             ${row('밝기', seg('dark', DARKS[d.hpDark] ? d.hpDark : 'light', Object.entries(DARKS)))}`;
-        const sizeRow = row('글씨 크기', seg('fs', Number(d.hpFsPx) ? '' : fsOf(), [['s', '작게'], ['m', '보통'], ['l', '크게']]) + (decoFull ? `<label class="ss-hp-range"><input type="range" min="8" max="22" step="0.5" value="${fsPx()}" data-hpr="fs"><small data-fsv>${fsPx()}px</small></label>` : ''));
+        const sizeRow = row('글씨 크기', seg('fs', Number(d.hpFsPx) ? '' : fsOf(), [['s', '작게'], ['m', '보통'], ['l', '크게']]) + (decoFull ? `<label class="ss-hp-range"><input type="range" min="8" max="22" step="0.5" value="${fsPx()}" data-hpr="fs"><small data-fsv>${fsPx()}px</small></label>${minFontNote()}` : ''));
         const head = `<div class="ss-hp-dhead"><h3>꾸미기</h3>${seg('mode', decoFull ? '1' : '0', [['0', '간단히'], ['1', '자세히']])}${undoSnap ? '<button class="ss-btn sm ghost" data-choice="undo:1"><i class="fa-solid fa-rotate-left"></i> 방금 것 되돌리기</button>' : ''}</div>
             ${bound ? `<p class="ss-hp-bound"><i class="fa-solid fa-link"></i> 이 채팅은 꾸밈 세트 <b>「${esc(bound.name)}」</b>를 써요 — 여기서 고치면 그 세트가 바뀌어요. <button class="ss-btn sm ghost" data-choice="unbind:1">풀기</button></p>` : ''}`;
         const pv = (p) => `<span class="ss-hp-pv ${p.hpSkin} ${p.hpDark === 'dark' ? 'dark' : ''}" style="--pv:hsl(${p.hpTheme === 'c' ? p.hpHue : (THEMES[p.hpTheme] ?? THEMES[0])[1]} ${Math.round(62 * (p.hpTheme === 'c' ? p.hpSat : 1))}% 58%)"><i></i><i></i><i></i></span>`;
@@ -289,7 +295,7 @@ async function openDeco(redraw, focus = '') {
         box.addEventListener('input', (e) => {
             const c = e.target.closest?.('[data-hpc]'); if (c) { snapOnce(); W(c.dataset.hpc, c.value); applyRetro(); return; }
             const r = e.target.closest?.('[data-hpr]'); if (!r) return; snapOnce();
-            if (r.dataset.hpr === 'fs') { W('hpFsPx', Number(r.value)); applyRetro(); document.querySelectorAll('.ss-hompy').forEach(x => x.style.setProperty('--hp-fs', `${r.value}px`)); const o = box.querySelector('[data-fsv]'); if (o) o.textContent = `${r.value}px`; return; }
+            if (r.dataset.hpr === 'fs') { W('hpFsPx', Number(r.value)); applyRetro(); document.querySelectorAll('.ss-hompy').forEach(x => x.style.setProperty('--hp-fs', `${fsUse(r.value)}px`)); const o = box.querySelector('[data-fsv]'); if (o) o.textContent = `${r.value}px`; return; }
             if (r.dataset.hpr === 'alpha') { W('hpCardAlpha', Number(r.value) >= 1 ? 0 : Number(r.value)); applyRetro(); const o = box.querySelector('[data-alv]'); if (o) o.textContent = `${Math.round(r.value * 100)}%`; return; }
             W('hpTheme', 'c'); const hs = box.querySelector('[data-hpr="hue"]').value, ss = box.querySelector('[data-hpr="sat"]').value; W('hpHue', Number(hs)); W('hpSat', Number(ss)); applyRetro();
             document.querySelectorAll('.ss-hompy').forEach(x => { x.style.setProperty('--hp-h', hs); x.style.setProperty('--hp-s', ss); }); box.querySelectorAll('.ss-hp-sw').forEach(x => x.classList.toggle('on', x.classList.contains('mine'))); const m = box.querySelector('.ss-hp-sw.mine'); if (m) m.style.background = `hsl(${hs} ${Math.round(62 * ss)}% 60%)`;
@@ -382,7 +388,7 @@ function sheetHTML() {
             ${row('직접', `<label class="ss-hp-range"><small>색상</small><input type="range" min="0" max="360" step="1" value="${hue}" data-hpr="hue" class="hue"></label><label class="ss-hp-range"><small>진하기</small><input type="range" min="0" max="1.2" step="0.05" value="${sat}" data-hpr="sat"></label>`)}
             ${row('바탕', ['Ink:글자', 'Bg:바탕', 'Paper:카드'].map(x => x.split(':')).map(([k, n]) => `<label class="ss-hp-color"><input type="color" data-hpc="hp${k}" value="${hex(d['hp' + k]) || (k === 'Ink' ? '#24262b' : '#ffffff')}"><small>${n}${hex(d['hp' + k]) ? ' ✓' : ''}</small></label>`).join('') + (hex(d.hpInk) || hex(d.hpBg) || hex(d.hpPaper) ? B('colreset:1', '기본색', false, 'txt') : '') + B('bgimg:add', `<i class="fa-solid fa-image"></i> 바탕 그림${set.hpBgImg ? ' 바꾸기' : ''}`, false, 'txt') + (set.hpBgImg ? B('bgimg:del', '빼기', false, 'txt') : ''))}`;
     } else if (ED.tab === 'type') {
-        body = `${row('크기', `<label class="ss-hp-range wide"><small>가</small><input type="range" min="8" max="22" step="0.5" value="${fsPx()}" data-hpr="fs"><small class="big">가</small><small data-fsv>${fsPx()}px</small></label>${Number(d.hpFsPx) ? B('fs:m', '기본 크기', false, 'txt') : ''}`)}
+        body = `${row('크기', `<label class="ss-hp-range wide"><small>가</small><input type="range" min="8" max="22" step="0.5" value="${fsPx()}" data-hpr="fs"><small class="big">가</small><small data-fsv>${fsPx()}px</small></label>${minFontNote()}${Number(d.hpFsPx) ? B('fs:m', '기본 크기', false, 'txt') : ''}`)}
             ${row('글꼴', seg('font', fontKey(), fontOpts()) + B('fontfile:add', '<i class="fa-solid fa-font"></i> 글꼴 파일', false, 'txt'))}
             ${row('기본 글꼴', seg('webfont', set.webFont === false ? '0' : '1', [['1', 'IBM Plex Sans KR 받아 쓰기'], ['0', '끄기']]) + '<small class="ss-hint">기기에 없으면 구글 글꼴에서 받아요.</small>')}`;
     } else if (ED.tab === 'frame') {
@@ -497,7 +503,7 @@ export function initHompy() {
         if (t.dataset.hpc) { W(t.dataset.hpc, t.value); applyRetro(); return; }
         if (t.dataset.pc || t.dataset.pr) { if (!ED.part) return; const P = clone(D().hpParts) ?? {}; P[ED.part] = { ...(P[ED.part] ?? {}), [t.dataset.pc || t.dataset.pr]: t.dataset.pc ? t.value : Number(t.value) }; W('hpParts', P); applyRetro(); return; }
         const k = t.dataset.hpr; if (!k) return; const sh = t.closest('.ss-hp-sheet');
-        if (k === 'fs') { W('hpFsPx', Number(t.value)); applyRetro(); roots().forEach(x => x.style.setProperty('--hp-fs', `${t.value}px`)); const o = sh.querySelector('[data-fsv]'); if (o) o.textContent = `${t.value}px`; }
+        if (k === 'fs') { W('hpFsPx', Number(t.value)); applyRetro(); roots().forEach(x => x.style.setProperty('--hp-fs', `${fsUse(t.value)}px`)); const o = sh.querySelector('[data-fsv]'); if (o) o.textContent = `${t.value}px`; }
         else if (k === 'alpha') { W('hpCardAlpha', Number(t.value) >= 1 ? 0 : Number(t.value)); applyRetro(); }
         else if (k === 'corner') { W('hpCorner', Number(t.value)); applyRetro(); } else if (k === 'gap') { W('hpGap', Number(t.value)); applyRetro(); }
         else { W('hpTheme', 'c'); const hs = sh.querySelector('[data-hpr="hue"]').value, ss = sh.querySelector('[data-hpr="sat"]').value; W('hpHue', Number(hs)); W('hpSat', Number(ss)); applyRetro(); roots().forEach(x => { x.style.setProperty('--hp-h', hs); x.style.setProperty('--hp-s', ss); }); }

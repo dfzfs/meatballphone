@@ -957,3 +957,30 @@ body.ss-skin-dot .ss-ctfloat { border-radius: 8px; border-width: 2px; box-shadow
 
 /* 꾸미기(간단히): 지금 고른 모양에 테두리 */
 .ss-hp-presets > button.on { border-color: var(--hp-acc, #d6547e) !important; box-shadow: 0 0 0 2px color-mix(in srgb, var(--hp-acc, #d6547e) 25%, transparent); } .ss-hp-pick h4 small, .ss-hp-deco h4 small { font-weight: 400; opacity: .7; margin-left: 6px; }
+
+/* ───── 홈 앱 칸: 테두리 있는 작은 칸 안에 아이콘 · 이름 · 값(한 줄)을 같이 — 글씨는 작게 ───── */
+.ss-hompy .ss-fb-grid:not(.off) { grid-template-columns: repeat(auto-fill, minmax(5.6em, 1fr)); justify-content: stretch; gap: .35em; }
+.ss-hompy .ss-fb-grid:not(.off) > .ss-fb-card { padding: .45em .25em .4em; gap: .1em; border: 1px solid var(--hp-ln) !important; border-radius: .7em; background: var(--hp-paper) !important; min-width: 0; overflow: hidden; }
+.ss-hompy .ss-fb-grid:not(.off) > button.ss-fb-card:hover { border-color: var(--hp-acc) !important; }
+.ss-hompy .ss-fb-grid:not(.off) > .ss-fb-card > i { width: 2.1em; height: 2.1em; border-radius: .6em; margin: 0; } .ss-hompy .ss-fb-grid:not(.off) > .ss-fb-card > i::before { font-size: 1.05em; }
+.ss-hompy .ss-fb-grid:not(.off) > .ss-fb-card > b { font-size: .8em !important; line-height: 1.25; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ss-hompy .ss-fb-grid:not(.off) > .ss-fb-card > em { font-size: .7em !important; line-height: 1.25; display: block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+/* 순서 바꾸기 화살표: 칸 안에 작게 */
+.ss-hompy .ss-fb-card.edit { outline: 0; border-style: dashed !important; } .ss-hompy .ss-fb-card.edit .ss-fb-mv { gap: 2px; margin-top: .2em; }
+.ss-hompy .ss-fb-card.edit .ss-fb-mv > button { min-width: 0; width: 2em; height: 1.7em; border-radius: .45em; font-size: .7em; }
+@media (hover: none) and (pointer: coarse) { .ss-hompy .ss-fb-card.edit .ss-fb-mv > button { width: 34px; height: 30px; font-size: 11px; } .ss-hompy .ss-fb-grid:not(.off) { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); } }
+@media (max-width: 640px) { .ss-hompy .ss-fb-grid:not(.off) { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+/* 사진: 가운데 창 높이의 60% 이상은 늘 사진 */
+@media (min-width: 641px) { .ss-hompy .ss-hp-homewrap.has > .ss-hp-homebody { max-height: 38%; } .ss-hompy .ss-hp-homewrap.has > .ss-hp-main { min-height: 60%; } }
+.ss-hp-minfont { display: block; margin-top: 6px; line-height: 1.45; }
+@media (min-width: 641px) { .ss-hompy .ss-hp-homewrap.has > .ss-hp-homebody { max-height: 34%; } .ss-hompy .ss-hp-homewrap.has > .ss-hp-main { min-height: 64%; } }
+/* 홈에 사진이 있으면: 가운데 창의 큰 제목(맨 위 머리줄과 같은 글)을 접고, 도구줄을 탭 줄 오른쪽에 붙여 → 그만큼 사진이 세로로 커진다 */
+@media (min-width: 641px) {
+    .ss-hompy:not(.ss-hp-edit) .ss-hp-win.main:has(.ss-hp-homewrap.has) > :not(.ss-hp-right) { display: none !important; }
+    .ss-hompy .ss-hp-win.main:has(.ss-hp-homewrap.has) { padding-top: 8px !important; }
+    .ss-hompy .ss-hp-right:has(.ss-hp-homewrap.has) { position: relative; }
+    .ss-hompy .ss-hp-right:has(.ss-hp-homewrap.has) > .ss-toolrow { position: absolute; top: 4px; right: 0; margin: 0; padding: 0; border: 0; background: transparent; z-index: 2; }
+    .ss-hompy .ss-hp-right:has(.ss-hp-homewrap.has) > .ss-body { padding-top: 6px; }
+    .ss-hompy .ss-hp-homewrap.has > .ss-hp-homebody { max-height: 30%; } .ss-hompy .ss-hp-homewrap.has > .ss-hp-main { min-height: 68%; }
+}
+@media (min-width: 641px) { .ss-hompy .ss-hp-homewrap.has > .ss-hp-homebody { max-height: 36%; } .ss-hompy .ss-hp-homewrap.has > .ss-hp-main { min-height: 62%; } .ss-hompy .ss-hp-homewrap.has { gap: 6px; } }
