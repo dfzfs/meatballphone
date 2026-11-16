@@ -1064,3 +1064,9 @@ body.ss-skin-dot .ss-ctfloat { border-radius: 8px; border-width: 2px; box-shadow
 .ss-ctfloat.docked .ss-phone-in { padding: 6px 2px 2px; background: transparent; position: static; }
 .ss-ctfloat.docked .ss-phone-opt, .ss-ctfloat.docked .ss-phone-att { padding: 0 2px 4px; font-size: .9em; }
 @media (min-width: 900px) { .ss-hompy .ss-hp-homewrap.has > .ss-hp-main img { max-height: 45vh; } }
+/* 도우미 말풍선 v2: 테두리 선 대신 옅게 채운 알약(iOS 메시지 풍선처럼) — 얇은 글씨, 부드러운 꼬리, 누르면 살짝 눌림 */
+.ss-hp-say { padding: .32em .85em .34em; border-radius: 999px; border: 0 !important; background: color-mix(in srgb, var(--hp-acc) 13%, var(--hp-paper)); color: color-mix(in srgb, var(--hp-acc) 72%, var(--hp-ink)); font-weight: 600; letter-spacing: -.01em; margin-left: 7px; box-shadow: 0 1px 2px rgba(20, 22, 30, .06); transition: background .15s, transform .12s; }
+.ss-hp-say::before { left: -4px; top: auto; bottom: 22%; width: 9px; height: 9px; margin: 0; border: 0 !important; border-radius: 0 0 0 9px; transform: none; background: inherit; clip-path: polygon(100% 0, 100% 100%, 0 100%); }
+.ss-hp-say:hover { background: color-mix(in srgb, var(--hp-acc) 22%, var(--hp-paper)); color: color-mix(in srgb, var(--hp-acc) 80%, var(--hp-ink)); } .ss-hp-say:hover::before { background: inherit; } .ss-hp-say:active { transform: scale(.96); }
+body.ss-skin-dot .ss-hp-say { border-radius: 6px; padding: .15em .7em; box-shadow: none; } body.ss-skin-dot .ss-hp-say::before { border-radius: 0; }
+body.ss-skin-term .ss-hp-say { border-radius: 2px; }

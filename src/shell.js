@@ -578,6 +578,7 @@ export function placeCtFloat() {
             head.addEventListener('pointerup', drop); head.addEventListener('pointercancel', drop);
         }
         if (ctFloat.parentElement !== host) host.appendChild(ctFloat);
+        ctFloat.style.display = document.querySelector('dialog[open] .ss-hompy.ss-hp-edit') ? 'none' : ''; // 꾸미기 중에는 숨김 (팝업으로 튀어나와 화면을 가리던 것)
         ctFloat.classList.toggle('docked', !!dock); if (dock) { ctFloat.style.left = ctFloat.style.top = ctFloat.style.right = ctFloat.style.bottom = ''; }
         const pos = settings().ctFloatPos; if (!dock && pos && Number.isFinite(pos.x) && Number.isFinite(pos.y) && !matchMedia('(max-width: 640px)').matches) { ctFloat.style.left = `${Math.max(4, Math.min(innerWidth - 120, pos.x))}px`; ctFloat.style.top = `${Math.max(4, Math.min(innerHeight - 80, pos.y))}px`; ctFloat.style.right = 'auto'; ctFloat.style.bottom = 'auto'; }
         const pnl = ctFloat.querySelector('.ss-panel'); if (pnl._ss.tab !== 'contact') { pnl._ss.tab = 'contact'; pnl._ss.mode = 'view'; }
