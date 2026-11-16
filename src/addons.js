@@ -4,7 +4,7 @@
 // 설정은 전부 기본 끔이고 === true 로만 본다. 끄면 주입 · 계산 · 저장이 모두 0 (app.extraInject는 빈 글)
 // 채팅마다의 자료: meta.gear · meta.roomTell · meta.ctLore (없으면 만들지 않는다)
 import { app, ctx, settings, getMeta, saveMeta, norm, short, findBy, clone, clamp, stamp, isActive, ready, ssNote, TITLE, MODULE, fmtNum } from './core.js';
-import { commit, questDue, today, affMul, loreNames } from './engine.js';
+import { commit, questDue, today, affMul, loreNames, addAdjust } from './engine.js';
 import { aiGenerate, P, PROMPT_DEFS, PROMPT_MAP } from './prompts.js';
 import { askConfirm } from './kit.js';
 import { storyData, storyOn, settlePromise } from './story.js';
@@ -239,6 +239,45 @@ export function cardCanvas({ width = 720, bg = '#ffffff', fg = '#1f2430', sub = 
     return cv;
 }
 export function cardDownload(opts = {}) { const cv = cardCanvas(opts); if (!cv) return false; const a = document.createElement('a'); a.download = `${(cardData()?.name || 'meatball').replace(/[\\/:*?"<>|]/g, '_')}-status.png`; a.href = cv.toDataURL('image/png'); a.click(); return true; }
+
+// ───── 💗 연락 · 방명록에서 호감 반영 (socialAff · 기본 끔) ─────
+// 켜면: 연락 답장 · 방명록 답글 끝에 인물이 [FEEL ±N](−2~+2)을 붙일 수 있고 그만큼 호감이 움직인다. 내가 방명록을 남기면 그 사람 우정 +1 (사람마다 이야기 속 하루에 한 번).
+// 전부 편집 기록으로 들어가므로: 그 말풍선 · 글을 지우면 같이 되돌아가고(socDrop), 채팅을 되감아도(그 뒤 메시지를 지워도) 되돌아간다. 본편 AI에게 따로 가는 글은 없다
+export const socOn = () => on('socialAff');
+const FEEL_RE = /\[\s*FEEL\s*([+\-−]?\s*\d+)\s*\]/gi;
+app.socRule = (who) => (socOn() && st()?.data?.rel ? `\nIf this exchange actually changed how ${who} feels about {{user}}, add one last separate line exactly like [FEEL +1] or [FEEL -1] (an integer from -2 to +2: warmer = plus, hurt or annoyed = minus). Leave the line out when nothing changed — most messages change nothing.` : '');
+app.socFeel = (t) => { let feel = 0; const text = String(t ?? '').replace(FEEL_RE, (_, v) => { const n = parseInt(String(v).replace('−', '-').replace(/\s+/g, ''), 10); if (Number.isFinite(n)) feel = clamp(n, -2, 2); return ''; }).replace(/\n{3,}/g, '\n\n').trim(); return { text, feel: socOn() ? feel : 0 }; };
+app.socApply = async (who, n, tag, where) => {
+    if (!socOn() || !n) return false;
+    const r = findBy(st()?.data?.rel?.user ?? [], who); if (!r || r.out) return false;
+    await addAdjust({ ops: [['aff', `${r.name} ${n > 0 ? '+' : ''}${n}`]], label: `💬 ${r.name} ${where}: 호감 ${n > 0 ? '+' : ''}${n}`, soc: tag });
+    return true;
+};
+// 내가 방명록을 남김 → 우정 +1 (그 사람에게 이야기 속 하루에 한 번)
+app.socNote = (e) => {
+    if (!socOn() || !e?.to) return;
+    const s = st(), r = findBy(s?.data?.rel?.user ?? [], e.to), m = getMeta(); if (!r || r.out || !m?.gbook) return;
+    const day = today(s) ?? Math.floor((s.turn ?? 0) / 20); m.gbook.socDay ??= {};
+    if (m.gbook.socDay[r.name] === day) return;
+    m.gbook.socDay[r.name] = day; saveMeta();
+    addAdjust({ ops: [['trust', `${r.name} +1`]], label: `📝 ${r.name}의 방명록에 글을 남김`, soc: `gb:${e.id}` }).catch(err => ssNote('soc note', err));
+};
+// 지운 말풍선(ids) · 대화 전체(ids = null)에서 오르내린 호감을 되돌린다 (연락)
+app.socDrop = (who, ids) => {
+    const m = getMeta(), adj = m?.adjust; if (!adj?.some(a => typeof a.soc === 'string')) return 0;
+    const pre = `ct:${who}|`, set = ids ? new Set(ids.map(String)) : null;
+    const keep = adj.filter(a => !(typeof a.soc === 'string' && a.soc.startsWith(pre) && (!set || set.has(a.soc.slice(pre.length)))));
+    const n = adj.length - keep.length; if (n) { m.adjust = keep; saveMeta(); app.refreshNow?.(); }
+    return n;
+};
+// 지운 방명록 글에서 오른 것을 되돌린다 (그 글이 더는 없을 때만)
+app.socSweep = () => {
+    const m = getMeta(), adj = m?.adjust; if (!adj?.some(a => typeof a.soc === 'string' && a.soc.startsWith('gb:'))) return 0;
+    const G = m.gbook ?? {}, has = (id) => (G.sent ?? []).some(x => x.id === id) || (G.list ?? []).some(x => x.id === id);
+    const keep = adj.filter(a => !(typeof a.soc === 'string' && a.soc.startsWith('gb:') && !has(a.soc.slice(3))));
+    const n = adj.length - keep.length; if (n) { if (m.gbook?.socDay) m.gbook.socDay = {}; m.adjust = keep; saveMeta(); app.refreshNow?.(); }
+    return n;
+};
 
 // ───── AI에게 가는 줄 (켠 것만 · 하나도 없으면 빈 글) ─────
 export function extraInjection() {

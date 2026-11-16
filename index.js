@@ -836,7 +836,7 @@ function onCharRendered(id, type) {
 }
 // 🧩 덧붙이는 기능 · 미니홈피 자료 (src/addons.js · src/minihome.js): 켠 기능이 있거나 이 채팅에 그 자료가 있을 때만 불러온다.
 // 아무것도 안 켰으면 파일을 읽지도 않는다 → 다른 파일에 건 `app.이름?.()` 은 전부 없는 것으로 넘어가 원래와 똑같이 동작한다
-const ADDON_KEYS = ['gearOn', 'ambientOn', 'giftTaste', 'promiseClock', 'mergeContact', 'guestbook', 'hpWave'];
+const ADDON_KEYS = ['gearOn', 'ambientOn', 'giftTaste', 'promiseClock', 'mergeContact', 'guestbook', 'hpWave', 'socialAff'];
 let addonsLoading = null;
 function loadAddons(force = false) {
     if (addonsLoading) return addonsLoading;

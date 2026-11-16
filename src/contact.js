@@ -325,7 +325,7 @@ async function getTruthReply(el, who, replaceId = null) {
         const nd = clone(curState().data.contact);
         const th = (nd.truth ??= {})[who] ??= [];
         const msgs = lines.map(l => ({ id: uid(), from: 'them', text: l, date: stamp(s), at: wholeTick(s), arrive: wholeTick(s) }));
-        if (replaceId) { const k = th.findIndex(m => m.id === replaceId); if (k >= 0) th.splice(k, 1, ...msgs); else th.push(...msgs); } else th.push(...msgs);
+        if (replaceId) { try { app.socDrop?.(who, [replaceId]); } catch (e) { ssWarn(e); } const k = th.findIndex(m => m.id === replaceId); if (k >= 0) th.splice(k, 1, ...msgs); else th.push(...msgs); } else th.push(...msgs);
         await commit('contact', nd, '');
         redraw(el);
     } catch (e) { ssErr(e); toastr.error(`답을 받지 못했어요: ${esc(e.message)}`, TITLE); redraw(el); }
@@ -430,12 +430,13 @@ async function getPhoneReply(el, who, replaceId = null) {
         const th = nd.threads[who] ??= [];
         readAll(th);
         const msgs = lines.map(l => ({ id: uid(), from: 'them', text: l, date: stamp(s), at: wholeTick(s), arrive: wholeTick(s) }));
-        if (replaceId) { const k = th.findIndex(m => m.id === replaceId); if (k >= 0) th.splice(k, 1, ...msgs); else th.push(...msgs); } else th.push(...msgs);
+        if (replaceId) { try { app.socDrop?.(who, [replaceId]); } catch (e) { ssWarn(e); } const k = th.findIndex(m => m.id === replaceId); if (k >= 0) th.splice(k, 1, ...msgs); else th.push(...msgs); } else th.push(...msgs);
         sendBubbles(th, sends, s, ltr);
         trimSimple(nd, who);
         touchContact(nd, who);
         await commit('contact', nd, lbl(`${who}의 ${ltr ? '편지' : '답장'}: ${short(lines.join(' '), 40)}`));
         await payOut(who, sends);
+        try { if (sends.feel && msgs.length) await app.socApply?.(who, sends.feel, `ct:${who}|${msgs.at(-1).id}`, '연락'); } catch (e) { ssWarn(e); } // 💗 연락에서 호감 반영 (선택 · addons.js)
         redraw(el);
         if (!simple()) maybeSummarize(who);
     } catch (e) { ssErr(e); toastr.error(`답장을 받지 못했어요: ${esc(e.message)}`, TITLE); redraw(el); }
@@ -545,6 +546,7 @@ export const CONTACT_ACTIONS = {
             if (!(await askConfirm(`고른 말풍선 ${ids.size}개를 지울까요?`))) return;
             for (const m of th) if (ids.has(m.id) && goodsOf(m).length) ids.delete(m.id); // 🎁 💸 은 남긴다 — 하나씩 지워야 돌려받을지 고를 수 있어요
             for (const m of th) if (ids.has(m.id)) hushSent(m, who);
+            try { app.socDrop?.(who, [...ids]); } catch (e) { ssWarn(e); } // 💗 지운 말풍선에서 오르내린 호감은 되돌린다
             bx[who] = th.filter(m => !ids.has(m.id));
         } else {
             for (const m of th) { if (ids.has(m.id)) m.pin = arg !== 'unpin'; else if (arg === 'only') m.pin = false; }
@@ -717,6 +719,7 @@ export const CONTACT_ACTIONS = {
         const pick = await askUndoGoods(goods, s, '지울까요?');
         if (!pick) return;
         if (mine) hushSent(m, who);
+        try { app.socDrop?.(who, [m.id]); } catch (e) { ssWarn(e); }
         f.th.splice(f.k, 1);
         // 아직 안 뜯은 답장(기다리는 중)이 이 편지에 딸려 있으면 같이 지운다 — 보낸 편지가 없는데 답장만 오지 않게
         if (mine && f.th[f.k]?.pending && f.th[f.k].from === 'them') f.th.splice(f.k, 1);
@@ -792,6 +795,7 @@ export const CONTACT_ACTIONS = {
             if (!ans) return;
             if (ans === 'undo') undoList = all;
         }
+        if (pick === 'clear' || pick === 'remove') { try { app.socDrop?.(who, null); } catch (e) { ssWarn(e); } }
         if (pick === 'clear') { nd.threads[who] = []; delete nd.unread[who]; }
         if (pick === 'remove') {
             nd.contacts = nd.contacts.filter(x => norm(x.name) !== norm(who)); delete nd.threads[who]; delete nd.unread[who];

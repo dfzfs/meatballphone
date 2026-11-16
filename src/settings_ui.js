@@ -18,7 +18,7 @@ import { hintSetting } from './tips.js';
 const VIEW_KEYS = new Set(['hompyFull', 'hpLite', 'hpSkinHud', 'loopMode', 'swipeGhost', 'fateDebt', 'tensionOn', 'realGap', 'glitchView', 'ledgerKnow', 'ledgerPromise', 'guideOn', 'peekCost', 'relScar', 'memoryDrift', 'meddleOn', 'tasteBook', 'crossMail', 'groupChat', 'extraJudge', 'questExpire', 'memoOn', 'albumOn', 'peekOn', 'recordOn', 'freshDot', 'pipCheck', 'questJudge', 'msgCard', 'chipOutside', 'contactSimple', 'contactSimpleReflect', 'relStagesOn', 'relShowMemo', 'relShowWants', 'relShowLife', 'relShowPairs', 'relShowBtns', 'relShowNext', 'relShowUnlock']);
 // 「부가 기능 한 번에 끄기」 — 상태 계산 · 본편 롤플에 꼭 필요하지 않은 것만
 const LIGHT_OFF = { memoOn: false, albumOn: false, peekOn: false, recordOn: false, daySummary: false, featureTips: false, showMascot: false, mascotBuddy: false, musicToast: false };
-const ADDON_SET = new Set(['gearOn', 'ambientOn', 'giftTaste', 'promiseClock', 'mergeContact', 'guestbook', 'hpWave']); // index.js의 ADDON_KEYS와 같은 목록
+const ADDON_SET = new Set(['gearOn', 'ambientOn', 'giftTaste', 'promiseClock', 'mergeContact', 'guestbook', 'hpWave', 'socialAff']); // index.js의 ADDON_KEYS와 같은 목록
 // 🟢 켜 둔 선택 기능: 이름(굵은 글씨)이 붙은 체크 칸 가운데 켜진 것을 설정 맨 위에 한 줄로 — 누르면 그 칸으로 간다. 자리는 하나도 옮기지 않는다
 function onLine(el) {
     const box = el.querySelector('[data-s-on]'); if (!box) return;
@@ -211,6 +211,7 @@ export function renderSettings() {
             <label class="checkbox_label"><input type="checkbox" data-s="hpWave" ${s.hpWave === true ? 'checked' : ''}> <b>🌊 파도타기 · 일촌평</b> <small>(전체화면 미니홈피의 일촌 창에서 이름을 누르면 그 사람의 홈피가 열려요 · 이름 밑에 일촌평 · 토큰 0)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="guestbook" ${s.guestbook === true ? 'checked' : ''}> <b>📝 방명록 · 일촌평 받기</b> <small>(파도타기 화면에서 인물이 남기는 한 줄 · 「받기」를 누를 때 AI 1회)</small></label>
             <label class="checkbox_label">　└ <input type="checkbox" data-s="guestbookAuto" ${s.guestbookAuto === true ? 'checked' : ''}> 방명록 자동 <small>(이야기 속 하루가 지날 때 한 줄 · 하루 1회까지 · AI 1회)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="socialAff" ${s.socialAff === true ? 'checked' : ''}> <b>💗 연락 · 방명록에서 호감 반영</b> <small>(연락 답장 · 방명록 답글에 따라 호감이 −2~+2 움직이고, 방명록을 남기면 우정 +1. 그 말풍선 · 글을 지우거나 채팅을 되감으면 되돌아가요 · 답장마다 토큰 한 줄)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="ambientOn" ${s.ambientOn === true ? 'checked' : ''}> <b>🌦 날씨 · 시간대 효과</b> <small>(비 · 눈 · 폭풍 · 밤 같은 상황을 AI에게 한 줄 알려요. 궂은 날엔 손님이 없어 흥정 난이도 −2 · 매 턴 0~1줄)</small></label>
             <label class="checkbox_label">　└ <input type="checkbox" data-s="ambientShop" ${s.ambientShop === true ? 'checked' : ''}> 밤에는 가게 닫기 <small>(밤 시간대엔 상점에서 사기 · 흥정이 안 돼요 · 토큰 0)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="giftTaste" ${s.giftTaste === true ? 'checked' : ''}> <b>🎁 취향에 맞는 선물</b> <small>(관계에 적힌 좋아하는 것이면 호감 2배, 싫어하는 것이면 −1 · 토큰 0)</small></label>

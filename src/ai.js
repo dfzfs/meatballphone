@@ -215,18 +215,20 @@ function sendRule(state, who) {
     return `\nIf ${who} actually sends {{user}} money or a gift together with this message (only when it truly fits: helping out, paying back, a present, {{user}} asked and ${who} agrees), add one last separate line exactly like [SEND money: 3000] (a plain number in ${w.currency}, a sensible amount for ${who}) or [SEND gift: item name]. Saying you sent something without that line means nothing arrives. Never send anything just because you can.`;
 }
 export function takeSends(t, out) {
+    try { const f = app.socFeel?.(t); if (f) { t = f.text; if (f.feel && out) out.feel = f.feel; } } catch (e) { ssWarn(LOG, 'feel', e); }
     return String(t ?? '').replace(SEND_RE, (_, k, v) => {
         if (/money/i.test(k)) { const n = Math.round(Math.abs(parseNum(v)?.v ?? 0)); if (n > 0 && Number.isFinite(n)) out?.push({ kind: 'money', amount: Math.min(n, 1e9) }); }
         else { const name = v.trim().replace(/^["'「]|["'」]$/g, ''); if (name) out?.push({ kind: 'gift', name: short(name, 60) }); }
         return '';
     }).replace(/\n{3,}/g, '\n\n').trim();
 }
+// 💗 연락에서 호감 반영 (선택 · addons.js의 socialAff): 답 끝의 [FEEL ±N] 줄을 떼고 값은 sends.feel로 넘긴다 — 꺼져 있어도 줄은 떼어 낸다
 // 🔕 상대가 연락을 꺼 두기 (v2.7.23): 답 끝의 「(OFFLINE: 이유 | N)」 줄을 떼어 info.away = { why, n }으로 돌려준다
 const OFFLINE_RE = /\(\s*OFFLINE\s*[:：]\s*([^|)\n]*?)\s*(?:\|\s*(\d+)\s*)?\)/i;
 export async function phoneReply(who, state, sends = null, info = null) {
     const ct = state.data.contact;
     const awayOn = settings().contactAway !== false && !!info;
-    const sys = P('ai.phone', { who, app: ct.app }) + remoteRule(who) + (awayOn ? P('ai.away', { who }) : '') + sendRule(state, who);
+    const sys = P('ai.phone', { who, app: ct.app }) + remoteRule(who) + (awayOn ? P('ai.away', { who }) : '') + sendRule(state, who) + (app.socRule?.(who) ?? '');
     let raw = await aiGenerate('phone', sys, [...aboutPerson(who, state), `Conversation so far:\n${threadMemory(ct, who, 14)}`].join('\n\n'), 800);
     const off = OFFLINE_RE.exec(raw);
     if (off) { raw = raw.replace(OFFLINE_RE, ''); if (awayOn) info.away = { why: off[1].trim().slice(0, 40), n: Math.min(6, Math.max(1, Number(off[2]) || 2)) }; }
@@ -276,7 +278,7 @@ export async function groupReply(room, state) {
 }
 export async function letterReply(who, state, { courier, rush }, sends = null) {
     const ct = state.data.contact;
-    const sys = P('ai.letter', { who, app: ct.app, courier: courier || ct.app, rush: rush ? `${who} paid extra for an express courier so it arrives fast — it may show a little in the letter (eagerness).` : '' }) + remoteRule(who) + sendRule(state, who);
+    const sys = P('ai.letter', { who, app: ct.app, courier: courier || ct.app, rush: rush ? `${who} paid extra for an express courier so it arrives fast — it may show a little in the letter (eagerness).` : '' }) + remoteRule(who) + sendRule(state, who) + (app.socRule?.(who) ?? '');
     // v2.7.18: 700 → 2400 (한국어 편지 · 생각하는 모델은 700으로 끝까지 못 써서 잘렸음)
     const out = await aiGenerate('letter', sys, [...aboutPerson(who, state), `Letters so far (oldest first):\n${threadMemory(ct, who, 8)}`].join('\n\n'), 2400);
     return finText(takeSends(stripStatus(out), sends).replace(/^```\w*\s*|```\s*$/g, '').trim());
@@ -285,7 +287,7 @@ export async function letterReply(who, state, { courier, rush }, sends = null) {
 export async function pingMessage(who, state, auto = false, sends = null) {
     const ct = state.data.contact;
     const letter = letterMode(ct) || instantLetter(ct);
-    const sys = P('ai.ping', { who, app: ct.app, format: letter ? 'a short letter: greeting, a paragraph or two, sign-off' : '1-3 short chat bubbles, one per line' }) + remoteRule(who) + sendRule(state, who);
+    const sys = P('ai.ping', { who, app: ct.app, format: letter ? 'a short letter: greeting, a paragraph or two, sign-off' : '1-3 short chat bubbles, one per line' }) + remoteRule(who) + sendRule(state, who) + (app.socRule?.(who) ?? '');
     const out = await aiGenerate(auto ? 'autoping' : 'ping', sys, [...aboutPerson(who, state), `Earlier messages:\n${threadText(ct, who, 8) || '(none)'}`].join('\n\n'), letter ? 2000 : 600);
     const t = takeSends(stripStatus(out), sends);
     return letter ? [await finText(t)] : finLines(t.split(/\r?\n/).map(x => x.replace(nameRe(who), '').replace(/^["“](.*)["”]$/, '$1').trim()).filter(Boolean).slice(0, 4));

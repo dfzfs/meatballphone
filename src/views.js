@@ -333,6 +333,7 @@ export const ADDON_FLAGS = [
     ['hpWave', 'fa-water', '파도타기 · 일촌평', '전체화면 미니홈피의 일촌 창에서 이름을 누르면 그 사람의 홈피가 열려요 · 이름 밑에 일촌평 · 토큰 0'],
     ['guestbook', 'fa-pen-to-square', '방명록 · 일촌평 받기', '파도타기 화면에서 인물이 한 줄씩 남겨요 · 「받기」를 누를 때 AI 1회'],
     ['guestbookAuto', 'fa-clock', '방명록 자동', '이야기 속 하루가 지날 때 한 줄 (방명록을 켰을 때 · 하루 1회 · AI 1회)'],
+    ['socialAff', 'fa-heart-pulse', '연락 · 방명록에서 호감 반영', '연락 답장 · 방명록 답글에 따라 호감 −2~+2, 방명록을 남기면 우정 +1 · 그 말풍선/글을 지우면 되돌아가요 · 답장마다 토큰 한 줄'],
     ['ambientOn', 'fa-cloud-sun-rain', '날씨 · 시간대 효과', '비 · 눈 · 밤을 AI에게 한 줄 알려요 · 궂은 날엔 흥정 난이도 −2 · 매 턴 0~1줄'],
     ['ambientShop', 'fa-store-slash', '밤에는 가게 닫기', '날씨 · 시간대 효과를 켰을 때만 · 토큰 0'],
     ['giftTaste', 'fa-gift', '취향에 맞는 선물', '좋아하는 것이면 호감 2배 · 싫어하는 것이면 −1 · 토큰 0'],
@@ -347,7 +348,7 @@ const FLAG_BY = Object.fromEntries([...ADDON_FLAGS, ...STORY_FLAGS].map(f => [f[
 // 부가 기능의 묶음 (관리 › 쓸 기능의 스위치 · 부가 기능 탭의 화면이 같은 분류를 쓴다) — [id, 이름, 스위치의 설정 키들]
 const EXTRA_GROUPS = [
     ['people', '사람 · 관계', ['guideOn', 'relRace', 'pairAff', 'peekCost', 'relScar', 'memoryDrift', 'meddleOn', 'tasteBook', 'giftTaste', 'mergeContact']],
-    ['social', '연락 · 미니홈피', ['groupChat', 'crossMail', 'hpWave', 'guestbook', 'guestbookAuto']],
+    ['social', '연락 · 미니홈피', ['groupChat', 'crossMail', 'hpWave', 'guestbook', 'guestbookAuto', 'socialAff']],
     ['flow', '이야기 흐름', ['loopMode', 'swipeGhost', 'fateDebt', 'tensionOn', 'realGap', 'glitchView']],
     ['ledger', '장부 · 약속', ['ledgerKnow', 'ledgerPromise', 'promiseClock']],
     ['world', '세계 · 기록', ['ambientOn', 'ambientShop', 'trendMore']],

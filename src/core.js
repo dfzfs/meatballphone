@@ -174,6 +174,7 @@ export const DEFAULTS = Object.freeze({
     promiseClock: false,     // 🤝 약속 기한 D-day (선택 · addons.js · 약속 장부를 켰을 때만) — 기한이 지나면 자동으로 어김
     trendMore: false,        // 📊 변화 그래프에 게이지 · 내 탭 수치 · 단계 변화/흉터 지점 더하기 (선택)
     mergeContact: false,     // 🔗 인물을 합칠 때 연락 대화도 옮길지 묻기 (선택 · addons.js)
+    socialAff: false,        // 💗 연락 · 방명록에서 호감 반영 (선택 · addons.js) — 답장에 따라 호감 ±2까지 · 방명록을 남기면 우정 +1. 그 말풍선/글을 지우면 되돌아감
     hpWave: false,           // 🌊 파도타기 · 일촌평 (선택 · minihome_ui.js) — 미니홈피 일촌 창에서 이름을 누르면 그 사람의 홈피 (토큰 0)
     guestbook: false,        // 📝 방명록 (선택) — 인물이 홈피에 한 줄씩 남김. 「받기」를 누를 때 AI 1회. 끄면 저장 · 호출 · 이벤트 모두 0 (src/minihome.js)
     guestbookAuto: false,    //   └ 이야기 속 하루가 지날 때 자동으로 한 줄 (하루 1회까지 · AI 1회)
