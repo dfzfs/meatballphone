@@ -687,7 +687,7 @@ async function measureLoad() {
         ['AI에게 보낼 글 만들기', ms.inject, set.injectMode],
         ['변동 칩 붙이기 (바뀐 것만)', ms.decorateSoft, `화면의 답 ${document.querySelectorAll('#chat .mes').length}개`],
         ['변동 칩 처음부터', ms.decorate, set.albumOn !== false ? '앨범 단추 포함' : '앨범 꺼짐'],
-        ['상태창 화면 다시 그리기', ms.panels, `열린 창 ${[...panels].filter(p => p.isConnected).length}개`],
+        ['상태창 화면 다시 그리기', ms.panels, `그리는 창 ${perPanel.length}개${perPanel.length ? '' : ' (접어 둔 미니바는 안 그려요)'}`],
         ...perPanel.map(([k, v, note]) => [`　└ ${k}`, v, note]),
         ['채팅 위 띠(HUD)', ms.hud, ''],
         ['화면 번역', trMs, trN ? `사전 ${trN}개` : '안 씀'],

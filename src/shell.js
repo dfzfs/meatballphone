@@ -349,7 +349,7 @@ async function onPanelAction(el, act, arg, btn) {
                 return openSheet(tab0, { full: true });
             }
             const on = !dlg.classList.contains('ss-full');
-            dlg.classList.toggle('ss-full', on);
+            dlg.classList.toggle('ss-full', on); syncFullOpen();
             settings().sheetFull = on; saveSettings();
             return renderPanel(el);
         }
@@ -416,9 +416,11 @@ export async function openSheet(tab, opt = {}) {
     el._ss.full = !!full;
     panels.add(el);
     renderPanel(el);
-    await popup(el, { large: true, full });
-    panels.delete(el);
+    setTimeout(syncFullOpen, 0); setTimeout(syncFullOpen, 250); // 창이 뜬 뒤 (전체화면이면 미니바를 가린다)
+    try { await popup(el, { large: true, full }); } finally { panels.delete(el); setTimeout(syncFullOpen, 0); setTimeout(syncFullOpen, 300); }
 }
+// 전체화면 상태창이 떠 있는 동안에는 미니바(사이드)를 숨긴다 — 전체화면 위로 미니바가 남아 보였다. 닫으면 다시 보인다 (설정은 안 건드림)
+export function syncFullOpen() { try { document.body.classList.toggle('ss-fullopen', [...document.querySelectorAll('dialog[open] .ss-panel-pop')].some(p => p.closest('dialog').classList.contains('ss-full'))); } catch (e) { ssErr(LOG, 'fullopen', e); } }
 app.openSheet = (tab) => {
     const el = [...panels].find(p => p.isConnected && p.classList.contains('ss-panel-pop') && p.closest('dialog[open]') && p._ss?.mode === 'view' && !p._ss.rollOnly);
     if (!el) return openSheet(tab);

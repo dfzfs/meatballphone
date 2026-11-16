@@ -132,3 +132,6 @@ dialog.popup.ss-dlg .popup-controls .menu_button.popup-button-ok { background: v
 @media (prefers-reduced-motion: reduce) { .ss-scope *, .ss-scope { animation: none !important; transition: none !important; } }
 /* v2.8: 넓은 화면에서 미니창이 떠 있을 때도 손잡이를 보인다 (예전엔 미니 상태에서 손잡이가 사라져 「어디 갔지?」가 됐음) — 미니창 왼쪽 위에 붙여 둔다 */
 @media (min-width: 701px) { .ss-side[data-state="mini"] .ss-side-handle { display: block; right: 232px; top: 14px; height: 44px; } }
+
+/* 전체화면 상태창이 떠 있는 동안에는 미니바(사이드)를 숨긴다 (shell.js syncFullOpen) */
+body.ss-fullopen #ss-side { display: none !important; }

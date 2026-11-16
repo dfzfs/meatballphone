@@ -27,7 +27,7 @@ try {
         await page.evaluate(async () => {
             const core = await import('/ext/src/core.js'); const shell = await import('/ext/src/shell.js'); const hp = await import('/ext/src/hompy.js'); const wait = (ms) => new Promise(r => setTimeout(r, ms));
             await window.__addUser('hi'); await window.__addAI('s\n<meatball>\naff: Mira +5\naff: Leon +30\n</meatball>'); await wait(300);
-            Object.assign(core.settings(), { hpSkin: 'clean' }); hp.applyRetro(); hp._decoMode(true);
+            Object.assign(core.settings(), { hpSkin: 'clean', hompyFull: true, hpSkinHud: true }); hp.applyRetro(); // v2.8: 둘 다 기본 끔으로 나가므로 여기서 켠다 hp._decoMode(true);
             window.__autoPopup = null; shell.openSheet('home', { full: true }); await wait(400);
             const d = document.querySelector('dialog'); d.classList.add('ss-dlg', 'ss-full', 'ss-scope'); d.style.cssText = 'position:fixed;inset:0;width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;padding:0;border:0;overflow:auto;';
             window.__hp = { core, shell, hp, wait, S: core.settings(), el: () => [...shell.panels].find(p => p.isConnected && p.querySelector('.ss-hompy')), re: async () => { hp.applyRetro(); shell.rerenderPanels(true); await wait(160); } };
