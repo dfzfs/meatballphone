@@ -359,7 +359,7 @@ async function onPanelAction(el, act, arg, btn) {
             settings().sheetFull = on; saveSettings();
             return renderPanel(el);
         }
-        default: { const fn = ACTIONS[act] ?? MANAGE_ACTIONS[act]; if (fn) return fn(el, arg, btn, s); }
+        default: { const fn = ACTIONS[act] ?? MANAGE_ACTIONS[act] ?? app.extraActions?.[act]; if (fn) return fn(el, arg, btn, s); } // app.extraActions: 켰을 때만 불러오는 화면의 단추 (minihome_ui.js)
     }
 }
 function bindPanel(el) {

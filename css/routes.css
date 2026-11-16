@@ -125,3 +125,12 @@ body.ss-drunk .ss-root .ss-card { filter: blur(.4px); }
 @media (prefers-reduced-motion: reduce) { .ss-scope .ss-mg-chev { transition: none; } }
 /* 관리 탭 선택 기능 스위치의 그림 글자 아이콘 (이야기 장치) */
 .ss-scope .ss-mod > i.ss-emo { font-style: normal; width: 1.3em; text-align: center; }
+
+/* 🌊 파도타기 · 📝 방명록 팝업 (minihome_ui.js) */
+.ss-wave .ss-wv-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; } .ss-wave .ss-wv-head h3 { margin: 0; }
+.ss-wave .ss-wv-il { margin: 2px 0 0; color: var(--ss-acc); } .ss-wave .ss-wv-il small { color: var(--ss-dim); }
+.ss-wave .ss-wv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 12px; }
+.ss-wave .ss-wv-kv { display: flex; flex-direction: column; min-width: 0; } .ss-wave .ss-wv-kv small { color: var(--ss-dim); } .ss-wave .ss-wv-kv span { overflow-wrap: anywhere; }
+.ss-wave .ss-wv-note { padding: 8px 10px; margin: 6px 0; border-radius: var(--ss-r, 10px); box-shadow: inset 0 0 0 1px var(--ss-line); background: var(--ss-surface); }
+.ss-wave .ss-wv-note p { margin: 4px 0; } .ss-wave .ss-wv-note p.re { color: var(--ss-dim); }
+.ss-wv-foot { margin-top: 6px; } .ss-wv-new { color: var(--ss-acc); }

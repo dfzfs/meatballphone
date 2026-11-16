@@ -836,12 +836,12 @@ function onCharRendered(id, type) {
 }
 // 🧩 덧붙이는 기능 · 미니홈피 자료 (src/addons.js · src/minihome.js): 켠 기능이 있거나 이 채팅에 그 자료가 있을 때만 불러온다.
 // 아무것도 안 켰으면 파일을 읽지도 않는다 → 다른 파일에 건 `app.이름?.()` 은 전부 없는 것으로 넘어가 원래와 똑같이 동작한다
-const ADDON_KEYS = ['gearOn', 'ambientOn', 'giftTaste', 'promiseClock', 'mergeContact', 'guestbook'];
+const ADDON_KEYS = ['gearOn', 'ambientOn', 'giftTaste', 'promiseClock', 'mergeContact', 'guestbook', 'hpWave'];
 let addonsLoading = null;
 function loadAddons(force = false) {
     if (addonsLoading) return addonsLoading;
     if (!force) { const set = settings(); let m = null; try { m = getMeta(); } catch { m = null; } if (!ADDON_KEYS.some(k => set[k] === true) && !(m && (m.gear || m.roomTell || m.ctLore || m.gbook))) return null; }
-    addonsLoading = Promise.all([import('./src/minihome.js'), import('./src/addons.js')]).then(([a, b]) => { a.initMinihome(); b.initAddons(); try { refreshNow(); } catch (e) { ssWarn(LOG, 'addons refresh', e); } }).catch((e) => { addonsLoading = null; ssWarn(LOG, 'addons', e); });
+    addonsLoading = Promise.all([import('./src/minihome.js'), import('./src/addons.js'), import('./src/minihome_ui.js')]).then(([a, b]) => { a.initMinihome(); b.initAddons(); try { refreshNow(); app.rerenderPanels?.(true); } catch (e) { ssWarn(LOG, 'addons refresh', e); } }).catch((e) => { addonsLoading = null; ssWarn(LOG, 'addons', e); });
     return addonsLoading;
 }
 app.loadAddons = loadAddons;
