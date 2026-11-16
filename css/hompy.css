@@ -984,3 +984,17 @@ body.ss-skin-dot .ss-ctfloat { border-radius: 8px; border-width: 2px; box-shadow
     .ss-hompy .ss-hp-homewrap.has > .ss-hp-homebody { max-height: 30%; } .ss-hompy .ss-hp-homewrap.has > .ss-hp-main { min-height: 68%; }
 }
 @media (min-width: 641px) { .ss-hompy .ss-hp-homewrap.has > .ss-hp-homebody { max-height: 36%; } .ss-hompy .ss-hp-homewrap.has > .ss-hp-main { min-height: 62%; } .ss-hompy .ss-hp-homewrap.has { gap: 6px; } }
+/* ───── 홈(넓은 화면): 사진은 폭을 줄여 한쪽에 크게(세로로 꽉), 그 옆에 앱 카드 — 아이콘 · 이름 · 값이 보이는 카드가 두 줄씩, 여섯 개쯤 보이고 나머지는 그 안에서 스크롤 ───── */
+@media (min-width: 900px) {
+    .ss-hompy .ss-hp-homewrap.has, .ss-hompy .ss-hp-homewrap.has.flip { display: grid !important; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 12px; height: 100%; align-items: stretch; }
+    .ss-hompy .ss-hp-homewrap.has > .ss-hp-main { order: 0; grid-column: 1; grid-row: 1; min-height: 0 !important; height: 100%; width: 100%; margin: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .ss-hompy .ss-hp-homewrap.has:not(.flip) > .ss-hp-main { grid-column: 2; } .ss-hompy .ss-hp-homewrap.has:not(.flip) { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); }
+    .ss-hompy .ss-hp-homewrap.has > .ss-hp-homebody { order: 0; grid-column: 2; grid-row: 1; max-height: none !important; height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding-right: 2px; }
+    .ss-hompy .ss-hp-homewrap.has:not(.flip) > .ss-hp-homebody { grid-column: 1; }
+    .ss-hompy .ss-hp-homewrap.has .ss-fb-grid:not(.off) { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+    .ss-hompy .ss-hp-homewrap.has .ss-fb-grid:not(.off) > .ss-fb-card { display: grid; grid-template-columns: 2.4em minmax(0, 1fr); grid-template-rows: auto auto; column-gap: .55em; row-gap: 0; align-items: center; justify-items: start; text-align: left; padding: .55em .6em; min-height: 3.6em; align-content: center; }
+    .ss-hompy .ss-hp-homewrap.has .ss-fb-grid:not(.off) > .ss-fb-card > i { grid-row: 1 / 3; width: 2.4em; height: 2.4em; }
+    .ss-hompy .ss-hp-homewrap.has .ss-fb-grid:not(.off) > .ss-fb-card > b { grid-column: 2; font-size: .9em !important; }
+    .ss-hompy .ss-hp-homewrap.has .ss-fb-grid:not(.off) > .ss-fb-card > em { grid-column: 2; font-size: .8em !important; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .ss-hompy .ss-hp-homewrap.has .ss-fb-card.edit .ss-fb-mv { grid-column: 1 / 3; justify-self: end; }
+}
