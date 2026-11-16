@@ -942,3 +942,18 @@ body.ss-retro .ss-toasts :is(.ss-t-play, .ss-mini-play) { background: var(--tp-a
     .ss-hompy .ss-hp-homewrap.has > .ss-hp-main { flex: 1 1 0; min-height: 58%; }
     .ss-hompy .ss-hp-homewrap.has .ss-fb { margin-top: 2px; gap: 2px; } .ss-hompy .ss-hp-homewrap.has .ss-fb-more > summary { padding: 2px 10px; }
 }
+
+/* ───── 💬 옆에 띄운 연락 창 (v2.8) ───── */
+.ss-ctfloat { position: fixed; z-index: 3200; right: 18px; bottom: 18px; width: min(360px, calc(100vw - 16px)); height: min(540px, calc(100dvh - 90px)); display: flex; flex-direction: column; border-radius: 16px; overflow: hidden; background: var(--tp-paper, var(--ss-bg, #fff)); color: var(--tp-ink, var(--ss-ink, #111)); border: 1px solid var(--tp-ol, var(--ss-line, #ddd)); box-shadow: 0 14px 44px rgba(20, 22, 30, .22); font-family: var(--tp-font, inherit); }
+body.ss-skin-dot .ss-ctfloat { border-radius: 8px; border-width: 2px; box-shadow: 4px 4px 0 var(--tp-strip, rgba(0, 0, 0, .12)); }
+.ss-ctf-head { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; cursor: grab; user-select: none; touch-action: none; background: var(--tp-strip, var(--ss-surface, #f4f4f6)); border-bottom: 1px solid var(--tp-ol, var(--ss-line, #ddd)); } .ss-ctf-head:active { cursor: grabbing; }
+.ss-ctf-head > i { color: var(--tp-acc, inherit); } .ss-ctf-head > b { flex: 1 1 auto; font-weight: 800; } .ss-ctf-head .ss-ib { width: 30px; height: 30px; }
+.ss-ctfloat > .ss-panel-float { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.ss-panel-float > .ss-root { border: 0 !important; border-radius: 0 !important; box-shadow: none !important; padding: 8px 10px 12px !important; min-height: 100%; box-sizing: border-box; background: transparent; }
+.ss-panel-float > .ss-root > :is(.ss-head, .ss-groups, .ss-tabs, .ss-toolrow, .ss-pausebar, .ss-instruct), .ss-panel-float .ss-body > :is(.ss-partbar, .ss-relshow) { display: none !important; }
+.ss-panel-float .ss-body { padding: 0 !important; }
+@media (max-width: 640px) { .ss-ctfloat { left: 0 !important; right: 0 !important; top: auto !important; bottom: 0 !important; width: 100vw; height: min(62dvh, 560px); border-radius: 18px 18px 0 0; padding-bottom: env(safe-area-inset-bottom); } .ss-ctf-head { cursor: default; } }
+@media (hover: none) and (pointer: coarse) { .ss-ctf-head .ss-ib { width: 44px; height: 44px; } }
+
+/* 꾸미기(간단히): 지금 고른 모양에 테두리 */
+.ss-hp-presets > button.on { border-color: var(--hp-acc, #d6547e) !important; box-shadow: 0 0 0 2px color-mix(in srgb, var(--hp-acc, #d6547e) 25%, transparent); } .ss-hp-pick h4 small, .ss-hp-deco h4 small { font-weight: 400; opacity: .7; margin-left: 6px; }

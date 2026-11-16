@@ -125,6 +125,7 @@ export function renderPanel(el) {
 function renderPanel0(el) {
     const st = el._ss ??= { tab: 'home', mode: 'view', work: null, ui: {} };
     const inSide = el.classList.contains('ss-panel-side');
+    const isFloat = el.classList.contains('ss-panel-float'); // 💬 옆에 띄운 연락 창: 틀(머리 · 메뉴 · 탭 · 도구) 없이 연락 내용만
     if (!isActive()) { el.innerHTML = `<div class="ss-root ss-scope"><div class="ss-empty"><i class="fa-solid fa-power-off"></i><b>이 채팅에서는 상태창이 꺼져 있어요</b><p>확장 설정에서 「이 채팅에서 켜기」를 누르세요.</p></div></div>`; bindPanel(el); return; }
     if (!ready() || !app.current) {
         const pack = cardPack(), cr = carryFor();
@@ -175,7 +176,8 @@ function renderPanel0(el) {
     const hmod = tab === 'home' ? 'core' : MOD[mod] ? mod : null;
     const hidden = !!(hmod && isHidden(hmod, meta));
     const hideBtn = hmod && st.mode !== 'edit' && st.mode !== 'json' ? `<button class="ss-tool ${hidden ? 'on' : ''}" data-act="hidetog" title="${hidden ? 'AI에게 다시 보내기' : '가리기 — AI에게 이 칸을 안 보내요 (다시 켤 때까지)'}"><i class="fa-solid ${hidden ? 'fa-eye-slash' : 'fa-eye'}"></i><span>${hidden ? 'AI에게 숨김' : 'AI에게 숨기기'}</span></button>` : '';
-    const tools = editable && data && st.mode !== 'edit' && st.mode !== 'json' ? `<div class="ss-tools">${favBtn}${hideBtn}
+    const floatBtn = tab === 'contact' && !isFloat ? `<button class="ss-tool ${settings().ctFloat ? 'on' : ''}" data-act="ctfloat" title="연락을 작은 창으로 옆에 띄워요 — 다른 탭을 보면서 연락할 수 있어요"><i class="fa-solid fa-up-right-from-square"></i><span>${settings().ctFloat ? '띄운 창 닫기' : '옆에 띄우기'}</span></button>` : '';
+    const tools = editable && data && st.mode !== 'edit' && st.mode !== 'json' ? `<div class="ss-tools">${floatBtn}${favBtn}${hideBtn}
             <button class="ss-tool ${st.ui.instructOpen ? 'on' : ''}" data-act="instructtog" title="AI에게 이 칸을 고치라고 지시 (AI 1회)"><i class="fa-solid fa-wand-magic-sparkles"></i><span>AI로 수정</span></button>
             <button class="ss-tool" data-act="edit" title="직접 편집"><i class="fa-solid fa-pen"></i><span>편집</span></button>
             <details class="ss-tool-more"><summary class="ss-tool" title="더보기 — 다시 생성 · JSON 편집 · 전부 지우기"><i class="fa-solid fa-ellipsis"></i><span>더보기</span></summary><div class="ss-tool-pop">
@@ -190,7 +192,7 @@ function renderPanel0(el) {
     const nNew = unreadNotes(meta);
     // 조각으로 만들어 두고 → 평소엔 그대로 이어 붙이고, 전체화면(미니홈피)일 땐 수첩 틀 안에 넣는다 (hompy.js)
     const dlg0 = el.closest('dialog'), isFull = dlg0 ? dlg0.classList.contains('ss-full') : !!st.full; // 창이 뜨기 전(첫 그리기)엔 여는 쪽이 적어 둔 값으로
-    const hp = !inSide && isFull && settings().hompyFull !== false;
+    const hp = !inSide && !isFloat && isFull && settings().hompyFull !== false;
     // 📒 미니홈피: 한 묶음의 칸들을 탭으로 나누지 않고 작은 창으로 한 화면에 (창 제목을 누르면 그 칸만 크게 — 편집 · AI로 수정은 거기서)
     const gTabs = groupTabs(g, meta), minorSet = hpMinor(), minors = hp ? gTabs.filter(t => minorSet.includes(t)) : [];
     const pack = minors.length >= 2, navTabs = pack ? gTabs.filter(t => !minors.includes(t)) : gTabs; // 「모음」으로 합쳐진 탭은 탭 줄에서 빠진다
@@ -234,6 +236,7 @@ function renderPanel0(el) {
         : `<div class="${rootCls}">${headHTML}${pauseHTML}${groupsHTML}${restHTML}</div>`;
     if (!merged && st.mode !== 'edit' && st.mode !== 'json' && tab !== 'manage' && (pseudo || data)) applyParts(el, tab); // 👁 보일 것 (v2.7.19)
     labelIcons(el);
+    if (!isFloat) queueMicrotask(placeCtFloat);
     if (hp) fitHompy(el); // 📐 미니홈피: 홈 쪽 · 프로필 쪽을 한 화면에 맞춘다
     if (st.mode === 'edit') bindEditor(el.querySelector('.ss-editor'), st.work, EDIT[mod], () => {
         const box = el.querySelector('.ss-editor'); const all0 = [...box.querySelectorAll('details')]; const open = all0.filter(d => d.open).map(d => all0.indexOf(d));
@@ -278,6 +281,7 @@ async function onPanelAction(el, act, arg, btn) {
         case 'inbox': return app.openInbox?.();
         case 'search': return app.openSearch?.();
         case 'help': return app.openHelp?.();
+        case 'ctfloat': settings().ctFloat = !settings().ctFloat; saveSettings(); placeCtFloat(); return rerenderPanels(true);
         case 'cardload': return loadFromCard(setBase, false);
         case 'carrystart': return startCarry(setBase);
         case 'filerestore': return restoreFile(setBase);
@@ -551,7 +555,34 @@ function onSide(e) {
     if (a === 'mindfreq' || a === 'mindmode') { saveSettings(); app.refreshNow?.(); app.rerenderPanels?.(true); const body = document.querySelector('#ss-side .ss-mini-body'); if (body) setHTML(body, sideMiniHTML()); return; }
     saveSettings(); ensureUI();
 }
+// 💬 연락을 옆에 띄우기 (v2.8): 작은 창 하나에 연락 탭만 — 전체화면에서 다른 탭을 보면서도 연락할 수 있다.
+//   전체화면 창(<dialog>)은 화면 맨 위 층이라, 그 안에 붙여야 위에 보인다 → 열려 있는 상태창 dialog가 있으면 그 안에, 없으면 body에.
+//   머리를 끌어서 옮길 수 있고(자리는 기억), 폰에서는 아래에 붙는 반쯤 높이의 창.
+let ctFloat = null;
+export function placeCtFloat() {
+    try {
+        const on = settings().enabled && settings().ctFloat === true && isActive() && ready() && !!app.current && modOn('contact') && !!app.current.state.data.contact;
+        if (!on) { if (ctFloat) { panels.delete(ctFloat.querySelector('.ss-panel')); ctFloat.remove(); ctFloat = null; } return; }
+        const host = [...document.querySelectorAll('dialog[open]')].filter(d => d.querySelector('.ss-panel-pop')).pop() ?? document.body;
+        if (!ctFloat) {
+            ctFloat = h(`<div id="ss-ctfloat" class="ss-ctfloat ss-scope"><div class="ss-ctf-head" title="끌어서 옮기기"><i class="fa-solid fa-comment-dots"></i><b>연락</b><button class="ss-ib" data-ctf="close" title="띄운 창 닫기"><i class="fa-solid fa-xmark"></i></button></div><div class="ss-panel ss-panel-float"></div></div>`);
+            const pnl = ctFloat.querySelector('.ss-panel'); pnl._ss = { tab: 'contact', mode: 'view', work: null, ui: {} }; panels.add(pnl); bindPanel(pnl);
+            ctFloat.querySelector('[data-ctf="close"]').addEventListener('click', (e) => { e.stopPropagation(); settings().ctFloat = false; saveSettings(); placeCtFloat(); rerenderPanels(true); });
+            // 끌어서 옮기기
+            const head = ctFloat.querySelector('.ss-ctf-head'); let drag = null;
+            head.addEventListener('pointerdown', (e) => { if (e.target.closest('button') || matchMedia('(max-width: 640px)').matches) return; const r = ctFloat.getBoundingClientRect(); drag = { dx: e.clientX - r.left, dy: e.clientY - r.top }; head.setPointerCapture?.(e.pointerId); e.preventDefault(); });
+            head.addEventListener('pointermove', (e) => { if (!drag) return; const w = ctFloat.offsetWidth, hh = ctFloat.offsetHeight, x = Math.max(4, Math.min(innerWidth - w - 4, e.clientX - drag.dx)), y = Math.max(4, Math.min(innerHeight - Math.min(hh, 60) - 4, e.clientY - drag.dy)); ctFloat.style.left = `${x}px`; ctFloat.style.top = `${y}px`; ctFloat.style.right = 'auto'; ctFloat.style.bottom = 'auto'; });
+            const drop = () => { if (!drag) return; drag = null; const r = ctFloat.getBoundingClientRect(); settings().ctFloatPos = { x: Math.round(r.left), y: Math.round(r.top) }; saveSettings(); };
+            head.addEventListener('pointerup', drop); head.addEventListener('pointercancel', drop);
+        }
+        if (ctFloat.parentElement !== host) host.appendChild(ctFloat);
+        const pos = settings().ctFloatPos; if (pos && Number.isFinite(pos.x) && Number.isFinite(pos.y) && !matchMedia('(max-width: 640px)').matches) { ctFloat.style.left = `${Math.max(4, Math.min(innerWidth - 120, pos.x))}px`; ctFloat.style.top = `${Math.max(4, Math.min(innerHeight - 80, pos.y))}px`; ctFloat.style.right = 'auto'; ctFloat.style.bottom = 'auto'; }
+        const pnl = ctFloat.querySelector('.ss-panel'); if (pnl._ss.tab !== 'contact') { pnl._ss.tab = 'contact'; pnl._ss.mode = 'view'; }
+        if (!pnl.firstElementChild) renderPanel(pnl);
+    } catch (e) { ssErr(LOG, 'ctfloat', e); }
+}
 export function ensureUI() {
+    placeCtFloat();
     const set = settings();
     applyTheme();
     renderHud();

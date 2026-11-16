@@ -250,9 +250,10 @@ async function openDeco(redraw, focus = '') {
         const head = `<div class="ss-hp-dhead"><h3>꾸미기</h3>${seg('mode', decoFull ? '1' : '0', [['0', '간단히'], ['1', '자세히']])}${undoSnap ? '<button class="ss-btn sm ghost" data-choice="undo:1"><i class="fa-solid fa-rotate-left"></i> 방금 것 되돌리기</button>' : ''}</div>
             ${bound ? `<p class="ss-hp-bound"><i class="fa-solid fa-link"></i> 이 채팅은 꾸밈 세트 <b>「${esc(bound.name)}」</b>를 써요 — 여기서 고치면 그 세트가 바뀌어요. <button class="ss-btn sm ghost" data-choice="unbind:1">풀기</button></p>` : ''}`;
         const pv = (p) => `<span class="ss-hp-pv ${p.hpSkin} ${p.hpDark === 'dark' ? 'dark' : ''}" style="--pv:hsl(${p.hpTheme === 'c' ? p.hpHue : (THEMES[p.hpTheme] ?? THEMES[0])[1]} ${Math.round(62 * (p.hpTheme === 'c' ? p.hpSat : 1))}% 58%)"><i></i><i></i><i></i></span>`;
-        const simple = `<h4>한 번에 고르기</h4><div class="ss-hp-presets">${PRESETS.map(([n, p], i) => `<button data-choice="preset:${i}">${pv(p)}${n}</button>`).join('')}</div>
-            <h4>분위기 세트 <small>창 제목 · 메뉴 이름도 분위기에 맞게 바뀌어요</small></h4><div class="ss-hp-presets">${Object.entries(VIBES).map(([key, [n, p]]) => `<button data-choice="vibe:${key}">${pv(p)}${n}</button>`).join('')}</div>
-            <h4>모양 · 색</h4>${row('모양', seg('skin', skinOf(), Object.entries(SKINS)))}${colorRows}${sizeRow}`;
+        // 간단히: 「한 번에 고르기 · 분위기 세트 · 모양」 세 군데가 같은 걸 다르게 불러 헷갈렸다 → 순서대로 하나씩만: ① 모양 ② 밝기 · 색 ③ 글씨
+        const simple = `<h4>① 모양 <small>전체 생김새를 골라요</small></h4><div class="ss-hp-presets">${Object.entries(SKINS).map(([k, n]) => `<button class="${skinOf() === k ? 'on' : ''}" data-choice="skin:${k}">${pv({ hpSkin: k, hpDark: skinOf() === k ? (d.hpDark ?? SKIN_DEF[k][1]) : SKIN_DEF[k][1], hpTheme: ti < 0 ? 0 : ti })}${n}</button>`).join('')}</div>
+            <h4>② 밝기 · 색</h4>${colorRows}
+            <h4>③ 글씨</h4>${sizeRow}`;
         const full = `${fold('look', '모양 · 색', `${row('모양', seg('skin', skinOf(), Object.entries(SKINS)))}${colorRows}
                 ${row('직접 고르기', `<label class="ss-hp-range"><small>색상</small><input type="range" min="0" max="360" step="1" value="${hue}" data-hpr="hue" class="hue"></label><label class="ss-hp-range"><small>진하기</small><input type="range" min="0" max="1.2" step="0.05" value="${sat}" data-hpr="sat"></label>`)}
                 ${row('글자 · 바탕 · 카드', ['Ink:글자', 'Bg:바탕', 'Paper:카드'].map(x => x.split(':')).map(([k, n]) => `<label class="ss-hp-color"><input type="color" data-hpc="hp${k}" value="${hex(d['hp' + k]) || (k === 'Ink' ? '#24262b' : '#ffffff')}"><small>${n}${hex(d['hp' + k]) ? ' ✓' : ''}</small></label>`).join('') + (hex(d.hpInk) || hex(d.hpBg) || hex(d.hpPaper) ? '<button class="ss-btn sm ghost" data-choice="colreset:1">기본색으로</button>' : ''))}
@@ -370,7 +371,7 @@ function sheetHTML() {
         body = `<div class="ss-hp-shead">${B('partback:1', '‹ 전체', false, 'back')}<b>「${PARTS[ED.part][0]}」만 꾸미기</b>${d.hpParts?.[ED.part] ? B('pcl:*', '이 부분 기본으로', false, 'txt') : ''}</div>
             ${row('색', col('ink', '글자') + col('bg', '바탕') + col('bd', '테두리'))}${row('테두리', rng('bw', '굵기', 0, 4, 0.5, 1) + rng('r', '둥글기', 0, 28, 1, 12))}${row('글씨', rng('fs', '크기', 0.7, 1.6, 0.05, 1))}`;
     } else if (ED.tab === 'look') {
-        body = `<div class="ss-hp-strip">${Object.entries(SKINS).map(([k, n]) => pv({ hpSkin: k, hpDark: SKIN_DEF[k][1], hpTheme: ti < 0 ? 0 : ti }, n, `skin:${k}`, skinOf() === k)).join('')}<i class="sep"></i>${Object.entries(VIBES).filter(([k]) => k !== 'scifi').map(([k, [n, p]]) => pv(p, n, `vibe:${k}`, false)).join('')}</div>`; // 「SF · 사이버」는 바로 앞의 「사이버」 모양과 겹쳐 보여서 이 줄에서 뺌 (채팅에 맞춘 분위기 추천에는 그대로 있음)
+        body = `<div class="ss-hp-strip">${Object.entries(SKINS).map(([k, n]) => pv({ hpSkin: k, hpDark: SKIN_DEF[k][1], hpTheme: ti < 0 ? 0 : ti }, n, `skin:${k}`, skinOf() === k)).join('')}</div>`; // 분위기 세트(노트 · 신문, 학원 · 로맨스 등)는 이 줄에서 뺌 — 모양 다섯 개만 (채팅에 맞춘 분위기 추천은 그대로)
     } else if (ED.tab === 'wall') {
         const ok = ['clean', 'phone'].includes(skinOf()), cur = wallOf();
         body = ok ? `<div class="ss-hp-strip walls">${B('wall:', '<span class="ss-hp-wp none"></span>없음', !cur && !set.hpBgImg, 'card')}${Object.entries(WALLS).map(([k, [n]]) => B(`wall:${k}`, `<span class="ss-hp-wp ${k}"></span>${n}`, cur === k, 'card')).join('')}<i class="sep"></i>${B('bgimg:add', `<span class="ss-hp-wp mine"${set.hpBgImg ? ` style="background-image:url('${esc(set.hpBgImg)}')"` : ''}><i class="fa-solid fa-image"></i></span>내 사진`, !!set.hpBgImg, 'card')}</div>`
