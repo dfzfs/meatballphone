@@ -320,6 +320,7 @@ const MG_DEF = {};
 const mgIsOpen = (id) => (settings().mgOpen ?? MG_DEF)[id] === true;
 const fold = (id, icon, name, sum, inner) => { const o = mgIsOpen(id); return `<section class="ss-sec ss-fold ${o ? 'open' : ''}" data-fold="${id}"><button type="button" class="ss-mg-h" data-act="mgfold" data-arg="${id}" aria-expanded="${o}">${icon ? `<i class="fa-solid ${icon}"></i>` : ''}<b>${name}</b><small>${sum}</small><i class="fa-solid fa-chevron-down ss-mg-chev"></i></button><div class="ss-mg-b"${o ? '' : ' hidden'}>${inner}</div></section>`; };
 // 「쓸 기능」 머리줄의 한 번에 고르기 — 처음 만들 때(만들기 창)와 같은 세 단추. 끈 칸의 내용은 지워지지 않는다
+const FLAGSET_BTNS = '<button class="ss-btn sm ghost" data-act="flagset" data-arg="rec" title="처음 값으로 — 공략만 켜요">처음 값</button><button class="ss-btn sm ghost" data-act="flagset" data-arg="all" title="선택 기능을 전부 켜요 — 켠 만큼 토큰을 써요">전부</button><button class="ss-btn sm ghost" data-act="flagset" data-arg="none">전부 끄기</button>';
 const MODSET_BTNS = '<button class="ss-btn sm ghost" data-act="modset" data-arg="rec" title="꼭 필요한 6칸(프로필 · 수치 · 재산 · 관계 · 지도 · 달력)만 켜요">추천만</button><button class="ss-btn sm ghost" data-act="modset" data-arg="all">전부</button><button class="ss-btn sm ghost" data-act="modset" data-arg="none">전부 끄기</button>';
 let clearedAdj = null; // 방금 「싹 지운」 편집 기록 (이 채팅 · 새로 고침 전까지만 되살릴 수 있다)
 const chatKey = () => { try { const c = ctx(); return `${c.groupId ?? ''}|${c.getCurrentChatId?.() ?? ''}`; } catch { return ''; } };
@@ -353,6 +354,8 @@ const EXTRA_GROUPS = [
     ['ledger', '장부 · 약속', ['ledgerKnow', 'ledgerPromise', 'promiseClock']],
     ['world', '세계 · 기록', ['ambientOn', 'ambientShop', 'trendMore']],
 ].map(([id, name, keys]) => [id, name, keys.map(k => FLAG_BY[k]).filter(Boolean)]);
+// 부가 기능 스위치를 한 번에 (확장 설정 창의 같은 체크 칸도 맞춘다): 'all' 전부 켬 · 'none' 전부 끔 · 'rec' 처음 값
+function setFlags(how) { const st = settings(); for (const k of FLAG_KEYS) { const v = how === 'all' ? true : how === 'rec' ? !!FLAG_BY[k][4] : false; st[k] = v; const box = document.querySelector(`#ss-settings input[data-s="${k}"]`); if (box) box.checked = v; } saveSettings(); try { app.storyChanged?.(); } catch { /* 화면 표시일 뿐 */ } }
 const flagOn = (st, [k, , , , defOn]) => (defOn ? st[k] !== false : st[k] === true);
 const flagList = (st, list) => `<div class="ss-mods">${list.map(f => { const [k, icon, name, desc] = f, o = flagOn(st, f); return `<label class="ss-mod ${o ? 'on' : ''}"><input type="checkbox" class="ss-switch" data-chg="setflag" data-arg="${k}" ${o ? 'checked' : ''}>${icon.startsWith('fa-') ? `<i class="fa-solid ${icon}"></i>` : `<i class="ss-emo">${icon}</i>`}<span><b>${esc(name)}</b><small>${esc(desc)}</small></span></label>`; }).join('')}</div>`;
 // 🧩 부가 기능 탭 (관리 옆): 켠 선택 기능의 「화면」만 묶음별로 모은다 — 켜고 끄기는 관리 › 쓸 기능 › 부가 기능. 묶음은 전부 접힌 채로 시작
@@ -389,7 +392,7 @@ export function manageHTML(s, ui = {}, extra = '') {
         ${mg('mods', 'fa-puzzle-piece', '쓸 기능', `${nOn}칸 켬`, `
         ${sec('쓸 기능 <small>끈 기능은 데이터는 남고 AI에게만 안 보내요</small>', GROUPS.filter(g => g.id !== 'manage').map(g => ({ ...g, tabs: g.tabs.filter(t => !PSEUDO.has(t) && MOD[TAB_MOD(t)]) })).filter(g => g.tabs.length).map(g => { const o = mgIsOpen(`mods-${g.id}`), ms = g.tabs.map(t => MOD[TAB_MOD(t)]), nOn = ms.filter(m => meta.mods?.[m.id] !== false && !(GLOBAL_OFF[m.id] && st[GLOBAL_OFF[m.id]] === false)).length; return `<div class="ss-modgrp ss-fold ${o ? 'open' : ''}"><button type="button" class="ss-mg-h" data-act="mgfold" data-arg="mods-${g.id}" aria-expanded="${o}"><b>${g.name}</b><small>${nOn}/${ms.length} 켬</small><i class="fa-solid fa-chevron-down ss-mg-chev"></i></button><div class="ss-mods"${o ? '' : ' hidden'}>${ms.map(m => { const gOff = GLOBAL_OFF[m.id] && st[GLOBAL_OFF[m.id]] === false; return `<label class="ss-mod ${meta.mods?.[m.id] === false || gOff ? '' : 'on'}" ${gOff ? 'title="확장 설정 › 기능 켜고 끄기에서 모든 채팅에 꺼 둔 칸이에요"' : ''}><input type="checkbox" class="ss-switch" data-chg="mod" data-arg="${m.id}" ${meta.mods?.[m.id] === false || gOff ? '' : 'checked'} ${gOff ? 'disabled' : ''}>
             <i class="fa-solid ${m.icon}"></i><span><b>${m.name}</b><small>${gOff ? '모든 채팅에서 꺼 둠 — 확장 설정 › 기능 켜고 끄기' : m.desc}</small></span>${gOff ? '' : s.data[m.id] ? '' : '<em>비어 있음</em>'}</label>`; }).join('')}</div></div>`; }).join(''), MODSET_BTNS)}
-        ${sec('부가 기능 <small>전부 선택 · 모든 채팅에 걸려요 (확장 설정의 같은 칸과 한 값) · 켠 것의 화면은 「부가 기능」 탭에</small>', EXTRA_GROUPS.map(([id, name, flags]) => { const o = mgIsOpen(`ex-${id}`), nOn = flags.filter(f => flagOn(st, f)).length; return `<div class="ss-modgrp ss-fold ${o ? 'open' : ''}"><button type="button" class="ss-mg-h" data-act="mgfold" data-arg="ex-${id}" aria-expanded="${o}"><b>${name}</b><small>${nOn}/${flags.length} 켬</small><i class="fa-solid fa-chevron-down ss-mg-chev"></i></button><div class="ss-mg-b"${o ? '' : ' hidden'}>${flagList(st, flags)}</div></div>`; }).join(''))}`)}
+        ${sec('부가 기능 <small>전부 선택 · 모든 채팅에 걸려요 (확장 설정의 같은 칸과 한 값) · 켠 것의 화면은 「부가 기능」 탭에</small>', EXTRA_GROUPS.map(([id, name, flags]) => { const o = mgIsOpen(`ex-${id}`), nOn = flags.filter(f => flagOn(st, f)).length; return `<div class="ss-modgrp ss-fold ${o ? 'open' : ''}"><button type="button" class="ss-mg-h" data-act="mgfold" data-arg="ex-${id}" aria-expanded="${o}"><b>${name}</b><small>${nOn}/${flags.length} 켬</small><i class="fa-solid fa-chevron-down ss-mg-chev"></i></button><div class="ss-mg-b"${o ? '' : ' hidden'}>${flagList(st, flags)}</div></div>`; }).join(''), FLAGSET_BTNS)}`)}
         ${mg('save', 'fa-floppy-disk', '저장 · 되돌리기', `세이브 ${meta.saves?.length ?? 0} · ${meta.lastBackup ? `백업 ${new Date(meta.lastBackup).toLocaleDateString('ko-KR')}` : '백업 없음'}`, `
         ${sec('되돌리기', `<div class="ss-row-btns"><button class="ss-btn" data-act="undo" ${meta.adjust?.length ? '' : 'disabled'}><i class="fa-solid fa-rotate-left"></i> 마지막 편집 되돌리기</button><button class="ss-btn ghost" data-act="undoall" ${meta.adjust?.length ? '' : 'disabled'} title="편집 기록을 한 번에 전부 지워요 — 직접 한 편집이 모두 없던 일이 돼요"><i class="fa-solid fa-trash-can"></i> 편집 기록 싹 지우기</button>${clearedAdj && clearedAdj.key === chatKey() ? `<button class="ss-btn pri" data-act="undoallback"><i class="fa-solid fa-clock-rotate-left"></i> 방금 지운 기록 되살리기 (${clearedAdj.list.length}개)</button>` : ''}</div><p class="ss-hint">${meta.adjust?.length ? `마지막: ${esc(meta.adjust.at(-1).label || '(이름 없는 편집)')}` : '되돌릴 편집이 없어요.'} · 상태창에서 직접 한 편집·구매·연락만 되돌려요 (AI 답의 변화는 ✏️ 칩으로).</p><details class="ss-more ss-undolist" ${ui?.undoOpen ? 'open' : ''}><summary>편집 기록 — 골라서 지우기 <small>(최근 ${Math.min(40, (meta.adjust ?? []).length)}개 · 버튼 하나 누른 것까지 모두)</small></summary>${(meta.adjust ?? []).slice(-40).reverse().map(a => `<div class="ss-undo-row"><span>${esc(short(adjName(a), 60))}${a.silent || !a.label ? ' <small class="ss-dim">(조용한 기록)</small>' : ''}</span><small class="ss-dim">${a.at}번 뒤</small><button class="ss-btn sm ghost" data-act="undoat" data-arg="${a.t}" title="이 기록 하나만 지우기 — 그 편집이 없던 일이 돼요"><i class="fa-solid fa-trash-can"></i></button></div>`).join('') || '<p class="ss-hint">지울 기록이 없어요.</p>'}<p class="ss-hint">지우면 그 편집이 <b>없던 일</b>이 돼요 (상태 · 알림 · AI에게 가는 「방금 한 일」 줄까지 · 찌꺼기 없이). 그 뒤의 기록은 그대로 다시 계산돼요. AI 답에서 바뀐 건 여기 없어요 — 그 답 밑 칩의 ✏️로 고쳐요. 칸 하나를 통째로 비우려면 그 탭 위의 🧹.</p></details>`)}
         ${sec('<i class="fa-solid fa-floppy-disk"></i> 세이브', slotsHTML(meta))}
@@ -513,8 +516,16 @@ export const VIEW_ACTIONS = {
     modset: async (el, arg) => { // 쓸 기능 한 번에: 추천만 · 전부 · 전부 끄기
         const meta = getMeta(true); meta.mods ??= {};
         for (const id of MOD_IDS) meta.mods[id] = arg === 'rec' ? REC_MODS.includes(id) : arg === 'all';
-        await saveMeta(); app.refreshNow(); app.renderPanel(el);
-        toastr.info(arg === 'rec' ? '추천 6칸만 켰어요. 끈 칸의 내용은 그대로 남아 있어요.' : arg === 'all' ? '전부 켰어요.' : '전부 껐어요. 내용은 그대로 남아 있어요.', TITLE);
+        // 🧩 부가 기능 스위치도 같이: 전부 끄기 = 전부 끔 · 추천만 = 처음 값(공략만 켬). 「전부」는 건드리지 않는다 (토큰을 쓰는 선택 기능이 한꺼번에 켜지지 않게)
+        if (arg !== 'all') setFlags(arg);
+        await saveMeta(); app.refreshNow(); app.rerenderPanels?.(true); app.renderPanel(el);
+        toastr.info(arg === 'rec' ? '추천 6칸만 켰어요 (부가 기능은 공략만). 끈 칸의 내용은 그대로 남아 있어요.' : arg === 'all' ? '칸을 전부 켰어요. 부가 기능은 그대로 뒀어요 — 아래 「부가 기능」에서 골라 켜요.' : '칸과 부가 기능을 전부 껐어요. 내용은 그대로 남아 있어요.', TITLE);
+    },
+    flagset: async (el, arg) => { // 🧩 부가 기능 스위치 한 번에: 처음 값(공략만) · 전부 · 전부 끄기
+        if (arg === 'all' && !(await askConfirm('부가 기능을 전부 켤까요? 켠 기능마다 AI에게 가는 글이 몇 줄씩 늘어요 (토큰 ↑). 모든 채팅에 걸려요.'))) return;
+        setFlags(arg); if (arg === 'all') await app.loadAddons?.(true);
+        app.refreshNow(); app.rerenderPanels?.(true); app.renderPanel(el);
+        toastr.info(arg === 'rec' ? '부가 기능을 처음 값으로 돌렸어요 (공략만 켬).' : arg === 'all' ? '부가 기능을 전부 켰어요.' : '부가 기능을 전부 껐어요.', TITLE);
     },
     undoall: async (el) => { // 편집 기록 싹 지우기
         const meta = getMeta(), n = meta?.adjust?.length ?? 0; if (!n) return;
