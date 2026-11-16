@@ -4,6 +4,7 @@
 // hompy.js · shell.js에는 `app.hpFriend?.()` · `app.hpFriendFoot?.()` · `app.extraActions?.[act]` 세 줄만 걸려 있다 (이 파일이 없으면 예전 그대로)
 import { app, settings, esc, TITLE, ssNote } from './core.js';
 import { popup, avatar, ai1, sec, askInput } from './kit.js';
+import { scheduleFill, translateView } from './translate.js';
 import { personPage, visitable, ilchonOf, ilchonWrite, ilchonSet, gbOn, gbWrite, gbReply, gbDelete, gbSeen, gbUnread, gbList, wall, todayCount } from './minihome.js';
 
 export const waveOn = () => settings().hpWave === true;
@@ -19,7 +20,7 @@ function pageHTML(name) {
     const p = personPage(name); if (!p) return `<p class="ss-hint">이 사람의 홈피를 찾지 못했어요.</p>`;
     const il = ilchonOf(p.name), r = p.rel, AX = p.axes ?? { aff: '애정', trust: '우정' }, others = visitable().filter(v => v.name !== p.name).slice(0, 12);
     return `<div class="ss-wv-head">${avatar(p.name)}<div><h3>${esc(p.name)}${p.emoji ? ` ${esc(p.emoji)}` : ''}</h3><p class="ss-wv-il">${il?.text ? `「${esc(il.text)}」${il.stale ? ' <small>(사이가 달라졌어요 — 새로 받아 볼까요?)</small>' : ''}` : '<small>아직 일촌평이 없어요</small>'}</p></div></div>
-        <div class="ss-row-btns">${gbOn() ? `<button class="ss-btn sm" data-wv="ilchon">${ai1} 일촌평 받기</button><button class="ss-btn sm" data-wv="guest">${ai1} 방명록 받기</button>` : ''}<button class="ss-btn sm ghost" data-wv="iledit">일촌평 직접 쓰기</button></div>
+        <div class="ss-row-btns">${gbOn() ? `<button class="ss-btn sm" data-wv="ilchon" title="${esc(p.name)}이(가) 나에게 붙이는 한마디를 받아요">${ai1} 일촌평 받기</button><button class="ss-btn sm" data-wv="guest" title="${esc(p.name)}이(가) 내 홈피에 와서 한 줄 남겨요">${ai1} ${esc(p.name)}에게 방명록 받기</button>` : ''}<button class="ss-btn sm ghost" data-wv="iledit">일촌평 직접 쓰기</button></div>
         ${gbOn() ? '' : '<p class="ss-hint">일촌평 · 방명록을 AI로 받으려면 관리 › 쓸 기능 › 부가 기능에서 「방명록 · 일촌평 받기」를 켜요.</p>'}
         ${r ? sec('사이', `<div class="ss-wv-grid">${kv('관계', r.label)}${kv('단계', r.stageName)}${kv(AX.aff, r.noLove ? '꺼 둠' : String(r.aff))}${kv(AX.trust, String(r.trust))}${kv('처음 만난 날', r.met)}${r.jealous >= 30 ? kv('질투', `${r.jealous}/100`) : ''}${kv('지금 있는 곳', p.where)}</div>${r.memo ? `<p class="ss-hint">${esc(r.memo)}</p>` : ''}${p.recent.length ? `<p class="ss-hint">최근: ${p.recent.map(x => `${esc(x.today ? '오늘' : x.date)} ${signed(x.delta)}`).join(' · ')}</p>` : ''}`) : ''}
         ${p.profile?.summary || p.profile?.fields?.length ? sec('소개', `${p.profile.summary ? `<p>${esc(p.profile.summary)}</p>` : ''}<div class="ss-wv-grid">${(p.profile.fields ?? []).slice(0, 8).map(f => kv(f.k, f.v)).join('')}</div>`) : ''}
@@ -28,21 +29,22 @@ function pageHTML(name) {
         ${p.sns.length ? sec('SNS', p.sns.map(x => `<p>${esc(x.text)}${x.tags ? ` <small>${esc(x.tags)}</small>` : ''}</p>`).join('')) : ''}
         ${p.contact?.last ? sec('마지막 연락', `<p><small>${p.contact.last.from === 'me' ? '나' : esc(p.name)}:</small> ${esc(p.contact.last.text)}</p>`) : ''}
         ${p.pairs.length ? sec('인맥', `<div class="ss-row-btns">${p.pairs.map(x => `<button class="ss-btn sm ghost" data-wv="go:${esc(x.with)}">${esc(x.with)}${x.label ? ` · ${esc(x.label)}` : ''}${Number.isFinite(x.aff) ? ` ${signed(x.aff)}` : ''}</button>`).join('')}</div>`) : ''}
-        ${p.guestbook.length ? sec('이 사람이 남긴 방명록', p.guestbook.map(g => note(g)).join('')) : ''}
+        ${p.guestbook.length ? sec(`${esc(p.name)}이(가) 내 홈피에 남긴 글`, p.guestbook.map(g => note(g)).join('')) : ''}
         ${others.length ? sec('🌊 파도타기', `<div class="ss-row-btns">${others.map(v => `<button class="ss-btn sm ghost" data-wv="go:${esc(v.name)}">${esc(v.name)}</button>`).join('')}</div>`) : ''}`;
 }
 function wallHTML() {
     const list = wall(), tc = todayCount();
-    return `<h3>📝 방명록</h3><p class="ss-hint">TODAY ${tc.today} · TOTAL ${tc.total}</p>
-        <div class="ss-row-btns">${gbOn() ? `<button class="ss-btn sm pri" data-wv="guest">${ai1} 방명록 받기</button>` : ''}</div>
+    return `<h3>📝 내 홈피 방명록</h3><p class="ss-hint">인물들이 내 홈피에 와서 남기고 간 글이에요. TODAY ${tc.today} · TOTAL ${tc.total}</p>
+        <div class="ss-row-btns">${gbOn() ? `<button class="ss-btn sm pri" data-wv="guest" title="누군가 한 명이 와서 한 줄 남겨요">${ai1} 누군가에게 방명록 받기</button>` : ''}</div>
         ${list.map(g => note(g)).join('') || '<p class="ss-hint">아직 아무도 다녀가지 않았어요.</p>'}`;
 }
 // 팝업 하나에서 사람을 갈아타며 본다. who가 없으면 방명록
 async function openBox(who) {
     const box = document.createElement('div'); box.className = 'ss-root ss-scope ss-wave';
     let cur = who || null;
-    const draw = () => { try { box.innerHTML = cur ? pageHTML(cur) : wallHTML(); } catch (e) { box.innerHTML = `<p class="ss-hint">그리지 못했어요: ${esc(e?.message ?? e)}</p>`; } };
-    const after = () => { draw(); try { app.rerenderPanels?.(true); } catch (e) { ssNote('wave rerender', e); } };
+    // 🌐 화면 번역: 그린 뒤 사전에 있는 글은 바로 한국어로, 새로 받은 글(영어)은 번역을 걸어 둔다 (끝나면 화면이 다시 훑어진다)
+    const draw = () => { try { box.innerHTML = cur ? pageHTML(cur) : wallHTML(); } catch (e) { box.innerHTML = `<p class="ss-hint">그리지 못했어요: ${esc(e?.message ?? e)}</p>`; } try { translateView(box); } catch (e) { ssNote('wave tr', e); } };
+    const after = () => { draw(); try { app.rerenderPanels?.(true); scheduleFill(); } catch (e) { ssNote('wave rerender', e); } };
     box.addEventListener('click', async (e) => {
         const b = e.target.closest('[data-wv]'); if (!b || b.disabled) return;
         const [k, ...rest] = b.dataset.wv.split(':'), arg = rest.join(':');

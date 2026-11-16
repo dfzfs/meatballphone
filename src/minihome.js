@@ -3,7 +3,7 @@
 //  · 다이어리 · 연표 · 파도타기: 이미 계산된 상태(app.current.state)를 읽기만 한다 → AI 0회 · 저장 0 · 다시 계산 0
 //  · 방명록: 선택 기능(설정 guestbook · 기본 끔). 끄면 저장 · 호출 · 이벤트 처리가 모두 0. 글은 본편 AI에게 가지 않는다
 //    자료는 meta.gbook (없으면 만들지 않는다) — 연락처럼 「따로 보관」이라 채팅을 지우거나 다시 생성해도 남는다
-import { app, ctx, settings, getMeta, saveMeta, norm, short, findBy, uid, stamp, dateStr, isActive, ready, relAxes, nowTick, ssNote, DEFAULT_STAGES } from './core.js';
+import { app, ctx, settings, getMeta, saveMeta, norm, short, findBy, uid, stamp, dateStr, isActive, ready, relAxes, nowTick, ssNote, DEFAULT_STAGES, playOf } from './core.js';
 import { stripStatus, recentChat, chatCharacters, whereNow, addAdjust } from './engine.js';
 import { aiGenerate, P, mainBusy, PROMPT_DEFS, PROMPT_MAP } from './prompts.js';
 
@@ -18,6 +18,12 @@ const live = () => { try { return isActive() && ready() && !!st(); } catch { ret
 const chat = () => ctx().chat ?? [];
 const cut = (t, n) => short(String(t ?? '').replace(/\s+/g, ' ').trim(), n);
 const stagesOf = (rel) => (rel?.stages?.length ? rel.stages : DEFAULT_STAGES);
+// 「나」의 이름들 (페르소나 · 프로필의 유저 · 플레이 방식의 주인공) — 내가 내 홈피에 방명록을 남기거나 내 홈피로 파도타기하지 않게 뺀다
+export function selfNames(s = st()) {
+    const out = new Set();
+    try { const c = ctx(); for (const n of [c.name1, ...(s?.data?.profile?.list ?? []).filter(p => p.role === 'user').map(p => p.name), playOf(getMeta())?.hero]) if (n) out.add(norm(n)); } catch (e) { ssNote('minihome self', e); }
+    return out;
+}
 
 // ───── 📔 다이어리 ─────
 // 기록 줄(칩 글)의 머리 글자로 종류를 가른다 — ops.js가 붙이는 그림 글자와 맞춘 표
@@ -73,7 +79,7 @@ export function timeline(s = st(), { limit = 60 } = {}) {
 // 찾아갈 수 있는 사람들: 관계 칸 + 프로필 칸의 인물 (유저 빼고 · 이름으로 합침)
 export function visitable(s = st()) {
     if (!s) return [];
-    const seen = new Set(), out = [];
+    const seen = new Set(selfNames(s)), out = [];
     const add = (name, extra) => { const k = norm(name); if (!k || seen.has(k)) return; seen.add(k); out.push({ name: String(name), ...extra }); };
     for (const r of s.data.rel?.user ?? []) add(r.name, { aff: r.aff, out: r.out ?? '' });
     for (const p of s.data.profile?.list ?? []) if (p.role !== 'user') add(p.name, { aff: null, out: '' });
@@ -122,7 +128,8 @@ export function gbSeen() { const G = gbData(); if (G?.unread) { G.unread = 0; sa
 // 글을 남길 만한 사람: 이야기에서 빠진 사람 · 차단한 연락처는 빼고, 호감 0 이상
 function gbWriters(s) {
     const blocked = new Set((s.data.contact?.contacts ?? []).filter(c => c.blocked).map(c => norm(c.name)));
-    return (s.data.rel?.user ?? []).filter(r => !r.out && r.aff >= 0 && !blocked.has(norm(r.name)));
+    const me = selfNames(s);
+    return (s.data.rel?.user ?? []).filter(r => !r.out && r.aff >= 0 && !blocked.has(norm(r.name)) && !me.has(norm(r.name)));
 }
 // 누가 쓸지: 호감이 높을수록 자주 · 바로 앞에 쓴 사람은 한 번 쉰다. rnd는 시험에서 바꿔 끼운다
 export function gbPick(s = st(), rnd = Math.random) {
@@ -155,7 +162,7 @@ app.gbNudge = (who, why) => { try { if (!gbOn() || !who) return; const G = gbDat
 export async function gbWrite(who = '', { auto = false } = {}) {
     if (!gbOn() || !live()) return null;
     const s = st(); who = who ? (findBy(s.data.rel?.user ?? [], who)?.name ?? '') : gbPick(s);
-    if (!who) return null;
+    if (!who || selfNames(s).has(norm(who))) return null; // 나 자신은 쓰지 않는다
     const raw = await aiGenerate(auto ? 'autoping' : 'ping', P('hompy.guest', { who }), gbAbout(who, s), 200);
     const text = cut(stripStatus(raw).split(/\r?\n/).map(x => x.trim()).filter(Boolean)[0]?.replace(/^["“「『]+|["”」』]+$/g, '') ?? '', 160);
     if (!text) throw new Error('빈 답이 왔어요');
@@ -203,8 +210,9 @@ export function initMinihome() {
     const { eventSource, event_types: E } = ctx();
     if (E?.MESSAGE_RECEIVED) eventSource.on(E.MESSAGE_RECEIVED, (...a) => { try { onReply(...a); } catch (e) { ssNote('guestbook reply', e); } });
 }
-// 🌐 화면 번역이 방명록 글도 모을 수 있게 (story.js의 app.storyTexts와 같은 쓰임 — 화면을 붙일 때 translate 쪽에서 불러 준다)
-app.gbTexts = () => { const out = []; try { for (const g of gbData()?.list ?? []) { if (g.text) out.push(g.text); if (g.reply) out.push(g.reply); } } catch (e) { ssNote('guestbook texts', e); } return out; };
+// 🌐 화면 번역(영어로 저장 · 화면만 한국어): 방명록 · 일촌평 글도 번역할 글에 들어가게 — translate.js가 모으는 app.storyTexts 뒤에 덧붙인다
+app.gbTexts = () => { const out = []; try { for (const g of gbData()?.list ?? []) { if (g.text) out.push(g.text); if (g.reply) out.push(g.reply); } for (const x of Object.values(gbData()?.ilchon ?? {})) if (x?.text) out.push(x.text); } catch (e) { ssNote('guestbook texts', e); } return out; };
+{ const prevTexts = app.storyTexts; app.storyTexts = () => { let a = []; try { a = prevTexts?.() ?? []; } catch (e) { ssNote('story texts', e); } return [...a, ...app.gbTexts()]; }; }
 
 // ───── 💬 일촌평 ─────
 // 인물마다 한 줄 (그 사람이 나를 어떻게 부르는지). 받은 때의 관계 단계를 같이 적어 두고, 단계가 바뀌면 stale=true 로 알려 준다 (자동으로 다시 부르지 않는다)
@@ -219,7 +227,7 @@ app.ilchon = (name) => (gbOn() ? ilchonOf(name) : null); // 🕸 관계도가 �
 export function ilchonList(s = st()) { return (s?.data?.rel?.user ?? []).filter(r => !r.out).map(r => ilchonOf(r.name, s) ?? { who: r.name, text: '', date: '', stage: -1, stale: false }); }
 export async function ilchonWrite(who) {
     if (!gbOn() || !live()) return null;
-    const s = st(), r = findBy(s.data.rel?.user ?? [], who); if (!r) return null;
+    const s = st(), r = findBy(s.data.rel?.user ?? [], who); if (!r || selfNames(s).has(norm(r.name))) return null;
     const raw = await aiGenerate('ping', P('hompy.ilchon', { who: r.name }), gbAbout(r.name, s), 120);
     const text = cut(stripStatus(raw).split(/\r?\n/).map(x => x.trim()).filter(Boolean)[0]?.replace(/^["“「『]+|["”」』]+$/g, '') ?? '', 40);
     if (!text) throw new Error('빈 답이 왔어요');
