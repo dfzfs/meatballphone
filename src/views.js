@@ -382,7 +382,8 @@ export const VIEW_ACTIONS = {
         const sh = s.data.shop.shops[i], it = sh?.items[j]; if (!it) return;
         const meta = getMeta(true), day = s.data.calendar ? dayIndex(s.data.calendar) : s.turn, key = `${day}|${i}|${j}`;
         if (meta.haggle?.[key]) { toastr.info('오늘은 이 물건을 이미 흥정했어요.', TITLE); return; }
-        const r = skillRoll(s, SOCIAL_RE, 12);
+        if (app.shopClosed?.(s)) { toastr.info('지금은 가게가 닫았어요. 날이 밝으면 다시 와요.', TITLE); return; } // 🌦 밤엔 가게 닫음 (addons.js · 설정 ambientShop)
+        const r = skillRoll(s, SOCIAL_RE, 12 + (app.haggleDC?.(s) ?? 0)); // 🌦 궂은 날은 손님이 없어 흥정이 쉬움 (addons.js · 끄면 0)
         const mul = { crit: 0.7, ok: 0.85, fail: 1, fumble: 1.1 }[r.cls];
         meta.haggle = Object.fromEntries(Object.entries(meta.haggle ?? {}).filter(([k]) => k.startsWith(`${day}|`)));
         meta.haggle[key] = mul;
@@ -394,6 +395,7 @@ export const VIEW_ACTIONS = {
         const [i, j] = arg.split('|').map(Number);
         const sh = s.data.shop.shops[i], it = sh?.items[j]; if (!it) return;
         const w = s.data.wallet;
+        if (app.shopClosed?.(s)) { toastr.info('지금은 가게가 닫았어요. 날이 밝으면 다시 와요.', TITLE); return; }
         const price = Math.round(it.price * priceMul(s) * haggleMul(s, i, j));
         if (w && w.cash < price) { toastr.warning('돈이 모자라요.', TITLE); return; }
         const ops = [['cash', `-${price}`]];

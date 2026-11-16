@@ -20,6 +20,9 @@ export const mascotUrl = (n) => new URL(`../img/mascot_${MASCOTS.includes(n) ? n
 // ── app에 거는 것 전부 (새로 걸면 여기에도 적는다 · 거는 파일이 아직 안 불렸을 수 있으니 부를 땐 app.x?.() 로) ──
 //   addTrPairs       거는 곳: translate.js           부르는 곳: core.js, skeleton.js
 //   storyInject · storyPeek · storyChanged  거는 곳: story.js   부르는 곳: engine.js(setInjection), extra.js, settings_ui.js
+//   loadAddons  거는 곳: index.js   부르는 곳: 설정 창에서 아래 기능을 켤 때 app.loadAddons(true) (켠 것도 · 자료도 없으면 addons.js · minihome.js는 아예 안 불러온다)
+//   extraInject · gearBonus · ambient · giftAff · contactLore · mergeContactAsk  거는 곳: addons.js   부르는 곳: engine.js(setInjection), dice.js, contact.js, ai.js, extra.js, commands.js
+//   gbTexts · gbNudge · ilchon  거는 곳: minihome.js   부르는 곳: addons.js(선물 · 약속), relgraph.js   부르는 곳: (아직 없음 — 방명록 화면을 붙일 때 translate.js에서)
 //   askBond          거는 곳: index.js               부르는 곳: (같은 파일)
 //   chipOutWas       거는 곳: index.js               부르는 곳: (같은 파일)
 //   colMenu          거는 곳: views.js               부르는 곳: (같은 파일)
@@ -164,6 +167,15 @@ export const DEFAULTS = Object.freeze({
     meddleOn: false,         // ✍ 인물이 내 상태창에 손댄다
     tasteBook: false,        // 🎁 취향 도감 (화면만)
     crossMail: false,        // 📻 채팅 간 우편 (누를 때 AI 1회)
+    gearOn: false,           // ⚔ 장비 착용 (선택 · addons.js) — 착용한 물건의 효과가 주사위 보정에 더해지고 AI에게 한 줄 감
+    ambientOn: false,        // 🌦 날씨 · 시간대 효과 (선택 · addons.js) — 지금은 AI에게 한 줄만 (계산은 그대로)
+    ambientShop: false,      //   └ 밤에는 상점에서 사기 · 흥정 막기 (날씨/시간대 효과를 켰을 때만)
+    giftTaste: false,        // 🎁 취향 ↔ 선물 (선택 · addons.js) — 좋아하는 선물 ×2 · 싫어하는 선물 −1
+    promiseClock: false,     // 🤝 약속 기한 D-day (선택 · addons.js · 약속 장부를 켰을 때만) — 기한이 지나면 자동으로 어김
+    trendMore: false,        // 📊 변화 그래프에 게이지 · 내 탭 수치 · 단계 변화/흉터 지점 더하기 (선택)
+    mergeContact: false,     // 🔗 인물을 합칠 때 연락 대화도 옮길지 묻기 (선택 · addons.js)
+    guestbook: false,        // 📝 방명록 (선택) — 인물이 홈피에 한 줄씩 남김. 「받기」를 누를 때 AI 1회. 끄면 저장 · 호출 · 이벤트 모두 0 (src/minihome.js)
+    guestbookAuto: false,    //   └ 이야기 속 하루가 지날 때 자동으로 한 줄 (하루 1회까지 · AI 1회)
     groupChat: false,        // 👥 단체방 (v2.8 · 선택) — 연락에 인물 여럿이 있는 방. 끄면 단추도 안 보이고 아무 영향 없음
     contactAway: true,       // 🔕 상대가 알아서 연락을 꺼 둘 수 있게 (v2.7.23 · 화남 · 일 · 잠 — 그동안 보낸 말은 안 읽힘 · AI 0회)
     contactStayRemote: true, // 🚫 연락 속 인물이 「갈게 · 만나자」 하지 않기 (v2.7.23 · 만남은 본편에서)

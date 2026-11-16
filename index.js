@@ -834,7 +834,19 @@ function onCharRendered(id, type) {
     analyzed.add(key);
     analyzeMessage(i);
 }
+// 🧩 덧붙이는 기능 · 미니홈피 자료 (src/addons.js · src/minihome.js): 켠 기능이 있거나 이 채팅에 그 자료가 있을 때만 불러온다.
+// 아무것도 안 켰으면 파일을 읽지도 않는다 → 다른 파일에 건 `app.이름?.()` 은 전부 없는 것으로 넘어가 원래와 똑같이 동작한다
+const ADDON_KEYS = ['gearOn', 'ambientOn', 'giftTaste', 'promiseClock', 'mergeContact', 'guestbook'];
+let addonsLoading = null;
+function loadAddons(force = false) {
+    if (addonsLoading) return addonsLoading;
+    if (!force) { const set = settings(); let m = null; try { m = getMeta(); } catch { m = null; } if (!ADDON_KEYS.some(k => set[k] === true) && !(m && (m.gear || m.roomTell || m.ctLore || m.gbook))) return null; }
+    addonsLoading = Promise.all([import('./src/minihome.js'), import('./src/addons.js')]).then(([a, b]) => { a.initMinihome(); b.initAddons(); try { refreshNow(); } catch (e) { ssWarn(LOG, 'addons refresh', e); } }).catch((e) => { addonsLoading = null; ssWarn(LOG, 'addons', e); });
+    return addonsLoading;
+}
+app.loadAddons = loadAddons;
 async function onChatChanged() {
+    try { loadAddons(); } catch (e) { ssWarn(LOG, 'addons', e); }
     ctxReset(); lastFp = ''; lastDom = ''; app.lastGenSkipped = false;
     notified = new Set();
     pingCounter = 0;
@@ -895,6 +907,7 @@ function init() {
     registerMacros();
     try { initHompy(); } catch (e) { ssWarn(LOG, 'hompy', e); } // 📒 미니홈피 화면의 사진 단추
     try { initStory(); initStoryUI(); } catch (e) { ssWarn(LOG, 'story', e); } // 🧭 이야기 장치 (v2.8 · 켠 장치가 없으면 아무 일도 안 함)
+    try { loadAddons(); } catch (e) { ssWarn(LOG, 'addons', e); } // 📝 방명록 자동 (설정 guestbook · guestbookAuto — 기본 끔이면 아무 일도 안 함)
     if (settings().autoRegex) installRegex(false);
     try { startViewTr(); } catch (e) { ssWarn(LOG, 'viewtr', e); }
     try { watchChat(); } catch (e) { ssWarn(LOG, 'slots', e); }

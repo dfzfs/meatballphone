@@ -23,6 +23,9 @@
 | 화면 | `src/views.js` | 칸별 화면 · 관리 · 칸 공통 동작. `tiles.js`를 다시 내보냄 |
 | 틀 | `src/shell.js` | 패널 · HUD · 사이드 |
 | 기능 | `src/story.js` · `src/story_ui.js` | 🧭 이야기 장치 (v2.8): 선택 기능 묶음 — `story.js`는 계산 · 주입 · 이벤트, `story_ui.js`는 탭 아래에 붙는 칸과 단추. 새 장치: `DEVICES` · `KEY`(설정 키 · `core.js` 기본값 false) → `storyInjection`(AI에게 갈 줄) · `afterReply`(답 받은 뒤) → `story_ui.js`의 `BODY` · `HOME`(붙을 탭) · `act` → `settings_ui.js`에 체크 칸 |
+| 기능 | `src/minihome.js` | 📒 미니홈피 자료 (화면 없음): `diaryEntries` · `timeline` · `timelineExtra` (다이어리 · 연표 — `state.days`를 읽기만) · `visitable` · `personPage` (파도타기) · `gbList` · `gbWrite` · `gbReply` · `gbDelete` · `gbTick` (방명록 · 설정 `guestbook` · `guestbookAuto`) · `ilchonOf` · `ilchonWrite` · `ilchonSet` (일촌평) · `todayCount` (TODAY) · `wall` (방명록 + 낙서) |
+| 기능 | `src/relgraph.js` | 🕸 관계도 자료 (화면 없음): `relGraph` → 점(x · y 0~1)과 선(굵기 w · 성격 tone) · `relGraphOf(이름)` |
+| 기능 | `src/addons.js` | 🧩 덧붙이는 기능 (화면 없음 · 전부 기본 끔): 장비 `equipped` · `equip` · `unequip` (`gearOn`) · 날씨/시간대 `ambientOf` (`ambientOn`) · 단체방 알리기 `roomTell` · `setRoomTell` · `roomSummaryAI` · 연락 합치기 `mergeContactThreads` · 약속 기한 `promiseDday` (`promiseClock`) · 연락처 로어북 `loreEntries` · `setContactLore` · 선물 반응 `giftReaction` (`giftTaste`) · `chatSize` · 상태 카드 `cardCanvas` · `cardDownload`. AI에게 가는 줄은 `extraInjection` 한곳. 엮이는 곳: 장비 → 주사위 · 흥정 · 일하기 · 직접 굴린 퀘스트(`app.rollBonus`) · 궂은 날 → 흥정 −2(`app.haggleDC`) · 밤 → 가게 닫음(`ambientShop`) · 선물 취향/약속 어김 → 방명록(`app.gbNudge`) · 방명록 답글 → 우정 +1 · 일촌평 → 관계도. 시험: `t-minihome.mjs` · `t-addons.mjs`. **이 두 파일은 켠 기능이나 그 자료가 있을 때만 불러와요** (`index.js`의 `loadAddons`) — 설정 창에서 켤 때는 `app.loadAddons(true)`를 불러 줘요. 아무것도 안 켠 채로 옛 판과 똑같은지는 `ab-same.mjs`로 비교해요 |
 | 틀 | `src/lazy.js` | 눌렀을 때 불러오는 창 목록 (`help.js` · `wizard.js` · `windows.js`) |
 | 틀 | `src/wizard.js` · `src/windows.js` | 처음 만들기 · 프롬프트/꾸미기 창 (눌렀을 때 불러옴) |
 | 맨 위 | `src/settings_ui.js` · `src/commands.js` | 확장 설정 서랍 · 슬래시 커맨드 |

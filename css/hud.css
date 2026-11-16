@@ -76,6 +76,12 @@ dialog.popup.ss-dlg .popup-controls .menu_button.popup-button-ok { background: v
 .ss-settings label { display: block; margin: 6px 0; }
 .ss-settings label.checkbox_label { display: flex; align-items: center; gap: 6px; }
 .ss-settings small { opacity: .75; }
+/* 🟢 켜 둔 선택 기능 한 줄 (설정 맨 위) */
+.ss-settings .ss-set-on { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin: 6px 0; }
+.ss-settings .ss-set-on:empty { display: none; }
+.ss-settings .ss-set-on small { flex-basis: 100%; }
+.ss-settings .ss-set-chip { font: inherit; font-size: .85em; line-height: 1.6; padding: 1px 9px; border-radius: 999px; border: 1px solid var(--SmartThemeBorderColor, rgba(127, 127, 127, .4)); background: transparent; color: inherit; cursor: pointer; }
+.ss-settings .ss-set-flash { outline: 2px solid var(--SmartThemeQuoteColor, #e2557b); outline-offset: 2px; border-radius: 6px; }
 .ss-settings .ss-set-h { display: block; margin: 14px 0 2px; padding-top: 8px; border-top: 1px solid var(--SmartThemeBorderColor, rgba(127, 127, 127, .25)); }
 .ss-settings .ss-set-inline { display: flex; gap: 4px; align-items: center; }
 /* 체크박스 여러 개 줄 (v2.7.19): 좁은 설정창에서 글자가 한 자씩 세로로 깨지던 것 — 칸마다 한 덩이로, 넘치면 다음 줄로 */

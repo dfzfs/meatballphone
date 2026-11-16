@@ -107,6 +107,7 @@ export function registerCommands() {
             const has = (n) => (app.current?.state?.data?.rel?.user ?? []).some(r => r.name.replace(/\s+/g, '').toLowerCase() === String(n).replace(/\s+/g, '').toLowerCase());
             if (!a || !b || !has(b)) { toastr.warning('예: /ss-merge 레온 => Leon (뒤 이름은 관계 탭에 있는 사람)', TITLE); return ''; }
             await addAdjust({ ops: [['_merge', `${a} => ${b}`]], label: `🔗 ${a} → ${b} 합침` });
+            await app.mergeContactAsk?.(a, b); // 🔗 연락 대화도 합칠지 묻기 (addons.js)
             return '';
         },
         unnamedArgumentList: [SlashCommandArgument.fromProps({ description: '없앨 이름 => 남길 이름', typeList: ARGUMENT_TYPE.STRING, isRequired: true })],

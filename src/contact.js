@@ -277,7 +277,7 @@ async function undoGoods(list, who, s) {
     const ops = [];
     for (const x of list) {
         const sign = x.dir === 'out' ? '+' : '-';
-        if (x.kind === 'gift') { ops.push(['item', `${sign}${String(x.text).replace(/[|,，/]/g, ' ').trim()} 1${sign === '-' ? '|' : ''}`]); if (x.aff && r) ops.push(['aff', `${who} -${Math.max(1, Math.round(2 * affMul(s)))}`]); }
+        if (x.kind === 'gift') { ops.push(['item', `${sign}${String(x.text).replace(/[|,，/]/g, ' ').trim()} 1${sign === '-' ? '|' : ''}`]); if (x.aff && r) { const gv = app.giftAff?.(s, who, x.text, true) ?? Math.max(1, Math.round(2 * affMul(s))); if (gv) ops.push(['aff', `${who} ${gv > 0 ? '-' : '+'}${Math.abs(gv)}`]); } } // 🎁 취향 ↔ 선물 (addons.js · 끄면 예전 그대로)
         else ops.push(['cash', `${sign}${x.amount}`]);
     }
     await addAdjust({ ops, label: `↩ ${who}와(과) 주고받은 것 되돌림`, silent: true });
@@ -561,7 +561,7 @@ export const CONTACT_ACTIONS = {
         el._ss.ui.noReply = !(el.querySelector('.ss-creply')?.checked ?? true);
         if (a.kind === 'gift') {
             const r = s.data.rel ? findBy(s.data.rel.user, who) : null;
-            await addAdjust({ ops: [['item', `-${a.text} 1|`], ...(r || s.data.rel ? [['aff', `${who} +${Math.max(1, Math.round(2 * affMul(s)))}`]] : [])], silent: true });
+            await addAdjust({ ops: [['item', `-${a.text} 1|`], ...(r || s.data.rel ? (() => { const gv = app.giftAff?.(s, who, a.text) ?? Math.max(1, Math.round(2 * affMul(s))); return gv ? [['aff', `${who} ${gv > 0 ? '+' : '-'}${Math.abs(gv)}`]] : []; })() : [])], silent: true });
         }
         if (a.kind === 'money') await addAdjust({ ops: [['cash', `-${a.amount}`]], silent: true });
         await sendPhone(el, curState(), who, a.text, { kind: a.kind, amount: a.amount ?? 0 });

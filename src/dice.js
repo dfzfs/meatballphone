@@ -26,7 +26,7 @@ export function chance(sys, dc, mod) {
 export function doRoll(s, D) {
     const dc = s.data.dice;
     const a = findBy(s.data.stats?.attrs ?? [], D.attr);
-    const mod = (a?.val ?? 0) + num(D.extra, 0);
+    const mod = (a?.val ?? 0) + num(D.extra, 0) + (app.gearBonus?.(a?.name) ?? 0); // ⚔ 착용한 장비의 보정 (addons.js · 끄면 0)
     const label = D.label || a?.name || '판정';
     const sh = shift();
     let roll, cls, detail;
@@ -90,7 +90,7 @@ export function diceView(s, d, ui) {
     }
     const D = ui.dice;
     const a = findBy(attrs, D.attr);
-    const mod = (a?.val ?? 0) + num(D.extra, 0);
+    const mod = (a?.val ?? 0) + num(D.extra, 0) + (app.gearBonus?.(a?.name) ?? 0); // ⚔ 착용한 장비의 보정 (addons.js · 끄면 0)
     const pct = Math.round(chance(sys, D.dc, mod) * 100);
     const sh = shift();
     const r = D.last;

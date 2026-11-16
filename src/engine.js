@@ -334,7 +334,7 @@ export function skillRoll(s, attrPick, dc = 12) {
     const attrs = s.data.stats?.attrs ?? [];
     const a = attrPick instanceof RegExp ? attrs.find(x => attrPick.test(x.name)) : attrPick ? findBy(attrs, attrPick) : null;
     const goal = num(dc, 12) + (DIFFS[diffOf()]?.dc ?? 0);
-    const roll = Math.floor(Math.random() * 20) + 1, mod = a?.val ?? 0;
+    const roll = Math.floor(Math.random() * 20) + 1, mod = (a?.val ?? 0) + (app.rollBonus?.(a?.name) ?? 0); // ⚔ 착용 장비 보정 (addons.js · 끄면 0)
     const cls = roll === 20 ? 'crit' : roll === 1 ? 'fumble' : roll + mod >= goal ? 'ok' : 'fail';
     return { roll, mod, dc: goal, cls, attr: a ? a.name : '', detail: `d20 ${roll}${mod ? `${mod > 0 ? '+' : ''}${mod}=${roll + mod}` : ''} vs ${goal}` };
 }
@@ -1686,6 +1686,7 @@ export function setInjection(inj) {
     c.setExtensionPrompt(INJECT_KEY3, inj?.romance ?? '', PROMPT_IN_CHAT, rd, false, ROLE_SYSTEM);
     // 🧭 이야기 장치 (v2.8): 켠 장치가 하나도 없으면 빈 글 → 아무 영향 없음
     let lab = ''; try { lab = inj ? (app.storyInject?.() ?? '') : ''; } catch (e) { ssNote('story inject', e); }
+    try { const more = inj ? (app.extraInject?.() ?? '') : ''; if (more) lab = lab ? `${lab}\n\n${more}` : more; } catch (e) { ssNote('extra inject', e); } // 🧩 덧붙이는 기능 (addons.js · 켠 것이 없으면 빈 글)
     c.setExtensionPrompt(INJECT_KEY4, lab, PROMPT_IN_CHAT, depth, false, ROLE_SYSTEM);
 }
 

@@ -1143,12 +1143,12 @@ const OPS = {
 export const JUDGE_MUL = { crit: 1.5, ok: 1, fail: 0.5, fumble: 0 };
 export const JUDGE_NAME = { crit: '대성공', ok: '성공', fail: '아쉬운 완료', fumble: '대실패' };
 const seedNum = (str) => { let h = 2166136261; for (const ch of String(str)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return (h >>> 0) / 4294967296; };
-export function questRoll(s, q, seed) {
+export function questRoll(s, q, seed, bonus = 0) { // bonus: 직접 굴릴 때만 붙는 보정 (착용 장비 — AI 답에서 자동으로 굴리는 쪽은 지난 계산이 바뀌지 않게 0)
     const attrs = s.data.stats?.attrs ?? [];
     const a = q.check?.attr ? findBy(attrs, q.check.attr) : null;
     const dc = num(q.check?.dc, 12) + (DIFFS[diffOf()]?.dc ?? 0);
     const roll = seed === undefined ? Math.floor(Math.random() * 20) + 1 : Math.floor(seedNum(seed) * 20) + 1;
-    const mod = a?.val ?? 0;
+    const mod = (a?.val ?? 0) + (Number(bonus) || 0);
     const cls = roll === 20 ? 'crit' : roll === 1 ? 'fumble' : roll + mod >= dc ? 'ok' : 'fail';
     return { roll, mod, dc, cls, attr: a ? a.name : '', detail: `d20 ${roll}${mod ? `${mod > 0 ? '+' : ''}${mod}=${roll + mod}` : ''} vs ${dc}` };
 }

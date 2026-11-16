@@ -146,7 +146,7 @@ export const FEED_ACTIONS = {
                 <p class="ss-hint">판정 방식은 확장 설정 › 기능 켜고 끄기 › 「퀘스트 완료 판정」에서 바꿔요. 능력치 · 목표는 퀘스트 카드에서 고를 수 있어요.</p>`;
             const pick = await choosePopup(box, '취소');
             if (!pick) return;
-            if (pick === 'roll') r = questRoll(s, q);
+            if (pick === 'roll') r = questRoll(s, q, undefined, app.rollBonus?.(q.check?.attr) ?? 0); // ⚔ 착용 장비 보정 (addons.js · 끄면 0)
         }
         el._ss.ui.qf = 'end';
         const label = r ? `🎲 퀘스트 완료 판정: ${q.title} — ${JUDGE_NAME[r.cls]} (${r.detail})` : `퀘스트 완료: ${q.title}`;

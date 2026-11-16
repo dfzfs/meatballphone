@@ -18,6 +18,13 @@ import { hintSetting } from './tips.js';
 const VIEW_KEYS = new Set(['hompyFull', 'hpLite', 'hpSkinHud', 'loopMode', 'swipeGhost', 'fateDebt', 'tensionOn', 'realGap', 'glitchView', 'ledgerKnow', 'ledgerPromise', 'guideOn', 'peekCost', 'relScar', 'memoryDrift', 'meddleOn', 'tasteBook', 'crossMail', 'groupChat', 'extraJudge', 'questExpire', 'memoOn', 'albumOn', 'peekOn', 'recordOn', 'freshDot', 'pipCheck', 'questJudge', 'msgCard', 'chipOutside', 'contactSimple', 'contactSimpleReflect', 'relStagesOn', 'relShowMemo', 'relShowWants', 'relShowLife', 'relShowPairs', 'relShowBtns', 'relShowNext', 'relShowUnlock']);
 // 「부가 기능 한 번에 끄기」 — 상태 계산 · 본편 롤플에 꼭 필요하지 않은 것만
 const LIGHT_OFF = { memoOn: false, albumOn: false, peekOn: false, recordOn: false, daySummary: false, featureTips: false, showMascot: false, mascotBuddy: false, musicToast: false };
+const ADDON_SET = new Set(['gearOn', 'ambientOn', 'giftTaste', 'promiseClock', 'mergeContact', 'guestbook']); // index.js의 ADDON_KEYS와 같은 목록
+// 🟢 켜 둔 선택 기능: 이름(굵은 글씨)이 붙은 체크 칸 가운데 켜진 것을 설정 맨 위에 한 줄로 — 누르면 그 칸으로 간다. 자리는 하나도 옮기지 않는다
+function onLine(el) {
+    const box = el.querySelector('[data-s-on]'); if (!box) return;
+    const on = [...el.querySelectorAll('label.checkbox_label')].map(l => [l.querySelector('input[type="checkbox"][data-s]'), l.querySelector(':scope > b')]).filter(([i, b]) => i?.checked && b);
+    box.innerHTML = on.length ? `<small>켜 둔 선택 기능 ${on.length}개</small>${on.map(([i, b]) => `<button type="button" class="ss-set-chip" data-s-go="${esc(i.dataset.s)}">${esc(b.textContent.replace(/^[①-⑳]\s*/, '').trim())}</button>`).join('')}` : '';
+}
 function profileOptions(sel) {
     return `<option value="">메인 연결 그대로</option>${listProfiles().map(p => `<option value="${esc(p.id)}" ${p.id === sel ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}`;
 }
@@ -35,6 +42,7 @@ export function renderSettings() {
         <div class="inline-drawer-toggle inline-drawer-header"><b>😼 미트볼 상태창 <small>v${VERSION}</small></b><div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div>
         <div class="inline-drawer-content">
             <label class="checkbox_label"><input type="checkbox" data-s="enabled" ${s.enabled ? 'checked' : ''}> 사용</label>
+            <div class="ss-set-on" data-s-on></div>
             <div class="ss-set-btns">
                 <button class="menu_button" data-s-act="open"><i class="fa-solid fa-gauge-high"></i> 상태창 열기</button>
                 <button class="menu_button" data-s-act="wizard"><i class="fa-solid fa-wand-magic-sparkles"></i> 만들기</button>
@@ -198,6 +206,14 @@ export function renderSettings() {
             <small>켜면 메모 탭 아래에 칸이 생겨요. 직접 적거나 「지금 정리」(AI 1회) · 자동 정리로 채워요. 적힌 것은 매 턴 몇 줄씩 AI에게 가요.</small>
             <label class="checkbox_label"><input type="checkbox" data-s="ledgerKnow" ${s.ledgerKnow === true ? 'checked' : ''}> <b>🧠 누가 뭘 아는지</b> <small>(사실마다 아는 사람을 적어 두고, 모르는 인물이 아는 척하지 않게 해요)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="ledgerPromise" ${s.ledgerPromise === true ? 'checked' : ''}> <b>🤝 약속 장부</b> <small>(내가 한 약속 · 거짓말. 지킴 우정 +2 · 어김 −4)</small></label>
+            <b class="ss-set-h">🧩 덧붙이는 기능 <small>(전부 선택 · 기본 꺼짐)</small></b>
+            <small>하나도 안 켜면 이 기능들의 파일은 읽지도 않아요. 켠 것만 움직이고, 둘을 같이 켜면 서로 엮여요 (예: 궂은 날엔 흥정이 쉬워져요).</small>
+            <label class="checkbox_label"><input type="checkbox" data-s="ambientOn" ${s.ambientOn === true ? 'checked' : ''}> <b>🌦 날씨 · 시간대 효과</b> <small>(비 · 눈 · 폭풍 · 밤 같은 상황을 AI에게 한 줄 알려요. 궂은 날엔 손님이 없어 흥정 난이도 −2 · 매 턴 0~1줄)</small></label>
+            <label class="checkbox_label">　└ <input type="checkbox" data-s="ambientShop" ${s.ambientShop === true ? 'checked' : ''}> 밤에는 가게 닫기 <small>(밤 시간대엔 상점에서 사기 · 흥정이 안 돼요 · 토큰 0)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="giftTaste" ${s.giftTaste === true ? 'checked' : ''}> <b>🎁 취향에 맞는 선물</b> <small>(관계에 적힌 좋아하는 것이면 호감 2배, 싫어하는 것이면 −1 · 토큰 0)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="promiseClock" ${s.promiseClock === true ? 'checked' : ''}> <b>⌛ 약속 기한</b> <small>(약속 장부의 「3일 안에」 「3월 14일까지」를 달력으로 읽어, 지나면 자동으로 어김 · 약속 장부를 켰을 때만 · 토큰 0~1줄)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="mergeContact" ${s.mergeContact === true ? 'checked' : ''}> <b>🔗 합칠 때 연락도 옮기기</b> <small>(인물을 합칠 때 연락 대화도 옮길지 물어봐요 · 토큰 0)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="trendMore" ${s.trendMore === true ? 'checked' : ''}> <b>📊 그래프에 수치 더하기</b> <small>(변화 그래프에 게이지 · 내 탭 숫자 그래프가 하나 더 그려져요 · 토큰 0)</small></label>
             <b class="ss-set-h">데이터 · 화면</b>
             <label class="checkbox_label"><input type="checkbox" data-s="hompyFull" ${s.hompyFull !== false ? 'checked' : ''}> <b>📒 전체화면은 미니홈피 모양으로</b> <small>(v2.8 새 화면 · 기본 끔 — 켜면 상태창의 전체화면이 위에 메뉴, 옆에 프로필 · 상태 · 일촌 창, 가운데에 지금 탭이 있는 미니홈피로 열려요. 화면만 바뀌고 계산 · 토큰은 그대로예요)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="hpLite" ${s.hpLite === true ? 'checked' : ''}> 🪶 미니홈피 가볍게 <small>(옆 창 없이 가운데 창만 그려요 — 큰 상태창 · 폰에서 화면이 가벼워져요. 꾸미기 › 창에서도 바꿔요)</small></label>
@@ -231,6 +247,8 @@ export function renderSettings() {
         if (!k) return;
         settings()[k] = e.target.type === 'checkbox' ? e.target.checked : e.target.type === 'number' || e.target.type === 'range' ? Number(e.target.value) : e.target.value;
         saveSettings();
+        onLine(el);
+        if (ADDON_SET.has(k) && settings()[k] === true) app.loadAddons?.(true); // 🧩 덧붙이는 기능은 켤 때 처음 불러온다
         hintSetting(k, settings()[k]); // 방금 바꾼 설정에 주의할 게 있으면 한 번
         if (k === 'autoRegex' && e.target.checked) app.installRegex();
         if (k === 'legacyStatus') app.installRegex(); // 정규식도 같이 바꾼다
@@ -241,7 +259,10 @@ export function renderSettings() {
         if (VIEW_KEYS.has(k)) { try { app.applyRetro?.(); } catch { /* 꾸밈일 뿐 */ } app.redecorate(); app.refreshNow(); rerenderPanels(true); app.renderHud?.(); return; } // 화면 모양이 바뀌는 스위치는 바로 다시 그림
         app.refreshNow();
     });
+    onLine(el);
     el.addEventListener('click', async (e) => {
+        const go = e.target.closest('[data-s-go]')?.dataset.sGo;
+        if (go) { const t = el.querySelector(`input[data-s="${CSS.escape(go)}"]`)?.closest('label'); t?.scrollIntoView({ block: 'center', behavior: 'smooth' }); t?.classList.add('ss-set-flash'); setTimeout(() => t?.classList.remove('ss-set-flash'), 1400); return; }
         const pk = e.target.closest('[data-s-preset]')?.dataset.sPreset;
         if (pk) {
             applyPreset(pk);

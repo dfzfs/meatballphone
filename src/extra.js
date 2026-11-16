@@ -259,7 +259,8 @@ export const REL_ACTIONS = {
         box.innerHTML = `<h3>🔗 「${esc(arg)}」을(를) 누구와 합칠까요?</h3><p class="ss-hint">같은 사람이 이름만 달라 둘로 생겼을 때 써요. 「${esc(arg)}」의 수치를 고른 사람에게 더하고 「${esc(arg)}」 카드는 사라져요. 앞으로 AI가 「${esc(arg)}」(이)라고 적어도 고른 사람에게 반영돼요. 관리 탭의 되돌리기로 되돌릴 수 있어요. (연락 대화 기록은 합쳐지지 않아요.)</p><div class="ss-row-btns">${others.map(r => `<button class="ss-btn sm" data-choice="${esc(r.name)}">${esc(r.name)}</button>`).join('')}</div>`;
         const to = await choosePopup(box);
         if (!to) return;
-        return addAdjust({ ops: [['_merge', `${arg} => ${to}`]], label: `🔗 ${arg} → ${to} 합침` });
+        await addAdjust({ ops: [['_merge', `${arg} => ${to}`]], label: `🔗 ${arg} → ${to} 합침` });
+        return app.mergeContactAsk?.(arg, to); // 🔗 연락 대화도 합칠지 묻기 (addons.js)
     },
     trend: () => openTrend(),
     pairadj: (el, arg) => { const [a, b, v] = arg.split('|'); if (!a || !b || !/^[+-]\d+$/.test(v ?? '')) return; return addAdjust({ ops: [['pairaff', `${a} & ${b} ${v}`]], label: `💞 ${a}↔${b} ${v}` }); },

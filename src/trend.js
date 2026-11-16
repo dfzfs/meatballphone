@@ -1,5 +1,5 @@
 // 📈 변화 그래프 (v2.7.23): 애정 · 우정 · 돈이 답마다 어떻게 변해 왔는지 — 기록을 한 번 다시 더하며 값을 모은다 (AI 0회 · 저장하는 것 없음)
-import { app, getMeta, esc, fmtNum, TITLE, ready, isActive } from './core.js';
+import { app, getMeta, settings, esc, fmtNum, TITLE, ready, isActive } from './core.js';
 import { compute } from './engine.js';
 import { relAxes } from './core.js';
 import { popup } from './kit.js';
@@ -7,14 +7,19 @@ import { popup } from './kit.js';
 const COLORS = ['#e2557b', '#2f62e9', '#17855a', '#d98a1f', '#8a56d6', '#1aa3b8', '#b0553a', '#6b7280'];
 const MAX_LINES = 8;
 
-// 답마다의 값 모으기 → { xs: [메시지 번호…], cash: [..], aff: { 이름: [..] }, trust: { 이름: [..] } }
+// 답마다의 값 모으기 → { xs: [메시지 번호…], cash: [..], aff: { 이름: [..] }, trust: { 이름: [..] }, bars: { 게이지 · 내 탭 수치: [..] }, marks: [{ x, name, kind: 'up'|'down'|'scar', stage }] }
+// bars · marks는 덧붙인 것 — 게이지(체력 등)와 내 탭의 숫자 칸, 그리고 관계 단계가 바뀐 지점 · 흉터 지점
 export function trendData() {
-    const xs = [], cash = [], aff = Object.create(null), trust = Object.create(null); // 이름이 constructor · toString 이어도 안전하게
+    const xs = [], cash = [], aff = Object.create(null), trust = Object.create(null), bars = Object.create(null), marks = [], stageWas = Object.create(null); // 이름이 constructor · toString 이어도 안전하게
+    const more = settings().trendMore === true; // 📊 게이지 · 내 탭 수치 · 표시 지점 (선택 · 끄면 예전과 똑같이 그린다)
+    const nums = (s) => !more ? [] : [...(s.data.stats?.bars ?? []).map(b => [b.name, b.cur]), ...(s.data.custom?.tabs ?? []).flatMap(t => (t.fields ?? []).filter(f => f.type === 'num' || f.type === 'bar').map(f => [`${t.name} · ${f.k}`, Number(f.v)]))].filter(x => x[0] && Number.isFinite(x[1])).slice(0, 24);
     let last = '', tail = -1;
     const step = (i, s) => {
         const rel = s.data.rel?.user ?? [];
         const c = Number.isFinite(Number(s.data.wallet?.cash)) ? Number(s.data.wallet.cash) : null;
-        const sig = `${c}|${rel.map(r => `${r.name}:${r.aff}:${r.trust}`).join(',')}`;
+        const ns = nums(s);
+        if (more) for (const r of rel) { const was = stageWas[r.name], now = r.stage ?? -1; if (was !== undefined && was !== now) marks.push({ x: i, name: r.name, kind: now > was ? 'up' : 'down', stage: now }); stageWas[r.name] = now; } // 단계가 바뀐 지점
+        const sig = `${c}|${rel.map(r => `${r.name}:${r.aff}:${r.trust}`).join(',')}|${ns.map(x => x[1]).join(',')}`;
         tail = i;
         if (sig === last && xs.length) return; // 안 바뀐 답은 점을 늘리지 않는다 (끝 점은 아래에서 한 번)
         last = sig;
@@ -25,13 +30,15 @@ export function trendData() {
             (trust[r.name] ??= new Array(k).fill(null)).push(r.trust);
         }
         // 이번 점에 없는 사람(합쳐졌거나 지워짐)은 빈칸
-        for (const o of [aff, trust]) for (const n of Object.keys(o)) if (o[n].length < xs.length) o[n].push(null);
+        for (const [n, v] of ns) (bars[n] ??= new Array(k).fill(null)).push(v);
+        for (const o of [aff, trust, bars]) for (const n of Object.keys(o)) if (o[n].length < xs.length) o[n].push(null);
     };
     // 계산을 한 번 더 돌린다 (지금 화면의 상태 app.current는 건드리지 않는다)
     compute(undefined, { onStep: step });
     // 마지막으로 바뀐 뒤에도 이야기가 이어졌으면 선을 지금까지 늘인다
-    if (xs.length && tail > xs[xs.length - 1]) { xs.push(tail); cash.push(cash[cash.length - 1]); for (const o of [aff, trust]) for (const n of Object.keys(o)) o[n].push(o[n][o[n].length - 1]); }
-    return { xs, cash, aff, trust };
+    if (xs.length && tail > xs[xs.length - 1]) { xs.push(tail); cash.push(cash[cash.length - 1]); for (const o of [aff, trust, bars]) for (const n of Object.keys(o)) o[n].push(o[n][o[n].length - 1]); }
+    try { if (more) for (const x of getMeta()?.story?.scars ?? []) if (Number.isFinite(x.at)) marks.push({ x: x.at, name: x.name, kind: 'scar', stage: -1 }); } catch { /* 흉터 자료가 없으면 그냥 넘어감 */ }
+    return { xs, cash, aff, trust, bars, marks };
 }
 
 function chart(title, xs, series, { min = null, max = null, unit = '' } = {}) {
@@ -75,6 +82,7 @@ export function trendHTML() {
         parts.push(chart(`🤝 ${AX.trust}`, d.xs, pick(d.trust)));
     }
     if (st?.data?.wallet) parts.push(chart(`💰 ${st.data.wallet.currency || '돈'}`, d.xs, [{ name: '', color: COLORS[3], data: d.cash }]));
+    if (Object.keys(d.bars ?? {}).length) parts.push(chart('📊 수치 · 내 탭', d.xs, pick(d.bars)));
     const baked = meta?.startAt > 0 ? `<p class="ss-hint">오래된 기록은 한 줄로 합쳐 둬서(이월), ${meta.startAt}번 메시지 뒤부터 보여요.</p>` : '';
     return `<h3>📈 변화 그래프</h3><p class="ss-hint">가로는 메시지 번호예요. 값이 바뀐 답에서만 선이 꺾여요. AI 0회 · 토큰 0.</p>${parts.join('') || '<p class="ss-hint">관계나 재산 칸이 켜져 있어야 그릴 수 있어요.</p>'}${baked}`;
 }
