@@ -79,12 +79,18 @@ const patOf = () => (PATTERNS[D().hpPattern] ? D().hpPattern : 'grid');
 const hex = (v) => (/^#[0-9a-f]{6}$/i.test(String(v ?? '')) ? String(v) : '');
 const darkOn = () => { const v = D().hpDark; return v === 'dark' || v === 'auto' && !!window.matchMedia?.('(prefers-color-scheme: dark)').matches; };
 // 🪟 HUD · 미니창 · 보통 상태창에도 같은 색 · 테두리 (설정 hpSkinHud · 기본 켬): body에 색 값과 표시를 걸어 둔다
+// 지금 글꼴: 도트 모양은 기본이 도트 글꼴(d)이지만, 직접 고르면(hpFontPick) 그 글꼴로 — 예전엔 도트 모양에서 글꼴을 못 바꿨다
+const fontKey = () => { const d = D(), dot = skinOf() === 'dot'; return d.hpFont === 'u' && settings().hpFontFile ? 'u' : dot && !(d.hpFontPick === true && FONTS[d.hpFont]) ? 'd' : FONTS[d.hpFont] && d.hpFont !== 'u' ? d.hpFont : 'g'; };
+const fontOpts = () => [...(skinOf() === 'dot' ? [['d', '도트']] : []), ...Object.entries(FONTS).filter(([k]) => k !== 'u' || settings().hpFontFile)];
 export function applyRetro() {
     const b = document.body; if (!b) return; const d = D(), [, h, s] = themeOf(), on = settings().hpSkinHud !== false, dot = skinOf() === 'dot';
     b.classList.toggle('ss-retro', on); for (const k of Object.keys(SKINS)) b.classList.toggle(`ss-skin-${k}`, skinOf() === k); b.classList.toggle('ss-hp-dark', darkOn()); b.classList.toggle('ss-hp-still', d.hpMotion === false); b.classList.toggle('ss-hp-navtop', d.hpNavTop === true); for (const k of Object.keys(WALLS)) b.classList.toggle(`ss-hp-wall-${k}`, wallOf() === k); b.classList.toggle('ss-hp-wall', !!wallOf());
-    for (const [p, v, all] of [['ss-hp-r-', pick3(d.hpCorner), [0, 1, 2]], ['ss-hp-g-', pick3(d.hpGap), [0, 1, 2]], ['ss-hp-f-', d.hpFont === 'u' && settings().hpFontFile ? 'u' : dot ? 'd' : FONTS[d.hpFont] && d.hpFont !== 'u' ? d.hpFont : 'g', [...Object.keys(FONTS), 'd']]]) for (const x of all) b.classList.toggle(p + x, x === v);
+    for (const [p, v, all] of [['ss-hp-r-', pick3(d.hpCorner), [0, 1, 2]], ['ss-hp-g-', pick3(d.hpGap), [0, 1, 2]], ['ss-hp-f-', fontKey(), [...Object.keys(FONTS), 'd']]]) for (const x of all) b.classList.toggle(p + x, x === v);
     b.style.setProperty('--hp-h', String(h)); b.style.setProperty('--hp-s', String(s));
     b.style.setProperty('--hp-fs', `${fsPx()}px`); // 다른 창(도우미 등)의 글씨 크기도 같이
+    // 팝업 알림(body 바로 아래에 뜸)도 지금 모양을 따르게: 스킨 색을 한 번 읽어 body에 --tp-○ 로 넣는다 (스킨 · 밝기 · 색을 바꿀 때마다)
+    try { let pr = document.getElementById('ss-tp-probe'); if (!pr) { pr = document.createElement('div'); pr.id = 'ss-tp-probe'; pr.className = 'ss-root ss-rt'; pr.style.display = 'none'; pr.setAttribute('aria-hidden', 'true'); document.body.appendChild(pr); }
+        const cs = getComputedStyle(pr); for (const k of ['paper', 'ink', 'dim', 'ol', 'acc', 'soft', 'strip', 'r', 'font']) { const v = cs.getPropertyValue(`--hp-${k}`).trim(); if (v) b.style.setProperty(`--tp-${k}`, v); else b.style.removeProperty(`--tp-${k}`); } } catch { /* 꾸밈일 뿐 */ }
     // 직접 고른 글자 · 바탕 · 카드 색 (비우면 모양의 기본색)
     const ink = hex(d.hpInk), set = (k, v) => (v ? b.style.setProperty(k, v) : b.style.removeProperty(k));
     try { writeUserCss(); } catch (e) { ssErr(e); }
@@ -123,8 +129,8 @@ const userWins = () => (Array.isArray(D().hpUserWins) ? D().hpUserWins.filter(w 
 const winName = (k) => WINS[k] ?? userWins().find(w => w.id === k)?.title ?? '';
 // 창 하나하나의 자리: settings().hpLayout = { l: [왼쪽 줄 순서], r: [오른쪽 줄 순서], off: [숨긴 창], main: 'c'|'l'|'r'(가운데 창 위치), lw · rw: 0~2(줄 폭) }
 export const WINS = { profile: '프로필', intro: '소개', stats: '상태', friends: '일촌', quest: '퀘스트', news: '뉴스', contact: '연락', mind: '속마음', cond: '상태 이상', fate: '저주 · 빚', music: 'BGM', custom: '내 탭', photo: '사진' };
-const FS = { s: 15, m: 16.5, l: 18.5 }; // v2.8: 전체적으로 한 단계씩 크게 (예전 11.5 · 13 · 14.5) // 글씨 크기(px) — 고르지 않았으면 화면 배율이 큰 기기(노트북 150%↑)는 작게
-const FS_DOT = { s: 12, m: 13.5, l: 15.5 };
+const FS = { s: 12.5, m: 14, l: 16 }; // v2.8: 전체적으로 한 단계씩 크게 (예전 11.5 · 13 · 14.5) // 글씨 크기(px) — 고르지 않았으면 화면 배율이 큰 기기(노트북 150%↑)는 작게
+const FS_DOT = { s: 10, m: 11.5, l: 13 };
 const fsPx = () => { const n = Number(D().hpFsPx); return n >= 8 && n <= 24 ? n : (skinOf() === 'dot' ? FS_DOT : FS)[fsOf()]; }; // 직접 정한 크기가 먼저
 const fsOf = () => (FS[D().hpFs] ? D().hpFs : 'm'); // 고르지 않았으면 보통 (예전엔 화면 배율이 큰 기기에서 「작게」가 기본이라 글씨가 너무 작았음)
 const COLW = ['170px', 'clamp(230px, 21%, 320px)', 'clamp(280px, 27%, 400px)']; // v2.8: 옆 줄을 넓게 (글씨를 키운 만큼)
@@ -254,7 +260,7 @@ async function openDeco(redraw, focus = '') {
                 ${row('바탕 그림', `<button class="ss-btn sm" data-choice="bgimg:add"><i class="fa-solid fa-image"></i> ${set.hpBgImg ? '바꾸기' : '넣기'}</button>${set.hpBgImg ? `<button class="ss-btn sm ghost" data-choice="bgimg:del">빼기</button>${seg('bgtile', set.hpBgTile ? '1' : '0', [['0', '꽉 채움'], ['1', '바둑판']])}` : ''}`)}
                 ${row('창 비침', `<label class="ss-hp-range"><input type="range" min="0.3" max="1" step="0.05" value="${numIn(d.hpCardAlpha, 0.3, 1) ?? 1}" data-hpr="alpha"><small data-alv>${Math.round((numIn(d.hpCardAlpha, 0.3, 1) ?? 1) * 100)}%</small></label><small class="ss-hint">바탕 그림이 창 뒤로 비쳐요.</small>`)}
                 ${row('머리 그림', `<button class="ss-btn sm" data-choice="cover:add"><i class="fa-solid fa-image"></i> ${set.hpCover ? '바꾸기' : '넣기'}</button>${set.hpCover ? '<button class="ss-btn sm ghost" data-choice="cover:del">빼기</button>' : ''}<small class="ss-hint">맨 위 제목 뒤 얇은 띠.</small>`)}`)}
-            ${fold('type', '글씨 · 칸', `${row('글꼴', seg('font', d.hpFont === 'u' && set.hpFontFile ? 'u' : dot && d.hpFont !== 'u' ? '' : FONTS[d.hpFont] ? d.hpFont : 'g', Object.entries(FONTS).filter(([k]) => k !== 'u' || set.hpFontFile)) + `<button class="ss-btn sm" data-choice="fontfile:add"><i class="fa-solid fa-font"></i> 글꼴 파일 ${set.hpFontFile ? '바꾸기' : '올리기'}</button>${set.hpFontFile ? '<button class="ss-btn sm ghost" data-choice="fontfile:del">빼기</button>' : ''}${dot ? '<small class="ss-hint">도트 모양은 도트 글꼴이 기본이에요.</small>' : ''}`)}
+            ${fold('type', '글씨 · 칸', `${row('글꼴', seg('font', fontKey(), fontOpts()) + `<button class="ss-btn sm" data-choice="fontfile:add"><i class="fa-solid fa-font"></i> 글꼴 파일 ${set.hpFontFile ? '바꾸기' : '올리기'}</button>${set.hpFontFile ? '<button class="ss-btn sm ghost" data-choice="fontfile:del">빼기</button>' : ''}${dot ? '<small class="ss-hint">도트 모양은 도트 글꼴이 기본이에요.</small>' : ''}`)}
                 ${sizeRow}${row('모서리', seg('corner', pick3(d.hpCorner), CORNERS.map((n, i) => [i, n])))}${row('여백', seg('gap', pick3(d.hpGap), GAPS.map((n, i) => [i, n])))}${row('움직임', seg('motion', d.hpMotion === false ? '0' : '1', [['1', '켬'], ['0', '끔']]))}${row('작은 미트볼', seg('pet', d.hpPet === false ? '0' : '1', [['1', '제목 옆에'], ['0', '끔']]) + '<small class="ss-hint">기분에 따라 표정이 바뀌어요.</small>')}`)}
             ${fold('parts', '부분마다 따로 꾸미기', `<p class="ss-hint">머리줄 · 메뉴 · 창 제목 · 창 · 카드 · 단추의 색 · 테두리 · 둥글기 · 글씨 크기를 하나씩 정해요.</p>
                 <div class="ss-row-btns"><button class="ss-btn sm pri" data-choice="pick:1"><i class="fa-solid fa-arrow-pointer"></i> 화면에서 눌러 고르기</button></div>
@@ -311,9 +317,9 @@ async function decoAct(k, v, redraw) {
     if (k === 'allreset') { for (const x of DECO_KEYS) { const b = boundSet(); if (b) delete b.data[x]; else delete set[x]; } set.hpSkin = set.hpSkin ?? 'clean'; }
     if (k === 'theme') W('hpTheme', Number(v));
     if (k === 'webfont') { set.webFont = v === '1'; loadWebFont(); }
-    if (k === 'dark') W('hpDark', v); if (k === 'font') W('hpFont', v); if (k === 'fs') { W('hpFs', v); W('hpFsPx', 0); }
+    if (k === 'dark') W('hpDark', v); if (k === 'font') { if (v === 'd') W('hpFontPick', false); else { W('hpFont', v); W('hpFontPick', true); } } if (k === 'fs') { W('hpFs', v); W('hpFsPx', 0); }
     if (k === 'wall') { W('hpWall', WALLS[v] ? v : ''); delete set.hpBgImg; if (WALLS[v]) W('hpDark', WALLS[v][1] ? 'dark' : 'light'); }
-    if (k === 'skin' && SKINS[v]) { W('hpSkin', v); W('hpFsPx', 0); W('hpFont', SKIN_DEF[v][0]); W('hpDark', SKIN_DEF[v][1]); } if (k === 'pat') W('hpPattern', v); if (k === 'navtop') W('hpNavTop', v === '1'); if (k === 'colreset') { W('hpInk', ''); W('hpBg', ''); W('hpPaper', ''); }
+    if (k === 'skin' && SKINS[v]) { W('hpSkin', v); W('hpFsPx', 0); W('hpFontPick', false); W('hpFont', SKIN_DEF[v][0]); W('hpDark', SKIN_DEF[v][1]); } if (k === 'pat') W('hpPattern', v); if (k === 'navtop') W('hpNavTop', v === '1'); if (k === 'colreset') { W('hpInk', ''); W('hpBg', ''); W('hpPaper', ''); }
     if (k === 'corner') W('hpCorner', Number(v)); if (k === 'gap') W('hpGap', Number(v)); if (k === 'motion') W('hpMotion', v === '1'); if (k === 'pet') W('hpPet', v === '1');
     if (k === 'win') saveLayout({ ...L, off: L.off.includes(v) ? L.off.filter(x => x !== v) : [...L.off, v] });
     if (k === 'main') saveLayout({ ...L, main: v }); if (k === 'lw' || k === 'rw') saveLayout({ ...L, [k]: Number(v) });
@@ -376,7 +382,7 @@ function sheetHTML() {
             ${row('바탕', ['Ink:글자', 'Bg:바탕', 'Paper:카드'].map(x => x.split(':')).map(([k, n]) => `<label class="ss-hp-color"><input type="color" data-hpc="hp${k}" value="${hex(d['hp' + k]) || (k === 'Ink' ? '#24262b' : '#ffffff')}"><small>${n}${hex(d['hp' + k]) ? ' ✓' : ''}</small></label>`).join('') + (hex(d.hpInk) || hex(d.hpBg) || hex(d.hpPaper) ? B('colreset:1', '기본색', false, 'txt') : '') + B('bgimg:add', `<i class="fa-solid fa-image"></i> 바탕 그림${set.hpBgImg ? ' 바꾸기' : ''}`, false, 'txt') + (set.hpBgImg ? B('bgimg:del', '빼기', false, 'txt') : ''))}`;
     } else if (ED.tab === 'type') {
         body = `${row('크기', `<label class="ss-hp-range wide"><small>가</small><input type="range" min="8" max="22" step="0.5" value="${fsPx()}" data-hpr="fs"><small class="big">가</small><small data-fsv>${fsPx()}px</small></label>${Number(d.hpFsPx) ? B('fs:m', '기본 크기', false, 'txt') : ''}`)}
-            ${row('글꼴', dot && d.hpFont !== 'u' ? '<small class="ss-hint">도트 모양은 도트 글꼴이에요.</small>' : seg('font', d.hpFont === 'u' && set.hpFontFile ? 'u' : FONTS[d.hpFont] ? d.hpFont : 'g', Object.entries(FONTS).filter(([k]) => k !== 'u' || set.hpFontFile)) + B('fontfile:add', '<i class="fa-solid fa-font"></i> 글꼴 파일', false, 'txt'))}
+            ${row('글꼴', seg('font', fontKey(), fontOpts()) + B('fontfile:add', '<i class="fa-solid fa-font"></i> 글꼴 파일', false, 'txt'))}
             ${row('기본 글꼴', seg('webfont', set.webFont === false ? '0' : '1', [['1', 'IBM Plex Sans KR 받아 쓰기'], ['0', '끄기']]) + '<small class="ss-hint">기기에 없으면 구글 글꼴에서 받아요.</small>')}`;
     } else if (ED.tab === 'frame') {
         body = `${row('모서리', `<label class="ss-hp-range wide"><small>각지게</small><input type="range" min="0" max="2" step="1" value="${pick3(d.hpCorner)}" data-hpr="corner"><small>둥글게</small></label>`)}

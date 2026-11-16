@@ -367,7 +367,7 @@ body.ss-hp-still :is(.ss-hompy, .ss-rt) * { animation: none !important; transiti
 .ss-hp-pv i { background: #fff; border: 1px solid #dcdfe4; border-radius: 3px; } .ss-hp-pv i:first-child { grid-column: 1 / -1; border: 0; background: #e9ebef; }
 .ss-hp-pv.dot { background: #fdeef3 linear-gradient(#f7cfdc 1px, transparent 1px) 0 0 / 5px 5px; border-color: #9a6b7c; border-radius: 3px; } .ss-hp-pv.dot i { border-color: #9a6b7c; border-radius: 1px; box-shadow: 1px 1px 0 #f7cfdc; } .ss-hp-pv.dot i:first-child { background: #f9cfdc; border: 0; box-shadow: none; }
 /* 🕹 도트 모양 */
-body.ss-skin-dot { --hp-font: 'MeatballDot', 'Malgun Gothic', sans-serif; } body.ss-skin-dot.ss-hp-r-0 { --hp-r: 2px; } body.ss-skin-dot.ss-hp-r-1 { --hp-r: 7px; } body.ss-skin-dot.ss-hp-r-2 { --hp-r: 13px; }
+body.ss-skin-dot.ss-hp-f-d { --hp-font: 'MeatballDot', 'Malgun Gothic', sans-serif; } body.ss-hp-f-g { --hp-font: 'IBM Plex Sans KR', 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif; } body.ss-skin-dot.ss-hp-r-0 { --hp-r: 2px; } body.ss-skin-dot.ss-hp-r-1 { --hp-r: 7px; } body.ss-skin-dot.ss-hp-r-2 { --hp-r: 13px; }
 body.ss-skin-dot.ss-hp-g-0 { --hp-g: 4px; } body.ss-skin-dot.ss-hp-g-1 { --hp-g: 7px; } body.ss-skin-dot.ss-hp-g-2 { --hp-g: 12px; }
 body.ss-skin-dot:not(.ss-hp-dark) :is(.ss-root.ss-hompy, .ss-root.ss-rt, .ss-hp-pick), body.ss-skin-dot:not(.ss-hp-dark).ss-retro dialog.ss-dlg, body.ss-skin-dot:not(.ss-hp-dark).ss-retro :is(#ss-hud, #ss-side .ss-side-mini, .ss-float) {
     --hp-ol: hsl(var(--hp-h, 340) calc(26% * var(--hp-s, 1)) 44%); --hp-ink: var(--hp-ink-u, hsl(var(--hp-h, 340) calc(20% * var(--hp-s, 1)) 27%)); --hp-dim: var(--hp-dim-u, hsl(var(--hp-h, 340) calc(14% * var(--hp-s, 1)) 54%));
@@ -670,7 +670,7 @@ body:not(.ss-skin-dot).ss-retro #ss-side .ss-side-handle, body:not(.ss-skin-dot)
 .ss-hp-has-fate .ss-hp-homebody .ss-home-grid > [data-w="fate"], .ss-hp-has-music .ss-hp-homebody .ss-home-grid > [data-w="music"],
 .ss-hp-has-custom .ss-hp-homebody .ss-home-grid > [data-w="custom"] { display: none; }
 /* ───── 손가락 기준 (애플 44pt · 갤럭시/안드로이드 48dp): 보이는 크기는 그대로 두고 누르는 자리만 넓힌다 ───── */
-@media (pointer: coarse) {
+@media (hover: none) and (pointer: coarse) {
     .ss-hp-wtools { gap: 8px; align-items: center; }
     .ss-hp-wtools button, .ss-hp-edit .ss-hp-wtools button { position: relative; min-width: 30px; min-height: 30px; display: inline-grid; place-items: center; padding: 0 6px; box-sizing: border-box; font-size: 13px; }
     .ss-hp-edit .ss-hp-wtools button.minus { width: 30px; height: 30px; line-height: 1; font-size: 18px; }
@@ -734,7 +734,7 @@ body.ss-hp-still .ss-fb-card { transition: none; }
 .ss-tool-more { position: relative; display: inline-flex; } .ss-tool-more > summary { list-style: none; cursor: pointer; } .ss-tool-more > summary::-webkit-details-marker { display: none; }
 .ss-tool-pop { position: absolute; z-index: 8; right: 0; top: calc(100% + 4px); min-width: 168px; display: grid; gap: 2px; padding: 5px; border-radius: 12px; border: 1px solid var(--hp-ln, var(--ss-line, #ddd)); background: var(--hp-paper, var(--ss-bg, #fff)); box-shadow: 0 10px 30px rgba(0, 0, 0, .16); }
 .ss-tool-pop .ss-tool { justify-content: flex-start; width: 100%; height: auto; min-height: 34px; padding: 6px 10px; border-radius: 8px; } .ss-tool-pop .ss-tool span { display: inline !important; } .ss-tool-pop .ss-tool small { opacity: .7; margin-left: 4px; } .ss-tool-pop .ss-tool:hover { background: var(--hp-soft, rgba(0, 0, 0, .05)); }
-@media (pointer: coarse) { .ss-tool-pop .ss-tool { min-height: 44px; } :is(.ss-hompy, .ss-rt) .ss-toolrow .ss-tool { min-height: 32px; position: relative; } :is(.ss-hompy, .ss-rt) .ss-toolrow .ss-tools > .ss-tool::after, .ss-tool-more > summary::after { content: ''; position: absolute; inset: -6px -2px; } }
+@media (hover: none) and (pointer: coarse) { .ss-tool-pop .ss-tool { min-height: 44px; } :is(.ss-hompy, .ss-rt) .ss-toolrow .ss-tool { min-height: 32px; position: relative; } :is(.ss-hompy, .ss-rt) .ss-toolrow .ss-tools > .ss-tool::after, .ss-tool-more > summary::after { content: ''; position: absolute; inset: -6px -2px; } }
 
 /* ───── ③ 배경화면 (깔끔 · 폰 모양): 색 번짐 배경 + 살짝 비치는 유리 창 ───── */
 .ss-hp-wp { display: block; width: 86px; height: 56px; border-radius: 10px; border: 1px solid rgba(0, 0, 0, .1); background-size: cover; background-position: center; display: grid; place-items: center; color: #8a8a90; }
@@ -757,13 +757,13 @@ body.ss-hp-wall .ss-hompy .ss-fb-card:not(.off) { background: color-mix(in srgb,
    ① 누르는 자리: 손가락 기기에서 44pt — 내용 안의 단추 · 고르기 칸 · 접는 줄을 실제 크기로 키운다 (특이도 0이라 따로 크기를 정한 곳은 그대로)
    ② 글씨: 11px 아래로 내려가지 않게
    ③ 이름: 헷갈리는 아이콘 단추엔 글자 (shell.js labelIcons가 data-l을 붙임) · 덜 쓰는 머리 단추는 「더보기」 */
-@media (pointer: coarse) {
+@media (hover: none) and (pointer: coarse) {
     :where(.ss-root.ss-hompy, .ss-root.ss-rt) :where(.ss-body, .ss-hp-wb, .ss-toolrow, .ss-instruct) :where(button, [role="button"], select, summary, input[type="number"], input[type="text"], .ss-in) { min-height: 44px; min-width: 44px; }
     :is(.ss-hompy, .ss-rt) :is(.ss-body, .ss-hp-wb) :is(.ss-btn, .ss-pill, .ss-chip.btn, .ss-ib, .ss-x, .ss-seg > button, .ss-ava-btn, .ss-tool) { min-height: 44px; min-width: 44px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; }
     :is(.ss-hompy, .ss-rt) :is(.ss-body, .ss-hp-wb) :is(.ss-x, .ss-chip .ss-x) { min-height: 0; min-width: 0; position: relative; } :is(.ss-hompy, .ss-rt) :is(.ss-body, .ss-hp-wb) .ss-x::after { content: ''; position: absolute; inset: -17px; }
     :is(.ss-hompy, .ss-rt) :is(.ss-body, .ss-hp-wb) :is(select.ss-in, input.ss-in, .ss-mini-play) { min-height: 44px !important; }
     :is(.ss-hompy, .ss-rt) :is(.ss-body, .ss-hp-wb) :is(label.ss-tog, label.ss-mod, .ss-mini-w[data-act], [data-act].ss-art-h, .ss-hp-list[data-act] > li, [data-act="qstep"], .ss-hp-wt[role="button"], .ss-hp-friends > button) { min-height: 44px; box-sizing: border-box; align-content: center; }
-    :is(.ss-hompy, .ss-rt) label:has(> .ss-switch) { min-height: 44px; display: inline-flex; align-items: center; gap: 8px; } :is(.ss-hompy, .ss-rt) .ss-fb-card.off { display: grid; }
+    :is(.ss-hompy, .ss-rt) label:has(> .ss-switch) { min-height: 44px; } /* 배치(display)는 건드리지 않는다 — 「쓸 기능」 줄의 글이 한 글자씩 꺾이던 것 */
     :is(.ss-hompy, .ss-rt) .ss-switch { position: relative; flex: 0 0 auto; }
     .ss-hompy .ss-head-a :is(.ss-helpchip, .ss-chip) { min-height: 32px; position: relative; } .ss-hompy .ss-head-a :is(.ss-helpchip, .ss-chip)::after { content: ''; position: absolute; inset: -6px 0; }
     :is(.ss-hompy, .ss-rt) .ss-toolrow .ss-tool { min-width: 44px; min-height: 44px; justify-content: center; }
@@ -781,13 +781,13 @@ body.ss-hp-wall .ss-hompy .ss-fb-card:not(.off) { background: color-mix(in srgb,
 .ss-hompy .ss-hp-url, .ss-hompy .ss-hp-url .ss-head, .ss-hompy .ss-hp-url .ss-head-a { overflow: visible !important; -webkit-mask-image: none !important; mask-image: none !important; } .ss-hompy .ss-hp-url { z-index: 7; }
 /* HUD 자세히 줄의 「이 탭 열기」를 단추답게 */
 .ss-t-det .go { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; border: 1px solid currentColor; font-weight: 700; }
-@media (pointer: coarse) { .ss-t-det .go { min-height: 36px; } }
+@media (hover: none) and (pointer: coarse) { .ss-t-det .go { min-height: 36px; } }
 /* 관계 카드: 이름 붙은 단추가 이름을 밀어내지 않게 — 이름 줄 아래로 내려 한 줄에 나란히 (넘치면 다음 줄) */
 :is(.ss-hompy, .ss-rt) .ss-relc-h { flex-wrap: wrap; row-gap: 6px; } :is(.ss-hompy, .ss-rt) .ss-relc-h > .ss-ct-b { flex: 1 1 60%; min-width: 0; }
 :is(.ss-hompy, .ss-rt) .ss-relc-h > .ss-ib { flex: 0 0 auto; } :is(.ss-hompy, .ss-rt) .ss-relc-h > .ss-ib:first-of-type { margin-left: 0; }
 :is(.ss-hompy, .ss-rt) .ss-relc-h::after { content: none; }
 /* 「보일 것」 접는 줄은 낮게 두고 누르는 자리만 넓힌다 (머리 · 탭 · 도구줄 아래로 또 한 줄이 44px를 차지하지 않게) */
-@media (pointer: coarse) { :is(.ss-hompy, .ss-rt) details.ss-partbar > summary, :is(.ss-hompy, .ss-rt) details.ss-relshow > summary { min-height: 30px; position: relative; } :is(.ss-hompy, .ss-rt) details.ss-partbar > summary::after, :is(.ss-hompy, .ss-rt) details.ss-relshow > summary::after { content: ''; position: absolute; inset: -7px 0; } :is(.ss-hompy, .ss-rt) .ss-toolrow { margin-bottom: 0; padding-bottom: 0; } }
+@media (hover: none) and (pointer: coarse) { :is(.ss-hompy, .ss-rt) details.ss-partbar > summary, :is(.ss-hompy, .ss-rt) details.ss-relshow > summary { min-height: 30px; position: relative; } :is(.ss-hompy, .ss-rt) details.ss-partbar > summary::after, :is(.ss-hompy, .ss-rt) details.ss-relshow > summary::after { content: ''; position: absolute; inset: -7px 0; } :is(.ss-hompy, .ss-rt) .ss-toolrow { margin-bottom: 0; padding-bottom: 0; } }
 /* 넓은 화면: 가운데 창이 좁으면(탭이 많을 때 탭과 도구가 겹치던 것) 도구줄을 탭 아래 줄로 내린다 */
 @media (min-width: 641px) { .ss-hp-right { container-type: inline-size; } @container (max-width: 820px) { .ss-hp-right > .ss-tabs { grid-column: 1 / -1; } .ss-hp-right > .ss-tabs + .ss-toolrow { grid-column: 1 / -1; justify-self: end; } } }
 /* 기본 글꼴을 HUD · 사이드 미니창 · 떠 있는 버튼에도 (도트 모양은 도트 글꼴 그대로) */
@@ -804,7 +804,7 @@ body.ss-retro:not(.ss-skin-dot) :is(#ss-hud, #ss-side .ss-side-mini, .ss-float) 
 .ss-fb-card > b { grid-column: 2; font-size: .9em; font-weight: 600; color: var(--hp-dim); } .ss-fb-card > em { grid-column: 2; font-size: 1.12em; font-weight: 800; color: var(--hp-ink); line-height: 1.25; }
 .ss-fb-card.off { grid-template-columns: 40px minmax(0, 1fr) auto; min-height: 64px; } .ss-fb-card.off > b { color: var(--hp-ink); } .ss-fb-card.off > small { grid-column: 2 / 4; font-size: max(min(12px, var(--hp-fs, 12px)), .8em) !important; }
 .ss-fb-more > summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; border: 1px dashed var(--hp-ol); color: var(--hp-dim); font-weight: 700; } .ss-fb-more > summary::-webkit-details-marker { display: none; } .ss-fb-more[open] > summary { margin-bottom: 10px; color: var(--hp-acc); border-color: var(--hp-acc); }
-@media (pointer: coarse) { .ss-fb-more > summary { min-height: 44px; } }
+@media (hover: none) and (pointer: coarse) { .ss-fb-more > summary { min-height: 44px; } }
 @media (max-width: 640px) { .ss-fb-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } .ss-fb-card { padding: 12px; grid-template-columns: 34px minmax(0, 1fr); column-gap: 10px; } .ss-fb-card > i { width: 34px; height: 34px; } .ss-fb-card.off { grid-template-columns: 34px minmax(0, 1fr) auto; } }
 /* 옆 창: 줄 사이를 넉넉히 · 창 제목 또렷이 */
 @media (min-width: 641px) { body:not(.ss-skin-dot) .ss-hp-wb { padding: 8px 16px 16px; gap: 8px; } body:not(.ss-skin-dot) .ss-hp-win:not(.main) > .ss-hp-wt { padding: 14px 16px 2px; } body:not(.ss-skin-dot) .ss-hp-book { gap: calc(var(--hp-g, 12px) + 4px); padding: calc(var(--hp-g, 12px) + 4px) calc(var(--hp-g, 12px) + 8px); } body:not(.ss-skin-dot) .ss-hp-col-in { gap: calc(var(--hp-g, 12px) + 4px); } } /* 꾸미기 › 틀 › 여백 값을 그대로 따른다 */
@@ -815,14 +815,14 @@ body.ss-retro:not(.ss-skin-dot) :is(#ss-hud, #ss-side .ss-side-mini, .ss-float) 
 /* 처음 한 번 보이는 안내 줄 */
 .ss-fb-tip { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: calc(var(--hp-r, 12px) * 1.1); background: color-mix(in srgb, var(--hp-acc) 9%, var(--hp-paper)); color: var(--hp-ink); } .ss-fb-tip > i { color: var(--hp-acc); font-size: 1.2em; } .ss-fb-tip > span { flex: 1 1 auto; min-width: 0; line-height: 1.45; }
 .ss-fb-tip > button { all: unset; cursor: pointer; flex: 0 0 auto; padding: 8px 14px; border-radius: 999px; background: var(--hp-acc); color: #fff; font-weight: 700; white-space: nowrap; } .ss-fb-tip > button:focus-visible { outline: 2px solid var(--hp-ink); outline-offset: 2px; }
-@media (pointer: coarse) { .ss-fb-tip > button { min-height: 44px; box-sizing: border-box; display: inline-flex; align-items: center; } } @media (max-width: 640px) { .ss-fb-tip { flex-wrap: wrap; } .ss-fb-tip > span { flex-basis: calc(100% - 34px); } .ss-fb-tip > button { margin-left: auto; } }
+@media (hover: none) and (pointer: coarse) { .ss-fb-tip > button { min-height: 44px; box-sizing: border-box; display: inline-flex; align-items: center; } } @media (max-width: 640px) { .ss-fb-tip { flex-wrap: wrap; } .ss-fb-tip > span { flex-basis: calc(100% - 34px); } .ss-fb-tip > button { margin-left: auto; } }
 /* 카드가 「눌러서 여는 것」임을 보이게: 오른쪽에 › */
 .ss-fb-card:not(.off) { grid-template-columns: 40px minmax(0, 1fr) auto; } .ss-fb-card:not(.off)::after { content: '›'; grid-column: 3; grid-row: 1 / 3; align-self: center; color: var(--hp-dim); font-size: 1.5em; font-weight: 300; opacity: .7; } .ss-fb-card:not(.off):hover::after { color: var(--hp-acc); opacity: 1; }
 @media (max-width: 640px) { .ss-fb-card:not(.off) { grid-template-columns: 34px minmax(0, 1fr) auto; } }
 /* 창 제목 옆 「열기 ›」 */
 .ss-hp-go { all: unset; cursor: pointer; margin-left: auto; flex: 0 0 auto; color: var(--hp-acc); font-weight: 700; font-size: max(min(12px, var(--hp-fs, 12px)), .85em); white-space: nowrap; padding: 2px 4px; border-radius: 6px; position: relative; } .ss-hp-go:hover { text-decoration: underline; } .ss-hp-go:focus-visible { outline: 2px solid var(--hp-acc); }
 .ss-hp-wt:has(> .ss-hp-go) { display: flex; align-items: center; gap: 8px; } body:not(.ss-skin-dot) .ss-hp-wt:has(> .ss-hp-go) > .ss-hp-hearts { display: none; }
-@media (pointer: coarse) { .ss-hp-go::after { content: ''; position: absolute; inset: -12px -8px; } }
+@media (hover: none) and (pointer: coarse) { .ss-hp-go::after { content: ''; position: absolute; inset: -12px -8px; } }
 .ss-head-more .ss-tool-pop { min-width: 250px; } .ss-head-more .ss-tool-pop .ss-tool span { white-space: nowrap; }
 
 /* ───── v2.8 홈 = 앱 판 + 가로 사진 ─────
@@ -847,7 +847,7 @@ body.ss-hp-wall .ss-hompy .ss-fb-grid:not(.off) > .ss-fb-card { background: tran
 .ss-fb-card.edit { cursor: default; outline: 1px dashed var(--hp-ol); outline-offset: -2px; border-radius: 14px; } .ss-fb-mv { display: flex; gap: 6px; margin-top: 4px; }
 .ss-fb-mv > button { all: unset; cursor: pointer; box-sizing: border-box; min-width: 34px; height: 30px; display: grid; place-items: center; border-radius: 9px; border: 1px solid var(--hp-ln); background: var(--hp-paper); color: var(--hp-acc); font-size: .85em; position: relative; } .ss-fb-mv > button:hover { border-color: var(--hp-acc); } .ss-fb-mv > button:focus-visible { outline: 2px solid var(--hp-acc); }
 .ss-fb-grid > .ss-fb-card.edit:first-child .ss-fb-mv > button:first-child, .ss-fb-grid > .ss-fb-card.edit:last-child .ss-fb-mv > button:last-child { opacity: .3; pointer-events: none; }
-@media (pointer: coarse) { .ss-fb-mv > button { min-width: 40px; height: 36px; } .ss-fb-mv > button::after { content: ''; position: absolute; inset: -4px -2px; } }
+@media (hover: none) and (pointer: coarse) { .ss-fb-mv > button { min-width: 40px; height: 36px; } .ss-fb-mv > button::after { content: ''; position: absolute; inset: -4px -2px; } }
 
 /* ───── 「모음」 = 탭 줄 + 고른 칸 하나 ─────
    제목들은 위에 알약 단추로 나란히, 고른 칸의 내용만 그 아래에 (추천 음악을 보다 추억 앨범을 누르면 추천 음악은 사라지고 앨범만) */
@@ -858,7 +858,7 @@ body.ss-hp-wall .ss-hompy .ss-fb-grid:not(.off) > .ss-fb-card { background: tran
 .ss-hompy .ss-hp-all > .ss-hp-win.sub.open > .ss-hp-wt { background: var(--hp-acc); border-color: var(--hp-acc); color: #fff; } .ss-hompy .ss-hp-all > .ss-hp-win.sub.open > .ss-hp-wt .ss-ib { color: #fff; }
 .ss-hompy .ss-hp-all > .ss-hp-win.sub > .ss-hp-wt:hover { border-color: var(--hp-acc); } .ss-hompy .ss-hp-all > .ss-hp-win.sub > .ss-hp-wt:focus-visible { outline: 2px solid var(--hp-acc); outline-offset: 2px; }
 .ss-hompy .ss-hp-all > .ss-hp-win.sub > .ss-hp-wb { order: 1; flex: 1 1 100%; min-width: 0; padding: 6px 0 0; }
-@media (pointer: coarse) { .ss-hompy .ss-hp-all > .ss-hp-win.sub > .ss-hp-wt { min-height: 44px; } }
+@media (hover: none) and (pointer: coarse) { .ss-hompy .ss-hp-all > .ss-hp-win.sub > .ss-hp-wt { min-height: 44px; } }
 .ss-hompy .ss-hp-all > .ss-hp-win.sub > .ss-hp-wt .ss-ib { min-width: 26px !important; min-height: 26px !important; width: 26px; height: 26px; margin: -4px -8px -4px 0; }
 @media (max-width: 640px) { .ss-hompy .ss-hp-all > .ss-hp-win.sub > .ss-hp-wt { padding: 6px 14px; } }
 
@@ -905,6 +905,34 @@ body.ss-hp-wall .ss-hompy .ss-fb-grid:not(.off) > .ss-fb-card { background: tran
 .ss-hp-say { all: unset; cursor: pointer; position: relative; box-sizing: border-box; padding: 4px 11px; border-radius: 13px; background: var(--hp-paper); color: var(--hp-ink); border: 1.5px solid var(--hp-acc); font-weight: 700; font-size: max(min(12px, var(--hp-fs, 12px)), .8em); line-height: 1.3; white-space: nowrap; margin-left: 5px; }
 .ss-hp-say::before { content: ''; position: absolute; left: -6px; top: 50%; width: 8px; height: 8px; margin-top: -4px; background: var(--hp-paper); border-left: 1.5px solid var(--hp-acc); border-bottom: 1.5px solid var(--hp-acc); transform: rotate(45deg); border-radius: 0 0 0 2px; }
 .ss-hp-say:hover { background: var(--hp-acc); color: #fff; } .ss-hp-say:hover::before { background: var(--hp-acc); } .ss-hp-say:focus-visible { outline: 2px solid var(--hp-acc); outline-offset: 2px; }
-@media (pointer: coarse) { .ss-hp-say::after { content: ''; position: absolute; inset: -9px -4px; } }
+@media (hover: none) and (pointer: coarse) { .ss-hp-say::after { content: ''; position: absolute; inset: -9px -4px; } }
 body.ss-skin-dot .ss-hp-buddy .ss-hp-pet { width: 26px; height: 26px; margin: -4px 0; } body.ss-skin-dot .ss-hp-say { border-radius: 4px; padding: 1px 8px; }
 @media (max-width: 640px) { .ss-hp-buddy .ss-hp-pet { width: 34px; height: 34px; margin: -6px 0; } .ss-hp-say { padding: 3px 9px; } }
+
+/* ═════ 홈 한 화면 (v2.8 마지막 정리) ═════
+   앱은 작게 · 촘촘히 · 왼쪽부터 모아서, 사진은 남는 높이를 전부 채운다 (가로도 꽉) — 스크롤 없이 한 화면. 앱이 아주 많을 때만 앱 쪽이 안에서 스크롤. */
+.ss-fb { margin-top: 6px; gap: 6px; }
+.ss-fb-grid:not(.off) { grid-template-columns: repeat(auto-fill, 5.4em); justify-content: start; gap: .25em .15em; }
+.ss-fb-grid:not(.off) > .ss-fb-card { padding: .4em .1em .3em; gap: .15em; border-radius: .7em; }
+.ss-fb-grid:not(.off) > .ss-fb-card > i { width: 2.7em; height: 2.7em; border-radius: .8em; font-size: 1em; margin-bottom: .1em; } .ss-fb-grid:not(.off) > .ss-fb-card > i::before { font-size: 1.2em; }
+.ss-fb-grid:not(.off) > .ss-fb-card > b { font-size: .82em; line-height: 1.2; } .ss-fb-grid:not(.off) > .ss-fb-card > em { font-size: .74em !important; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+@media (max-width: 640px) { .ss-fb-grid:not(.off) { grid-template-columns: repeat(auto-fill, minmax(4.6em, 1fr)); justify-content: stretch; } }
+@media (min-width: 641px) {
+    .ss-hompy .ss-hp-homewrap.has, .ss-hompy .ss-hp-homewrap.has.flip { display: flex; flex-direction: column; height: 100%; gap: 8px; }
+    .ss-hompy .ss-hp-homewrap.has > .ss-hp-homebody { flex: 0 1 auto; min-height: 0; max-height: 62%; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; width: 100%; }
+    .ss-hompy .ss-hp-homewrap.has > .ss-hp-main { flex: 1 1 0; min-height: 120px; width: 100%; margin: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .ss-hompy .ss-hp-homewrap.has > .ss-hp-main img { flex: 1 1 0; min-height: 0; height: 0; width: 100%; aspect-ratio: auto; object-fit: cover; object-position: center; }
+    .ss-hompy .ss-hp-homewrap.has > .ss-hp-main figcaption { flex: 0 0 auto; }
+}
+/* 칩이 칸보다 길면 잘리지 않고 줄을 바꾼다 (본거지 가구 이름 등 — 「대형 플라스틱 쓰레기 상자」가 칸 밖으로 나가던 것) */
+.ss-scope .ss-chips { min-width: 0; max-width: 100%; } .ss-scope .ss-chips > .ss-chip { max-width: 100%; white-space: normal; overflow-wrap: anywhere; word-break: keep-all; height: auto; min-height: 1.9em; line-height: 1.3; padding-top: .2em; padding-bottom: .2em; border-radius: 1em; box-sizing: border-box; }
+.ss-scope .ss-room { min-width: 0; }
+
+/* ───── 팝업 알림도 고른 모양을 따른다 (v2.8) — 색 · 모서리 · 글꼴은 hompy.js가 지금 스킨에서 읽어 body에 --tp-○ 로 넣어 준다 ───── */
+body.ss-retro .ss-toasts .ss-toast { background: var(--tp-paper, var(--ss-bg)); color: var(--tp-ink, var(--ss-ink)); border: 1px solid var(--tp-ol, var(--ss-line)); border-radius: var(--tp-r, 12px); font-family: var(--tp-font, inherit); font-size: calc(var(--hp-fs, 14px) * var(--ss-fs, 1)); -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: 0 6px 20px rgba(20, 22, 30, .12); }
+body.ss-retro.ss-skin-dot .ss-toasts .ss-toast { box-shadow: 3px 3px 0 var(--tp-strip, rgba(0, 0, 0, .1)); border-top: 6px solid var(--tp-strip, var(--ss-line)); }
+body.ss-retro .ss-toasts .ss-t-ico { background: var(--tp-soft, var(--ss-surface)); color: var(--tp-acc, inherit); border-radius: calc(var(--tp-r, 12px) * .7); }
+body.ss-retro .ss-toasts .ss-t-b small, body.ss-retro .ss-toasts .ss-t-b em, body.ss-retro .ss-toasts .ss-t-x { color: var(--tp-dim, var(--ss-dim)); }
+body.ss-retro .ss-toasts .ss-t-btn { background: var(--tp-paper, var(--ss-bg)); color: var(--tp-acc, var(--ss-ink)); border-color: var(--tp-acc, var(--ss-line)); } body.ss-retro .ss-toasts .ss-t-btn.ghost { color: var(--tp-dim, var(--ss-dim)); border-color: var(--tp-ol, var(--ss-line)); }
+body.ss-retro .ss-toasts :is(.ss-t-play, .ss-mini-play) { background: var(--tp-acc, var(--ss-acc)); }
+.ss-scope .ss-chips > .ss-chip, :is(.ss-hompy, .ss-rt) .ss-room .ss-chip { white-space: normal !important; overflow-wrap: anywhere !important; min-width: 0; flex-wrap: wrap; text-align: left; }

@@ -76,8 +76,8 @@
 .ss-tb .ss-t .p, .ss-tb .ss-t b { white-space: nowrap; }
 
 /* v2.7.21: 칸 안 내용은 .ci 한 묶음 — 넘치면 zoom으로 줄임 (fitTiles) */
-.ss-tb { font-size: 14.5px !important; }
-#ss-hud .ss-tb, #ss-side .ss-tb { font-size: 14.5px !important; }
+.ss-tb { font-size: 13.5px !important; }
+#ss-hud .ss-tb, #ss-side .ss-tb { font-size: 13.5px !important; }
 .ss-tb .ss-t > .c { overflow: hidden; }
 .ss-tb .ss-t > .c > .ci { display: inline-flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; flex: none; max-width: none; }
 .ss-tb .ss-t.tall > .c > .ci { flex-direction: column; gap: 2px; }
