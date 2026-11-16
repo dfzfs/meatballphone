@@ -349,6 +349,25 @@ async function onPanelAction(el, act, arg, btn) {
 function bindPanel(el) {
     if (el._ssBound) return;
     el._ssBound = true;
+    // 👆 꾹 누르면 꾸미기 (v2.8, 폰 홈 화면처럼): 전체화면에서 창 · 앱 칸 · 빈 바탕을 0.55초 누르고 있으면 꾸미기 모드로 — 글 입력칸 · 미니 채팅 · 이미 꾸미기 중일 때는 아님
+    {
+        let timer = null, sx = 0, sy = 0, eat = false;
+        const stop = () => { clearTimeout(timer); timer = null; };
+        el.addEventListener('pointerdown', (e) => {
+            stop(); eat = false;
+            if (e.button > 0 || settings().hpLongPress === false) return;
+            const hp = e.target.closest?.('.ss-hompy'); if (!hp || !el.contains(hp) || hp.classList.contains('ss-hp-edit')) return;
+            if (e.target.closest('input, textarea, select, [contenteditable], .ss-ctfloat, .ss-thread, .ss-hp-sheet, a[href]')) return;
+            if (!e.target.closest('.ss-hp-win, .ss-fb-card, .ss-hp-cols, .ss-hp-top')) return;
+            sx = e.clientX; sy = e.clientY;
+            timer = setTimeout(() => { timer = null; const b = el.querySelector('.ss-hompy:not(.ss-hp-edit) [data-hp="deco"]'); if (!b) return; eat = true; setTimeout(() => { eat = false; }, 900); try { navigator.vibrate?.(12); } catch { /* 없으면 그만 */ } getSelection?.()?.removeAllRanges?.(); b.click(); }, 550);
+        });
+        el.addEventListener('pointermove', (e) => { if (timer && Math.hypot(e.clientX - sx, e.clientY - sy) > 9) stop(); });
+        ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => el.addEventListener(t, stop));
+        el.addEventListener('scroll', stop, true);
+        el.addEventListener('click', (e) => { if (eat) { eat = false; e.stopPropagation(); e.preventDefault(); } }, true); // 손을 뗄 때의 클릭이 칸을 열지 않게
+        el.addEventListener('contextmenu', (e) => { if (eat) e.preventDefault(); });
+    }
     el.addEventListener('click', (e) => {
         const pr = e.target.closest('[data-preset-ss]');
         if (pr && el.contains(pr)) { e.preventDefault(); applyPreset(pr.dataset.presetSs); return; }
