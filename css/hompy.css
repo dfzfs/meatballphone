@@ -1024,3 +1024,14 @@ body.ss-skin-dot .ss-ctfloat { border-radius: 8px; border-width: 2px; box-shadow
 }
 /* 작은 칸의 값: 한 줄에서 글자 중간이 잘리던 것 → 두 줄까지 줄바꿈 */
 .ss-hompy .ss-fb-grid:not(.off):not(.top) > .ss-fb-card > em { white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; text-overflow: clip; }
+
+/* 아래 작은 앱 칸: 늘 정확히 두 줄에 꽉 차게 (칸 수를 반으로 나눠 열을 정함 — 크기 · 모양이 바뀌어도 빈틈이 안 생김) */
+@media (min-width: 900px) {
+    .ss-hompy .ss-hp-homewrap.has .ss-fb-grid.rest { grid-template-columns: repeat(var(--fbc, 7), minmax(0, 1fr)) !important; grid-auto-rows: 1fr; }
+    .ss-hompy .ss-hp-homewrap.has .ss-fb-grid.rest.odd > :last-child { grid-column: span 2; }
+    .ss-hompy .ss-hp-homewrap.has .ss-fb-grid.rest > .ss-fb-card > b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+}
+/* 미니 채팅창: 작게 — 대화와 입력칸만 */
+.ss-ctfloat { width: min(320px, calc(100vw - 16px)); height: min(430px, calc(100dvh - 90px)); }
+.ss-panel-float .ss-ct-top, .ss-panel-float .ss-toolrow { display: none !important; }
+.ss-panel-float .ss-phone-in { position: sticky; bottom: 0; background: var(--tp-paper, var(--ss-bg, #fff)); padding-top: 6px; }
