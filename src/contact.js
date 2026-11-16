@@ -197,6 +197,7 @@ function truthList(s, d, ui) {
 // ───── 👥 단체방 (v2.8 · 선택 기능 · 설정 groupChat) ─────
 // 인물 여럿이 있는 방: 내 말에 · 서로에게 반응한다 (인물끼리 호감이 있으면 그대로 반영). 대화는 ct.rooms에 따로 쌓이고 본편 AI에게 가지 않는다.
 const roomOn = () => settings().groupChat === true;
+const ROOM_MAX = 200; // 방 하나에 남기는 대화 수 — 대화는 채팅 파일에 통째로 저장돼서, 끝없이 쌓이면 저장이 무거워진다 (오래된 것부터 지움)
 function roomList(s, d, ui) {
     const rooms = Object.entries(d.rooms ?? {});
     const cand = [...new Set([...names(d), ...(s.data.rel?.user ?? []).filter(r => !r.out).map(r => r.name)])];
@@ -332,7 +333,7 @@ async function getTruthReply(el, who, replaceId = null) {
 // 👥 단체방: 내 말 → 방 사람들의 반응
 async function sendRoom(el, s, room, text) {
     const nd = clone(s.data.contact); const r = nd.rooms?.[room]; if (!r) return;
-    r.msgs.push({ id: uid(), from: 'me', text, date: stamp(s), at: wholeTick(s), arrive: wholeTick(s), kind: 'text', read: true });
+    r.msgs.push({ id: uid(), from: 'me', text, date: stamp(s), at: wholeTick(s), arrive: wholeTick(s), kind: 'text', read: true }); if (r.msgs.length > ROOM_MAX) r.msgs = r.msgs.slice(-ROOM_MAX);
     await commit('contact', nd, '');
     redraw(el);
     if (!el._ss.ui.noReply) await getRoomReply(el, room);
@@ -346,7 +347,7 @@ async function getRoomReply(el, room) {
         const lines = await groupReply(room, s);
         if (!lines.length) throw new Error('빈 답이 왔어요');
         const nd = clone(curState().data.contact); const r = nd.rooms?.[room]; if (!r) return;
-        r.msgs.push(...lines.map(l => ({ id: uid(), from: 'them', who: l.who, text: l.text, date: stamp(s), at: wholeTick(s), arrive: wholeTick(s), kind: 'text' })));
+        r.msgs.push(...lines.map(l => ({ id: uid(), from: 'them', who: l.who, text: l.text, date: stamp(s), at: wholeTick(s), arrive: wholeTick(s), kind: 'text' }))); if (r.msgs.length > ROOM_MAX) r.msgs = r.msgs.slice(-ROOM_MAX);
         await commit('contact', nd, '');
         redraw(el);
     } catch (e) { ssErr(e); toastr.error(`반응을 받지 못했어요: ${esc(e.message)}`, TITLE); redraw(el); }
@@ -602,7 +603,8 @@ export const CONTACT_ACTIONS = {
         const name = el.querySelector('.ss-rname')?.value.trim(); const members = [...el.querySelectorAll('.ss-rmem:checked')].map(x => x.value);
         if (!name) { toastr.info('방 이름을 적어요.', TITLE); return; }
         if (members.length < 2 || members.length > 6) { toastr.info('2~6명을 골라요.', TITLE); return; }
-        if (s.data.contact.rooms?.[name]) { toastr.info('같은 이름의 방이 있어요.', TITLE); return; }
+        if (name in {}) { toastr.info('그 이름은 쓸 수 없어요. 다른 이름으로 해 주세요.', TITLE); return; } // constructor · toString · __proto__ 처럼 그릇이 원래 갖고 있는 이름
+        if (Object.hasOwn(s.data.contact.rooms ?? {}, name)) { toastr.info('같은 이름의 방이 있어요.', TITLE); return; }
         const nd = clone(s.data.contact); (nd.rooms ??= {})[name] = { members, msgs: [] };
         await commit('contact', nd, '');
         el._ss.ui = { rooms: true, room: name }; app.renderPanel(el);
@@ -617,7 +619,7 @@ export const CONTACT_ACTIONS = {
         if (inRoom && nr.members.length <= 2) { toastr.info('방에는 2명 이상 있어야 해요.', TITLE); return; }
         if (!inRoom && nr.members.length >= 6) { toastr.info('6명까지 들어올 수 있어요.', TITLE); return; }
         nr.members = inRoom ? nr.members.filter(n => n !== pick) : [...nr.members, pick];
-        nr.msgs.push({ id: uid(), from: 'them', who: pick, text: inRoom ? '(방을 나갔어요)' : '(방에 들어왔어요)', date: stamp(s), at: wholeTick(s), arrive: wholeTick(s), kind: 'text' });
+        nr.msgs.push({ id: uid(), from: 'them', who: pick, text: inRoom ? '(방을 나갔어요)' : '(방에 들어왔어요)', date: stamp(s), at: wholeTick(s), arrive: wholeTick(s), kind: 'text' }); if (nr.msgs.length > ROOM_MAX) nr.msgs = nr.msgs.slice(-ROOM_MAX);
         await commit('contact', nd, ''); redraw(el);
     },
     crclear: async (el, arg, btn, s) => {

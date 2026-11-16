@@ -57,7 +57,7 @@ export function storySection(tab, ui = {}) {
 const KIND = { item: ['fa-gift', '아이템'], act: ['fa-person-walking', '행동'], say: ['fa-comment-dots', '말'] };
 const SUS_MAX = 10;
 const susWord = (v) => (v >= 8 ? '거의 확신하고 있어요' : v >= 3 ? '의심하는 중' : v > 0 ? '아직은 모르는 눈치' : '전혀 모르고 있어요');
-const advice = (list, cls, title, icon) => `<div class="ss-gd-col ${cls}"><h5><i class="fa-solid ${icon}"></i> ${title}</h5>${list.length ? `<ul>${list.map(x => `<li><em class="ss-gd-k"><i class="fa-solid ${KIND[x.k]?.[0] ?? KIND.act[0]}"></i>${KIND[x.k]?.[1] ?? KIND.act[1]}</em><span>${esc(x.t)}</span></li>`).join('')}</ul>` : none('적힌 게 없어요.')}</div>`;
+const advice = (list, cls, title, icon) => `<div class="ss-gd-col ${cls}"><h5><i class="fa-solid ${icon}"></i> ${title}</h5>${list.length ? `<ul>${list.map(x => `<li class="${KIND[x.k] ? '' : 'nok'}">${KIND[x.k] ? `<em class="ss-gd-k"><i class="fa-solid ${KIND[x.k][0]}"></i>${KIND[x.k][1]}</em>` : ''}<span>${esc(x.t)}</span></li>`).join('')}</ul>` : none('적힌 게 없어요.')}</div>`;
 export function guideView(ui = {}) {
     try {
         const ps = people(); if (!st()) return '';

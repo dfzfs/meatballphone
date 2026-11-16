@@ -37,6 +37,8 @@ const chat = () => ctx().chat ?? [];
 const chatId = () => { try { return String(ctx().getCurrentChatId?.() ?? ''); } catch { return ''; } };
 const hash = (t) => { let h = 2166136261; for (const c of String(t)) { h ^= c.codePointAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
 const cut = (t, n) => short(String(t ?? '').replace(/\s+/g, ' ').trim(), n);
+// 이름을 열쇠로 쓰는 그릇에서 읽기: 이름이 「constructor」 「toString」이면 물려받은 함수가 읽혀 화면이 죽었다 → 제 것만 읽는다
+const own = (o, k) => (o && typeof o === 'object' && Object.hasOwn(o, k) ? o[k] : undefined);
 
 // ───── 🔁 회차 ─────
 export function loopInfo() {
@@ -72,12 +74,12 @@ export function findScars() {
 export const guideOn = () => settings().guideOn !== false;
 // 비밀 네 단계: [열쇠, 색 이름, 뜻, 깔 때 오르는 눈치, AI에게 가는 이름]
 export const SECRET_LV = [['g', '초록', '나만 모르는 비밀 — 주변 사람들은 알 수도 있어요', 1, 'green'], ['y', '노랑', '몇 사람만 아는 비밀', 2, 'yellow'], ['r', '빨강', '본인만 아는 비밀', 3, 'red'], ['k', '검정', '말하느니 죽음을 택할 비밀', 5, 'black']];
-export const susOf = (name) => storyData()?.sus?.[name] ?? 0;
-export const guideOf = (who) => storyData()?.guide?.[who] ?? null;
-export const secretsOf = (who) => storyData()?.secrets?.[who] ?? null;
+export const susOf = (name) => Number(own(storyData()?.sus, name)) || 0;
+export const guideOf = (who) => { const g = own(storyData()?.guide, who); return g && typeof g === 'object' ? g : null; };
+export const secretsOf = (who) => { const x = own(storyData()?.secrets, who); return Array.isArray(x) && x.length ? x : null; };
 export function openSecret(who, lv) { const x = secretsOf(who)?.find(y => y.lv === lv); if (!x || x.open) return false; x.open = true; addSus(who, SECRET_LV.find(y => y[0] === lv)?.[3] ?? 1); return true; }
 // 👁 엿봤다 (extra.js의 속마음 엿보기 · 공략 · 비밀 까 보기)
-export function addSus(name, n = 1) { if (!(storyOn('peek') || guideOn()) || !name) return; const L = storyData(true); if (!L) return; (L.sus ??= {})[name] = (L.sus[name] ?? 0) + n; saveMeta(); }
+export function addSus(name, n = 1) { if (!(storyOn('peek') || guideOn()) || !name) return; const L = storyData(true); if (!L) return; (L.sus ??= {})[name] = (Number(own(L.sus, name)) || 0) + n; saveMeta(); }
 app.storyPeek = addSus;
 
 // ───── 🌫 화면 깨짐 ─────
@@ -123,20 +125,27 @@ function about(who) {
         `Recent story:\n${recentChat(8)}`].filter(Boolean).join('\n\n');
 }
 const text = async (sys, body, max = 700) => stripStatus(await aiGenerate('peek', sys, body, max)).trim();
-const keep = (L, key, who, v, n = 8) => { const box = (L.ai ??= {})[key] ??= {}; box[who] = [...(box[who] ?? []), { ...v, date: stamp(st()) }].slice(-n); };
-export const kept = (key, who) => storyData()?.ai?.[key]?.[who] ?? [];
+const keep = (L, key, who, v, n = 8) => { const box = (L.ai ??= {})[key] ??= {}; const old = own(box, who); box[who] = [...(Array.isArray(old) ? old : []), { ...v, date: stamp(st()) }].slice(-n); };
+export const kept = (key, who) => { const x = own(own(storyData()?.ai, key), who); return Array.isArray(x) ? x : []; };
 export const AI = {
     // 🗝 공략: 지금 상황에서 호감이 오를 것 3 · 떨어질 것 3 (아이템 · 행동 · 말) — 그 인물이 직접 쓴 말투로. 받을 때마다 눈치 +1
     guide: async (who) => {
         const j = await aiJSON('peek', P('story.guide', { who }), about(who), 800);
-        const pick = (a) => (Array.isArray(a) ? a : []).map(x => ({ k: ['item', 'act', 'say'].includes(x?.kind) ? x.kind : 'act', t: cut(x?.text, 160) })).filter(x => x.t).slice(0, 3);
-        const up = pick(j.up), down = pick(j.down); if (!up.length && !down.length) throw new Error('빈 답이 왔어요');
-        const L = storyData(true); (L.guide ??= {})[who] = { up, down, note: cut(j.note, 140), date: stamp(st()), at: chat().length }; addSus(who, 1); storySave();
+        // 모델마다 모양이 조금씩 다르다: 한 겹 더 싸서 주거나 · 글만 늘어놓거나 · 종류를 한국어/대문자로 적는 것까지 받는다
+        const src = Array.isArray(j?.up) || Array.isArray(j?.down) ? j : (Object.values(j ?? {}).find(v => v && typeof v === 'object' && (Array.isArray(v.up) || Array.isArray(v.down))) ?? j ?? {});
+        const kindOf = (k) => { const t = String(k ?? '').trim().toLowerCase(); return /^(item|gift|thing|object)s?$|아이템|물건|선물/.test(t) ? 'item' : /^(say|line|speech|word|talk|dialogue)s?$|말|대사|대화/.test(t) ? 'say' : 'act'; };
+        const pick = (a) => (Array.isArray(a) ? a : []).map(x => (typeof x === 'string' ? { k: '', t: cut(x, 160) } : { k: kindOf(x?.kind ?? x?.type), t: cut(typeof x?.text === 'string' || typeof x?.text === 'number' ? x.text : x?.advice ?? x?.content ?? '', 160) })).filter(x => x.t).slice(0, 3);
+        const up = pick(src.up), down = pick(src.down); if (!up.length && !down.length) throw new Error('빈 답이 왔어요');
+        const L = storyData(true); (L.guide ??= {})[who] = { up, down, note: cut(typeof src.note === 'string' ? src.note : '', 140), date: stamp(st()), at: chat().length }; addSus(who, 1); storySave();
     },
     // 🔒 비밀 네 단계 만들기 (가려 둔 채로 저장 — 깔 때마다 눈치가 오른다)
     secrets: async (who) => {
         const j = await aiJSON('peek', P('story.secrets', { who }), about(who), 800);
-        const list = SECRET_LV.map(([lv, , , , key]) => ({ lv, text: cut(j?.[key], 220), open: false })).filter(x => x.text);
+        // 한 겹 더 싼 답 · 배열 · 한국어 열쇠 · {text} 꼴까지 받는다
+        const KO = { green: '초록', yellow: '노랑', red: '빨강', black: '검정' }, has = (o) => o && typeof o === 'object' && !Array.isArray(o) && Object.keys(KO).some(k => own(o, k) !== undefined || own(o, KO[k]) !== undefined);
+        const src = has(j) ? j : (Object.values(j ?? {}).find(v => has(v) || (Array.isArray(v) && v.length >= 2)) ?? j ?? {});
+        const val = (v) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : v && typeof v === 'object' ? (Object.values(v).find(x => typeof x === 'string') ?? '') : '');
+        const list = SECRET_LV.map(([lv, , , , key], i) => ({ lv, text: cut(val(Array.isArray(src) ? src[i] : own(src, key) ?? own(src, KO[key])), 220), open: false })).filter(x => x.text);
         if (list.length < 2) throw new Error('비밀을 만들지 못했어요');
         const L = storyData(true); (L.secrets ??= {})[who] = list; storySave();
     },
