@@ -488,7 +488,8 @@ export function fitHompy(el, tries = 0) {
     });
     // 적기 (한 번에)
     cols.forEach((c, i) => c.classList.toggle('ss-hp-over', over[i]));
-    if (hb) { const h = `${room}px`; if (body.style.height !== h) body.style.height = h; el._hpRoom = { k: kb, h }; } // 가운데 창은 글씨를 줄이지 않고, 넘치면 창 안에서 스크롤 (칸은 여러 단으로 쌓여 있음)
+    if (hb) { const h = `${room}px`; if (body.style.height !== h) body.style.height = h; el._hpRoom = { k: kb, h }; }
+    { const k = el._hpKeep; el._hpKeep = null; if (k && body && k.tab === `${body.dataset.tab}|${body.className.replace(/\s*ss-hp-swap/, '')}`) right.scrollTop = k.top; } // 가운데 창은 글씨를 줄이지 않고, 넘치면 창 안에서 스크롤 (칸은 여러 단으로 쌓여 있음)
 }
 // 사진 단추 (패널마다 걸지 않고 문서에 한 번)
 export function initHompy() {
@@ -623,6 +624,8 @@ export function mountHompy(el, html) {
         const t = document.createElement('template'); t.innerHTML = html; const neu = t.content.firstElementChild;
         if (!neu || t.content.childElementCount !== 1 || !neu.classList.contains('ss-hompy')) return false;
         const fr = frameOf(neu); for (const u of unitsOf(neu)) SRC.set(u, u.outerHTML); if (fr) FRAME.set(neu, fr);
+        // 가운데 창은 늘 새로 붙이므로 스크롤이 맨 위로 돌아갔다 (스위치 하나 누를 때마다) → 같은 탭이면 보던 자리를 적어 뒀다가 맞춤(fitHompy) 뒤에 되돌린다
+        { const r0 = el.querySelector('.ss-hp-right'), b0 = r0?.querySelector(':scope > .ss-body'); el._hpKeep = r0 && b0 && r0.scrollTop > 0 ? { tab: `${b0.dataset.tab}|${b0.className.replace(/\s*ss-hp-swap/, '')}`, top: r0.scrollTop } : null; }
         const old = el.childElementCount === 1 ? el.firstElementChild : null;
         if (!fr || !old || FRAME.get(old) !== fr || settings().hpPatch === false) { el.replaceChildren(neu); return true; }
         // 같은 틀: 바뀐 것만

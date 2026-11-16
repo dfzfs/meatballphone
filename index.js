@@ -676,7 +676,8 @@ async function measureLoad() {
     // 창마다 따로 (v2.8): 어느 창이 무거운지 보이게 — 전체화면 미니홈피 · 옆 창 미니 채팅 · 사이드 창
     const perPanel = [...panels].filter(p => p.isConnected && p._ss?.mode === 'view' && !(p.classList.contains('ss-panel-side') && set.sideState !== 'full')).map(p => { const kind = p.classList.contains('ss-panel-float') ? '옆 창 미니 채팅' : p.classList.contains('ss-panel-side') ? '사이드 창' : p.querySelector('.ss-hompy') ? `전체화면 미니홈피${set.hpLite === true ? ' (가볍게)' : ''}` : '상태창'; const fl = p.classList.contains('ss-panel-float'); return [kind, t(() => app.renderPanel(p, fl), 3), `${fl ? '내용이 그대로면 다시 안 그려요' : `${p._ss?.tab ?? ''} 탭`} · 요소 ${p.querySelectorAll('*').length}개`]; });
     ms.hud = t(() => renderHud(), 5);
-    let trMs = 0; try { const { translateView } = await import('./src/translate.js'); trMs = t(() => translateView(), 3); } catch { /* 번역 없음 */ }
+    // 번역: 한 턴에 실제로 드는 만큼 — 새로 그린 창(전체화면이면 가운데 창)의 글만. 화면 전체를 처음부터 다시 번역하는 건 사전이 바뀔 때뿐이라 따로 적는다
+    let trMs = 0, trAll = 0; try { const { translateView } = await import('./src/translate.js'); const roots = [...panels].filter(p => p.isConnected && p._ss?.mode === 'view' && !(p.classList.contains('ss-panel-side') && set.sideState !== 'full') && !p.classList.contains('ss-panel-float')).map(p => p.querySelector('.ss-hp-win.main') ?? p); trMs = roots.length ? t(() => { for (const r0 of roots) translateView(r0); }, 3) : 0; trAll = t(() => translateView(), 2); } catch { /* 번역 없음 */ }
     ms.translate = trMs;
     const turn = ms.compute + ms.inject + ms.decorateSoft + ms.hud + (panels.size ? ms.panels : 0) + trMs;
     const metaKB = Math.round(JSON.stringify(meta).length / 1024);
@@ -690,12 +691,12 @@ async function measureLoad() {
         ['상태창 화면 다시 그리기', ms.panels, `그리는 창 ${perPanel.length}개${perPanel.length ? '' : ' (접어 둔 미니바는 안 그려요)'}`],
         ...perPanel.map(([k, v, note]) => [`　└ ${k}`, v, note]),
         ['채팅 위 띠(HUD)', ms.hud, ''],
-        ['화면 번역', trMs, trN ? `사전 ${trN}개` : '안 씀'],
+        ['화면 번역 (새로 그린 창)', trMs, trN ? `사전 ${trN}개 · 화면 전체를 다시 번역하면 ${trAll.toFixed(1)}ms (사전이 바뀔 때만)` : '안 씀'],
     ];
     const tips = [];
     if (unbaked > 300) tips.push(`굳히지 않은 메시지가 ${unbaked}개예요 → 확장 설정 › 확장 AI › 「자동 정리를 시작할 메시지 수」를 낮추면 계산이 가벼워져요.`);
     if (metaKB > 800) tips.push(`이 채팅의 상태창 데이터가 ${metaKB}KB예요 → 관리 탭 › 세이브 슬롯을 지우거나, 자동 정리를 켜 두세요.`);
-    if (trN > 1500 && trMs > 8) tips.push('화면 번역 사전이 커서 번역이 느려요 → 「번역 고치기」로 안 쓰는 것을 정리하거나, 상태창 언어를 한국어 저장으로.');
+    if (trN > 1500 && trAll > 8) tips.push('화면 번역 사전이 커서 번역이 느려요 → 「번역 고치기」로 안 쓰는 것을 정리하거나, 상태창 언어를 한국어 저장으로.');
     { const hp = perPanel.find(x => x[0].startsWith('전체화면 미니홈피') && x[1] > 20); if (hp && set.hpLite !== true) tips.push(`전체화면 미니홈피를 그리는 데 ${hp[1].toFixed(0)}ms가 들어요 → 꾸미기 › 창 › 「🪶 가볍게 (옆 창 없이)」를 켜면 가운데 창만 그려서 가벼워져요.`); const fl = perPanel.find(x => x[0] === '옆 창 미니 채팅' && x[1] > 10); if (fl) tips.push(`옆 창 미니 채팅이 ${fl[1].toFixed(0)}ms를 써요 → 연락 탭의 「옆 창 채팅 끄기」.`); }
     if (set.injectMode === 'full') tips.push('규칙 주입이 「전체」예요 → 「간결」로 바꾸면 토큰과 계산이 줄어요.');
     if (!tips.length) tips.push(turn < 30 ? '지금은 가벼워요. 렉이 느껴지면 미트볼보다 다른 확장 · 브라우저 쪽일 가능성이 커요 (F12 › Performance).' : '한 턴에 30ms를 넘어요. 위에서 큰 줄부터 줄여 보세요.');

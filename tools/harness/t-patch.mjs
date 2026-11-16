@@ -12,7 +12,7 @@ try {
     window.__autoPopup = null; S.sheetFull = false; S.hpSkin = 'clean'; shell.openSheet('home'); await wait(400);
     const el = [...shell.panels].find(p => p.isConnected && p.classList.contains('ss-panel-pop')); const dlg = el.closest('dialog'); dlg.classList.add('ss-dlg'); dlg.style.cssText = 'position:fixed;inset:0;width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;padding:0;border:0;overflow:auto;';
     el.querySelector('[data-act="fullscreen"]').click(); await wait(800);
-    const norm = () => el.innerHTML.replace(/ ss-hp-(swap|enter)\b/g, '').replace(/\bpop\b/g, '').replace(/ data-n0="[^"]*"/g, '').replace(/--ctf-h: \d+px;/g, '').replace(/\s+"/g, '"').replace(/\s+/g, ' ').replace(/ class=""/g, '').replace(/ style=""/g, '');
+    const norm = () => el.innerHTML.replace(/ ss-hp-(swap|enter)\b/g, '').replace(/\bpop\b/g, '').replace(/ data-n0="[^"]*"/g, '').replace(/--ctf-h: \d+px;/g, '').replace(/ ?contain-intrinsic-size: [^;"]*;/g, '').replace(/\s+"/g, '"').replace(/\s+/g, ' ').replace(/ class=""/g, '').replace(/ style=""/g, '');
     const diffs = [], kept = [];
     const step = async (name, fn) => {
       await fn(); await wait(250);

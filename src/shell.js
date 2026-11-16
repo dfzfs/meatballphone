@@ -239,7 +239,12 @@ function renderPanel0(el) {
         : `<div class="${rootCls}">${headHTML}${pauseHTML}${groupsHTML}${restHTML}</div>`;
     // ⚡ 옆 창 미니 채팅: 한꺼번에 다시 그릴 때 내용이 그대로면 건드리지 않는다 — 턴마다 대화창을 새로 붙이고 맨 아래로 내리느라 화면 배치를 한 번 더 계산했다 (재 보니 창 셋 중 가장 컸음). 단추를 눌러 그릴 때는 늘 새로.
     if (isFloat) { const key = `${app.trEpoch?.() ?? ''}|${html}`; if (softRender && el._ssKey === key && el.firstElementChild) return; el._ssKey = key; }
+    // ⚡ 관리 탭: 화면 밖의 묶음은 브라우저가 계산을 건너뛴다 (css/routes.css의 content-visibility) — 스위치 · 단추가 가장 많은 탭이라 그릴 때마다 전부 계산하던 것이 가장 무거웠다.
+    //   건너뛴 묶음은 높이를 어림값으로 잡으므로, 다시 그릴 때 스크롤 자리가 튀지 않게 지난번 실제 높이를 넘겨 준다.
+    const SEC_Q = '.ss-body[data-tab="manage"] > .ss-sec'; let secH = null;
+    if (tab === 'manage') { try { secH = [...el.querySelectorAll(SEC_Q)].map(n => n.offsetHeight); } catch { secH = null; } }
     if (!(hp && mountHompy(el, html))) el.innerHTML = html; // ⚡ 미니홈피는 바뀐 창만 갈아 끼운다 (hompy.js)
+    if (secH?.length) { const ns = el.querySelectorAll(SEC_Q); if (ns.length === secH.length) ns.forEach((n, i) => { if (secH[i] > 0) n.style.containIntrinsicSize = `auto ${secH[i]}px`; }); }
     if (!merged && st.mode !== 'edit' && st.mode !== 'json' && tab !== 'manage' && (pseudo || data)) applyParts(el, tab); // 👁 보일 것 (v2.7.19)
     labelIcons(el);
     if (!isFloat) queueMicrotask(placeCtFloat); else compactFloat(el);
