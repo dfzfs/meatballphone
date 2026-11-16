@@ -599,7 +599,9 @@ export function placeCtFloat() {
         if (!on) { if (ctFloat) { panels.delete(ctFloat.querySelector('.ss-panel')); ctFloat.remove(); ctFloat = null; } return; }
         // 전체화면(미니홈피)에 「연락」 작은 창이 있으면 팝업이 아니라 그 창 안에 붙는다 (옆 칸의 창 하나가 미니 채팅창) — 없으면 떠 있는 창으로
         const dock = document.querySelector('dialog[open] .ss-hompy:not(.ss-hp-edit) .ss-hp-win[data-win="contact"]');
-        const host = dock ?? [...document.querySelectorAll('dialog[open]')].filter(d => d.querySelector('.ss-panel-pop')).pop() ?? document.body;
+        const host = dock ?? [...document.querySelectorAll('dialog[open]')].filter(d => d.querySelector('.ss-panel-pop')).pop() ?? null;
+        // 상태창을 닫으면 미니 채팅도 같이 들어간다 — 예전엔 붙을 곳이 없으면 실리 화면 위에 떠서, 나갔다 들어오면 채팅 위에 창이 남아 있었다. (쓰던 글 · 보던 방은 그대로 두고 화면에서만 뗀다)
+        if (!host) { if (ctFloat?.isConnected) { panels.delete(ctFloat.querySelector('.ss-panel')); ctFloat.remove(); } return; }
         if (!ctFloat) {
             ctFloat = h(`<div id="ss-ctfloat" class="ss-ctfloat ss-scope"><div class="ss-ctf-head" title="끌어서 옮기기"><i class="fa-solid fa-comment-dots"></i><b>미니 채팅</b><button class="ss-ib" data-ctf="close" title="띄운 창 닫기"><i class="fa-solid fa-xmark"></i></button></div><div class="ss-panel ss-panel-float"></div></div>`);
             const pnl = ctFloat.querySelector('.ss-panel'); pnl._ss = { tab: 'contact', mode: 'view', work: null, ui: {} }; panels.add(pnl); bindPanel(pnl);
@@ -620,7 +622,15 @@ export function placeCtFloat() {
             // 옆 칸이 한 화면에 맞추느라 줄어(zoom) 있어도 채팅은 제 크기로 — 그 칸은 넘치면 스크롤
             const col = dock?.closest('.ss-hp-col'), z = col ? parseFloat(col.firstElementChild?.style.zoom) || 1 : 1;
             // 높이: 그 칸의 남은 자리를 바닥까지 꽉 채운다 (입력칸이 늘 화면 안 바닥에) — 남은 자리가 너무 적으면 최소 높이로 두고 칸이 스크롤
-            if (col) { ctFloat.style.setProperty('--ctf-h', '260px'); const room = col.getBoundingClientRect().bottom - ctFloat.getBoundingClientRect().top - 16; ctFloat.style.setProperty('--ctf-h', `${Math.round(Math.max(260, Math.min(640, room / z)))}px`); } else ctFloat.style.removeProperty('--ctf-h');
+            // 재기 전에 숨김(꾸미기 중) · 붙음 표시부터: 숨긴 채로 재면 위치가 0으로 읽혀 높이가 끝까지 늘어났고(꾸민 뒤 미니 채팅이 길어지던 것), 붙음 표시가 늦으면 그 창의 원래 내용 높이까지 넣어 쟀다(처음 한 번 짧게 나오던 것)
+            const hide0 = !!document.querySelector('dialog[open] .ss-hompy.ss-hp-edit'); ctFloat.style.display = hide0 ? 'none' : ''; ctFloat.classList.toggle('docked', !!dock);
+            if (col && !hide0) {
+                ctFloat.style.setProperty('--ctf-h', '260px');
+                // 그 칸에서 이 창 아래에 놓인 다른 창들의 자리는 남긴다 (예전엔 칸 바닥까지 다 차지해 아래 창들을 밀어냈다)
+                let below = 0; for (let n = dock.nextElementSibling; n; n = n.nextElementSibling) below += n.getBoundingClientRect().height + 12;
+                const room = col.getBoundingClientRect().bottom - ctFloat.getBoundingClientRect().top - 16 - below;
+                ctFloat.style.setProperty('--ctf-h', `${Math.round(Math.max(260, Math.min(640, room / z)))}px`);
+            } else if (!col) ctFloat.style.removeProperty('--ctf-h');
             if (col) col.classList.add('ss-hp-over'); ctFloat.style.zoom = dock && z < 1 ? String(Math.round(100 / z) / 100) : '';
         }
         ctFloat.style.display = document.querySelector('dialog[open] .ss-hompy.ss-hp-edit') ? 'none' : ''; // 꾸미기 중에는 숨김 (팝업으로 튀어나와 화면을 가리던 것)
