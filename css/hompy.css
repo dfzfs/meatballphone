@@ -1070,3 +1070,20 @@ body.ss-skin-dot .ss-ctfloat { border-radius: 8px; border-width: 2px; box-shadow
 .ss-hp-say:hover { background: color-mix(in srgb, var(--hp-acc) 22%, var(--hp-paper)); color: color-mix(in srgb, var(--hp-acc) 80%, var(--hp-ink)); } .ss-hp-say:hover::before { background: inherit; } .ss-hp-say:active { transform: scale(.96); }
 body.ss-skin-dot .ss-hp-say { border-radius: 6px; padding: .15em .7em; box-shadow: none; } body.ss-skin-dot .ss-hp-say::before { border-radius: 0; }
 body.ss-skin-term .ss-hp-say { border-radius: 2px; }
+
+/* 옆 창 채팅 v3: 창 크기 고정(더 크게) · 대화 칸만 스크롤 · 입력칸은 바닥에 고정 · 첨부와 답장 설정은 ＋ 하나로 */
+.ss-ctfloat.docked { height: clamp(380px, 62vh, 560px) !important; }
+.ss-ctfloat .ss-panel-float { overflow: hidden; display: flex; flex-direction: column; }
+.ss-ctfloat .ss-panel-float > .ss-root { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.ss-ctfloat .ss-panel-float .ss-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; scrollbar-width: thin; }
+.ss-ctfloat .ss-phone { flex: 1 1 auto; min-height: 0; overflow: visible; }
+.ss-ctfloat .ss-phone .ss-thread { flex: 1 1 0; min-height: 80px; overflow-y: auto; scrollbar-width: thin; overscroll-behavior: contain; }
+.ss-ctfloat .ss-phone-in { flex: 0 0 auto; position: relative; align-items: center; gap: 6px; }
+.ss-ctf-more { flex: 0 0 auto; } .ss-ctf-more > summary { list-style: none; cursor: pointer; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: color-mix(in srgb, var(--tp-acc, #d6547e) 13%, transparent); color: var(--tp-acc, #d6547e); transition: transform .15s; } .ss-ctf-more > summary::-webkit-details-marker { display: none; }
+.ss-ctf-more[open] > summary { transform: rotate(45deg); background: var(--tp-acc, #d6547e); color: #fff; }
+.ss-ctf-pop { position: absolute; left: 4px; right: 4px; bottom: calc(100% + 4px); z-index: 3; padding: 8px; border-radius: 12px; background: var(--tp-paper, var(--ss-bg, #fff)); border: 1px solid var(--tp-ol, var(--ss-line, #ddd)); box-shadow: 0 6px 20px rgba(20, 22, 30, .14); }
+.ss-ctf-pop .ss-phone-att { display: grid; grid-template-columns: repeat(auto-fill, minmax(4.6em, 1fr)); gap: 4px; padding: 0 0 6px; } .ss-ctf-pop .ss-phone-att .ss-btn { justify-content: center; }
+.ss-ctf-pop .ss-phone-opt { padding: 6px 0 0; border-top: 1px solid var(--tp-ol, var(--ss-line, #ddd)); }
+.ss-ctfloat .ss-bub-acts { opacity: .75; } .ss-ctfloat .ss-bub-acts .ss-ib { width: 28px; height: 28px; }
+
+.ss-ctfloat.docked { height: var(--ctf-h, 380px) !important; }

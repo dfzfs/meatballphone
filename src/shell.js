@@ -236,7 +236,7 @@ function renderPanel0(el) {
         : `<div class="${rootCls}">${headHTML}${pauseHTML}${groupsHTML}${restHTML}</div>`;
     if (!merged && st.mode !== 'edit' && st.mode !== 'json' && tab !== 'manage' && (pseudo || data)) applyParts(el, tab); // 👁 보일 것 (v2.7.19)
     labelIcons(el);
-    if (!isFloat) queueMicrotask(placeCtFloat);
+    if (!isFloat) queueMicrotask(placeCtFloat); else compactFloat(el);
     if (hp) fitHompy(el); // 📐 미니홈피: 홈 쪽 · 프로필 쪽을 한 화면에 맞춘다
     if (st.mode === 'edit') bindEditor(el.querySelector('.ss-editor'), st.work, EDIT[mod], () => {
         const box = el.querySelector('.ss-editor'); const all0 = [...box.querySelectorAll('details')]; const open = all0.filter(d => d.open).map(d => all0.indexOf(d));
@@ -578,6 +578,19 @@ function onSide(e) {
 //   전체화면 창(<dialog>)은 화면 맨 위 층이라, 그 안에 붙여야 위에 보인다 → 열려 있는 상태창 dialog가 있으면 그 안에, 없으면 body에.
 //   머리를 끌어서 옮길 수 있고(자리는 기억), 폰에서는 아래에 붙는 반쯤 높이의 창.
 let ctFloat = null;
+// 미니 채팅의 입력줄: 첨부(사진 · 음성 · 위치 · 선물 · 송금)와 「답장 받기」를 ＋ 하나로 모은다 — 입력칸 왼쪽의 ＋를 누르면 위로 펼쳐짐
+function compactFloat(el) {
+    try {
+        const inn = el.querySelector('.ss-phone-in'), att = el.querySelector('.ss-phone-att'), opt = el.querySelector('.ss-phone-opt');
+        if (!inn || (!att && !opt) || inn.querySelector('.ss-ctf-more')) return;
+        const d = document.createElement('details'); d.className = 'ss-ctf-more'; d.open = !!el._ss?.ui?.moreOpen;
+        d.innerHTML = '<summary title="첨부 · 답장 설정"><i class="fa-solid fa-plus"></i></summary><div class="ss-ctf-pop"></div>';
+        const pop = d.querySelector('.ss-ctf-pop'); if (att) pop.appendChild(att); if (opt) pop.appendChild(opt);
+        d.addEventListener('toggle', () => { if (el._ss?.ui) el._ss.ui.moreOpen = d.open; });
+        inn.insertBefore(d, inn.firstChild);
+        const th = el.querySelector('.ss-thread'); if (th && !el._ss?.ui?.editId) th.scrollTop = th.scrollHeight;
+    } catch (e) { ssErr(LOG, 'ctfloat', e); }
+}
 export function placeCtFloat() {
     try {
         const on = settings().enabled && settings().ctFloat === true && isActive() && ready() && !!app.current && modOn('contact') && !!app.current.state.data.contact;
@@ -588,6 +601,7 @@ export function placeCtFloat() {
         if (!ctFloat) {
             ctFloat = h(`<div id="ss-ctfloat" class="ss-ctfloat ss-scope"><div class="ss-ctf-head" title="끌어서 옮기기"><i class="fa-solid fa-comment-dots"></i><b>미니 채팅</b><button class="ss-ib" data-ctf="close" title="띄운 창 닫기"><i class="fa-solid fa-xmark"></i></button></div><div class="ss-panel ss-panel-float"></div></div>`);
             const pnl = ctFloat.querySelector('.ss-panel'); pnl._ss = { tab: 'contact', mode: 'view', work: null, ui: {} }; panels.add(pnl); bindPanel(pnl);
+            pnl.addEventListener('input', (e) => { if (e.target.classList?.contains('ss-cin') && pnl._ss.ui) pnl._ss.ui.draft = e.target.value; }); // 쓰던 글은 다시 그려져도 남게
             ctFloat.querySelector('[data-ctf="close"]').addEventListener('click', (e) => { e.stopPropagation(); settings().ctFloat = false; saveSettings(); placeCtFloat(); rerenderPanels(true); });
             // 끌어서 옮기기
             const head = ctFloat.querySelector('.ss-ctf-head'); let drag = null;
@@ -596,7 +610,17 @@ export function placeCtFloat() {
             const drop = () => { if (!drag) return; drag = null; const r = ctFloat.getBoundingClientRect(); settings().ctFloatPos = { x: Math.round(r.left), y: Math.round(r.top) }; saveSettings(); };
             head.addEventListener('pointerup', drop); head.addEventListener('pointercancel', drop);
         }
-        if (ctFloat.parentElement !== host) host.appendChild(ctFloat);
+        const moved = ctFloat.parentElement !== host;
+        if (moved) host.appendChild(ctFloat);
+        {   // 전체화면이 다시 그려질 때 이 창은 잠깐 떼어졌다 다시 붙는다 → 그 사이 갱신 목록에서 빠져 지운 메시지가 그대로 보이던 것: 다시 올리고, 붙을 때마다 새로 그린다 (쓰던 글은 지킴)
+            const p0 = ctFloat.querySelector('.ss-panel'); panels.add(p0);
+            if (moved && p0.firstElementChild) { const sc = p0.querySelector('.ss-thread'), atEnd = !sc || sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 30, top = sc?.scrollTop ?? 0; renderPanel(p0); const s2 = p0.querySelector('.ss-thread'); if (s2) s2.scrollTop = atEnd ? s2.scrollHeight : top; }
+            // 옆 칸이 한 화면에 맞추느라 줄어(zoom) 있어도 채팅은 제 크기로 — 그 칸은 넘치면 스크롤
+            const col = dock?.closest('.ss-hp-col'), z = col ? parseFloat(col.firstElementChild?.style.zoom) || 1 : 1;
+            // 높이: 그 칸의 남은 자리를 바닥까지 꽉 채운다 (입력칸이 늘 화면 안 바닥에) — 남은 자리가 너무 적으면 최소 높이로 두고 칸이 스크롤
+            if (col) { ctFloat.style.setProperty('--ctf-h', '260px'); const room = col.getBoundingClientRect().bottom - ctFloat.getBoundingClientRect().top - 16; ctFloat.style.setProperty('--ctf-h', `${Math.round(Math.max(260, Math.min(640, room / z)))}px`); } else ctFloat.style.removeProperty('--ctf-h');
+            if (col) col.classList.add('ss-hp-over'); ctFloat.style.zoom = dock && z < 1 ? String(Math.round(100 / z) / 100) : '';
+        }
         ctFloat.style.display = document.querySelector('dialog[open] .ss-hompy.ss-hp-edit') ? 'none' : ''; // 꾸미기 중에는 숨김 (팝업으로 튀어나와 화면을 가리던 것)
         ctFloat.classList.toggle('docked', !!dock); if (dock) { ctFloat.style.left = ctFloat.style.top = ctFloat.style.right = ctFloat.style.bottom = ''; }
         const pos = settings().ctFloatPos; if (!dock && pos && Number.isFinite(pos.x) && Number.isFinite(pos.y) && !matchMedia('(max-width: 640px)').matches) { ctFloat.style.left = `${Math.max(4, Math.min(innerWidth - 120, pos.x))}px`; ctFloat.style.top = `${Math.max(4, Math.min(innerHeight - 80, pos.y))}px`; ctFloat.style.right = 'auto'; ctFloat.style.bottom = 'auto'; }
