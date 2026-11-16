@@ -130,7 +130,8 @@ export const DEFAULTS = Object.freeze({
     profGen: '',
     profFeeds: '',
     profAnalyze: '',
-    hpSkinHud: true,         // 🪟 HUD · 미니창도 미니홈피와 같은 색 · 얇은 테두리로 (화면만)
+    hpSkinHud: false,        // 🪟 HUD · 미니창 · 보통 상태창도 미니홈피와 같은 색 · 얇은 테두리로 (화면만 · 기본 끔 — 업데이트했다고 늘 보던 화면이 바뀌지 않게. 꾸미기 › 더보기 › 그 밖에서 켬)
+    hpLite: false,           // 🪶 미니홈피 가볍게: 옆 창을 그리지 않는다 (꾸미기 › 창)
     hpTheme: 0,              // 📒 미니홈피 포인트 색 (hompy.js THEMES의 번호 · 'c' = 직접 고른 색 hpHue · hpSat)
     // hpSkin: (없음 = 아직 안 고름 → 깔끔으로 보이고 「모양 고르기」 줄이 뜬다) · 'clean' · 'dot'
     hpDark: 'light',         // 📒 밝기: light · dark · auto(기기 따라)
@@ -140,7 +141,7 @@ export const DEFAULTS = Object.freeze({
     hpFace: 'none',          // 📒 미니홈피 프로필 그림: none(비워 둠 · 눌러서 넣기) · auto(기분 따라 미트볼) · con:이름 · my:번호
     conPack: false,          // 🐱 콘팩 (v2.8): 미트볼콘 60개를 받아서 쓸지 — 기본은 꺼짐 (기본 14개만) · 프로필 그림 고르기에서 「콘팩 받기」
     hpFaces: [],             // 📒 내가 올린 프로필 그림 (최대 12장 · 긴 변 320px)
-    hompyFull: true,         // 📒 전체화면으로 열면 미니홈피(수첩) 모양으로 (v2.8 · 화면만 · 끄면 예전 전체화면)
+    hompyFull: false,        // 📒 전체화면으로 열면 미니홈피 모양으로 (v2.8 · 화면만 · 기본 끔 — 확장 설정 › 데이터 · 화면에서 켬)
     sheetFull: false,        // 상태창을 전체화면으로 열기
     genBatch: true,          // 상태창 만들기: 관련 칸끼리 묶어서 한 번에 생성 (17번 → 6번)
     genParallel: 4,          // 동시에 보낼 생성 요청 수

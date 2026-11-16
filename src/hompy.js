@@ -6,7 +6,7 @@ import { avatar, askInput, choosePopup } from './kit.js';
 import { shrinkImage, MINI, miniWidgets } from './tiles.js';
 
 // 🎨 꾸밈 값: 보통은 설정(모든 채팅 공통). 이 채팅에 꾸밈 세트를 묶어 두었으면(meta.hpSet = 세트 이름) 그 세트 값이 먼저다 — 고쳐도 그 세트가 바뀐다
-const DECO_KEYS = ['hpPet', 'hpParts', 'hpTitles', 'hpGroupNames', 'hpProf', 'hpCounts', 'hpCardAlpha', 'hpFree', 'hpFreeOn', 'hpUserWins', 'hpSkin', 'hpPattern', 'hpFsPx', 'hpInk', 'hpBg', 'hpPaper', 'hpNavTop', 'hpTheme', 'hpHue', 'hpSat', 'hpFs', 'hpFont', 'hpCorner', 'hpGap', 'hpDark', 'hpMotion', 'hpLayout', 'hpMinor', 'hpFace', 'hpWall'];
+const DECO_KEYS = ['hpLite', 'hpPet', 'hpParts', 'hpTitles', 'hpGroupNames', 'hpProf', 'hpCounts', 'hpCardAlpha', 'hpFree', 'hpFreeOn', 'hpUserWins', 'hpSkin', 'hpPattern', 'hpFsPx', 'hpInk', 'hpBg', 'hpPaper', 'hpNavTop', 'hpTheme', 'hpHue', 'hpSat', 'hpFs', 'hpFont', 'hpCorner', 'hpGap', 'hpDark', 'hpMotion', 'hpLayout', 'hpMinor', 'hpFace', 'hpWall'];
 const boundSet = () => { try { const n = getMeta()?.hpSet; return n ? (settings().hpSets ?? []).find(x => x.name === n) ?? null : null; } catch { return null; } };
 const D = () => { const b = boundSet(); return b ? { ...settings(), ...b.data } : settings(); };
 const W = (k, v) => { const b = boundSet(); (b ? b.data : settings())[k] = v; };
@@ -78,7 +78,7 @@ export const skinOf = () => (SKINS[D().hpSkin] ? D().hpSkin : 'clean'); // 고�
 const patOf = () => (PATTERNS[D().hpPattern] ? D().hpPattern : 'grid');
 const hex = (v) => (/^#[0-9a-f]{6}$/i.test(String(v ?? '')) ? String(v) : '');
 const darkOn = () => { const v = D().hpDark; return v === 'dark' || v === 'auto' && !!window.matchMedia?.('(prefers-color-scheme: dark)').matches; };
-// 🪟 HUD · 미니창 · 보통 상태창에도 같은 색 · 테두리 (설정 hpSkinHud · 기본 켬): body에 색 값과 표시를 걸어 둔다
+// 🪟 HUD · 미니창 · 보통 상태창에도 같은 색 · 테두리 (설정 hpSkinHud · 기본 끔): body에 색 값과 표시를 걸어 둔다
 // 지금 글꼴: 도트 모양은 기본이 도트 글꼴(d)이지만, 직접 고르면(hpFontPick) 그 글꼴로 — 예전엔 도트 모양에서 글꼴을 못 바꿨다
 const fontKey = () => { const d = D(), dot = skinOf() === 'dot'; return d.hpFont === 'u' && settings().hpFontFile ? 'u' : dot && !(d.hpFontPick === true && FONTS[d.hpFont]) ? 'd' : FONTS[d.hpFont] && d.hpFont !== 'u' ? d.hpFont : 'g'; };
 const fontOpts = () => [...(skinOf() === 'dot' ? [['d', '도트']] : []), ...Object.entries(FONTS).filter(([k]) => k !== 'u' || settings().hpFontFile)];
@@ -111,6 +111,7 @@ export function trimFonts(force = false) {
         return stacks;
     } catch (e) { ssErr(e); return null; }
 }
+app.applyRetro = () => applyRetro(); // 확장 설정에서 모양 스위치를 바꿨을 때
 export function applyRetro() {
     const b = document.body; if (!b) return; const d = D(), [, h, s] = themeOf(), on = settings().hpSkinHud !== false, dot = skinOf() === 'dot';
     b.classList.toggle('ss-retro', on); for (const k of Object.keys(SKINS)) b.classList.toggle(`ss-skin-${k}`, skinOf() === k); b.classList.toggle('ss-hp-dark', darkOn()); b.classList.toggle('ss-hp-still', d.hpMotion === false); b.classList.toggle('ss-hp-navtop', d.hpNavTop === true); for (const k of Object.keys(WALLS)) b.classList.toggle(`ss-hp-wall-${k}`, wallOf() === k); b.classList.toggle('ss-hp-wall', !!wallOf());
@@ -337,6 +338,7 @@ async function decoAct(k, v, redraw) {
     if (k === 'wall') { W('hpWall', WALLS[v] ? v : ''); delete set.hpBgImg; if (WALLS[v]) W('hpDark', WALLS[v][1] ? 'dark' : 'light'); }
     if (k === 'skin' && SKINS[v]) { W('hpSkin', v); W('hpFsPx', 0); W('hpFontPick', false); W('hpFont', SKIN_DEF[v][0]); W('hpDark', SKIN_DEF[v][1]); } if (k === 'pat') W('hpPattern', v); if (k === 'navtop') W('hpNavTop', v === '1'); if (k === 'colreset') { W('hpInk', ''); W('hpBg', ''); W('hpPaper', ''); }
     if (k === 'corner') W('hpCorner', Number(v)); if (k === 'gap') W('hpGap', Number(v)); if (k === 'motion') W('hpMotion', v === '1'); if (k === 'pet') W('hpPet', v === '1');
+    if (k === 'lite') set.hpLite = v === '1';
     if (k === 'win') saveLayout({ ...L, off: L.off.includes(v) ? L.off.filter(x => x !== v) : [...L.off, v] });
     if (k === 'main') saveLayout({ ...L, main: v }); if (k === 'lw' || k === 'rw') saveLayout({ ...L, [k]: Number(v) });
     if (k === 'reset') { W('hpLayout', {}); W('hpFree', {}); }
@@ -406,7 +408,8 @@ function sheetHTML() {
             ${row('그 밖에', seg('motion', d.hpMotion === false ? '0' : '1', [['1', '움직임 켬'], ['0', '끔']]) + seg('pet', d.hpPet === false ? '0' : '1', [['1', '미트볼 보임'], ['0', '숨김']]) + (dot ? seg('pat', patOf(), Object.entries(PATTERNS)) : ''))}`;
     } else if (ED.tab === 'wins') {
         const hidden = [...Object.entries(WINS), ...uw.map(w => [w.id, w.title])].filter(([k]) => L.off.includes(k));
-        body = `${row('놓는 방식', seg('free', d.hpFreeOn === true ? '1' : '0', [['0', '줄 맞춤'], ['1', '자유롭게']]) + `<small class="ss-hint">${d.hpFreeOn === true ? '창 제목을 끌어 옮기고, 오른쪽 아래 모서리를 당겨 크기를 바꿔요.' : '창의 ▲▼ · ⇄로 자리를 바꿔요.'} −는 숨기기.</small>`)}
+        body = `${row('옆 창', seg('lite', set.hpLite === true ? '1' : '0', [['0', '보이기'], ['1', '🪶 가볍게 (옆 창 없이)']]) + '<small class="ss-hint">가볍게: 가운데 창만 그려서 화면이 가벼워져요 (큰 상태창 · 폰에서 차이가 커요). 옆 창의 내용은 홈의 앱 카드에 그대로 있어요.</small>')}
+            ${row('놓는 방식', seg('free', d.hpFreeOn === true ? '1' : '0', [['0', '줄 맞춤'], ['1', '자유롭게']]) + `<small class="ss-hint">${d.hpFreeOn === true ? '창 제목을 끌어 옮기고, 오른쪽 아래 모서리를 당겨 크기를 바꿔요.' : '창의 ▲▼ · ⇄로 자리를 바꿔요.'} −는 숨기기.</small>`)}
             ${row('창 더하기', `${hidden.map(([k, n]) => B(`win:${k}`, `＋ ${esc(n)}`, false, 'chip')).join('') || '<small class="ss-hint">숨긴 창이 없어요.</small>'}${uw.length < 8 ? B('uwadd:note', '＋ 메모 창', false, 'chip new') + B('uwadd:stat', '＋ 수치 창', false, 'chip new') : ''}`)}
             ${d.hpFreeOn === true ? '' : row('가운데 창', seg('main', L.main, [['l', '왼쪽'], ['c', '가운데'], ['r', '오른쪽']]) + seg('lw', L.lw, [['0', '왼 좁게'], ['1', '보통'], ['2', '넓게']]) + seg('rw', L.rw, [['0', '오른 좁게'], ['1', '보통'], ['2', '넓게']]))}`;
     } else {
@@ -670,10 +673,12 @@ export function hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, 
     for (const u of UW) BODY[u.id] = u.type === 'note' ? () => (u.text ? `<p class="ss-hp-note">${esc(u.text)}</p>` : '') : () => { const b = (d.stats?.bars ?? []).find(x => x.name === u.stat); return b ? `<div class="ss-hp-big"><b>${fmtNum(b.cur)}</b><small>/ ${fmtNum(b.max)} ${esc(b.name)}</small><i><em style="width:${b.max > 0 ? Math.max(0, Math.min(100, (b.cur / b.max) * 100)) : 0}%"></em></i></div>` : `<p class="ss-hint">「${esc(u.stat || '')}」 수치가 없어요.</p>`; };
     const FREE = freeOn(), tOf = (k) => (TT[k] ? esc(TT[k]) : esc(winName(k)));
     const LY = hpLayout(), bodyOf = (k) => (LY.off.includes(k) ? '' : BODY[k] ? BODY[k]() : miniWidgets(s, [k])), mk = (k) => win(k, tOf(k), bodyOf(k), BODY[k] ? '' : 'x');
-    const L = FREE ? '' : LY.l.map(mk).join(''), R = FREE ? '' : LY.r.map(mk).join('');
+    // 🪶 가볍게 (설정 hpLite · 꾸미기 › 창): 옆 창들을 그리지 않는다 — 머리줄 · 메뉴 · 가운데 창만. 화면에 그리는 양이 절반 가까이 줄어 큰 상태창 · 폰에서 가볍다. 옆 창에 보이던 것은 홈의 앱 카드에 그대로 있다.
+    const LITE = settings().hpLite === true && !FREE;
+    const L = FREE || LITE ? '' : LY.l.map(mk).join(''), R = FREE || LITE ? '' : LY.r.map(mk).join('');
     const mainBody = restHTML;
     // 홈: 옆 창에 이미 보이는 칸은 가운데 타일에서 뺀다 — 그 창이 실제로 떠 있을 때만 (창을 숨기면 타일이 다시 보인다 · 자유 배치도 같음)
-    const shown = (k) => (LY.l.includes(k) || LY.r.includes(k)) && !!bodyOf(k);
+    const shown = (k) => !LITE && (LY.l.includes(k) || LY.r.includes(k)) && !!bodyOf(k);
     const dup = !home ? '' : ['stats', 'friends', 'quest', 'news', 'mind', 'cond', 'fate', 'music', 'custom'].filter(shown).map(k => `ss-hp-has-${k}`).join(' ');
     const COVER = { bars: 'stats', date: 'stats', loc: 'stats', cash: 'stats', rel: 'friends' }, HOME_KEYS = ['bars', 'date', 'loc', 'cash', 'music', 'fate', 'cond', 'custom', 'quest', 'rel', 'news'];
     const bare = home && !hasPhoto && !FREE && !miniWidgets(s, HOME_KEYS.filter(k => !shown(COVER[k] ?? k))); // 가운데에 남는 타일이 없음

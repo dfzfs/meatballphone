@@ -118,10 +118,12 @@ function featureBoard(s, meta) {
     return `<section class="ss-fb">${tip}${meta.hpPhoto?.src && onTabs.length > 6 ? `<div class="ss-fb-grid top">${onTabs.slice(0, 6).map(card).join('')}</div><div class="ss-fb-grid rest ${(onTabs.length - 6) % 2 && onTabs.length > 7 ? 'odd' : ''}" style="--fbc:${Math.max(1, Math.ceil((onTabs.length - 6) / 2))}">${onTabs.slice(6).map(card).join('')}</div>` : `<div class="ss-fb-grid ${meta.hpPhoto?.src ? 'top' : ''}">${onTabs.map(card).join('')}</div>`}
         ${offTabs.length ? `<details class="ss-fb-more" ${st.hpBoardOpen ? 'open' : ''}><summary><i class="fa-solid fa-plus"></i> 더 써 볼 기능 ${offTabs.length}개</summary><div class="ss-fb-grid off">${offTabs.map(card).join('')}</div></details>` : ''}</section>`;
 }
-export function renderPanel(el) {
+let softRender = false; // 한꺼번에 다시 그릴 때(rerenderPanels)만 켜진다
+export function renderPanel(el, soft = false) {
     // 🪟 같은 모양(스킨)을 켰으면 화면의 글을 「…」로 줄이지 않고 줄을 바꿔 다 보여 준다
     setNoShort(document.body.classList.contains('ss-retro') || settings().hompyFull !== false && !!el?._ss?.full);
-    try { return renderPanel0(el); } finally { setNoShort(false); }
+    softRender = soft === true;
+    try { return renderPanel0(el); } finally { setNoShort(false); softRender = false; }
 }
 function renderPanel0(el) {
     const st = el._ss ??= { tab: 'home', mode: 'view', work: null, ui: {} };
@@ -235,6 +237,8 @@ function renderPanel0(el) {
     const enter = hp && !st.hpShown; st.hpShown = hp;
     const html = hp ? hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, s, meta, nNew, enter, homeGroup: tab === 'home' && st.mode === 'view' && !!data })
         : `<div class="${rootCls}">${headHTML}${pauseHTML}${groupsHTML}${restHTML}</div>`;
+    // ⚡ 옆 창 미니 채팅: 한꺼번에 다시 그릴 때 내용이 그대로면 건드리지 않는다 — 턴마다 대화창을 새로 붙이고 맨 아래로 내리느라 화면 배치를 한 번 더 계산했다 (재 보니 창 셋 중 가장 컸음). 단추를 눌러 그릴 때는 늘 새로.
+    if (isFloat) { const key = `${app.trEpoch?.() ?? ''}|${html}`; if (softRender && el._ssKey === key && el.firstElementChild) return; el._ssKey = key; }
     if (!(hp && mountHompy(el, html))) el.innerHTML = html; // ⚡ 미니홈피는 바뀐 창만 갈아 끼운다 (hompy.js)
     if (!merged && st.mode !== 'edit' && st.mode !== 'json' && tab !== 'manage' && (pseudo || data)) applyParts(el, tab); // 👁 보일 것 (v2.7.19)
     labelIcons(el);
@@ -339,7 +343,11 @@ async function onPanelAction(el, act, arg, btn) {
         case 'sidemini': settings().sideState = 'mini'; saveSettings(); return ensureUI();
         case 'fullscreen': {
             const dlg = el.closest('dialog');
-            if (!dlg) return openSheet(el._ss?.tab, { full: true }); // 사이드에서 누르면 전체화면 창으로
+            if (!dlg) { // 사이드(펼친 미니바)에서 누르면 전체화면 창으로 — 펼쳐 둔 사이드는 미니로 접는다 (예전엔 전체화면 아래에 그대로 남아 같은 화면을 두 군데서 그렸다)
+                const tab0 = el._ss?.tab;
+                if (el.classList.contains('ss-panel-side') && settings().sideState === 'full') { settings().sideState = 'mini'; saveSettings(); ensureUI(); }
+                return openSheet(tab0, { full: true });
+            }
             const on = !dlg.classList.contains('ss-full');
             dlg.classList.toggle('ss-full', on);
             settings().sheetFull = on; saveSettings();
@@ -392,11 +400,11 @@ export function rerenderPanels(force = false) {
         if (!el.isConnected) { panels.delete(el); continue; }
         // 접혀 있는 사이드 펼침 패널은 안 보이니 그리지 않고, 펼칠 때 그린다 (갱신마다 숨은 화면을 그리던 것)
         if (el.classList.contains('ss-panel-side') && settings().sideState !== 'full') { el._ssStale = true; continue; }
-        if (force && el._ss?.mode === 'view') { renderPanel(el); continue; }
+        if (force && el._ss?.mode === 'view') { renderPanel(el, el.classList.contains('ss-panel-float')); continue; }
         if (el._ss?.hold) continue;
         if (el._ss?.mode && el._ss.mode !== 'view') continue;
         if (el.contains(document.activeElement) && /TEXTAREA|INPUT/.test(document.activeElement.tagName) && document.activeElement.type !== 'checkbox') continue;
-        renderPanel(el);
+        renderPanel(el, el.classList.contains('ss-panel-float'));
     }
 }
 export async function openSheet(tab, opt = {}) {

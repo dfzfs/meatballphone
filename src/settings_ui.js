@@ -15,7 +15,7 @@ import { hintSetting } from './tips.js';
 
 // ───── 확장 설정 서랍 ─────
 // 바꾸면 화면을 바로 다시 그려야 하는 스위치 (v2.7.3)
-const VIEW_KEYS = new Set(['hompyFull', 'loopMode', 'swipeGhost', 'fateDebt', 'tensionOn', 'realGap', 'glitchView', 'ledgerKnow', 'ledgerPromise', 'guideOn', 'peekCost', 'relScar', 'memoryDrift', 'meddleOn', 'tasteBook', 'crossMail', 'groupChat', 'extraJudge', 'questExpire', 'memoOn', 'albumOn', 'peekOn', 'recordOn', 'freshDot', 'pipCheck', 'questJudge', 'msgCard', 'chipOutside', 'contactSimple', 'contactSimpleReflect', 'relStagesOn', 'relShowMemo', 'relShowWants', 'relShowLife', 'relShowPairs', 'relShowBtns', 'relShowNext', 'relShowUnlock']);
+const VIEW_KEYS = new Set(['hompyFull', 'hpLite', 'hpSkinHud', 'loopMode', 'swipeGhost', 'fateDebt', 'tensionOn', 'realGap', 'glitchView', 'ledgerKnow', 'ledgerPromise', 'guideOn', 'peekCost', 'relScar', 'memoryDrift', 'meddleOn', 'tasteBook', 'crossMail', 'groupChat', 'extraJudge', 'questExpire', 'memoOn', 'albumOn', 'peekOn', 'recordOn', 'freshDot', 'pipCheck', 'questJudge', 'msgCard', 'chipOutside', 'contactSimple', 'contactSimpleReflect', 'relStagesOn', 'relShowMemo', 'relShowWants', 'relShowLife', 'relShowPairs', 'relShowBtns', 'relShowNext', 'relShowUnlock']);
 // 「부가 기능 한 번에 끄기」 — 상태 계산 · 본편 롤플에 꼭 필요하지 않은 것만
 const LIGHT_OFF = { memoOn: false, albumOn: false, peekOn: false, recordOn: false, daySummary: false, featureTips: false, showMascot: false, mascotBuddy: false, musicToast: false };
 function profileOptions(sel) {
@@ -199,7 +199,9 @@ export function renderSettings() {
             <label class="checkbox_label"><input type="checkbox" data-s="ledgerKnow" ${s.ledgerKnow === true ? 'checked' : ''}> <b>🧠 누가 뭘 아는지</b> <small>(사실마다 아는 사람을 적어 두고, 모르는 인물이 아는 척하지 않게 해요)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="ledgerPromise" ${s.ledgerPromise === true ? 'checked' : ''}> <b>🤝 약속 장부</b> <small>(내가 한 약속 · 거짓말. 지킴 우정 +2 · 어김 −4)</small></label>
             <b class="ss-set-h">데이터 · 화면</b>
-            <label class="checkbox_label"><input type="checkbox" data-s="hompyFull" ${s.hompyFull !== false ? 'checked' : ''}> <b>📒 전체화면은 미니홈피 모양으로</b> <small>(상태창의 전체화면 단추를 누르면 수첩 모양 홈피로 열려요 — 왼쪽은 프로필 쪽, 오른쪽은 평소 상태창, 옆에 색인 탭. 화면만 바뀌고 계산 · 토큰은 그대로예요)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="hompyFull" ${s.hompyFull !== false ? 'checked' : ''}> <b>📒 전체화면은 미니홈피 모양으로</b> <small>(v2.8 새 화면 · 기본 끔 — 켜면 상태창의 전체화면이 위에 메뉴, 옆에 프로필 · 상태 · 일촌 창, 가운데에 지금 탭이 있는 미니홈피로 열려요. 화면만 바뀌고 계산 · 토큰은 그대로예요)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="hpLite" ${s.hpLite === true ? 'checked' : ''}> 🪶 미니홈피 가볍게 <small>(옆 창 없이 가운데 창만 그려요 — 큰 상태창 · 폰에서 화면이 가벼워져요. 꾸미기 › 창에서도 바꿔요)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="hpSkinHud" ${s.hpSkinHud === true ? 'checked' : ''}> 🪟 HUD · 보통 상태창도 미니홈피와 같은 모양으로 <small>(기본 끔 — 끄면 예전 모양 그대로)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="updateNotice" ${s.updateNotice !== false ? 'checked' : ''}> 📣 업데이트하면 「바뀐 점」을 한 번 알려 주기</label>
             <div class="ss-set-btns"><button class="menu_button" data-s-act="whatsnew"><i class="fa-solid fa-bullhorn"></i> 업데이트 내역</button></div>
             <label class="checkbox_label"><input type="checkbox" data-s="cardOffer" ${s.cardOffer ? 'checked' : ''}> 카드에 상태창이 들어 있으면 새 채팅에서 불러올지 물어보기</label>
@@ -236,7 +238,7 @@ export function renderSettings() {
         if (k === 'ssGenLang' && e.target.value === 'enview') toastr.info('이제부터 만드는 상태창은 영어로 저장되고 화면에만 번역돼요. 이미 한국어로 저장된 칸은 그대로예요.', TITLE);
         if (k === 'mascotSound' || k === 'mascotVolume') playMascotSound(); // 고르면 바로 들려주기
         app.storyChanged?.(); // 🧭 이야기 장치를 켜고 껐을 수 있음 (화면 깨짐 표시 맞추기)
-        if (VIEW_KEYS.has(k)) { app.redecorate(); app.refreshNow(); rerenderPanels(true); return; } // 화면 모양이 바뀌는 스위치는 바로 다시 그림
+        if (VIEW_KEYS.has(k)) { try { app.applyRetro?.(); } catch { /* 꾸밈일 뿐 */ } app.redecorate(); app.refreshNow(); rerenderPanels(true); app.renderHud?.(); return; } // 화면 모양이 바뀌는 스위치는 바로 다시 그림
         app.refreshNow();
     });
     el.addEventListener('click', async (e) => {

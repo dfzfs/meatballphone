@@ -277,8 +277,8 @@ app.showWhatsNew = (all = true) => showWhatsNew(all);
 // ───── 📣 업데이트 알림: 버전이 바뀌면 「바뀐 점」을 한 번 보여 준다 ─────
 const CHANGELOG = [
     { v: '2.8.0', title: '전체화면이 「미니홈피」로 · 꾸미기 · 단체방 · 이야기 장치', items: [
-        ['📒 전체화면 = 미니홈피', '상태창의 전체화면 단추를 누르면 새 화면으로 바뀌어요 — 위에 메뉴, 왼쪽에 프로필 · 상태, 가운데에 지금 탭, 오른쪽에 일촌 · 퀘스트 · 소식. 보통 크기 상태창은 그대로예요. 예전 전체화면이 좋으면 확장 설정 › 데이터 · 화면에서 「전체화면은 미니홈피 모양으로」를 꺼요.'],
-        ['🎨 모양 세 가지', '처음 열면 고르는 줄이 한 번 떠요: 깔끔 · 도트 · 폰. 언제든 「꾸미기」에서 바꿔요. HUD · 미니창 · 보통 상태창 · 도우미 창도 같은 모양이 돼요 (꾸미기 › 더보기 › 그 밖에서 끔).'],
+        ['📒 새 화면 「미니홈피」 (선택 · 기본 끔)', '확장 설정 › 데이터 · 화면 › 「전체화면은 미니홈피 모양으로」를 켜면, 상태창의 전체화면이 새 화면으로 열려요 — 위에 메뉴, 왼쪽에 프로필 · 상태, 가운데에 지금 탭, 오른쪽에 일촌 · 퀘스트 · 소식. 켜기 전에는 늘 보던 화면 그대로예요. 무겁게 느껴지면 그 아래 「🪶 가볍게」(옆 창 없이).'],
+        ['🎨 모양 세 가지', '처음 열면 고르는 줄이 한 번 떠요: 깔끔 · 도트 · 폰. 언제든 「꾸미기」에서 바꿔요. HUD · 보통 상태창까지 같은 모양으로 하려면 확장 설정 › 데이터 · 화면 › 「🪟 HUD · 보통 상태창도 같은 모양으로」(기본 끔).'],
         ['🎛 꾸미기 모드', '「꾸미기」를 누르거나 빈 곳을 길게 누르면 화면은 그대로 두고 아래 판에서 골라요 — 모양 · 색(포인트 · 밝게/어둡게 · 사진에서 색 뽑기) · 글씨 크기와 글꼴 · 모서리와 여백 · 창 더하기/숨기기. 바꿀 곳(창 제목 · 창 · 카드 · 단추)을 누르면 그 부분만 따로 꾸며요. 「완료」로 저장, 「취소」로 들어오기 전으로.'],
         ['🪟 창 자리 · 내용', '창 순서 · 폭을 바꾸거나 「자유롭게」로 끌어 옮기고 크기를 바꿔요. 프로필 그림은 비어 있으니 눌러서 넣어요. 창 제목 · 메뉴 이름 바꾸기, 메모 창 · 수치 창 만들기, 글꼴 파일 · 바탕 그림 올리기, 꾸밈 세트 저장 · 채팅별 적용 · 코드로 주고받기는 「더보기」에 있어요.'],
         ['📱 폰 · 태블릿', '폰에서는 한 줄로 쌓이고 메뉴가 아래 탭 줄로 내려와요. 태블릿 세로는 두 줄이에요.'],
@@ -673,6 +673,8 @@ async function measureLoad() {
     ms.decorate = t(() => { app.redecorate(); decorateAll(); }, 3);
     ms.decorateSoft = t(() => decorateAll(), 5);
     ms.panels = t(() => rerenderPanels(true), 3);
+    // 창마다 따로 (v2.8): 어느 창이 무거운지 보이게 — 전체화면 미니홈피 · 옆 창 미니 채팅 · 사이드 창
+    const perPanel = [...panels].filter(p => p.isConnected && p._ss?.mode === 'view' && !(p.classList.contains('ss-panel-side') && set.sideState !== 'full')).map(p => { const kind = p.classList.contains('ss-panel-float') ? '옆 창 미니 채팅' : p.classList.contains('ss-panel-side') ? '사이드 창' : p.querySelector('.ss-hompy') ? `전체화면 미니홈피${set.hpLite === true ? ' (가볍게)' : ''}` : '상태창'; const fl = p.classList.contains('ss-panel-float'); return [kind, t(() => app.renderPanel(p, fl), 3), `${fl ? '내용이 그대로면 다시 안 그려요' : `${p._ss?.tab ?? ''} 탭`} · 요소 ${p.querySelectorAll('*').length}개`]; });
     ms.hud = t(() => renderHud(), 5);
     let trMs = 0; try { const { translateView } = await import('./src/translate.js'); trMs = t(() => translateView(), 3); } catch { /* 번역 없음 */ }
     ms.translate = trMs;
@@ -686,6 +688,7 @@ async function measureLoad() {
         ['변동 칩 붙이기 (바뀐 것만)', ms.decorateSoft, `화면의 답 ${document.querySelectorAll('#chat .mes').length}개`],
         ['변동 칩 처음부터', ms.decorate, set.albumOn !== false ? '앨범 단추 포함' : '앨범 꺼짐'],
         ['상태창 화면 다시 그리기', ms.panels, `열린 창 ${[...panels].filter(p => p.isConnected).length}개`],
+        ...perPanel.map(([k, v, note]) => [`　└ ${k}`, v, note]),
         ['채팅 위 띠(HUD)', ms.hud, ''],
         ['화면 번역', trMs, trN ? `사전 ${trN}개` : '안 씀'],
     ];
@@ -693,6 +696,7 @@ async function measureLoad() {
     if (unbaked > 300) tips.push(`굳히지 않은 메시지가 ${unbaked}개예요 → 확장 설정 › 확장 AI › 「자동 정리를 시작할 메시지 수」를 낮추면 계산이 가벼워져요.`);
     if (metaKB > 800) tips.push(`이 채팅의 상태창 데이터가 ${metaKB}KB예요 → 관리 탭 › 세이브 슬롯을 지우거나, 자동 정리를 켜 두세요.`);
     if (trN > 1500 && trMs > 8) tips.push('화면 번역 사전이 커서 번역이 느려요 → 「번역 고치기」로 안 쓰는 것을 정리하거나, 상태창 언어를 한국어 저장으로.');
+    { const hp = perPanel.find(x => x[0].startsWith('전체화면 미니홈피') && x[1] > 20); if (hp && set.hpLite !== true) tips.push(`전체화면 미니홈피를 그리는 데 ${hp[1].toFixed(0)}ms가 들어요 → 꾸미기 › 창 › 「🪶 가볍게 (옆 창 없이)」를 켜면 가운데 창만 그려서 가벼워져요.`); const fl = perPanel.find(x => x[0] === '옆 창 미니 채팅' && x[1] > 10); if (fl) tips.push(`옆 창 미니 채팅이 ${fl[1].toFixed(0)}ms를 써요 → 연락 탭의 「옆 창 채팅 끄기」.`); }
     if (set.injectMode === 'full') tips.push('규칙 주입이 「전체」예요 → 「간결」로 바꾸면 토큰과 계산이 줄어요.');
     if (!tips.length) tips.push(turn < 30 ? '지금은 가벼워요. 렉이 느껴지면 미트볼보다 다른 확장 · 브라우저 쪽일 가능성이 커요 (F12 › Performance).' : '한 턴에 30ms를 넘어요. 위에서 큰 줄부터 줄여 보세요.');
     const el = document.createElement('div');
