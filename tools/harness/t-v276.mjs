@@ -10,7 +10,7 @@ try {
     for (const [o, l] of [['cash: +10', 'A'], ['cash: +20', 'B'], ['cash: +40', 'C']]) await S(async ([o, l]) => { const { addAdjust } = await import('/ext/src/engine.js'); const [k, v] = o.split(': '); await addAdjust({ ops: [[k, v]], label: l }); }, [o, l]);
     const c1 = (await st()).data.wallet.cash;
     await S(() => { window.__SS_TEST__.api.app.openSheet('manage'); }); await sleep(300);
-    await S(() => { const h = document.querySelector('dialog [data-mg="save"] .ss-mg-h'); if (h && h.getAttribute('aria-expanded') !== 'true') h.click(); }); await sleep(300); // 🗂 관리 탭이 묶음으로 접힘 — 「저장 · 되돌리기」를 편다 (한 번 펴면 기억됨)
+    await S(() => { document.querySelector('dialog [data-act="mgtab"][data-arg="save"]')?.click(); }); await sleep(300); // 🗂 관리 탭 안의 「저장」 탭으로 (고른 탭은 기억됨)
     check((await page.$$('dialog .ss-undolist [data-act="undoat"]')).length >= 3, 'undo list shows edits');
     const tB = await S(() => (window.__st.chatMetadata.statussim.adjust.find(a => a.label === 'B')).t);
     await S(() => { document.querySelector('dialog .ss-undolist').open = true; }); await page.click(`dialog [data-act="undoat"][data-arg="${tB}"]`); await sleep(400);

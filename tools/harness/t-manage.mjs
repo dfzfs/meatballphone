@@ -8,15 +8,19 @@ for (const full of [false, true]) {
             const core = await import('/ext/src/core.js'); const shell = await import('/ext/src/shell.js'); const app = window.__SS_TEST__.api.app, wait = (ms) => new Promise(r => setTimeout(r, ms)), S = core.settings(), out = {};
             await window.__addUser('hi'); await window.__addAI('s\n<meatball>\ncash: +1\n</meatball>'); await wait(300); window.__autoPopup = null;
             S.sheetFull = false; S.hpSkin = 'clean'; shell.openSheet('manage'); await wait(400);
-            // 🗂 여섯 묶음: 처음엔 「지금 플레이」만 펴져 있고 · 접힌 묶음의 단추도 그대로 있고(숨기기만) · 머리줄을 누르면 펴지고 기억된다
-            { const p0 = [...shell.panels].find(p => p.isConnected && p.classList.contains('ss-panel-pop')), gs = () => [...p0.querySelectorAll('.ss-body[data-tab="manage"] > .ss-sec.ss-mg')], body = (id) => p0.querySelector(`[data-mg="${id}"] .ss-mg-b`);
-                out.groups = gs().map(g => g.dataset.mg).join(',') === 'play,mods,save,tools,fix,danger';
-                out.onlyPlayOpen = !body('play').hidden && ['mods', 'save', 'tools', 'fix', 'danger'].every(id => body(id).hidden) && gs().every(g => g.querySelector('.ss-mg-h small').textContent.trim().length > 0);
-                out.foldedKeepsButtons = !!body('save').querySelector('[data-act="fullbackup"]') && !!body('fix').querySelector('[data-act="diagnose"]') && !!body('danger').querySelector('[data-act="reset"]') && !!body('tools').querySelector('[data-act="prompts"]');
-                p0.querySelector('[data-mg="save"] .ss-mg-h').click(); await wait(250);
-                out.foldOpens = !body('save').hidden && S.mgOpen?.save === true && p0.querySelector('[data-mg="save"] .ss-mg-h').getAttribute('aria-expanded') === 'true';
-                p0.querySelector('[data-mg="save"] .ss-mg-h').click(); await wait(250); out.foldCloses = body('save').hidden && S.mgOpen?.save === false;
-                S.mgOpen = { play: true, mods: true, save: true, tools: true, fix: true, danger: true }; app.renderPanel(p0); await wait(250); } // 아래 스크롤 시험은 다 편 채로 (길어야 스크롤이 생김)
+            // 🗂 관리 탭 안의 탭 여섯 개: 처음엔 「플레이」만 보이고 · 다른 탭의 단추도 그대로 있고(숨기기만) · 탭을 누르면 바뀌고 기억된다 · 「쓸 기능」의 묶음은 각각 접힌다
+            { const p0 = [...shell.panels].find(p => p.isConnected && p.classList.contains('ss-panel-pop')), gs = () => [...p0.querySelectorAll('.ss-body[data-tab="manage"] > .ss-sec.ss-mg')], sec = (id) => p0.querySelector(`.ss-mg[data-mg="${id}"]`), tab = (id) => p0.querySelector(`[data-act="mgtab"][data-arg="${id}"]`);
+                out.groups = gs().map(g => g.dataset.mg).join(',') === 'play,mods,save,tools,fix,danger' && p0.querySelectorAll('.ss-mg-tabs [data-act="mgtab"]').length === 6;
+                out.onlyPlayShown = !sec('play').hidden && ['mods', 'save', 'tools', 'fix', 'danger'].every(id => sec(id).hidden) && tab('play').classList.contains('on');
+                out.hiddenKeepsButtons = !!sec('save').querySelector('[data-act="fullbackup"]') && !!sec('fix').querySelector('[data-act="diagnose"]') && !!sec('danger').querySelector('[data-act="reset"]') && !!sec('tools').querySelector('[data-act="prompts"]');
+                tab('save').click(); await wait(250);
+                out.tabSwitches = !sec('save').hidden && sec('play').hidden && S.mgTab === 'save' && tab('save').classList.contains('on');
+                tab('mods').click(); await wait(250);
+                const grp = (id) => p0.querySelector(`[data-act="mgfold"][data-arg="mods-${id}"]`);
+                out.modGroupsFolded = ['me', 'world', 'people'].every(id => grp(id) && grp(id).getAttribute('aria-expanded') === 'false' && grp(id).nextElementSibling.hidden) && /\d+\/\d+ 켬/.test(grp('me').textContent);
+                grp('me').click(); await wait(250);
+                out.modGroupOpensAlone = grp('me').getAttribute('aria-expanded') === 'true' && !grp('me').nextElementSibling.hidden && grp('world').nextElementSibling.hidden && S.mgOpen?.['mods-me'] === true;
+                S.mgTab = 'mods'; S.mgOpen = { 'mods-home': true, 'mods-me': true, 'mods-world': true, 'mods-people': true, 'mods-feed': true }; app.renderPanel(p0); await wait(250); } // 아래 스크롤 시험은 「쓸 기능」을 다 편 채로 (길어야 스크롤이 생김)
             const el = [...shell.panels].find(p => p.isConnected && p.classList.contains('ss-panel-pop')); const dlg = el.closest('dialog'); dlg.classList.add('ss-dlg'); dlg.style.cssText = 'position:fixed;inset:0;width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;padding:0;border:0;overflow:auto;';
             if (full) { el.querySelector('[data-act="fullscreen"]').click(); await wait(700); }
             const secs = () => [...el.querySelectorAll('.ss-body[data-tab="manage"] > .ss-sec')];

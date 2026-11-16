@@ -179,7 +179,7 @@ export const DEFAULTS = Object.freeze({
     groupChat: false,        // 👥 단체방 (v2.8 · 선택) — 연락에 인물 여럿이 있는 방. 끄면 단추도 안 보이고 아무 영향 없음
     contactAway: true,       // 🔕 상대가 알아서 연락을 꺼 둘 수 있게 (v2.7.23 · 화남 · 일 · 잠 — 그동안 보낸 말은 안 읽힘 · AI 0회)
     contactStayRemote: true, // 🚫 연락 속 인물이 「갈게 · 만나자」 하지 않기 (v2.7.23 · 만남은 본편에서)
-    contactRecall: 'mid',    // 🧠 연락 속 인물이 지난 대화를 얼마나 읽고 답할지 (v2.7.23): short (최근 14줄 · 편지 8통) · mid (약 6천 자) · long (약 2만 자) · all (보관된 것 전부)
+    contactRecall: 'short',    // 🧠 연락 속 인물이 지난 대화를 얼마나 읽고 답할지 (v2.7.23): short (최근 14줄 · 편지 8통) · mid (약 6천 자) · long (약 2만 자) · all (보관된 것 전부)
     letterQuick: 's3',       // 💨 편지 퀵 속도 (v2.7.23): now (바로) · s1 · s2 · s3 (시간대 뒤) — 한 시간대 빨라질 때마다 기본 요금만큼 더
     bindContact: false, bindNews: false, bindGossip: false, bindBoard: false, bindSns: false, // 📦 부가 기능을 채팅에 붙일지 (v2.7.23 · 기본 = 따로 보관: 기록을 안 쌓고 · 되감기 안 됨 · 「방금 한 일」로 안 감)
     contactReflect: 'auto',  // 연락 → 본편 반영: off | auto | pinned | summary

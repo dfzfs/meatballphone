@@ -17,7 +17,7 @@ export async function openWizard() {
     const hasSrc = chars.some(ch => (ch.description || '').trim().length > 30) || lore.length > 0;
     const meta = getMeta();
     const curMods = meta?.mods ?? Object.fromEntries(MOD_IDS.map(id => [id, defaultModOn(id)]));
-    const W = { base: hasSrc ? 'auto' : 'new', pmode: hasSrc ? 'minimal' : 'detailed', diff: meta?.difficulty ?? settings().difficulty, genre: '', cmode: 'auto', play: meta?.play ? playOf(meta).mode : 'auto', gm: GEN_MODES[settings().genMode] ? settings().genMode : 'hybrid' };
+    const W = { base: hasSrc ? 'auto' : 'new', pmode: 'minimal' /* 기본은 늘 최소 (토큰 절약) — 상세는 직접 고를 때만 */, diff: meta?.difficulty ?? settings().difficulty, genre: '', cmode: 'auto', play: meta?.play ? playOf(meta).mode : 'auto', gm: GEN_MODES[settings().genMode] ? settings().genMode : 'hybrid' };
     // v2.7.1 상태창 언어: 채팅이 거의 영어면 「영어로 저장 · 화면은 한국어」를 먼저 권한다
     const recentTxt = (ctx().chat ?? []).slice(-12).map(m => String(m?.mes ?? '')).join(' ').replace(/<[^>]+>/g, ' ');
     const latin = (recentTxt.match(/[A-Za-z]/g) ?? []).length, hangul = (recentTxt.match(/[가-힣]/g) ?? []).length;

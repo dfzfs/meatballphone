@@ -7,7 +7,7 @@ import { commit, wipeModule, gatherSources, unreadCount, dueLetters } from './en
 import { genModule, instructModule } from './ai.js';
 import { popup, confirmPopup, askConfirm, busyBtn, editorHTML, bindEditor, diffHTML, ai1, gauge, applyTheme, mascot } from './kit.js';
 import { applyParts, PARTS_ACTIONS } from './parts.js';
-import { VIEW, VIEW_ACTIONS, VIEW_CHANGES, GROUPS, TAB_MOD, TAB_INFO, PSEUDO, manageHTML, freshDot, tileBoard, tileAct, bindTileDrag, fitTiles, BOARD_BG } from './views.js';
+import { VIEW, VIEW_ACTIONS, VIEW_CHANGES, GROUPS, TAB_MOD, TAB_INFO, PSEUDO, manageHTML, labHTML, freshDot, tileBoard, tileAct, bindTileDrag, fitTiles, BOARD_BG } from './views.js';
 import { fullBackup, restoreFile, saveSlot, loadSlot, deleteSlot, attachToCard, detachFromCard, loadFromCard, cardPack, prepareCarry, startCarry, carryFor, diagnose } from './safe.js';
 import { applyPreset } from './extra.js';
 import { unreadNotes } from './notify.js';
@@ -19,7 +19,7 @@ import { FATE_ACTIONS } from './fate.js';
 import { EDIT, viewTr, letterMode, GLOBAL_OFF } from './core.js';
 import { translateSheet, missingTr } from './translate.js';
 import { hintAfterAction } from './tips.js';
-import { storySection, guideView } from './story_ui.js';
+import { storyAll, guideView } from './story_ui.js';
 import { hompyHTML, mountHompy, fitHompy, photoHTML, hpLayout, hpMinor , isDecoMode } from './hompy.js';
 import { setNoShort } from './util.js';
 import { openPromptWindow, openThemeWindow, openWizard } from './lazy.js';
@@ -48,6 +48,7 @@ const INSTRUCT_HINT = {
 // v2.7.3: 앨범 · 플레이 기록은 확장 설정에서 모든 채팅에 끌 수 있어요
 const PSEUDO_ON = { album: 'albumOn', record: 'recordOn', guide: 'guideOn' };
 VIEW.guide = (s, d, ui) => guideView(ui); // 🗝 공략 탭 (story_ui.js)
+VIEW.lab = (s, d, ui) => labHTML(s, ui, storyAll(ui)); // 🧪 실험실 탭: 선택 기능 스위치 + 켠 이야기 장치의 칸
 function groupTabs(g, meta) {
     return g.tabs.filter(t => (PSEUDO.has(t) ? !PSEUDO_ON[t] || settings()[PSEUDO_ON[t]] !== false : modOn(TAB_MOD(t), meta)));
 }
@@ -162,7 +163,7 @@ function renderPanel0(el) {
     const data = pseudo ? {} : mod === 'core' ? s.core : s.data[mod];
     const editable = !pseudo;
     let body;
-    if (tab === 'manage') body = manageHTML(s, st.ui) + storySection(tab, st.ui);
+    if (tab === 'manage') body = manageHTML(s, st.ui);
     else if (pseudo) body = VIEW[tab](s, null, st.ui);
     else if (st.mode === 'edit') body = `<div class="ss-editor">${editorHTML(st.work, EDIT[mod])}</div>
         <div class="ss-editbar"><button class="ss-btn pri" data-act="save"><i class="fa-solid fa-floppy-disk"></i> 저장</button><button class="ss-btn" data-act="cancel">취소</button></div>`;
@@ -170,7 +171,7 @@ function renderPanel0(el) {
         <div class="ss-editbar"><button class="ss-btn pri" data-act="savejson"><i class="fa-solid fa-floppy-disk"></i> 저장</button><button class="ss-btn" data-act="cancel">취소</button></div>`;
     else if (!data) body = `<div class="ss-empty"><i class="fa-solid ${TAB_INFO(tab).icon}"></i><b>「${esc(TAB_INFO(tab).name)}」 칸이 비어 있어요</b>
         <button class="ss-btn pri" data-act="gen">${ai1} AI로 채우기</button><button class="ss-btn ghost" data-act="genblank"><i class="fa-regular fa-file"></i> 빈 칸으로 시작</button></div>`;
-    else body = VIEW[tab](s, data, st.ui) + storySection(tab, st.ui); // 🧭 켠 이야기 장치의 칸 (없으면 빈 글)
+    else body = VIEW[tab](s, data, st.ui); // 🧭 이야기 장치의 칸은 🧪 실험실 탭에 모았다 (예전엔 탭마다 아래에 붙었음)
 
     const info = TAB_INFO(tab);
     const isFav = (settings().favTabs ?? []).includes(tab);
@@ -245,7 +246,7 @@ function renderPanel0(el) {
     if (tab === 'manage') { try { secH = [...el.querySelectorAll(SEC_Q)].map(n => n.offsetHeight); } catch { secH = null; } }
     if (!(hp && mountHompy(el, html))) el.innerHTML = html; // ⚡ 미니홈피는 바뀐 창만 갈아 끼운다 (hompy.js)
     if (secH?.length) { const ns = el.querySelectorAll(SEC_Q); if (ns.length === secH.length) ns.forEach((n, i) => { if (secH[i] > 0) n.style.containIntrinsicSize = `auto ${secH[i]}px`; }); }
-    if (!merged && st.mode !== 'edit' && st.mode !== 'json' && tab !== 'manage' && (pseudo || data)) applyParts(el, tab); // 👁 보일 것 (v2.7.19)
+    if (!merged && st.mode !== 'edit' && st.mode !== 'json' && tab !== 'manage' && tab !== 'lab' && (pseudo || data)) applyParts(el, tab); // 👁 보일 것 (v2.7.19)
     labelIcons(el);
     if (!isFloat) queueMicrotask(placeCtFloat); else compactFloat(el);
     if (hp) fitHompy(el); // 📐 미니홈피: 홈 쪽 · 프로필 쪽을 한 화면에 맞춘다

@@ -11,7 +11,10 @@ try {
         await window.__addUser('hi'); await window.__addAI('s\n<meatball>\naff: Mira +5\naff: Leon +30\ntrust: Leon +10\n</meatball>'); await wait(300);
         shell.openSheet('rel'); await wait(300);
         const el = [...shell.panels].find(p => p.isConnected);
-        const go = async (tab, ui = {}) => { el._ss.tab = tab; el._ss.ui = ui; el._ss.mode = 'view'; app.renderPanel(el); await wait(200); };
+        // 🧪 켠 장치의 칸은 이제 전부 「실험실」 탭에 모인다 (예전엔 관계 · 메모 · 연락 · 관리 탭 아래에 흩어져 있었음) → 그 탭들을 가리키던 곳은 실험실로 간다
+        const LAB = new Set(['rel', 'memo', 'contact', 'manage']);
+        const goRaw = async (tab, ui = {}) => { el._ss.tab = tab; el._ss.ui = ui; el._ss.mode = 'view'; app.renderPanel(el); await wait(200); };
+        const go = (tab, ui = {}) => goRaw(LAB.has(tab) && !ui.who ? 'lab' : tab, ui);
         const secs = () => [...el.querySelectorAll('.ss-story .ss-st-f')].map(x => x.dataset.f).join(',');
         const click = async (f, a, ms = 350) => { const b = el.querySelector(`.ss-st-f[data-f="${f}"] [data-st="${a}"]`) ?? el.querySelector(`.ss-story [data-st="${a}"]`); if (!b) return false; b.click(); await wait(ms); return true; };
         const sec = (f) => el.querySelector(`.ss-st-f[data-f="${f}"]`);
@@ -25,11 +28,12 @@ try {
         for (const b of boxes) { b.checked = true; b.dispatchEvent(new Event('change', { bubbles: true })); await wait(15); }
         await wait(300);
         out.allOn = story.DEVICES.every(f => story.storyOn(f.id));
-        await go('rel'); out.relTab = secs() === 'peek,scar,memory,meddle,taste' || secs();
-        await go('memo'); out.memoTab = (secs() === 'know,promise' && !!el.querySelector('.ss-story [data-st="scan"]')) || secs();
-        await go('contact'); out.contactTab = secs() === 'mail' || secs();
-        await go('contact', { who: 'Leon' }); out.contactThreadClean = !el.querySelector('.ss-story');
-        await go('manage'); out.flowOnManage = secs() === 'loop,ghost,debt,tension,realtime' || secs();
+        await goRaw('lab'); out.labHasAll = secs() === 'loop,ghost,debt,tension,realtime,peek,scar,memory,meddle,taste,know,promise,mail' || secs();
+        out.labFolded = [...el.querySelectorAll('.ss-story details.ss-st-f')].every(d => !d.open); // 켜도 전부 접힌 채로
+        out.labScan = !!el.querySelector('.ss-story [data-st="scan"]');
+        out.labSwitches = el.querySelectorAll('.ss-body [data-chg="setflag"]').length >= 24 && [...el.querySelectorAll('.ss-body [data-chg="setflag"]')].filter(i => i.checked).length >= 14;
+        for (const t of ['rel', 'memo', 'contact', 'manage', 'fate']) { await goRaw(t); if (el.querySelector('.ss-story:not(.ss-guide)')) out.otherTabsClean = t; } out.otherTabsClean ??= true;
+        await goRaw('contact', { who: 'Leon' }); out.contactThreadClean = !el.querySelector('.ss-story');
         out.allDrawn = !el.textContent.includes('그리지 못했어요');
         window.__ai = (p, s = '') => (s.includes('story ledgers') ? '{"facts":[{"text":"유저는 왕자다","knows":["Leon"]}],"promises":[{"text":"축제에 같이 가기","to":"Leon","due":"내일"}]}'
             : s.includes('strategy guide') ? '{"up":[{"kind":"item","text":"꽃을 건네면 좋아"},{"kind":"act","text":"먼저 손을 잡아 줘"},{"kind":"say","text":"수고했다고 말해 줘"}],"down":[{"kind":"item","text":"술은 주지 마"},{"kind":"act","text":"약속에 늦지 마"},{"kind":"say","text":"다른 사람 얘기는 하지 마"}],"note":"이 정도는 알아서 해."}'

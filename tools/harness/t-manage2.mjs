@@ -7,7 +7,7 @@ try {
         const core = await import('/ext/src/core.js'); const eng = await import('/ext/src/engine.js'); const shell = await import('/ext/src/shell.js'); const hompy = await import('/ext/src/hompy.js');
         const app = window.__SS_TEST__.api.app, wait = (ms) => new Promise(r => setTimeout(r, ms)), S = core.settings(), out = {}, meta = () => core.getMeta();
         await window.__addUser('hi'); await window.__addAI('s\n<meatball>\ncash: +100\n</meatball>'); await wait(300);
-        S.sheetFull = false; S.mgOpen = { play: true, mods: true, save: true }; shell.openSheet('manage'); await wait(400);
+        S.sheetFull = false; shell.openSheet('manage'); await wait(400);
         const el = [...shell.panels].find(p => p.isConnected && p.classList.contains('ss-panel-pop')), q = (x) => el.querySelector(x), on = () => core.MOD_IDS.filter(id => core.modOn(id));
         // ── 쓸 기능 한 번에 ──
         out.modBtns = ['rec', 'all', 'none'].every(a => q(`[data-mg="mods"] [data-act="modset"][data-arg="${a}"]`));

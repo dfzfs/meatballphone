@@ -51,7 +51,7 @@ export async function genModule(mod, { sources, core, instruction, profileMode, 
     L.push(`=== OUTPUT JSON SHAPE ===\n${SCHEMA[mod]}${detectPlay ? `\nALSO add a key "play": ${PLAY_SHAPE} — decide how this setup is played (see sources).` : ''}`);
     const obj = await finJSON(trimGen(await aiJSON(feature, P('gen.system'), L.join('\n\n')), mod), core); // 줄인 다음 번역 (화면 번역 사전이 줄인 글과 맞게)
     if (mod === 'core') { const c = NORM.core(obj); if (detectPlay && obj.play) Object.defineProperty(c, 'play', { value: normPlay(obj.play), enumerable: false }); return c; }
-    if (mod === 'profile' && profileMode) obj.mode = profileMode;
+    if (mod === 'profile') obj.mode = profileMode ?? current?.mode ?? app.current?.state?.data?.profile?.mode ?? 'minimal'; // 프로필 모드는 사용자가 고른 것만 — AI가 답에 「detailed」를 적어 와도 바꾸지 않는다 (기본 = 최소)
     if (mod === 'contact' && contactMode && contactMode !== 'auto') obj.mode = contactMode;
     const out = mod === 'core' ? NORM.core(obj) : normalize(mod, obj);
     if (mod === 'rel') { if (!out.affName) Object.assign(out, LOVE_AXES); fixLoveLadder(out); } // 새로 만드는 관계는 애정 · 우정 (v2.7)
@@ -89,7 +89,7 @@ export async function genGroup(mods, { sources, core, instruction, profileMode, 
     for (const mod of mods) {
         const d = obj?.[mod];
         if (!d || typeof d !== 'object' || Array.isArray(d)) continue;
-        if (mod === 'profile' && profileMode) d.mode = profileMode;
+        if (mod === 'profile') d.mode = profileMode ?? 'minimal';
         if (mod === 'contact' && contactMode && contactMode !== 'auto') d.mode = contactMode;
         try { out[mod] = normalize(mod, d); if (mod === 'wallet' && out[mod].fx) out[mod].fx = { unit: '', rate: 0 }; if (mod === 'rel') { if (!out[mod].affName) Object.assign(out[mod], LOVE_AXES); fixLoveLadder(out[mod]); ensureLove(out[mod]); } } catch (e) { ssWarn(LOG, 'group normalize', mod, e); }
     }
@@ -108,6 +108,7 @@ export async function instructModule(mod, instruction, state) {
         `=== OUTPUT JSON SHAPE ===\n${SCHEMA[mod]}`,
     ];
     const obj = await finJSON((await aiJSON('instruct', P('gen.system'), L.join('\n\n'))));
+    if (mod === 'profile' && obj && typeof obj === 'object') obj.mode = state?.data?.profile?.mode ?? 'minimal'; // 「AI로 수정」해도 프로필 모드는 사용자가 고른 그대로
     const out = mod === 'core' ? NORM.core(obj) : normalize(mod, obj);
     // 관계 수치 이름은 지시에 「애정·우정·호감·신뢰」가 없으면 그대로 둔다 (옛 채팅의 호감·신뢰 뜻이 몰래 바뀌지 않게)
     if (mod === 'rel' && curData && !/애정|우정|호감|신뢰|romance|friendship/i.test(instruction)) { out.affName = curData.affName ?? ''; out.trustName = curData.trustName ?? ''; }
