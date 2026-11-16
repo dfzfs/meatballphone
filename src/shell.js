@@ -114,7 +114,7 @@ function featureBoard(s, meta) {
     const all = groups.flatMap(x => x.tabs), onTabs = all.filter(isOn).map((t, i) => [t, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(x => x[0]), offTabs = all.filter(t => !isOn(t));
     // 켠 기능만 큰 카드로 (이름 + 지금 값) — 꺼 둔 기능은 아래 접는 줄에 설명과 스위치로
     const tip = deco ? `<div class="ss-fb-tip"><i class="fa-solid fa-arrows-left-right"></i><span><b>◀ ▶ 로 앱 순서를 바꿔요.</b> 사진은 사진 아래 ↑ ↓ 단추로 앱들 위 · 아래로 옮겨요.</span></div>` : st.hpTip !== false ? `<div class="ss-fb-tip"><i class="fa-solid fa-lightbulb"></i><span><b>카드를 누르면 그 기능이 열려요.</b> 위(폰은 아래) 메뉴로도 옮겨 다녀요 · 모양은 「꾸미기」에서 · 모르는 건 「도우미」에게</span><button data-hp="tipoff" title="안내 닫기">알겠어요</button></div>` : '';
-    return `<section class="ss-fb">${tip}<div class="ss-fb-grid">${onTabs.map(card).join('')}</div>
+    return `<section class="ss-fb">${tip}${meta.hpPhoto?.src && onTabs.length > 6 ? `<div class="ss-fb-grid top">${onTabs.slice(0, 6).map(card).join('')}</div><div class="ss-fb-grid rest">${onTabs.slice(6).map(card).join('')}</div>` : `<div class="ss-fb-grid ${meta.hpPhoto?.src ? 'top' : ''}">${onTabs.map(card).join('')}</div>`}
         ${offTabs.length ? `<details class="ss-fb-more" ${st.hpBoardOpen ? 'open' : ''}><summary><i class="fa-solid fa-plus"></i> 더 써 볼 기능 ${offTabs.length}개</summary><div class="ss-fb-grid off">${offTabs.map(card).join('')}</div></details>` : ''}</section>`;
 }
 export function renderPanel(el) {
