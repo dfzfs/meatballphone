@@ -27,13 +27,13 @@ try {
         await page.evaluate(async () => {
             const core = await import('/ext/src/core.js'); const shell = await import('/ext/src/shell.js'); const hp = await import('/ext/src/hompy.js'); const wait = (ms) => new Promise(r => setTimeout(r, ms));
             await window.__addUser('hi'); await window.__addAI('s\n<meatball>\naff: Mira +5\naff: Leon +30\n</meatball>'); await wait(300);
-            Object.assign(core.settings(), { hpSkin: 'clean', hpSuggest: false }); hp.applyRetro(); hp._decoMode(true);
+            Object.assign(core.settings(), { hpSkin: 'clean' }); hp.applyRetro(); hp._decoMode(true);
             window.__autoPopup = null; shell.openSheet('home', { full: true }); await wait(400);
             const d = document.querySelector('dialog'); d.classList.add('ss-dlg', 'ss-full', 'ss-scope'); d.style.cssText = 'position:fixed;inset:0;width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;padding:0;border:0;overflow:auto;';
             window.__hp = { core, shell, hp, wait, S: core.settings(), el: () => [...shell.panels].find(p => p.isConnected && p.querySelector('.ss-hompy')), re: async () => { hp.applyRetro(); shell.rerenderPanels(true); await wait(160); } };
         });
         await sleep(300);
-        for (const skin of ['clean', 'dot', 'note', 'term', 'phone']) {
+        for (const skin of ['clean', 'dot', 'phone']) {
             const tag = `${dev}/${skin}`;
             // ── 틀: 넘침 없음 · 메뉴와 탭이 화면 안 · 손가락으로 눌림
             const base = await page.evaluate(async (skin) => {
@@ -120,7 +120,7 @@ try {
         }
         // 태블릿 · PC: 손가락(마우스)으로 창을 끌어 옮기면 저장됨
         if (!phone) {
-            await page.evaluate(async () => { const { S, re } = window.__hp; Object.assign(S, { hpSkin: 'note', hpFreeOn: true, hpFree: {} }); await re(); });
+            await page.evaluate(async () => { const { S, re } = window.__hp; Object.assign(S, { hpSkin: 'phone', hpFreeOn: true, hpFree: {} }); await re(); });
             await tap('.ss-hompy .ss-hp-marks [data-hp="deco"]'); await sleep(500);
             const box = await page.evaluate(() => { const r = window.__hp.el().querySelector('.ss-hp-book.free.ss-hp-editing .ss-hp-win[data-win="profile"] .ss-hp-wt').getBoundingClientRect(); return { x: r.left + 30, y: r.top + r.height / 2 }; });
             if (touch) { const c = await cx.newCDPSession(page), pt = (x, y) => [{ x, y, id: 1 }];

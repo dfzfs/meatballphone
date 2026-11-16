@@ -69,11 +69,11 @@ export const THEMES = [['분홍', 340, 1], ['회색', 260, 0.08], ['하늘', 215
 const themeOf = () => { const d = D(); return d.hpTheme === 'c' ? ['직접', Math.max(0, Math.min(360, Number(d.hpHue) || 0)), Math.max(0, Math.min(1.2, Number(d.hpSat ?? 1)))] : THEMES[Number(d.hpTheme) || 0] ?? THEMES[0]; };
 const FONTS = { g: '기본', s: '명조', r: '둥근 글꼴', m: '고정폭', u: '내 글꼴' }, CORNERS = ['각지게', '보통', '둥글게'], GAPS = ['촘촘', '보통', '넉넉'], DARKS = { light: '밝게', dark: '어둡게', auto: '기기 따라' };
 const pick3 = (v) => ([0, 1, 2].includes(Number(v)) && v !== null && v !== undefined && v !== '' ? Number(v) : 1);
-const SKIN_DEF = { note: ['g', 'light'], term: ['g', 'dark'], phone: ['g', 'light'], clean: ['g', 'light'], dot: ['g', 'light'] }; // 모양을 고르면 따라오는 글꼴 · 밝기
+const SKIN_DEF = { phone: ['g', 'light'], clean: ['g', 'light'], dot: ['g', 'light'] }; // 모양을 고르면 따라오는 글꼴 · 밝기
 // 🖼 배경화면 (v2.8 · 아이폰 · 갤럭시의 배경화면 고르기처럼): 그림 파일 없이 색 번짐만으로 — 고르면 창이 살짝 비치는 유리가 된다 (깔끔 · 폰 모양)
 export const WALLS = { dawn: ['새벽', 0], ocean: ['바다', 0], mint: ['민트', 0], peach: ['복숭아', 0], lilac: ['라일락', 0], sand: ['모래', 0], night: ['밤하늘', 1], forest: ['숲', 1] };
 export const wallOf = () => (WALLS[D().hpWall] && ['clean', 'phone'].includes(skinOf()) && !settings().hpBgImg ? D().hpWall : '');
-export const SKINS = { clean: '깔끔', dot: '도트', note: '노트', term: '사이버', phone: '폰' }, PATTERNS = { grid: '모눈', dot: '물방울', stripe: '줄무늬', none: '없음' };
+export const SKINS = { clean: '깔끔', dot: '도트', phone: '폰' }, PATTERNS = { grid: '모눈', dot: '물방울', stripe: '줄무늬', none: '없음' };
 export const skinOf = () => (SKINS[D().hpSkin] ? D().hpSkin : 'clean'); // 고르지 않았으면 깔끔 (처음 열 때 고르는 줄이 뜬다)
 const patOf = () => (PATTERNS[D().hpPattern] ? D().hpPattern : 'grid');
 const hex = (v) => (/^#[0-9a-f]{6}$/i.test(String(v ?? '')) ? String(v) : '');
@@ -89,7 +89,7 @@ export function applyRetro() {
     b.style.setProperty('--hp-h', String(h)); b.style.setProperty('--hp-s', String(s));
     b.style.setProperty('--hp-fs', `${fsUse()}px`); // 다른 창(도우미 등)의 글씨 크기도 같이
     // 팝업 알림(body 바로 아래에 뜸)도 지금 모양을 따르게: 스킨 색을 한 번 읽어 body에 --tp-○ 로 넣는다 (스킨 · 밝기 · 색을 바꿀 때마다)
-    try { let pr = document.getElementById('ss-tp-probe'); if (!pr) { pr = document.createElement('div'); pr.id = 'ss-tp-probe'; pr.className = 'ss-root ss-rt'; pr.style.display = 'none'; pr.setAttribute('aria-hidden', 'true'); document.body.appendChild(pr); }
+    if (!booting) try { let pr = document.getElementById('ss-tp-probe'); if (!pr) { pr = document.createElement('div'); pr.id = 'ss-tp-probe'; pr.className = 'ss-root ss-rt'; pr.style.display = 'none'; pr.setAttribute('aria-hidden', 'true'); document.body.appendChild(pr); }
         const cs = getComputedStyle(pr); for (const k of ['paper', 'ink', 'dim', 'ol', 'acc', 'soft', 'strip', 'r', 'font']) { const v = cs.getPropertyValue(`--hp-${k}`).trim(); if (v) b.style.setProperty(`--tp-${k}`, v); else b.style.removeProperty(`--tp-${k}`); } } catch { /* 꾸밈일 뿐 */ }
     // 직접 고른 글자 · 바탕 · 카드 색 (비우면 모양의 기본색)
     const ink = hex(d.hpInk), set = (k, v) => (v ? b.style.setProperty(k, v) : b.style.removeProperty(k));
@@ -134,8 +134,8 @@ const FS_DOT = { s: 10, m: 11.5, l: 13 };
 const fsPx = () => { const n = Number(D().hpFsPx); return n >= 8 && n <= 24 ? n : (skinOf() === 'dot' ? FS_DOT : FS)[fsOf()]; }; // 직접 정한 크기가 먼저
 // 브라우저의 「최소 글꼴 크기」(크롬 설정 → 글꼴): 이보다 작은 글씨는 브라우저가 강제로 키운다 → 슬라이더를 줄여도 글씨가 그대로고 칸만 작아져 넘친다.
 //   → 재 보고, 칸 크기의 기준(--hp-fs)을 그 크기 밑으로는 안 내리고, 글씨 설정에 이유를 알려 준다.
-let minFontC = null;
-const minFont = () => { if (minFontC != null) return minFontC; try { const sp = document.createElement('span'); sp.style.cssText = 'position:absolute;left:-99px;top:-99px;visibility:hidden;font:1px/1 sans-serif;white-space:nowrap'; sp.textContent = '가'; document.body.appendChild(sp); const hh = sp.getBoundingClientRect().height; sp.remove(); minFontC = hh > 2 ? Math.min(24, Math.round(hh)) : 0; } catch { minFontC = 0; } return minFontC; };
+let minFontC = null, booting = false; // booting: 시작할 때는 재지 않는다 (재면 화면 배치를 한 번 더 계산해 로딩이 늦어짐) — 잠깐 뒤 한가할 때 잰다
+const minFont = () => { if (minFontC != null) return minFontC; if (booting) return 0; try { const sp = document.createElement('span'); sp.style.cssText = 'position:absolute;left:-99px;top:-99px;visibility:hidden;font:1px/1 sans-serif;white-space:nowrap'; sp.textContent = '가'; document.body.appendChild(sp); const hh = sp.getBoundingClientRect().height; sp.remove(); minFontC = hh > 2 ? Math.min(24, Math.round(hh)) : 0; } catch { minFontC = 0; } return minFontC; };
 const fsUse = (v) => Math.max(Number(v) || fsPx(), minFont());
 const minFontNote = () => (minFont() >= 9 ? `<small class="ss-hint ss-hp-minfont"><i class="fa-solid fa-circle-info"></i> 이 브라우저는 「최소 글꼴 크기」가 <b>${minFont()}px</b>로 정해져 있어서, 그보다 작은 글씨는 브라우저가 강제로 키워요. 더 줄이려면 브라우저 설정 → 모양 → 글꼴 맞춤설정 → 「최소 글꼴 크기」를 낮춰 주세요.</small>` : '');
 const fsOf = () => (FS[D().hpFs] ? D().hpFs : 'm'); // 고르지 않았으면 보통 (예전엔 화면 배율이 큰 기기에서 「작게」가 기본이라 글씨가 너무 작았음)
@@ -198,22 +198,6 @@ const clone = (x) => JSON.parse(JSON.stringify(x ?? null));
 export const _decoMode = (full) => { decoFull = !!full; }; // 시험용: 꾸미기를 「자세히」로 열기
 const takeSnap = () => { const g = {}, st = settings(); for (const k of DECO_KEYS) g[k] = clone(st[k]); const b = boundSet(); undoSnap = { g, b: b ? { name: b.name, data: clone(b.data) } : null }; };
 const undo = () => { if (!undoSnap) return false; const st = settings(); for (const k of DECO_KEYS) { if (undoSnap.g[k] === null) delete st[k]; else st[k] = undoSnap.g[k]; } if (undoSnap.b) { const b = (st.hpSets ?? []).find(x => x.name === undoSnap.b.name); if (b) b.data = undoSnap.b.data; } undoSnap = null; return true; };
-const LOOK_KEYS = ['hpParts', 'hpInk', 'hpBg', 'hpPaper', 'hpFsPx', 'hpCorner', 'hpGap', 'hpCardAlpha', 'hpHue', 'hpSat', 'hpFont', 'hpPattern'];
-const PRESETS = [['깔끔 밝게', { hpSkin: 'clean', hpDark: 'light', hpTheme: 0 }], ['깔끔 어둡게', { hpSkin: 'clean', hpDark: 'dark', hpTheme: 2 }], ['도트 분홍', { hpSkin: 'dot', hpDark: 'light', hpTheme: 0, hpPattern: 'grid' }], ['도트 밤', { hpSkin: 'dot', hpDark: 'dark', hpTheme: 7, hpPattern: 'dot' }]];
-// 🎭 분위기 세트: 모양 · 색 · 글꼴 · 모서리에 창 제목 · 메뉴 이름(용어)까지 한 묶음 — 중세 · 무협 · SF처럼 분위기가 다른 채팅용
-export const VIBES = {
-    note: ['노트 · 신문', { hpSkin: 'note', hpDark: 'light', hpTheme: 'c', hpHue: 48, hpSat: 1, hpFont: 'g', hpCorner: 1, hpTitles: { profile: '나', intro: '줄거리', stats: '오늘의 상태', friends: '사람들', quest: '할 일', news: '오늘의 소식', contact: '쪽지' }, hpGroupNames: {} }, null],
-    scifi: ['SF · 사이버', { hpSkin: 'term', hpDark: 'dark', hpTheme: 'c', hpHue: 54, hpSat: 1, hpFont: 'g', hpCorner: 0, hpTitles: { profile: 'ID', intro: 'LOG', stats: 'STATUS', friends: 'CONTACTS', quest: 'MISSIONS', news: 'FEED', contact: 'COMMS' }, hpGroupNames: {} }, /SF|사이버|우주|안드로이드|로봇|해커|크레딧|함선|디스토피아|미래 ?도시|네온|인공지능|cyber|space|android|credit/gi],
-    school: ['학원 · 로맨스', { hpSkin: 'phone', hpDark: 'light', hpTheme: 'c', hpHue: 338, hpSat: 1, hpFont: 'g', hpCorner: 2, hpTitles: { friends: '친구들', quest: '할 일', news: '소식', contact: '메시지' }, hpGroupNames: {} }, /학원|학교|고등학교|대학교|동아리|교실|기숙사|로맨스|연애|아이돌|school|romance/gi],
-    modern: ['현대 · 일상', { hpSkin: 'clean', hpDark: 'light', hpTheme: 'c', hpHue: 214, hpSat: 0.9, hpFont: 'g', hpCorner: 1, hpTitles: {}, hpGroupNames: {} }, null],
-};
-// 채팅의 세계관 글에서 분위기를 어림한다 (AI 호출 없음 · 낱말 2개 이상 맞고 1등이 뚜렷할 때만)
-export function guessVibe(s) {
-    let text = ''; try { text = `${JSON.stringify(s?.core ?? {})} ${s?.data?.wallet?.currency ?? ''} ${(s?.data?.map?.places ?? []).map(p => p.name).join(' ')}`.slice(0, 6000); } catch { return null; }
-    const score = Object.entries(VIBES).filter(([, v]) => v[2]).map(([k, v]) => [k, new Set((text.match(v[2]) ?? []).map(x => x.toLowerCase())).size]).sort((x, y) => y[1] - x[1]);
-    return score[0] && score[0][1] >= 2 && score[0][1] > (score[1]?.[1] ?? 0) ? score[0][0] : null;
-}
-const applyLook = (p) => { for (const x of LOOK_KEYS) W(x, x === 'hpParts' ? {} : x === 'hpPattern' ? 'grid' : x === 'hpFont' ? 'g' : x === 'hpCorner' || x === 'hpGap' ? 1 : 0); W('hpInk', ''); W('hpBg', ''); W('hpPaper', ''); W('hpTitles', {}); W('hpGroupNames', {}); for (const [x, y] of Object.entries(p)) W(x, clone(y)); };
 const MOODS = [['hi', '보통'], ['heart', '두근두근'], ['proud', '대성공'], ['focus', '성공'], ['sulk', '아쉬움'], ['sad', '슬픔'], ['gasp', '놀람'], ['tongue', '삐딱'], ['blanket', '쉬는 중']];
 const pickFile = (accept, maxBytes, done) => { const inp = document.createElement('input'); inp.type = 'file'; inp.accept = accept; inp.onchange = () => { const f = inp.files?.[0]; if (!f) return; if (f.size > maxBytes) { toastr.error(`파일이 너무 커요 (${Math.round(maxBytes / 1024 / 1024 * 10) / 10}MB까지).`, TITLE); return; } const fr = new FileReader(); fr.onload = () => done(String(fr.result), f); fr.onerror = () => toastr.error('파일을 읽지 못했어요.', TITLE); fr.readAsDataURL(f); }; inp.click(); };
 const afterDeco = (redraw) => { saveSettings(); try { saveMeta(); } catch { /* 채팅 없음 */ } applyRetro(); redraw(); app.rerenderPanels?.(true); app.renderHud?.(); };
@@ -287,7 +271,7 @@ async function openDeco(redraw, focus = '') {
                 <div class="ss-hp-faces">${MOODS.map(([c, n]) => `<span class="ss-hp-mine"><button class="ss-hp-face ${mf[c] ? 'on' : ''}" data-choice="mface:${c}" title="${n}"><img src="${esc(mf[c] || conUrl(c))}" alt=""><em>${n}</em></button>${mf[c] ? `<button class="ss-ib" data-choice="mfdel:${c}" title="미트볼로 되돌리기"><i class="fa-solid fa-xmark"></i></button>` : ''}</span>`).join('')}</div>`)}
             ${fold('sets', '꾸밈 세트', `<div class="ss-hp-sets">${sets.map((x, i) => `<div class="ss-hp-set ${bound?.name === x.name ? 'on' : ''}"><i style="background:hsl(${x.data.hpTheme === 'c' ? Number(x.data.hpHue) || 0 : (THEMES[Number(x.data.hpTheme) || 0] ?? THEMES[0])[1]} 62% 60%)"></i><b>${esc(x.name)}</b><span><button class="ss-btn sm" data-choice="apply:${i}" title="모든 채팅에 적용">적용</button><button class="ss-btn sm ${bound?.name === x.name ? 'pri' : 'ghost'}" data-choice="bind:${i}" title="이 채팅에서만 이 세트를 써요">${bound?.name === x.name ? '✓ 이 채팅' : '이 채팅만'}</button><button class="ss-btn sm ghost" data-choice="code:${i}" title="코드 복사 — 다른 사람에게 보내요">코드</button><button class="ss-ib" data-choice="setdel:${i}" title="지우기"><i class="fa-solid fa-trash-can"></i></button></span></div>`).join('') || '<p class="ss-hint">저장한 세트가 없어요.</p>'}</div>
                 <div class="ss-row-btns"><button class="ss-btn sm" data-choice="setsave:1"><i class="fa-solid fa-floppy-disk"></i> 지금 꾸밈 저장</button><button class="ss-btn sm ghost" data-choice="setimport:1"><i class="fa-solid fa-paste"></i> 코드로 가져오기</button></div>`)}
-            ${fold('more', '그 밖에', `${row('다른 창들', chips([['hudskin:1', 'HUD · 미니창 · 보통 상태창도 같은 모양', set.hpSkinHud !== false], ['suggest:1', '채팅 분위기에 맞는 모양 권하기', set.hpSuggest !== false]]))}
+            ${fold('more', '그 밖에', `${row('다른 창들', chips([['hudskin:1', 'HUD · 미니창 · 보통 상태창도 같은 모양', set.hpSkinHud !== false]]))}
                 ${row('내 CSS', `<textarea class="ss-in ss-hp-css" data-hpcss rows="5" spellcheck="false" placeholder="/* 아는 분만 — 예: */&#10;.ss-hompy .ss-hp-win { border-style: dashed; }">${esc(set.hpCss ?? '')}</textarea><small class="ss-hint">칸 밖을 누르면 적용돼요. 내 CSS는 꾸밈 세트 · 코드에 들어가지 않아요. 이름표: .ss-hompy(전체) · .ss-hp-url(머리줄) · .ss-hp-marks(메뉴) · .ss-hp-win(창) · .ss-hp-wt(창 제목) · .ss-hp-wb(창 안) · [data-win="profile"](창 하나)</small>`)}
                 <div class="ss-row-btns"><button class="ss-btn sm ghost" data-choice="allreset:1"><i class="fa-solid fa-broom"></i> 꾸밈 전부 기본으로</button></div>`)}`;
         box.innerHTML = head + (decoFull ? full : simple);
@@ -318,12 +302,8 @@ async function decoAct(k, v, redraw) {
     const after = () => afterDeco(redraw);
     const meta = (() => { try { return getMeta(); } catch { return null; } })();
     if (!['code', 'setsave', 'setimport', 'cover', 'bgimg', 'fontfile', 'mface'].includes(k)) takeSnap();
-    if (k === 'preset') { const p = PRESETS[Number(v)]?.[1]; if (p) applyLook(p); }
-    if (k === 'vibe' && VIBES[v]) applyLook(VIBES[v][1]);
-    if (k === 'suggest') set.hpSuggest = set.hpSuggest === false;
     if (k === 'allreset') { for (const x of DECO_KEYS) { const b = boundSet(); if (b) delete b.data[x]; else delete set[x]; } set.hpSkin = set.hpSkin ?? 'clean'; }
     if (k === 'theme') W('hpTheme', Number(v));
-    if (k === 'webfont') { set.webFont = v === '1'; loadWebFont(); }
     if (k === 'dark') W('hpDark', v); if (k === 'font') { if (v === 'd') W('hpFontPick', false); else { W('hpFont', v); W('hpFontPick', true); } } if (k === 'fs') { W('hpFs', v); W('hpFsPx', 0); }
     if (k === 'wall') { W('hpWall', WALLS[v] ? v : ''); delete set.hpBgImg; if (WALLS[v]) W('hpDark', WALLS[v][1] ? 'dark' : 'light'); }
     if (k === 'skin' && SKINS[v]) { W('hpSkin', v); W('hpFsPx', 0); W('hpFontPick', false); W('hpFont', SKIN_DEF[v][0]); W('hpDark', SKIN_DEF[v][1]); } if (k === 'pat') W('hpPattern', v); if (k === 'navtop') W('hpNavTop', v === '1'); if (k === 'colreset') { W('hpInk', ''); W('hpBg', ''); W('hpPaper', ''); }
@@ -377,7 +357,7 @@ function sheetHTML() {
         body = `<div class="ss-hp-shead">${B('partback:1', '‹ 전체', false, 'back')}<b>「${PARTS[ED.part][0]}」만 꾸미기</b>${d.hpParts?.[ED.part] ? B('pcl:*', '이 부분 기본으로', false, 'txt') : ''}</div>
             ${row('색', col('ink', '글자') + col('bg', '바탕') + col('bd', '테두리'))}${row('테두리', rng('bw', '굵기', 0, 4, 0.5, 1) + rng('r', '둥글기', 0, 28, 1, 12))}${row('글씨', rng('fs', '크기', 0.7, 1.6, 0.05, 1))}`;
     } else if (ED.tab === 'look') {
-        body = `<div class="ss-hp-strip">${Object.entries(SKINS).map(([k, n]) => pv({ hpSkin: k, hpDark: SKIN_DEF[k][1], hpTheme: ti < 0 ? 0 : ti }, n, `skin:${k}`, skinOf() === k)).join('')}</div>`; // 분위기 세트(노트 · 신문, 학원 · 로맨스 등)는 이 줄에서 뺌 — 모양 다섯 개만 (채팅에 맞춘 분위기 추천은 그대로)
+        body = `<div class="ss-hp-strip">${Object.entries(SKINS).map(([k, n]) => pv({ hpSkin: k, hpDark: SKIN_DEF[k][1], hpTheme: ti < 0 ? 0 : ti }, n, `skin:${k}`, skinOf() === k)).join('')}</div>`;
     } else if (ED.tab === 'wall') {
         const ok = ['clean', 'phone'].includes(skinOf()), cur = wallOf();
         body = ok ? `<div class="ss-hp-strip walls">${B('wall:', '<span class="ss-hp-wp none"></span>없음', !cur && !set.hpBgImg, 'card')}${Object.entries(WALLS).map(([k, [n]]) => B(`wall:${k}`, `<span class="ss-hp-wp ${k}"></span>${n}`, cur === k, 'card')).join('')}<i class="sep"></i>${B('bgimg:add', `<span class="ss-hp-wp mine"${set.hpBgImg ? ` style="background-image:url('${esc(set.hpBgImg)}')"` : ''}><i class="fa-solid fa-image"></i></span>내 사진`, !!set.hpBgImg, 'card')}</div>`
@@ -389,8 +369,7 @@ function sheetHTML() {
             ${row('바탕', ['Ink:글자', 'Bg:바탕', 'Paper:카드'].map(x => x.split(':')).map(([k, n]) => `<label class="ss-hp-color"><input type="color" data-hpc="hp${k}" value="${hex(d['hp' + k]) || (k === 'Ink' ? '#24262b' : '#ffffff')}"><small>${n}${hex(d['hp' + k]) ? ' ✓' : ''}</small></label>`).join('') + (hex(d.hpInk) || hex(d.hpBg) || hex(d.hpPaper) ? B('colreset:1', '기본색', false, 'txt') : '') + B('bgimg:add', `<i class="fa-solid fa-image"></i> 바탕 그림${set.hpBgImg ? ' 바꾸기' : ''}`, false, 'txt') + (set.hpBgImg ? B('bgimg:del', '빼기', false, 'txt') : ''))}`;
     } else if (ED.tab === 'type') {
         body = `${row('크기', `<label class="ss-hp-range wide"><small>가</small><input type="range" min="8" max="22" step="0.5" value="${fsPx()}" data-hpr="fs"><small class="big">가</small><small data-fsv>${fsPx()}px</small></label>${minFontNote()}${Number(d.hpFsPx) ? B('fs:m', '기본 크기', false, 'txt') : ''}`)}
-            ${row('글꼴', seg('font', fontKey(), fontOpts()) + B('fontfile:add', '<i class="fa-solid fa-font"></i> 글꼴 파일', false, 'txt'))}
-            ${row('기본 글꼴', seg('webfont', set.webFont === false ? '0' : '1', [['1', 'IBM Plex Sans KR 받아 쓰기'], ['0', '끄기']]) + '<small class="ss-hint">기기에 없으면 구글 글꼴에서 받아요.</small>')}`;
+            ${row('글꼴', seg('font', fontKey(), fontOpts()) + B('fontfile:add', '<i class="fa-solid fa-font"></i> 글꼴 파일', false, 'txt'))}`;
     } else if (ED.tab === 'frame') {
         body = `${row('모서리', `<label class="ss-hp-range wide"><small>각지게</small><input type="range" min="0" max="2" step="1" value="${pick3(d.hpCorner)}" data-hpr="corner"><small>둥글게</small></label>`)}
             ${row('여백', `<label class="ss-hp-range wide"><small>촘촘</small><input type="range" min="0" max="2" step="1" value="${pick3(d.hpGap)}" data-hpr="gap"><small>넉넉</small></label>`)}
@@ -452,21 +431,23 @@ export function fitHompy(el, tries = 0) {
     cols.forEach(c => { c.firstElementChild.style.zoom = ''; }); if (body) { body.style.zoom = ''; body.style.height = ''; const hb0 = body.querySelector('.ss-hp-homebody'); if (hb0) hb0.style.zoom = ''; } right?.classList.remove('ss-hp-over');
     // 탭이 바뀌었을 때 · 기분이 바뀌었을 때만 작은 움직임
     try { const st = el._ss, key = `${st?.group}/${st?.tab}`; if (el._hpTab !== undefined && el._hpTab !== key) body?.classList.add('ss-hp-swap'); el._hpTab = key; const face = root.querySelector('.ss-hp-pet') ?? root.querySelector('.ss-hp-photo img'), fk = face?.getAttribute('src'); if (el._hpFace !== undefined && fk && el._hpFace !== fk) face.classList.add('pop'); el._hpFace = fk; } catch { /* 꾸밈일 뿐 */ }
-    try { const gn = D().hpGroupNames ?? {}; root.querySelectorAll('.ss-groups > button[data-arg]').forEach(b => { const sp = b.querySelector('span'); if (!sp) return; if (!b.dataset.n0) b.dataset.n0 = sp.textContent; const n = gn[b.dataset.arg]; sp.textContent = n ? String(n).slice(0, 8) : b.dataset.n0; }); } catch { /* 꾸밈일 뿐 */ }
-    if (matchMedia('(max-width: 640px)').matches) return;
+    try { const gn = D().hpGroupNames ?? {}; root.querySelectorAll('.ss-groups > button[data-arg]').forEach(b => { const sp = b.querySelector('span'); if (!sp) return; if (!b.dataset.n0) b.dataset.n0 = sp.textContent; const n = gn[b.dataset.arg], t = n ? String(n).slice(0, 8) : b.dataset.n0; if (sp.textContent !== t) sp.textContent = t; }); } catch { /* 꾸밈일 뿐 */ }
+    if (innerWidth <= 640) return; // (속도) matchMedia는 물을 때마다 스타일 계산을 한 번 더 시킨다
     if (root.querySelector('.ss-hp-book.free') || root.classList.contains('ss-hp-edit')) { right?.classList.add('ss-hp-over'); cols.forEach(c => c.classList.add('ss-hp-over')); return; } // 자유 배치: 창마다 정한 크기 안에서 스크롤
     // (v2.8 다이어트) 예전엔 줄마다 「재고 → 줄이고 → 다시 재고」를 최대 4번 돌려 화면 배치 계산을 여러 번 시켰다 (전체화면에서 한 턴 시간의 절반).
     //  이제 ① 같은 창 크기 · 같은 내용 길이에서 지난번에 찾은 배율을 먼저 걸어 두고 ② 한 번에 다 잰 뒤 ③ 맞으면 그대로, 안 맞을 때만 예전처럼 다시 찾는다.
     const memo = (fitHompy._z ??= new Map()); if (memo.size > 80) memo.clear();
     const kb = `${innerWidth}x${innerHeight}|${root.getAttribute('style')}|${document.body.className}|${cols.length}`, keys = cols.map((c, i) => `${i}|${c.firstElementChild.innerHTML.length}|${kb}`);
-    cols.forEach((c, i) => { const m = memo.get(keys[i]); if (m && m.z < 1) c.firstElementChild.style.zoom = String(m.z); });
+    cols.forEach((c, i) => { const m = memo.get(keys[i]); if (m && m.z < 1) c.firstElementChild.style.zoom = String(m.z); if (m?.over) c.classList.add('ss-hp-over'); });
+    // (속도) 재기 전에 쓸 것을 다 써 둔다 — 잰 뒤에 쓰면 브라우저가 화면 배치를 한 번 더 계산한다 (그릴 때마다 2번 → 1번)
+    const hb = body?.querySelector(':scope > .ss-hp-homewrap > .ss-hp-homebody'), lastH = el._hpRoom?.k === kb ? el._hpRoom.h : '';
+    right?.classList.add('ss-hp-over'); if (hb && lastH) body.style.height = lastH;
     if (!right || right.clientHeight < 60) { if (tries < 8) setTimeout(() => fitHompy(el, tries + 1), 80); return; } // 창이 아직 안 떴음
     const pad = (x) => { const cs = getComputedStyle(x); return parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom); };
     // 재기 (한 번에)
     const rooms = cols.map(c => c.clientHeight - pad(c)), hs = cols.map(c => c.firstElementChild.scrollHeight);
     let used = 0; for (const ch of right.children) { if (ch === body) continue; const cs = getComputedStyle(ch); used += ch.offsetHeight + parseFloat(cs.marginTop) + parseFloat(cs.marginBottom); }
     const room = right.clientHeight - pad(right) - used - 8;
-    const hb = body.querySelector(':scope > .ss-hp-homewrap > .ss-hp-homebody');
     // 고르기
     const over = cols.map((c, i) => {
         const inn = c.firstElementChild, m = memo.get(keys[i]);
@@ -475,26 +456,22 @@ export function fitHompy(el, tries = 0) {
     });
     // 적기 (한 번에)
     cols.forEach((c, i) => c.classList.toggle('ss-hp-over', over[i]));
-    if (hb) { body.style.height = `${room}px`; }
-    right.classList.add('ss-hp-over'); // 가운데 창은 글씨를 줄이지 않고, 넘치면 창 안에서 스크롤 (칸은 여러 단으로 쌓여 있음)
+    if (hb) { const h = `${room}px`; if (body.style.height !== h) body.style.height = h; el._hpRoom = { k: kb, h }; } // 가운데 창은 글씨를 줄이지 않고, 넘치면 창 안에서 스크롤 (칸은 여러 단으로 쌓여 있음)
 }
 // 사진 단추 (패널마다 걸지 않고 문서에 한 번)
-// 🔤 기본 글꼴: IBM Plex Sans KR — 기기에 없으면 구글 글꼴에서 받아 쓴다 (꾸미기 › 글씨에서 끌 수 있음 · 끄거나 못 받으면 예전 고딕으로 보임)
-export function loadWebFont() {
-    try { const on = settings().webFont !== false && !globalThis.__SS_TEST__, el = document.getElementById('ss-plex');
-        if (!on) { el?.remove(); return; } if (el) return;
-        const l = document.createElement('link'); l.id = 'ss-plex'; l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap'; document.head.appendChild(l);
-    } catch (e) { ssErr(e); }
-}
 export function initHompy() {
-    loadWebFont();
+    try { document.getElementById('ss-plex')?.remove(); } catch { /* 예전 판이 넣어 둔 구글 글꼴 줄 */ }
     // 프로필 그림은 처음엔 비워 둔다: 예전 판에서 기본값이던 「기분 따라 미트볼」(첫 화면에서 손 흔드는 움직이는 그림)이 저장돼 있으면 한 번만 비운다 — 다시 고르면 그대로 남는다
     try { const st = settings(); if (st.hpFaceV !== 2) { if (st.hpFace === 'auto' || st.hpFace === undefined) st.hpFace = 'none'; st.hpFaceV = 2; saveSettings(); } } catch (e) { ssErr(e); }
-    try { applyRetro(); } catch (e) { ssErr(e); }
+    // (속도) 시작할 때는 표시(class) · 색 값만 걸고, 재야 하는 것(브라우저 최소 글꼴 · 팝업 알림 색 읽기)은 화면이 뜬 뒤 한가할 때
+    booting = true; try { applyRetro(); } catch (e) { ssErr(e); } booting = false;
+    { const later = () => { try { applyRetro(); } catch (e) { ssErr(e); } }; if (globalThis.requestIdleCallback) requestIdleCallback(later, { timeout: 2500 }); else setTimeout(later, 800); }
     try { window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', () => applyRetro()); const C = ctx(); C.eventSource?.on?.(C.event_types?.CHAT_CHANGED ?? C.eventTypes?.CHAT_CHANGED, () => setTimeout(applyRetro, 300)); } catch (e) { ssErr(e); } // 채팅마다 다른 꾸밈 세트
     let rt = null; const refit = () => { clearTimeout(rt); rt = setTimeout(() => document.querySelectorAll('.ss-hompy').forEach(r => fitHompy(r.closest('.ss-panel'))), 120); };
     window.addEventListener('resize', refit);
-    document.addEventListener('load', (e) => { if (e.target?.tagName === 'IMG' && e.target.closest?.('.ss-hompy')) refit(); }, true);
+    // (속도) 그릴 때마다 그림(미트볼 · 프로필)이 새로 붙어 load가 다시 오고, 그때마다 한 번 더 재던 것 → 처음 보는 그림일 때만 다시 잰다 (이미 받은 그림은 크기를 아는 채로 그려진다)
+    const seenImg = new Set();
+    document.addEventListener('load', (e) => { const t = e.target; if (t?.tagName !== 'IMG' || !t.closest?.('.ss-hompy')) return; const k = t.currentSrc || t.src; if (seenImg.has(k)) return; if (seenImg.size > 400) seenImg.clear(); seenImg.add(k); refit(); }, true);
     // 🎛 꾸미기 모드 아래 판: 슬라이더 · 색은 끄는 동안 바로 보이고, 손을 떼면 저장
     let edSnapped = false;
     document.addEventListener('input', (e) => {
@@ -563,12 +540,6 @@ export function initHompy() {
         }
         if (b.dataset.hp === 'tipoff') { settings().hpTip = false; saveSettings(); app.rerenderPanels?.(true); return; }
         if (b.dataset.hp === 'skinpick') { const v = b.dataset.arg; if (SKINS[v]) { settings().hpSkin = v; settings().hpFont = SKIN_DEF[v][0]; settings().hpDark = SKIN_DEF[v][1]; } else settings().hpSkin = settings().hpSkin ?? 'clean'; saveSettings(); applyRetro(); app.rerenderPanels?.(true); app.renderHud?.(); return; } // 처음 한 번: 모양 고르기
-        if (b.dataset.hp === 'vibe') { // 채팅 분위기에 맞는 모양 권하기: 이 채팅에만 적용 · 괜찮아요 · 다시 묻지 않기
-            const meta0 = (() => { try { return getMeta(); } catch { return null; } })(), [how, key] = String(b.dataset.arg).split(':'), set0 = settings();
-            if (how === 'never') set0.hpSuggest = false; else if (meta0) meta0.hpAsked = true;
-            if (how === 'yes' && VIBES[key] && meta0) { const name = `분위기 · ${VIBES[key][0]}`; set0.hpSets = [...(set0.hpSets ?? []).filter(x => x.name !== name), { name, data: cleanSet({ ...VIBES[key][1] }) }].slice(-20); meta0.hpSet = name; }
-            saveSettings(); try { saveMeta(); } catch { /* 채팅 없음 */ } applyRetro(); app.rerenderPanels?.(true); app.renderHud?.(); return;
-        }
         if (b.dataset.hp === 'editdone') { if (ED) endEdit(true); else { editWins = false; if (el?.isConnected) app.renderPanel?.(el); } return; }
         const rd0 = () => { if (el?.isConnected) app.renderPanel?.(el); };
         if (b.dataset.hp === 'deco') { startEdit(); rd0(); return; } // 꾸미기 = 꾸미기 모드로 (자세한 창은 아래 판의 「더보기」)
@@ -642,14 +613,8 @@ export function hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, 
         ${settings().hpSkin === undefined ? `<div class="ss-hp-choose"><b>어떤 모양으로 볼까요?</b><small>나중에 「꾸미기」에서 언제든 바꿀 수 있어요.</small>
             <button data-hp="skinpick" data-arg="clean" class="${skinOf() === 'clean' ? 'on' : ''}"><span class="ss-hp-pv clean"><i></i><i></i><i></i></span>깔끔</button>
             <button data-hp="skinpick" data-arg="dot" class="${skinOf() === 'dot' ? 'on' : ''}"><span class="ss-hp-pv dot"><i></i><i></i><i></i></span>도트</button>
-<button data-hp="deco" title="노트 · 사이버 · 폰">다른 모양 더 보기 ›</button>
+<button data-hp="deco" title="폰 모양 · 색 · 글씨">다른 모양 더 보기 ›</button>
             <button data-hp="skinpick" data-arg="" class="x" title="지금 모양 그대로">✕</button></div>` : ''}
-        ${(() => { // 채팅 분위기에 맞는 모양 권하기 (모양을 이미 고른 뒤 · 이 채팅에서 아직 안 물었고 · 묶인 세트가 없을 때 한 번)
-            if (settings().hpSkin === undefined || settings().hpSuggest === false || meta.hpAsked || meta.hpSet || picking) return '';
-            const v = guessVibe(s); if (!v) return ''; const [n, p] = VIBES[v]; if (skinOf() === p.hpSkin && JSON.stringify(D().hpTitles ?? {}) === JSON.stringify(p.hpTitles)) return '';
-            return `<div class="ss-hp-choose vibe"><span class="ss-hp-pv ${p.hpSkin} ${p.hpDark === 'dark' ? 'dark' : ''}" style="--pv:hsl(${p.hpHue} ${Math.round(62 * p.hpSat)}% 58%)"><i></i><i></i><i></i></span><b>이 채팅은 ${n} 분위기 같아요.</b><small>그 분위기의 모양과 용어로 볼까요? 이 채팅에만 적용돼요.</small>
-                <button data-hp="vibe" data-arg="yes:${v}" class="on">이 채팅에 적용</button><button data-hp="vibe" data-arg="no:${v}">괜찮아요</button><button data-hp="vibe" data-arg="never:${v}" class="x" title="앞으로 다른 채팅에서도 권하지 않아요 (꾸미기 › 그 밖에서 다시 켜요)">다시 묻지 않기</button></div>`;
-        })()}
         ${ED ? sheetHTML() : ''}
         ${picking ? '<div class="ss-hp-pickbar"><i class="fa-solid fa-arrow-pointer"></i> <b>꾸밀 곳을 눌러요</b> <small>머리줄 · 메뉴 · 창 제목 · 창 · 카드 · 단추</small><button class="ss-hp-deco-b on" data-hp="pickend">끝</button></div>' : ''}
         ${(() => {

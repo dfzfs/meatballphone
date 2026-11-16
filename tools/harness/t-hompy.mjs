@@ -78,7 +78,7 @@ for (const width of [1300, 390]) {
               delete core.getMeta().hpSet; S0.hpSets = []; hpm.applyRetro(); shell.rerenderPanels(true); await wait(200);
               out.setUnbound = !B.classList.contains('ss-hp-dark') && el.querySelector('.ss-hompy').style.getPropertyValue('--hp-h') === '340';
               // 모양 두 가지: 처음엔 고르는 줄 → 도트를 고르면 도트 글꼴 · 무늬 · 주소창 / 깔끔이면 고딕 · 무늬 없음. 직접 고른 글씨 크기 · 글자색
-              delete S0.hpSkin; S0.hpSuggest = false; hpm.applyRetro(); shell.rerenderPanels(true); await wait(200);
+              delete S0.hpSkin; hpm.applyRetro(); shell.rerenderPanels(true); await wait(200);
               const ask = !!el.querySelector('.ss-hp-choose') && el.querySelector('.ss-hompy').classList.contains('ss-hp-k-clean');
               el.querySelector('.ss-hp-choose [data-arg="dot"]').click(); await wait(400); await document.fonts.ready;
               { const r2 = el.querySelector('.ss-hompy'); out.skinDot = (ask && S0.hpSkin === 'dot' && !el.querySelector('.ss-hp-choose') && B.classList.contains('ss-skin-dot') && r2.classList.contains('ss-hp-p-grid') && getComputedStyle(r2).fontFamily.includes('MeatballDot') && getComputedStyle(el.querySelector('.ss-hp-hearts')).display !== 'none' && getComputedStyle(r2).backgroundImage !== 'none') || [ask, S0.hpSkin, B.className, getComputedStyle(r2).fontFamily].join(' | '); }
@@ -107,32 +107,23 @@ for (const width of [1300, 390]) {
                 Object.assign(S0, { hpFreeOn: false, hpFree: {} });
               }
               Object.assign(S0, { hpParts: {}, hpCss: '', hpProf: {}, hpTitles: {}, hpGroupNames: {}, hpUserWins: [] }); hpm.applyRetro(); shell.rerenderPanels(true); await wait(200);
-              el.querySelector('[data-hp="deco"]').click(); await wait(400); document.querySelector('.ss-hp-sheet [data-arg="more:1"]').click(); await wait(400); document.querySelector('.ss-hp-pick [data-choice="mode:0"]')?.click(); await wait(400); document.querySelector('.ss-hp-pick [data-choice="preset:3"]').click(); await wait(500);
-              const presetOk = S0.hpSkin === 'dot' && S0.hpDark === 'dark' && B.classList.contains('ss-skin-dot') && B.classList.contains('ss-hp-dark');
+              el.querySelector('[data-hp="deco"]').click(); await wait(400); document.querySelector('.ss-hp-sheet [data-arg="more:1"]').click(); await wait(400); document.querySelector('.ss-hp-pick [data-choice="mode:0"]')?.click(); await wait(400); document.querySelector('.ss-hp-pick [data-choice="skin:dot"]').click(); await wait(500);
+              const presetOk = S0.hpSkin === 'dot' && B.classList.contains('ss-skin-dot');
               document.querySelector('.ss-hp-pick [data-choice="undo:1"]')?.click(); await wait(500);
-              out.presetUndo = (presetOk && S0.hpSkin === 'clean' && !B.classList.contains('ss-hp-dark')) || [presetOk, S0.hpSkin, S0.hpDark].join('|');
+              out.presetUndo = (presetOk && S0.hpSkin === 'clean' && !B.classList.contains('ss-skin-dot')) || [presetOk, S0.hpSkin, S0.hpDark].join('|');
               document.querySelectorAll('dialog').forEach(d => { if (d.querySelector('.ss-hp-pick')) d.querySelector('.popup-button-ok')?.click(); }); await wait(300); (await import('/ext/src/hompy.js'))._edit.end(true); await wait(200);
               Object.assign(S0, { hpSkin: 'clean', hpDark: 'light', hpTheme: 0, hpPattern: 'grid' }); hpm.applyRetro(); shell.rerenderPanels(true); await wait(200);
               // 분위기: 세계관 글로 어림 → 권하는 줄 → 「이 채팅에 적용」이면 이 채팅에만 양피지 + 용어. 모양 넷 다 색이 제대로
               { const st0 = window.__SS_TEST__.api.app.current.state;
-                out.vibeGuess = (hpm.guessVibe({ core: { summary: '검과 마법의 판타지 왕국. 길드와 던전.' }, data: {} }) === null && hpm.guessVibe({ core: { summary: '고등학교 동아리 교실 로맨스' }, data: {} }) === 'school' && hpm.guessVibe({ core: { summary: '우주 함선의 안드로이드 해커' }, data: {} }) === 'scifi' && hpm.guessVibe({ core: { summary: '평범한 회사원의 하루' }, data: {} }) === null && hpm.guessVibe({ core: { summary: '마법' }, data: {} }) === null) || 'guess';
-                const sum0 = st0.core.summary; st0.core.summary = '우주 함선의 안드로이드 해커가 크레딧을 번다'; const want = hpm.guessVibe(st0); S0.hpSuggest = true; delete core.getMeta().hpAsked; shell.rerenderPanels(true); await wait(300);
-                const bar = el.querySelector('.ss-hp-choose.vibe');
-                if (want && bar) { bar.querySelector('[data-arg^="yes:"]').click(); await wait(500);
-                  const gb = el.querySelector(`.ss-groups > button[data-arg="feed"] span`);
-                  out.vibeApply = (core.getMeta().hpSet === `분위기 · ${hpm.VIBES[want][0]}` && core.getMeta().hpAsked === true && S0.hpSkin === 'clean' && B.classList.contains(`ss-skin-${hpm.VIBES[want][1].hpSkin}`) && !el.querySelector('.ss-hp-choose.vibe') && (!gb || !hpm.VIBES[want][1].hpGroupNames.feed || gb.textContent === hpm.VIBES[want][1].hpGroupNames.feed)) || [core.getMeta().hpSet, B.className].join('|');
-                  delete core.getMeta().hpSet; S0.hpSets = []; hpm.applyRetro(); shell.rerenderPanels(true); await wait(200);
-                } else out.vibeApply = `no suggestion (${want})`;
-                st0.core.summary = sum0;
                 const looks = {}; for (const k of Object.keys(hpm.SKINS)) { S0.hpSkin = k; hpm.applyRetro(); shell.rerenderPanels(true); await wait(120); const cs = getComputedStyle(el.querySelector('.ss-hompy')); looks[k] = `${cs.getPropertyValue('--hp-paper').trim()}/${cs.fontFamily.slice(0, 12)}`; }
-                out.fourSkins = (new Set(Object.values(looks).map(x => x.split('/')[0])).size >= 4 && Object.keys(looks).length === 5) || JSON.stringify(looks);
-                Object.assign(S0, { hpSkin: 'clean', hpFont: 'g', hpDark: 'light', hpSuggest: false }); hpm.applyRetro(); shell.rerenderPanels(true); await wait(200); }
+                out.fourSkins = (new Set(Object.values(looks).map(x => x.split('/')[0])).size >= 2 && Object.keys(looks).length === 3) || JSON.stringify(looks);
+                Object.assign(S0, { hpSkin: 'clean', hpFont: 'g', hpDark: 'light' }); hpm.applyRetro(); shell.rerenderPanels(true); await wait(200); }
               // 🎛 꾸미기 모드: 꾸미기 단추 → 아래 판 · 색을 누르면 바로 바뀜 · 바꿀 곳을 누르면 그 부분 · 취소하면 들어오기 전으로 · 완료하면 남음 · 길게 누르면 켜짐
               { Object.assign(S0, { hpSkin: 'clean', hpTheme: 0, hpDark: 'light', hpParts: {} }); hpm.applyRetro(); shell.rerenderPanels(true); await wait(200);
                 el.querySelector('[data-hp="deco"]').click(); await wait(300);
                 const sh = () => el.querySelector('.ss-hp-sheet'), tapS = async (arg) => { sh().querySelector(`[data-arg="${arg}"]`).click(); await wait(250); };
-                const opened = !!sh() && !!el.querySelector('.ss-hp-edbar') && el.querySelector('.ss-hompy').classList.contains('ss-hp-edit') && sh().querySelectorAll('.ss-hp-strip .card').length >= 5;
-                await tapS('skin:note'); const live1 = B.classList.contains('ss-skin-note');
+                const opened = !!sh() && !!el.querySelector('.ss-hp-edbar') && el.querySelector('.ss-hompy').classList.contains('ss-hp-edit') && sh().querySelectorAll('.ss-hp-strip .card').length >= 3;
+                await tapS('skin:phone'); const live1 = B.classList.contains('ss-skin-phone');
                 await tapS('tab:color'); await tapS('theme:2'); await tapS('dark:dark'); const live2 = S0.hpTheme === 2 && B.classList.contains('ss-hp-dark');
                 await tapS('tab:frame'); const rg = sh().querySelector('[data-hpr="corner"]'); rg.value = '2'; rg.dispatchEvent(new Event('input', { bubbles: true })); rg.dispatchEvent(new Event('change', { bubbles: true })); await wait(250); const live3 = S0.hpCorner === 2 && B.classList.contains('ss-hp-r-2');
                 const wtb = el.querySelector('.ss-hp-win[data-win="profile"] .ss-hp-wt b') ?? el.querySelector('.ss-hp-win.main .ss-hp-wt b'); wtb?.click(); await wait(250);
@@ -140,7 +131,7 @@ for (const width of [1300, 390]) {
                 const live4 = !wtb || S0.hpParts?.wt?.ink === '#00aa00';
                 out.editMode = (opened && live1 && live2 && live3 && partSheet && live4) || JSON.stringify([opened, live1, live2, live3, partSheet, live4]);
                 el.querySelector('[data-hp="edcancel"]').click(); await wait(300);
-                out.editCancel = (!el.querySelector('.ss-hp-sheet') && S0.hpSkin === 'clean' && S0.hpTheme === 0 && S0.hpDark === 'light' && !S0.hpParts?.wt && !B.classList.contains('ss-hp-dark') && !B.classList.contains('ss-skin-note')) || JSON.stringify([S0.hpSkin, S0.hpTheme, S0.hpDark, S0.hpParts]);
+                out.editCancel = (!el.querySelector('.ss-hp-sheet') && S0.hpSkin === 'clean' && S0.hpTheme === 0 && S0.hpDark === 'light' && !S0.hpParts?.wt && !B.classList.contains('ss-hp-dark') && !B.classList.contains('ss-skin-phone')) || JSON.stringify([S0.hpSkin, S0.hpTheme, S0.hpDark, S0.hpParts]);
                 el.querySelector('[data-hp="deco"]').click(); await wait(300); await tapS('tab:color'); await tapS('theme:3'); el.querySelector('[data-hp="eddone"]').click(); await wait(300);
                 out.editDone = (!el.querySelector('.ss-hp-sheet') && S0.hpTheme === 3 && !!el.querySelector('.ss-hp-url')) || S0.hpTheme;
                 const bk = el.querySelector('.ss-hp-book'), r0 = bk.getBoundingClientRect(), pe = (type) => bk.dispatchEvent(new PointerEvent(type, { bubbles: true, clientX: r0.left + 3, clientY: r0.bottom - 3, pointerId: 3, button: 0 }));
