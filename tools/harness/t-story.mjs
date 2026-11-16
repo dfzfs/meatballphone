@@ -31,7 +31,7 @@ try {
         await goRaw('extra'); out.labHasAll = secs() === 'peek,scar,memory,meddle,taste,mail,loop,ghost,debt,tension,realtime,know,promise' || secs();
         out.labFolded = [...el.querySelectorAll('.ss-story details.ss-st-f')].every(d => !d.open); // 켜도 전부 접힌 채로
         out.labScan = !!el.querySelector('.ss-story [data-st="scan"]');
-        out.extraNoSwitches = el.querySelectorAll('.ss-body [data-chg="setflag"]').length === 0 && !el.querySelector('.ss-tabs button[data-arg="guide"]') && !el.querySelector('.ss-tabs button[data-arg="lab"]') && !!el.querySelector('.ss-tabs button[data-arg="extra"]');
+        out.extraNoSwitches = el.querySelectorAll('.ss-body [data-chg="setflag"]').length === 0 && !el.querySelector('.ss-tabs button[data-arg="guide"]') && !el.querySelector('.ss-tabs button[data-arg="lab"]') && !!el.querySelector('button[data-arg="extra"]'); // 부가 기능은 관리 옆의 큰 묶음
         await goRaw('manage'); out.switchesInManage = el.querySelectorAll('.ss-mg[data-mg="mods"] [data-chg="setflag"]').length >= 27 && [...el.querySelectorAll('.ss-mg[data-mg="mods"] [data-chg="setflag"]')].filter(i => i.checked).length >= 14;
         for (const t of ['rel', 'memo', 'contact', 'manage', 'fate']) { await goRaw(t); if (el.querySelector('.ss-story:not(.ss-guide)')) out.otherTabsClean = t; } out.otherTabsClean ??= true;
         await goRaw('contact', { who: 'Leon' }); out.contactThreadClean = !el.querySelector('.ss-story');

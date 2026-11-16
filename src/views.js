@@ -301,7 +301,8 @@ export const GROUPS = [
     { id: 'world', name: '세계', icon: 'fa-earth-asia', tabs: ['map', 'calendar', 'shop', 'base'] },
     { id: 'people', name: '사람', icon: 'fa-user-group', tabs: ['rel', 'contact'] },
     { id: 'feed', name: '소식', icon: 'fa-bullhorn', tabs: ['quest', 'news', 'gossip', 'board', 'sns'] },
-    { id: 'manage', name: '관리', icon: 'fa-sliders', tabs: ['manage', 'extra'] },
+    { id: 'manage', name: '관리', icon: 'fa-sliders', tabs: ['manage'] },
+    { id: 'extra', name: '부가 기능', icon: 'fa-puzzle-piece', tabs: ['extra'] }, // 🧩 관리 옆의 묶음 — 켠 부가 기능의 화면 (칸이 아니라 쓸 기능 목록에는 안 나온다)
 ];
 // 칸(데이터)이 아닌 탭 — 늘 켜져 있고 편집 도구가 없다
 export const PSEUDO = new Set(['home', 'manage', 'album', 'record', 'guide', 'extra']);
