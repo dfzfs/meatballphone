@@ -176,7 +176,7 @@ function renderPanel0(el) {
     const hmod = tab === 'home' ? 'core' : MOD[mod] ? mod : null;
     const hidden = !!(hmod && isHidden(hmod, meta));
     const hideBtn = hmod && st.mode !== 'edit' && st.mode !== 'json' ? `<button class="ss-tool ${hidden ? 'on' : ''}" data-act="hidetog" title="${hidden ? 'AI에게 다시 보내기' : '가리기 — AI에게 이 칸을 안 보내요 (다시 켤 때까지)'}"><i class="fa-solid ${hidden ? 'fa-eye-slash' : 'fa-eye'}"></i><span>${hidden ? 'AI에게 숨김' : 'AI에게 숨기기'}</span></button>` : '';
-    const floatBtn = tab === 'contact' && !isFloat ? `<button class="ss-tool ${settings().ctFloat ? 'on' : ''}" data-act="ctfloat" title="연락을 작은 창으로 옆에 띄워요 — 다른 탭을 보면서 연락할 수 있어요"><i class="fa-solid fa-up-right-from-square"></i><span>${settings().ctFloat ? '미니 채팅창 닫기' : '미니 채팅창'}</span></button>` : '';
+    const floatBtn = tab === 'contact' && !isFloat ? `<button class="ss-tool ${settings().ctFloat ? 'on' : ''}" data-act="ctfloat" title="연락을 작은 창으로 옆에 띄워요 — 다른 탭을 보면서 연락할 수 있어요"><i class="fa-solid fa-up-right-from-square"></i><span>${settings().ctFloat ? '옆 창 채팅 끄기' : '옆 창에서 채팅'}</span></button>` : '';
     const tools = editable && data && st.mode !== 'edit' && st.mode !== 'json' ? `<div class="ss-tools">${floatBtn}${favBtn}${hideBtn}
             <button class="ss-tool ${st.ui.instructOpen ? 'on' : ''}" data-act="instructtog" title="AI에게 이 칸을 고치라고 지시 (AI 1회)"><i class="fa-solid fa-wand-magic-sparkles"></i><span>AI로 수정</span></button>
             <button class="ss-tool" data-act="edit" title="직접 편집"><i class="fa-solid fa-pen"></i><span>편집</span></button>
@@ -563,20 +563,23 @@ export function placeCtFloat() {
     try {
         const on = settings().enabled && settings().ctFloat === true && isActive() && ready() && !!app.current && modOn('contact') && !!app.current.state.data.contact;
         if (!on) { if (ctFloat) { panels.delete(ctFloat.querySelector('.ss-panel')); ctFloat.remove(); ctFloat = null; } return; }
-        const host = [...document.querySelectorAll('dialog[open]')].filter(d => d.querySelector('.ss-panel-pop')).pop() ?? document.body;
+        // 전체화면(미니홈피)에 「연락」 작은 창이 있으면 팝업이 아니라 그 창 안에 붙는다 (옆 칸의 창 하나가 미니 채팅창) — 없으면 떠 있는 창으로
+        const dock = document.querySelector('dialog[open] .ss-hompy:not(.ss-hp-edit) .ss-hp-win[data-win="contact"]');
+        const host = dock ?? [...document.querySelectorAll('dialog[open]')].filter(d => d.querySelector('.ss-panel-pop')).pop() ?? document.body;
         if (!ctFloat) {
             ctFloat = h(`<div id="ss-ctfloat" class="ss-ctfloat ss-scope"><div class="ss-ctf-head" title="끌어서 옮기기"><i class="fa-solid fa-comment-dots"></i><b>미니 채팅</b><button class="ss-ib" data-ctf="close" title="띄운 창 닫기"><i class="fa-solid fa-xmark"></i></button></div><div class="ss-panel ss-panel-float"></div></div>`);
             const pnl = ctFloat.querySelector('.ss-panel'); pnl._ss = { tab: 'contact', mode: 'view', work: null, ui: {} }; panels.add(pnl); bindPanel(pnl);
             ctFloat.querySelector('[data-ctf="close"]').addEventListener('click', (e) => { e.stopPropagation(); settings().ctFloat = false; saveSettings(); placeCtFloat(); rerenderPanels(true); });
             // 끌어서 옮기기
             const head = ctFloat.querySelector('.ss-ctf-head'); let drag = null;
-            head.addEventListener('pointerdown', (e) => { if (e.target.closest('button') || matchMedia('(max-width: 640px)').matches) return; const r = ctFloat.getBoundingClientRect(); drag = { dx: e.clientX - r.left, dy: e.clientY - r.top }; head.setPointerCapture?.(e.pointerId); e.preventDefault(); });
+            head.addEventListener('pointerdown', (e) => { if (e.target.closest('button') || ctFloat.classList.contains('docked') || matchMedia('(max-width: 640px)').matches) return; const r = ctFloat.getBoundingClientRect(); drag = { dx: e.clientX - r.left, dy: e.clientY - r.top }; head.setPointerCapture?.(e.pointerId); e.preventDefault(); });
             head.addEventListener('pointermove', (e) => { if (!drag) return; const w = ctFloat.offsetWidth, hh = ctFloat.offsetHeight, x = Math.max(4, Math.min(innerWidth - w - 4, e.clientX - drag.dx)), y = Math.max(4, Math.min(innerHeight - Math.min(hh, 60) - 4, e.clientY - drag.dy)); ctFloat.style.left = `${x}px`; ctFloat.style.top = `${y}px`; ctFloat.style.right = 'auto'; ctFloat.style.bottom = 'auto'; });
             const drop = () => { if (!drag) return; drag = null; const r = ctFloat.getBoundingClientRect(); settings().ctFloatPos = { x: Math.round(r.left), y: Math.round(r.top) }; saveSettings(); };
             head.addEventListener('pointerup', drop); head.addEventListener('pointercancel', drop);
         }
         if (ctFloat.parentElement !== host) host.appendChild(ctFloat);
-        const pos = settings().ctFloatPos; if (pos && Number.isFinite(pos.x) && Number.isFinite(pos.y) && !matchMedia('(max-width: 640px)').matches) { ctFloat.style.left = `${Math.max(4, Math.min(innerWidth - 120, pos.x))}px`; ctFloat.style.top = `${Math.max(4, Math.min(innerHeight - 80, pos.y))}px`; ctFloat.style.right = 'auto'; ctFloat.style.bottom = 'auto'; }
+        ctFloat.classList.toggle('docked', !!dock); if (dock) { ctFloat.style.left = ctFloat.style.top = ctFloat.style.right = ctFloat.style.bottom = ''; }
+        const pos = settings().ctFloatPos; if (!dock && pos && Number.isFinite(pos.x) && Number.isFinite(pos.y) && !matchMedia('(max-width: 640px)').matches) { ctFloat.style.left = `${Math.max(4, Math.min(innerWidth - 120, pos.x))}px`; ctFloat.style.top = `${Math.max(4, Math.min(innerHeight - 80, pos.y))}px`; ctFloat.style.right = 'auto'; ctFloat.style.bottom = 'auto'; }
         const pnl = ctFloat.querySelector('.ss-panel'); if (pnl._ss.tab !== 'contact') { pnl._ss.tab = 'contact'; pnl._ss.mode = 'view'; }
         if (!pnl.firstElementChild) {
             renderPanel(pnl);
