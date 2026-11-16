@@ -575,7 +575,7 @@ export function missingTr() {
     const s = app.current?.state; if (!s || !viewTr()) return [];
     if (missMemo.s === s && missMemo.v === trVer && missMemo.n === stuck.size) return missMemo.out; // 상태 · 사전이 그대로면 다시 안 훑음 (화면 그릴 때마다 불려서)
     const d = trDict() ?? {}, meta = getMeta(), out = new Set();
-    for (const o of [s.core, ...MOD_IDS.filter(id => modOn(id, meta) && s.data[id]).map(id => s.data[id])]) {
+    for (const o of [s.core, ...MOD_IDS.filter(id => modOn(id, meta) && s.data[id]).map(id => s.data[id]), app.storyTexts?.() ?? []]) {
         for (const x of leaves(o)) {
             const k = x.trim();
             if (!k || k.length > 4000 || /[가-힣]/.test(k) || noWords(k)) continue;
@@ -694,7 +694,7 @@ async function fillNew() {
     const d = trDict() ?? {};
     const meta = getMeta();
     const need = [], half = [];
-    for (const o of [s.core, ...MOD_IDS.filter(id => modOn(id, meta) && s.data[id]).map(id => s.data[id])]) {
+    for (const o of [s.core, ...MOD_IDS.filter(id => modOn(id, meta) && s.data[id]).map(id => s.data[id]), app.storyTexts?.() ?? []]) {
         for (const x of leaves(o)) {
             const k = x.trim();
             if (!k || k.length > 4000 || /[가-힣]/.test(k) || noWords(k) || tried.has(k) || stuck.has(k)) continue;

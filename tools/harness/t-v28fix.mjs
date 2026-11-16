@@ -66,7 +66,8 @@ for (const width of [1300, 390]) {
                   const a0 = openN(); subs()[1]?.querySelector('.ss-hp-wt').click(); await wait(400); const a1 = openN(); out.oneAtATime = (a0.length === 1 && a1.length === 1 && a0[0] !== a1[0] && el.querySelectorAll('.ss-hp-all .ss-hp-wb').length === 1) || JSON.stringify([a0, a1]); tb[0].click(); await wait(350); } }
               // 🐱 머리줄: 오른쪽 도우미 단추는 숨기고 · 왼쪽 고양이 옆 말풍선이 도우미 · 고양이를 누르면 반응(표정이 바뀌고 말풍선이 뜸)
               { const pet = el.querySelector('.ss-hp-buddy .ss-hp-pet'), say = el.querySelector('.ss-hp-buddy .ss-hp-say'), chip = el.querySelector('.ss-head-a .ss-helpchip');
-                out.helperLeft = !!pet && !!say && (!chip || getComputedStyle(chip).display === 'none') && say.getBoundingClientRect().left < innerWidth / 2;
+                { const diff = el.querySelector('.ss-head-a .ss-chip'), cr = chip?.getBoundingClientRect(), dr = diff?.getBoundingClientRect(), pr = pet?.getBoundingClientRect(); // 도우미는 오른쪽 아이콘 줄 맨 앞 (난이도 칩 왼쪽 · 같은 높이 · 세로 가운데 맞춤) · 고양이는 왼쪽 그대로
+                  out.helperRight = (!!pet && !say && !!chip && getComputedStyle(chip).display !== 'none' && pr.left < innerWidth / 2 && (innerWidth <= 640 || cr.left > pr.right) && (!dr || !dr.width || (cr.right <= dr.left + 1 && Math.abs(cr.height - dr.height) <= 1 && Math.abs((cr.top + cr.bottom) - (dr.top + dr.bottom)) <= 2))) || JSON.stringify([!!pet, !!say, cr, dr]); }
                 const src0 = pet.getAttribute('src'); pet.click(); await wait(200); out.petReacts = pet.getAttribute('src') !== src0 && !!document.querySelector('.ss-mbubble') && /poke/.test(pet.className); await wait(1300); out.petBack = pet.getAttribute('src') === src0; }
               // 🏷 아이콘 단추: 화면 읽기용 이름은 전부 · 머리의 덜 쓰는 단추는 「더보기」 안
               out.ariaAll = [...el.querySelectorAll('button[title]')].filter(b => !b.textContent.trim() && !b.getAttribute('aria-label')).length === 0;

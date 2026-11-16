@@ -15,7 +15,7 @@ import { hintSetting } from './tips.js';
 
 // ───── 확장 설정 서랍 ─────
 // 바꾸면 화면을 바로 다시 그려야 하는 스위치 (v2.7.3)
-const VIEW_KEYS = new Set(['hompyFull', 'loopMode', 'swipeGhost', 'fateDebt', 'tensionOn', 'realGap', 'glitchView', 'ledgerKnow', 'ledgerPromise', 'ledgerHook', 'affMask', 'peekCost', 'relScar', 'mirrorSheet', 'memoryDrift', 'meddleOn', 'tasteBook', 'crossMail', 'groupChat', 'extraJudge', 'questExpire', 'memoOn', 'albumOn', 'peekOn', 'recordOn', 'freshDot', 'pipCheck', 'questJudge', 'msgCard', 'chipOutside', 'contactSimple', 'contactSimpleReflect', 'relStagesOn', 'relShowMemo', 'relShowWants', 'relShowLife', 'relShowPairs', 'relShowBtns', 'relShowNext', 'relShowUnlock']);
+const VIEW_KEYS = new Set(['hompyFull', 'loopMode', 'swipeGhost', 'fateDebt', 'tensionOn', 'realGap', 'glitchView', 'ledgerKnow', 'ledgerPromise', 'guideOn', 'peekCost', 'relScar', 'memoryDrift', 'meddleOn', 'tasteBook', 'crossMail', 'groupChat', 'extraJudge', 'questExpire', 'memoOn', 'albumOn', 'peekOn', 'recordOn', 'freshDot', 'pipCheck', 'questJudge', 'msgCard', 'chipOutside', 'contactSimple', 'contactSimpleReflect', 'relStagesOn', 'relShowMemo', 'relShowWants', 'relShowLife', 'relShowPairs', 'relShowBtns', 'relShowNext', 'relShowUnlock']);
 // 「부가 기능 한 번에 끄기」 — 상태 계산 · 본편 롤플에 꼭 필요하지 않은 것만
 const LIGHT_OFF = { memoOn: false, albumOn: false, peekOn: false, recordOn: false, daySummary: false, featureTips: false, showMascot: false, mascotBuddy: false, musicToast: false };
 function profileOptions(sel) {
@@ -162,10 +162,9 @@ export function renderSettings() {
             <label class="checkbox_label"><input type="checkbox" data-s="peekOn" ${s.peekOn !== false ? 'checked' : ''}> 💗 속마음 엿보기 — 관계 카드의 💗? 단추로 그 사람의 속마음을 봐요 <small>(누를 때만 AI 1회 · 끄면 단추가 사라져요)</small></label>
             <label>속마음 엿보기 하루 횟수 (0 = 무제한)<input type="number" min="0" max="20" class="text_pole" data-s="peekPerDay" value="${s.peekPerDay}"></label>
             <small>아래는 선택 기능이에요 (기본 끔). 켜면 관계 탭 아래에 칸이 생겨요.</small>
-            <label class="checkbox_label"><input type="checkbox" data-s="affMask" ${s.affMask === true ? 'checked' : ''}> <b>🎭 겉 호감과 진짜 호감</b> <small>(상태창엔 겉 수치만 · 진짜 수치는 관계 탭에서 엿봐야 보여요. 우정이 오를수록 차이가 줄어요 · 매 턴 몇 줄)</small></label>
-            <label class="checkbox_label"><input type="checkbox" data-s="peekCost" ${s.peekCost === true ? 'checked' : ''}> <b>👁 엿보기엔 대가가 있다</b> <small>(속마음 · 진짜 호감을 자주 엿보면 눈치가 쌓여 인물이 의심해요 · 토큰 0~1줄)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="guideOn" ${s.guideOn !== false ? 'checked' : ''}> <b>🗝 공략 탭</b> <small>(「사람」 묶음에 탭이 생겨요: 인물이 직접 일러 주는 조언 · 비밀 게이지 · 눈치 지수. 누를 때만 AI 1회 · 비밀을 만들면 매 턴 몇 줄)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="peekCost" ${s.peekCost === true ? 'checked' : ''}> <b>👁 엿보기엔 대가가 있다</b> <small>(속마음을 자주 엿보면 눈치가 쌓여 인물이 의심해요 · 토큰 0~1줄)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="relScar" ${s.relScar === true ? 'checked' : ''}> <b>🩹 관계의 흉터</b> <small>(한 번에 10 넘게 깎였던 일이 흉터로 남아 비슷한 상황에서 더 예민해져요 · 매 턴 1~3줄)</small></label>
-            <label class="checkbox_label"><input type="checkbox" data-s="mirrorSheet" ${s.mirrorSheet === true ? 'checked' : ''}> <b>🪞 역상태창</b> <small>(그 인물이 나를 평가한 상태창 · 누를 때 AI 1회)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="memoryDrift" ${s.memoryDrift === true ? 'checked' : ''}> <b>🕳 기억 왜곡</b> <small>(인물이 지난 일을 자기 식으로 기억하고 본편에서도 그렇게 말해요 · AI 1회 + 매 턴 몇 줄)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="meddleOn" ${s.meddleOn === true ? 'checked' : ''}> <b>✍ 인물이 내 상태창에 손댄다</b> <small>(질투 50↑ · 애정 75↑인 인물이 가끔 낙서 · 이름 바꾸기 · 차단을 해 놔요 (관계 탭에서 되돌려요) · 토큰 0~1줄)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="tasteBook" ${s.tasteBook === true ? 'checked' : ''}> <b>🎁 취향 도감</b> <small>(인물별로 드러난 좋아하는 것 · 싫어하는 것 모아 보기 · 토큰 0)</small></label>
@@ -199,7 +198,6 @@ export function renderSettings() {
             <small>켜면 메모 탭 아래에 칸이 생겨요. 직접 적거나 「지금 정리」(AI 1회) · 자동 정리로 채워요. 적힌 것은 매 턴 몇 줄씩 AI에게 가요.</small>
             <label class="checkbox_label"><input type="checkbox" data-s="ledgerKnow" ${s.ledgerKnow === true ? 'checked' : ''}> <b>🧠 누가 뭘 아는지</b> <small>(사실마다 아는 사람을 적어 두고, 모르는 인물이 아는 척하지 않게 해요)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="ledgerPromise" ${s.ledgerPromise === true ? 'checked' : ''}> <b>🤝 약속 장부</b> <small>(내가 한 약속 · 거짓말. 지킴 우정 +2 · 어김 −4)</small></label>
-            <label class="checkbox_label"><input type="checkbox" data-s="ledgerHook" ${s.ledgerHook === true ? 'checked' : ''}> <b>🧵 떡밥 장부</b> <small>(던져 놓고 잊힌 복선을 적어 두고, 오래되면 회수하라고 다시 보내요)</small></label>
             <b class="ss-set-h">데이터 · 화면</b>
             <label class="checkbox_label"><input type="checkbox" data-s="hompyFull" ${s.hompyFull !== false ? 'checked' : ''}> <b>📒 전체화면은 미니홈피 모양으로</b> <small>(상태창의 전체화면 단추를 누르면 수첩 모양 홈피로 열려요 — 왼쪽은 프로필 쪽, 오른쪽은 평소 상태창, 옆에 색인 탭. 화면만 바뀌고 계산 · 토큰은 그대로예요)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="updateNotice" ${s.updateNotice !== false ? 'checked' : ''}> 📣 업데이트하면 「바뀐 점」을 한 번 알려 주기</label>

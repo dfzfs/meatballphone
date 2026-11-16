@@ -19,7 +19,7 @@ import { FATE_ACTIONS } from './fate.js';
 import { EDIT, viewTr, letterMode, GLOBAL_OFF } from './core.js';
 import { translateSheet, missingTr } from './translate.js';
 import { hintAfterAction } from './tips.js';
-import { storySection } from './story_ui.js';
+import { storySection, guideView } from './story_ui.js';
 import { hompyHTML, fitHompy, photoHTML, hpLayout, hpMinor , isDecoMode } from './hompy.js';
 import { setNoShort } from './util.js';
 import { openPromptWindow, openThemeWindow, openWizard } from './lazy.js';
@@ -46,7 +46,8 @@ const INSTRUCT_HINT = {
 
 // ───── 탭 ─────
 // v2.7.3: 앨범 · 플레이 기록은 확장 설정에서 모든 채팅에 끌 수 있어요
-const PSEUDO_ON = { album: 'albumOn', record: 'recordOn' };
+const PSEUDO_ON = { album: 'albumOn', record: 'recordOn', guide: 'guideOn' };
+VIEW.guide = (s, d, ui) => guideView(ui); // 🗝 공략 탭 (story_ui.js)
 function groupTabs(g, meta) {
     return g.tabs.filter(t => (PSEUDO.has(t) ? !PSEUDO_ON[t] || settings()[PSEUDO_ON[t]] !== false : modOn(TAB_MOD(t), meta)));
 }

@@ -16,7 +16,7 @@ try {
         const click = async (f, a, ms = 350) => { const b = el.querySelector(`.ss-st-f[data-f="${f}"] [data-st="${a}"]`) ?? el.querySelector(`.ss-story [data-st="${a}"]`); if (!b) return false; b.click(); await wait(ms); return true; };
         const sec = (f) => el.querySelector(`.ss-st-f[data-f="${f}"]`);
         // ── 전부 끔 ──
-        out.count17 = story.DEVICES.length === 17 && Object.keys(story.KEY).length === 17;
+        out.count14 = story.DEVICES.length === 14 && Object.keys(story.KEY).length === 14;
         out.offEmpty = inj() === '' && (P4() === '' || P4() === null) && !core.getMeta().story && !el.querySelector('.ss-story');
         out.noLabLeft = !document.querySelector('[data-s-act="lab"]') && !el.querySelector('[data-act="lab"]');
         // ── 확장 설정의 체크 칸으로 전부 켜기 ──
@@ -25,29 +25,37 @@ try {
         for (const b of boxes) { b.checked = true; b.dispatchEvent(new Event('change', { bubbles: true })); await wait(15); }
         await wait(300);
         out.allOn = story.DEVICES.every(f => story.storyOn(f.id));
-        await go('rel'); out.relTab = secs() === 'mask,peek,scar,mirror,memory,meddle,taste' || secs();
-        await go('memo'); out.memoTab = (secs() === 'know,promise,hook' && !!el.querySelector('.ss-story [data-st="scan"]')) || secs();
+        await go('rel'); out.relTab = secs() === 'peek,scar,memory,meddle,taste' || secs();
+        await go('memo'); out.memoTab = (secs() === 'know,promise' && !!el.querySelector('.ss-story [data-st="scan"]')) || secs();
         await go('contact'); out.contactTab = secs() === 'mail' || secs();
         await go('contact', { who: 'Leon' }); out.contactThreadClean = !el.querySelector('.ss-story');
         await go('manage'); out.flowOnManage = secs() === 'loop,ghost,debt,tension,realtime' || secs();
         out.allDrawn = !el.textContent.includes('그리지 못했어요');
-        window.__ai = (p, s = '') => (s.includes('story ledgers') ? '{"facts":[{"text":"유저는 왕자다","knows":["Leon"]}],"promises":[{"text":"축제에 같이 가기","to":"Leon","due":"내일"}],"hooks":[{"text":"잠긴 지하실 문"}]}'
-            : s.includes('status sheet') ? '{"nick":"바보","first":"수상함","now":"괜찮음","wrong":"귀족인 줄 앎","trust":70,"like":"웃음","annoy":"지각"}' : '그때 내가 먼저 손을 내밀었지.\n비가 왔던 것 같아.');
+        window.__ai = (p, s = '') => (s.includes('story ledgers') ? '{"facts":[{"text":"유저는 왕자다","knows":["Leon"]}],"promises":[{"text":"축제에 같이 가기","to":"Leon","due":"내일"}]}'
+            : s.includes('strategy guide') ? '{"up":[{"kind":"item","text":"꽃을 건네면 좋아"},{"kind":"act","text":"먼저 손을 잡아 줘"},{"kind":"say","text":"수고했다고 말해 줘"}],"down":[{"kind":"item","text":"술은 주지 마"},{"kind":"act","text":"약속에 늦지 마"},{"kind":"say","text":"다른 사람 얘기는 하지 마"}],"note":"이 정도는 알아서 해."}'
+            : s.includes('four secrets') ? '{"green":"단것을 좋아한다","yellow":"밤마다 편지를 쓴다","red":"검을 잡으면 손이 떨린다","black":"사실은 왕의 사생아다"}' : '그때 내가 먼저 손을 내밀었지.\n비가 왔던 것 같아.');
         // ── 장부 (메모 탭) ──
         await go('memo');
-        out.scan = await click('know', 'scan', 800) && L().facts?.length === 1 && L().promises?.length === 1 && L().hooks?.length === 1 && sec('know').textContent.includes('유저는 왕자다');
-        out.ledgerInj = inj().includes('유저는 왕자다 — known to: Leon') && inj().includes('PROMISES') && inj().includes('LOOSE THREADS');
+        out.scan = await click('know', 'scan', 800) && L().facts?.length === 1 && L().promises?.length === 1 && sec('know').textContent.includes('유저는 왕자다');
+        out.ledgerInj = inj().includes('유저는 왕자다 — known to: Leon') && inj().includes('PROMISES');
         sec('know').querySelector('.ss-st-t').value = '직접 적은 사실'; sec('know').querySelector('.ss-st-k').value = 'Mira, Leon';
         out.factAdd = await click('know', 'factadd') && L().facts.length === 2 && L().facts[1].knows.length === 2 && sec('know').textContent.includes('직접 적은 사실');
         const trust0 = st().data.rel.user.find(x => x.name === 'Leon').trust;
         out.promiseKeep = await click('promise', 'prokeep', 700) && L().promises[0].state === 'kept' && st().data.rel.user.find(x => x.name === 'Leon').trust === trust0 + 2;
-        out.hookDone = await click('hook', 'hookdone') && L().hooks[0].done === true && !inj().includes('잠긴 지하실 문');
         // ── 관계 탭 ──
         await go('rel');
-        out.maskInj = inj().includes('MASKS') && inj().includes('Leon: shows');
-        out.maskPeek = await click('mask', 'maskpeek') && Object.values(L().sus ?? {}).reduce((a, b) => a + b, 0) === 1 && !sec('mask').querySelector('.ss-st-row').textContent.includes('???');
-        L().sus.Leon = 3; out.sus = inj().includes('SUSPICION');
-        out.mirror = await click('mirror', 'mirror', 800) && story.kept('mirror', 'Leon').at(-1)?.j.nick === '바보' && sec('mirror').textContent.includes('귀족인 줄 앎');
+        (L().sus ??= {}).Leon = 3; out.sus = inj().includes('SUSPICION'); delete L().sus;
+        // ── 🗝 공략 탭 (사람 묶음) ──
+        await go('guide');
+        out.guideTab = !!el.querySelector('.ss-guide [data-st="guide"]') && !!el.querySelector('.ss-tabs button[data-arg="guide"]') && !el.textContent.includes('그리지 못했어요');
+        el.querySelector('.ss-guide [data-st="gwho"][data-arg="Leon"]')?.click(); await wait(250);
+        out.guideGet = (await click('', 'guide', 900) && L().guide?.Leon?.up.length === 3 && L().guide.Leon.down.length === 3 && L().sus?.Leon === 1 && el.querySelector('.ss-gd-col.up').textContent.includes('꽃을 건네면 좋아') && el.querySelector('.ss-gd-col.down').textContent.includes('약속에 늦지 마')) || JSON.stringify([L().guide, L().sus]);
+        out.secGen = (await click('', 'secgen', 900) && L().secrets?.Leon?.length === 4 && L().secrets.Leon.every(x => !x.open) && !el.textContent.includes('사실은 왕의 사생아다') && el.querySelectorAll('.ss-gd-secret').length === 4 && inj().includes('SECRETS') && inj().includes('[black, hidden] 사실은 왕의 사생아다')) || JSON.stringify(L().secrets);
+        el.querySelector('.ss-guide [data-st="secopen"][data-arg="Leon|k"]').click(); await wait(350);
+        out.secOpen = (L().secrets.Leon.find(x => x.lv === 'k').open === true && L().sus.Leon === 6 && el.querySelector('.ss-gd-secret.lv-k').textContent.includes('사실은 왕의 사생아다') && el.querySelector('.ss-gd-gauge .lv-k').classList.contains('open') && inj().includes('[black, found out]') && inj().includes('SUSPICION')) || JSON.stringify([L().secrets.Leon, L().sus]);
+        out.guideTexts = app.storyTexts().includes('꽃을 건네면 좋아') && app.storyTexts().includes('사실은 왕의 사생아다') && !app.storyTexts().includes('단것을 좋아한다');
+        L().secTell = false; out.secTellOff = !inj().includes('SECRETS'); delete L().secTell;
+        core.settings().guideOn = false; await go('rel'); out.guideOff = !el.querySelector('.ss-tabs button[data-arg="guide"]') && !inj().includes('SECRETS'); core.settings().guideOn = true; delete L().sus; delete L().secrets; delete L().guide; await go('rel'); // 공략 자료를 치우면 주입도 다시 빈 글
         out.memory = await click('memory', 'memory', 800) && inj().includes('HOW THEY REMEMBER IT');
         out.taste = sec('taste').textContent.includes('좋아하는 것');
         // ── 이야기 흐름 (답을 받을 때 도는 것) ──

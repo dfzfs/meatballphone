@@ -13,11 +13,8 @@ export const DEVICES = [
     { id: 'debt', g: '되감기', icon: '🎲', name: '운명의 빚', cost: '토큰 0~1줄', desc: '다시 생성할 때마다 빚이 1 쌓이고, 5가 되면 다음 답에서 작은 불운으로 갚아요.' },
     { id: 'know', g: '장부', icon: '🧠', name: '누가 뭘 아는지', cost: '매 턴 몇 줄', desc: '사실마다 「아는 사람」을 적어 두고, 모르는 인물이 아는 척하지 않게 AI에게 알려요.' },
     { id: 'promise', g: '장부', icon: '🤝', name: '약속 장부', cost: '매 턴 몇 줄', desc: '내가 한 약속 · 거짓말을 적어 둬요. 지키면 우정이 오르고 어기면 깎여요.' },
-    { id: 'hook', g: '장부', icon: '🧵', name: '떡밥 장부', cost: '매 턴 몇 줄', desc: 'AI가 던져 놓고 잊은 복선을 적어 두고, 오래되면 「이제 회수해」로 다시 보내요.' },
-    { id: 'mask', g: '숨은 수치', icon: '🎭', name: '겉 호감과 진짜 호감', cost: '매 턴 몇 줄', desc: '상태창엔 겉 수치만 보이고, 진짜 수치는 여기서 엿봐야 보여요. 우정이 오를수록 차이가 줄어요.' },
-    { id: 'peek', g: '숨은 수치', icon: '👁', name: '엿보기엔 대가가 있다', cost: '토큰 0~1줄', desc: '속마음 · 진짜 호감을 자주 엿보면 「눈치」가 쌓여 인물이 의심하기 시작해요.' },
+    { id: 'peek', g: '숨은 수치', icon: '👁', name: '엿보기엔 대가가 있다', cost: '토큰 0~1줄', desc: '속마음을 자주 엿보면 「눈치」가 쌓여 인물이 의심하기 시작해요. (공략 탭의 눈치와 같은 수치)' },
     { id: 'scar', g: '숨은 수치', icon: '🩹', name: '관계의 흉터', cost: '매 턴 1~3줄', desc: '호감이 한 번에 크게 깎였던 일은 흉터로 남아, 비슷한 상황에서 더 예민하게 굴어요.' },
-    { id: 'mirror', g: '숨은 수치', icon: '🪞', name: '역상태창', cost: '누를 때 AI 1회', desc: '그 인물이 나를 평가한 상태창 — 첫인상 · 나를 저장한 이름 · 오해 · 신뢰.' },
     { id: 'memory', g: '숨은 수치', icon: '🕳', name: '기억 왜곡', cost: 'AI 1회 + 매 턴 몇 줄', desc: '인물이 지난 일을 자기 식으로(유리하게 · 흐릿하게) 기억해요. 본편에서도 그 기억대로 말해요.' },
     { id: 'meddle', g: '침범', icon: '✍', name: '인물이 내 상태창에 손댄다', cost: '토큰 0~1줄', desc: '질투나 애정이 높은 인물이 가끔 낙서를 남기거나 · 자기 이름을 바꿔 놓거나 · 다른 사람을 차단해 놔요 (되돌릴 수 있어요).' },
     { id: 'glitch', g: '침범', icon: '🌫', name: '믿을 수 없는 상태창', cost: '토큰 0', desc: '정신력 · 이성이 낮거나 취하면 상태창 화면이 흔들리고 깨져 보여요 (계산은 그대로).' },
@@ -27,7 +24,7 @@ export const DEVICES = [
     { id: 'taste', g: '소소한 것', icon: '🎁', name: '취향 도감', cost: '토큰 0', desc: '인물별로 드러난 좋아하는 것 · 싫어하는 것을 모아 봐요.' },
 ];
 // 장치 → 설정 키 (core.js의 기본값은 전부 false · 확장 설정의 「이야기 흐름」 「장부」 「관계」 「연락」에서 켠다)
-export const KEY = { loop: 'loopMode', ghost: 'swipeGhost', debt: 'fateDebt', tension: 'tensionOn', realtime: 'realGap', glitch: 'glitchView', know: 'ledgerKnow', promise: 'ledgerPromise', hook: 'ledgerHook', mask: 'affMask', peek: 'peekCost', scar: 'relScar', mirror: 'mirrorSheet', memory: 'memoryDrift', meddle: 'meddleOn', taste: 'tasteBook', mail: 'crossMail' };
+export const KEY = { loop: 'loopMode', ghost: 'swipeGhost', debt: 'fateDebt', tension: 'tensionOn', realtime: 'realGap', glitch: 'glitchView', know: 'ledgerKnow', promise: 'ledgerPromise', peek: 'peekCost', scar: 'relScar', memory: 'memoryDrift', meddle: 'meddleOn', taste: 'tasteBook', mail: 'crossMail' };
 export const storyOn = (id) => settings()[KEY[id]] === true;
 const anyOn = () => { const set = settings(); return Object.values(KEY).some(k => set[k] === true); };
 // 이 채팅의 이야기 장치 자료 (create = 없으면 만든다)
@@ -71,14 +68,16 @@ export function findScars() {
     }
     return out.sort((x, y) => y.drop - x.drop).slice(0, 5);
 }
-// ───── 🎭 겉과 진짜: 이름으로 정해지는 가면 (저장 없음) ─────
-export function maskOf(r) {
-    const h = hash(`${chatId()}|${norm(r.name)}`), hide = h % 2 === 0, off = 8 + (h >>> 3) % 18;
-    const k = (100 - clamp(r.trust, 0, 100)) / 100, d = Math.round(off * k) * (hide ? 1 : -1);
-    return { real: clamp(r.aff + d, -100, 100), hide, d };
-}
-// 👁 엿봤다 (extra.js의 속마음 엿보기 · 이 창의 엿보기 · 폰)
-export function addSus(name, n = 1) { if (!storyOn('peek') || !name) return; const L = storyData(true); if (!L) return; (L.sus ??= {})[name] = (L.sus[name] ?? 0) + n; saveMeta(); }
+// 🗝 공략 탭 (v2.8 · 설정 guideOn · 기본 켬): 인물이 직접 일러 주는 조언 + 비밀 게이지. 볼 때마다 「눈치」가 오른다 (토큰은 누를 때만)
+export const guideOn = () => settings().guideOn !== false;
+// 비밀 네 단계: [열쇠, 색 이름, 뜻, 깔 때 오르는 눈치, AI에게 가는 이름]
+export const SECRET_LV = [['g', '초록', '나만 모르는 비밀 — 주변 사람들은 알 수도 있어요', 1, 'green'], ['y', '노랑', '몇 사람만 아는 비밀', 2, 'yellow'], ['r', '빨강', '본인만 아는 비밀', 3, 'red'], ['k', '검정', '말하느니 죽음을 택할 비밀', 5, 'black']];
+export const susOf = (name) => storyData()?.sus?.[name] ?? 0;
+export const guideOf = (who) => storyData()?.guide?.[who] ?? null;
+export const secretsOf = (who) => storyData()?.secrets?.[who] ?? null;
+export function openSecret(who, lv) { const x = secretsOf(who)?.find(y => y.lv === lv); if (!x || x.open) return false; x.open = true; addSus(who, SECRET_LV.find(y => y[0] === lv)?.[3] ?? 1); return true; }
+// 👁 엿봤다 (extra.js의 속마음 엿보기 · 공략 · 비밀 까 보기)
+export function addSus(name, n = 1) { if (!(storyOn('peek') || guideOn()) || !name) return; const L = storyData(true); if (!L) return; (L.sus ??= {})[name] = (L.sus[name] ?? 0) + n; saveMeta(); }
 app.storyPeek = addSus;
 
 // ───── 🌫 화면 깨짐 ─────
@@ -127,29 +126,37 @@ const text = async (sys, body, max = 700) => stripStatus(await aiGenerate('peek'
 const keep = (L, key, who, v, n = 8) => { const box = (L.ai ??= {})[key] ??= {}; box[who] = [...(box[who] ?? []), { ...v, date: stamp(st()) }].slice(-n); };
 export const kept = (key, who) => storyData()?.ai?.[key]?.[who] ?? [];
 export const AI = {
-    // 🪞 역상태창
-    mirror: async (who) => {
-        const j = await aiJSON('peek', P('story.mirror', { who }), about(who), 700);
-        const L = storyData(true); keep(L, 'mirror', who, { j: { nick: cut(j.nick, 30), first: cut(j.first, 120), now: cut(j.now, 120), wrong: cut(j.wrong, 140), trust: clamp(Math.round(Number(j.trust) || 0), 0, 100), like: cut(j.like, 100), annoy: cut(j.annoy, 100) } }, 3); storySave();
+    // 🗝 공략: 지금 상황에서 호감이 오를 것 3 · 떨어질 것 3 (아이템 · 행동 · 말) — 그 인물이 직접 쓴 말투로. 받을 때마다 눈치 +1
+    guide: async (who) => {
+        const j = await aiJSON('peek', P('story.guide', { who }), about(who), 800);
+        const pick = (a) => (Array.isArray(a) ? a : []).map(x => ({ k: ['item', 'act', 'say'].includes(x?.kind) ? x.kind : 'act', t: cut(x?.text, 160) })).filter(x => x.t).slice(0, 3);
+        const up = pick(j.up), down = pick(j.down); if (!up.length && !down.length) throw new Error('빈 답이 왔어요');
+        const L = storyData(true); (L.guide ??= {})[who] = { up, down, note: cut(j.note, 140), date: stamp(st()), at: chat().length }; addSus(who, 1); storySave();
+    },
+    // 🔒 비밀 네 단계 만들기 (가려 둔 채로 저장 — 깔 때마다 눈치가 오른다)
+    secrets: async (who) => {
+        const j = await aiJSON('peek', P('story.secrets', { who }), about(who), 800);
+        const list = SECRET_LV.map(([lv, , , , key]) => ({ lv, text: cut(j?.[key], 220), open: false })).filter(x => x.text);
+        if (list.length < 2) throw new Error('비밀을 만들지 못했어요');
+        const L = storyData(true); (L.secrets ??= {})[who] = list; storySave();
     },
     // 🕳 기억 왜곡
     memory: async (who) => { const t = await text(P('story.memory', { who }), about(who), 600); const L = storyData(true); keep(L, 'memory', who, { t: cut(t, 700) }, 1); storySave(); },
     // 📻 다른 채팅으로 편지
     mail: async (who) => { const t = await text(P('story.mail', { who }), about(who), 500); const box = settings().crossMailBox ??= []; box.push({ id: uid(), chat: chatId(), who, world: cut(st().core.title, 60), text: cut(t, 700), at: Date.now() }); settings().crossMailBox = box.slice(-30); saveSettings(); },
 };
-// 🧠🤝🧵 장부 정리 (켠 장부만 · AI 1회)
+// 🧠🤝 장부 정리 (켠 장부만 · AI 1회)
 export async function ledgerScan() {
     if (!live()) return 0;
-    const want = ['know', 'promise', 'hook'].filter(storyOn); if (!want.length) return 0;
-    const L = storyData(true), have = [...(L.facts ?? []).map(x => x.text), ...(L.promises ?? []).map(x => x.text), ...(L.hooks ?? []).map(x => x.text)];
-    const sys = P('story.ledger', { parts: [want.includes('know') ? '"facts":[{"text":"…","knows":["Name"]}] — secrets or notable events where it matters WHO knows: list only the characters who witnessed it or were told ({{user}} counts as "{{user}}")' : '', want.includes('promise') ? '"promises":[{"text":"…","to":"Name","due":"when, or empty"}] — commitments or lies {{user}} made to someone' : '', want.includes('hook') ? '"hooks":[{"text":"…"}] — foreshadowing, mysteries, objects or remarks that were set up but not yet paid off' : ''].filter(Boolean).join('; ') });
+    const want = ['know', 'promise'].filter(storyOn); if (!want.length) return 0;
+    const L = storyData(true), have = [...(L.facts ?? []).map(x => x.text), ...(L.promises ?? []).map(x => x.text)];
+    const sys = P('story.ledger', { parts: [want.includes('know') ? '"facts":[{"text":"…","knows":["Name"]}] — secrets or notable events where it matters WHO knows: list only the characters who witnessed it or were told ({{user}} counts as "{{user}}")' : '', want.includes('promise') ? '"promises":[{"text":"…","to":"Name","due":"when, or empty"}] — commitments or lies {{user}} made to someone' : ''].filter(Boolean).join('; ') });
     const j = await aiJSON('analyze', sys, [`People: ${people().map(r => r.name).join(', ') || '-'}`, `Already listed (do not repeat):\n${have.map(x => `- ${x}`).join('\n') || '(none)'}`, `Recent story:\n${recentChat(14)}`].join('\n\n'), 900);
     const fresh = (x) => { const t = cut(x?.text, 120); return t && !have.some(h => norm(h) === norm(t)) ? t : ''; };
     let n = 0; const at = chat().length;
     if (want.includes('know')) for (const f of (Array.isArray(j.facts) ? j.facts : []).slice(0, 4)) { const t = fresh(f); if (t) { (L.facts ??= []).push({ id: uid(), text: t, knows: (Array.isArray(f.knows) ? f.knows : []).map(x => cut(x, 30)).filter(Boolean).slice(0, 8), at }); n++; } }
     if (want.includes('promise')) for (const f of (Array.isArray(j.promises) ? j.promises : []).slice(0, 4)) { const t = fresh(f); if (t) { (L.promises ??= []).push({ id: uid(), text: t, to: cut(f.to, 30), due: cut(f.due, 40), state: 'open', at }); n++; } }
-    if (want.includes('hook')) for (const f of (Array.isArray(j.hooks) ? j.hooks : []).slice(0, 4)) { const t = fresh(f); if (t) { (L.hooks ??= []).push({ id: uid(), text: t, at }); n++; } }
-    for (const k of ['facts', 'promises', 'hooks']) if (L[k]?.length > 40) L[k] = L[k].slice(-40);
+    for (const k of ['facts', 'promises']) if (L[k]?.length > 40) L[k] = L[k].slice(-40);
     L.since = 0; storySave(); return n;
 }
 // 약속 지킴 · 어김 → 우정
@@ -163,16 +170,19 @@ export async function settlePromise(id, kept) {
 
 // ───── AI에게 가는 글 (켠 장치만 · 하나도 없으면 빈 글) ─────
 export function storyInjection() {
-    if (!anyOn() || !live()) return '';
+    const g = guideOn();
+    if ((!anyOn() && !g) || !live()) return '';
     const L = storyData() ?? {}, out = [], ps = people();
     if (storyOn('loop')) { const n = loopInfo().scene; if (n >= 2) out.push(`DÉJÀ VU: {{user}} has already lived this exact moment ${n} times and rewound it. No character can know that, but one of them may feel a faint déjà vu — a pause, a half-remembered line, "have we done this before?" — once, subtly. Do not explain it.`); }
     if (storyOn('ghost') && L.ghost) out.push(`ECHO OF A DISCARDED TIMELINE: in a version of events that never happened, this took place: «${L.ghost}». It may leak into this reply once as something unreal — a dream fragment, a stray image, a slip of the tongue that the speaker cannot explain. Never treat it as fact.`);
     if (storyOn('debt') && L.debtDue) out.push('FATE COLLECTS: {{user}} has been bending fate too often. In this reply something small but unlucky happens to {{user}} — bad timing, a mishap, a minor loss. Proportionate, never catastrophic, and woven into the scene.');
     if (storyOn('know') && L.facts?.length) out.push(`KNOWLEDGE LEDGER — who knows what. A character NOT listed for a fact does not know it and must not act, hint or react as if they do, until they learn it in the story:\n${L.facts.slice(-10).map(f => `- ${f.text} — known to: ${f.knows.join(', ') || 'no one but {{user}}'}`).join('\n')}`);
     if (storyOn('promise')) { const open = (L.promises ?? []).filter(p => p.state === 'open').slice(-6); if (open.length) out.push(`PROMISES {{user}} made (the other person remembers; keeping them builds trust, breaking them or being caught lying costs it):\n${open.map(p => `- ${p.to ? `to ${p.to}: ` : ''}${p.text}${p.due ? ` (by ${p.due})` : ''}`).join('\n')}`); }
-    if (storyOn('hook')) { const hs = (L.hooks ?? []).filter(h => !h.done); const old = hs.find(h => chat().length - (h.at ?? 0) >= 25); if (hs.length) out.push(`LOOSE THREADS set up earlier and not yet paid off:\n${hs.slice(-5).map(h => `- ${h.text}`).join('\n')}${old ? `\nThe oldest — «${old.text}» — has waited long enough: bring it back naturally within the next few replies.` : ''}`); }
-    if (storyOn('mask') && ps.length) { const AX = relAxes(st().data.rel).aff; const ms = ps.filter(r => r.aff !== 0).slice(0, 5).map(r => ({ r, m: maskOf(r) })).filter(x => Math.abs(x.m.d) >= 3); if (ms.length) out.push(`MASKS (hidden from {{user}}; the status shows only the surface number):\n${ms.map(({ r, m }) => `- ${r.name}: shows ${AX} ${r.aff}, truly feels ${m.real} — ${m.hide ? 'hides how much they care; it slips out only when cornered, drunk, jealous or alone' : 'acts warmer than they feel; the distance shows in small moments'}`).join('\n')}`); }
-    if (storyOn('peek')) { const sus = Object.entries(L.sus ?? {}).filter(([n, v]) => v >= 3 && findBy(ps, n)); if (sus.length) out.push(`SUSPICION: ${sus.map(([n]) => n).join(', ')} ${sus.length > 1 ? 'have' : 'has'} begun to feel that {{user}} somehow knows their private thoughts — a little guarded, may test {{user}} or ask about it.`); }
+    if (storyOn('peek') || g) { const sus = Object.entries(L.sus ?? {}).filter(([n, v]) => v >= 3 && findBy(ps, n)), hot = sus.filter(([, v]) => v >= 8).map(([n]) => n);
+        if (sus.length) out.push(`SUSPICION: ${sus.map(([n]) => n).join(', ')} ${sus.length > 1 ? 'have' : 'has'} begun to feel that {{user}} somehow knows their private thoughts — a little guarded, may test {{user}} or ask about it.${hot.length ? ` ${hot.join(', ')} ${hot.length > 1 ? 'are' : 'is'} now almost sure of it: wary, hurt or angry, and may confront {{user}} directly.` : ''}`); }
+    // 🔒 비밀 (공략 탭에서 만든 것만 · 「본편에도 알리기」를 끄면 안 감)
+    if (g && L.secTell !== false) { const tell = ps.map(r => [r.name, L.secrets?.[r.name] ?? []]).filter(x => x[1].length).slice(0, 3);
+        if (tell.length) out.push(`SECRETS (canon facts about these characters. "found out" = {{user}} has learned it, in a way the character does not know about. "hidden" = {{user}} does not know: the character guards it and never reveals it unprompted — the heavier the tier, the harder they guard it; "black" they would rather die than confess):\n${tell.map(([n, list]) => `- ${n}: ${list.map(x => `[${SECRET_LV.find(y => y[0] === x.lv)?.[4] ?? x.lv}, ${x.open ? 'found out' : 'hidden'}] ${cut(x.text, 130)}`).join(' / ')}`).join('\n')}`); }
     if (storyOn('scar') && L.scars?.length) out.push(`SCARS (old hurts that never fully healed — in a similar situation the person reacts more sharply and forgives more slowly, even if things are good now):\n${L.scars.map(x => `- ${x.name}: ${x.axis} once fell by ${x.drop} at a single moment`).join('\n')}`);
     if (storyOn('memory')) { const ms = ps.map(r => [r.name, kept('memory', r.name).at(-1)?.t]).filter(x => x[1]).slice(0, 3); if (ms.length) out.push(`HOW THEY REMEMBER IT (each person's own version — it may differ from what really happened, and they believe it):\n${ms.map(([n, t]) => `- ${n}: ${cut(t, 300)}`).join('\n')}`); }
     if (storyOn('meddle') && L.meddleNow) { const e = L.meddleNow; out.push(`MEDDLING: ${e.who} secretly ${e.kind === 'memo' ? `left a note in {{user}}'s things: «${e.text}»` : e.kind === 'nick' ? `changed their own name in {{user}}'s contacts to «${e.text}»` : `blocked ${e.text} on {{user}}'s phone`}. {{user}} may have noticed. ${e.who} can be confronted about it and reacts in character.`); }
@@ -182,6 +192,21 @@ export function storyInjection() {
     return out.length ? `[STORY DEVICES — extra direction from the status extension. Follow quietly; never mention these notes]\n${out.join('\n')}` : '';
 }
 app.storyInject = storyInjection;
+// 🌐 화면 번역(영어로 저장 · 화면만 한국어)이 이야기 장치 · 공략의 글도 번역하도록: 화면에 나오는 글을 모아 준다 (예전엔 상태창 칸의 글만 모아서 이쪽은 영어로 남았음)
+app.storyTexts = () => {
+    const out = [], add = (t) => { if (typeof t === 'string' && t.trim()) out.push(t); };
+    try {
+        const L = storyData(); if (!L) return out;
+        for (const f of L.facts ?? []) add(f.text);
+        for (const p of L.promises ?? []) { add(p.text); add(p.due); }
+        for (const list of Object.values(L.ai?.memory ?? {})) for (const x of list ?? []) add(x.t);
+        for (const gd of Object.values(L.guide ?? {})) { for (const x of [...(gd.up ?? []), ...(gd.down ?? [])]) add(x.t); add(gd.note); }
+        for (const list of Object.values(L.secrets ?? {})) for (const x of list ?? []) if (x.open) add(x.text);
+        add(L.ghost); for (const e of L.meddle ?? []) if (e.kind === 'memo') add(e.text);
+        const me = chatId(); for (const m of settings().crossMailBox ?? []) if (m.chat !== me) { add(m.text); add(m.world); }
+    } catch (e) { ssNote('story texts', e); }
+    return out;
+};
 app.storyChanged = () => applyGlitch(); // 확장 설정에서 장치를 켜고 끌 때
 
 // ───── 이벤트: AI 답을 받은 뒤 한 번 ─────
@@ -208,7 +233,7 @@ async function afterReply() {
     const every = Number(L.scanEvery) || 0; L.since = (L.since ?? 0) + 1;
     saveMeta();
     try { app.refreshNow?.(); } catch (e) { ssNote('story refresh', e); } // 방금 정한 것(유령 · 빚 · 긴장 …)이 다음 답의 안내에 실리게
-    if (every > 0 && L.since >= every && ['know', 'promise', 'hook'].some(storyOn)) ledgerScan().catch(e => ssNote('story scan', e));
+    if (every > 0 && L.since >= every && ['know', 'promise'].some(storyOn)) ledgerScan().catch(e => ssNote('story scan', e));
 }
 export function initStory() {
     const { eventSource, event_types: E } = ctx();

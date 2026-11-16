@@ -156,11 +156,9 @@ export const DEFAULTS = Object.freeze({
     glitchView: false,       // 🌫 믿을 수 없는 상태창 — 정신력이 낮거나 취하면 화면이 깨져 보임 (화면만)
     ledgerKnow: false,       // 🧠 누가 뭘 아는지 장부
     ledgerPromise: false,    // 🤝 약속 장부
-    ledgerHook: false,       // 🧵 떡밥 장부
-    affMask: false,          // 🎭 겉 호감과 진짜 호감
+    guideOn: true,           // 🗝 공략 탭 (사람 묶음): 인물이 일러 주는 조언 · 비밀 게이지 · 눈치 — 누를 때만 AI 1회. 끄면 탭 · 눈치 · 비밀 주입이 모두 사라짐
     peekCost: false,         // 👁 엿보기엔 대가가 있다 (눈치)
     relScar: false,          // 🩹 관계의 흉터
-    mirrorSheet: false,      // 🪞 역상태창 (누를 때 AI 1회)
     memoryDrift: false,      // 🕳 기억 왜곡 (AI 1회 + 주입)
     meddleOn: false,         // ✍ 인물이 내 상태창에 손댄다
     tasteBook: false,        // 🎁 취향 도감 (화면만)

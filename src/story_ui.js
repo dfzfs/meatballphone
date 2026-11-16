@@ -1,14 +1,13 @@
 // 🧭 이야기 장치의 화면 (v2.8) — 켠 장치의 칸을 그 장치가 속한 탭 아래에 붙인다
-//   관계 탭: 겉/진짜 호감 · 눈치 · 흉터 · 역상태창 · 기억 왜곡 · 손댄 흔적 · 취향 도감   |   메모 탭: 장부 3종
+//   관계 탭: 눈치 · 흉터 · 기억 왜곡 · 손댄 흔적 · 취향 도감   |   메모 탭: 장부 2종   |   🗝 공략 탭(사람 묶음): 조언 · 비밀 게이지 · 눈치 지수
 //   연락 탭(목록): 채팅 간 우편   |   운명 탭(운명 칸이 꺼져 있으면 관리 탭): 회차 · 유령 · 운명의 빚 · 긴장도 · 현실 시간
 // (화면은 나중에 크게 손볼 예정 — 지금은 자리만 옮겨 둔 것)
 import { app, ctx, settings, saveSettings, esc, short, TITLE, uid, relAxes, modOn, ssErr } from './core.js';
-import { busyBtn, ai1, avatar, askInput } from './kit.js';
-import { DEVICES, storyOn, storyData, storySave, people, loopInfo, findScars, maskOf, addSus, undoMeddle, AI, kept, ledgerScan, settlePromise } from './story.js';
+import { busyBtn, ai1, avatar, askInput, askConfirm } from './kit.js';
+import { DEVICES, storyOn, storyData, storySave, people, loopInfo, findScars, undoMeddle, AI, kept, ledgerScan, settlePromise, SECRET_LV, susOf, guideOf, secretsOf, openSecret } from './story.js';
 
 const st = () => app.current?.state ?? null;
 const L = () => storyData() ?? {};
-const seen = new Set(); // 이번 접속에서 진짜 호감을 엿본 사람
 const whoSel = () => { const ps = people(); return ps.length ? `<select class="ss-in ss-st-who">${ps.map(r => `<option>${esc(r.name)}</option>`).join('')}</select>` : '<small class="ss-hint">관계 칸에 사람이 있어야 해요</small>'; };
 const aiBtn = (act, label) => `<button class="ss-btn sm" data-st="${act}">${ai1} ${label}</button>`;
 const row = (body, btns = '') => `<div class="ss-st-row"><span>${body}</span>${btns ? `<i class="ss-st-btns">${btns}</i>` : ''}</div>`;
@@ -29,12 +28,8 @@ const BODY = {
         + '<div class="ss-st-add"><input class="ss-in ss-st-t" placeholder="사실 (예: 내가 왕자라는 것)"><input class="ss-in ss-st-k" placeholder="아는 사람 (쉼표로)"><button class="ss-btn sm" data-st="factadd">추가</button></div>',
     promise: () => ((L().promises ?? []).map(p => row(`${p.state === 'kept' ? '✅ ' : p.state === 'broken' ? '💔 ' : ''}${esc(p.text)} <small>${p.to ? `— ${esc(p.to)}에게` : ''}${p.due ? ` · ${esc(p.due)}까지` : ''}</small>`, `${p.state === 'open' ? `<button class="ss-btn sm" data-st="prokeep" data-arg="${esc(p.id)}" title="우정 +2">지킴</button><button class="ss-btn sm danger" data-st="probreak" data-arg="${esc(p.id)}" title="우정 -4">어김</button>` : ''}${del('prodel', p.id)}`)).join('') || none('아직 적힌 약속이 없어요.'))
         + '<div class="ss-st-add"><input class="ss-in ss-st-t" placeholder="약속 (예: 내일 축제에 같이 가기)"><input class="ss-in ss-st-k" placeholder="누구에게"><button class="ss-btn sm" data-st="proadd">추가</button></div>',
-    hook: () => ((L().hooks ?? []).map(h => row(`${h.done ? '✅ ' : ''}${esc(h.text)}`, `${h.done ? '' : `<button class="ss-btn sm" data-st="hookdone" data-arg="${esc(h.id)}">회수됨</button>`}${del('hookdel', h.id)}`)).join('') || none('아직 적힌 떡밥이 없어요.'))
-        + '<div class="ss-st-add"><input class="ss-in ss-st-t" placeholder="떡밥 (예: 지하실의 잠긴 문)"><button class="ss-btn sm" data-st="hookadd">추가</button></div>',
-    mask: () => { const AX = st()?.data?.rel ? relAxes(st().data.rel).aff : '애정'; return people().map(r => { const m = maskOf(r), ok = seen.has(r.name); return row(`${avatar(r.name)} <b>${esc(r.name)}</b> — 겉 ${esc(AX)} ${r.aff} · 진짜 ${ok ? `<b>${m.real}</b> <small>(${m.hide ? '마음을 숨기는 중' : '겉으로만 다정한 중'})</small>` : '<b>???</b>'}`, ok ? '' : `<button class="ss-btn sm" data-st="maskpeek" data-arg="${esc(r.name)}">엿보기</button>`); }).join('') || none('관계 칸에 사람이 있어야 해요.'); },
     peek: () => { const e = Object.entries(L().sus ?? {}).filter(([, v]) => v > 0); return (e.map(([n, v]) => row(`${esc(n)} — 눈치 ${v}${v >= 3 ? ' <b>(의심하는 중)</b>' : ''}`)).join('') || none('아직 아무도 눈치채지 못했어요. 3이 되면 의심하기 시작해요.')) + (e.length ? '<div class="ss-row-btns"><button class="ss-btn sm ghost" data-st="susclear">눈치 지우기</button></div>' : ''); },
     scar: () => { const s = L().scars ?? findScars(); return s.map(x => row(`🩹 <b>${esc(x.name)}</b> — #${x.at} 답에서 ${esc(x.axis)} ${x.drop} 떨어짐`)).join('') || none('한 번에 10 넘게 깎인 적이 없어요.'); },
-    mirror: () => `<div class="ss-row-btns">${whoSel()}${aiBtn('mirror', '역상태창 보기')}</div>` + results('mirror', (x) => `<div class="ss-st-kv">${[['저장한 이름', x.j.nick], ['첫인상', x.j.first], ['지금 생각', x.j.now], ['오해', x.j.wrong], ['나에 대한 신뢰', `${x.j.trust} / 100`], ['좋은 점', x.j.like], ['거슬리는 점', x.j.annoy]].filter(y => y[1] !== '' && y[1] !== undefined).map(([k, v]) => `<small>${k}</small><span>${esc(v)}</span>`).join('')}</div>`),
     memory: () => `<div class="ss-row-btns">${whoSel()}${aiBtn('memory', '이 사람의 기억 만들기')}</div>` + results('memory', (x, r) => `${pre(x.t)}<div class="ss-row-btns"><button class="ss-btn sm ghost" data-st="memdel" data-arg="${esc(r.name)}">기억 지우기 (본편에서도 빠져요)</button></div>`),
     meddle: () => (L().meddle ?? []).slice().reverse().map(e => row(`<b>${esc(e.who)}</b> — ${e.kind === 'memo' ? `낙서: 「${esc(e.text)}」` : e.kind === 'nick' ? `자기 이름을 「${esc(e.text)}」(으)로 바꿈` : `${esc(e.text)}을(를) 차단함`} <small>${esc(e.date ?? '')}</small>`, `<button class="ss-btn sm" data-st="meddleundo" data-arg="${esc(e.id)}">${e.kind === 'memo' ? '지우기' : '되돌리기'}</button>`)).join('') || none('아직 아무도 손대지 않았어요. 질투 50 이상이거나 애정 75 이상인 인물이 답마다 10% 확률로 손대요.'),
     taste: () => { const ps = people(), got = ps.filter(r => r.likes || r.dislikes); return (ps.map(r => `<div class="ss-st-card"><b>${avatar(r.name)} ${esc(r.name)}</b><div class="ss-st-kv"><small>좋아하는 것</small><span>${r.likes ? esc(r.likes) : '???'}</span><small>싫어하는 것</small><span>${r.dislikes ? esc(r.dislikes) : '???'}</span></div></div>`).join('') || none('관계 칸에 사람이 있어야 해요.')) + (ps.length ? none(`${ps.length}명 중 ${got.length}명의 취향이 드러났어요.`) : ''); },
@@ -43,7 +38,7 @@ const BODY = {
         + (inbox.map(m => `<div class="ss-st-card"><b>${esc(m.who)}</b> <small>「${esc(m.world)}」에서</small>${pre(m.text)}<div class="ss-row-btns"><button class="ss-btn sm" data-st="maildrop" data-arg="${esc(m.id)}" title="다음 답에서 이 편지가 이야기 속에 나타나요">이 채팅에 떨어뜨리기</button>${del('maildel', m.id)}</div></div>`).join('') || none('다른 채팅에서 온 편지가 아직 없어요.')); },
 };
 // 탭마다 붙는 장치 (순서대로)
-const HOME = { rel: ['mask', 'peek', 'scar', 'mirror', 'memory', 'meddle', 'taste'], memo: ['know', 'promise', 'hook'], contact: ['mail'], flow: ['loop', 'ghost', 'debt', 'tension', 'realtime'] };
+const HOME = { rel: ['peek', 'scar', 'memory', 'meddle', 'taste'], memo: ['know', 'promise'], contact: ['mail'], flow: ['loop', 'ghost', 'debt', 'tension', 'realtime'] };
 const flowTab = () => (modOn('fate') && st()?.data?.fate ? 'fate' : 'manage');
 // 이 탭 아래에 붙일 칸들 (켠 장치가 없으면 빈 글 → 화면이 예전과 똑같다)
 export function storySection(tab, ui = {}) {
@@ -55,6 +50,32 @@ export function storySection(tab, ui = {}) {
         const bar = tab === 'memo' ? ledgerBar() : '';
         return `<div class="ss-story" data-story="${esc(tab)}">${bar}${ids.map(id => { const f = DEVICES.find(x => x.id === id); let body; try { body = BODY[id]?.() ?? ''; } catch (e) { body = none(`그리지 못했어요: ${esc(e?.message ?? e)}`); }
             return `<details class="ss-st-f" data-f="${id}" ${ui.stOpen?.[id] === false ? '' : 'open'}><summary><b>${f.icon} ${esc(f.name)}</b> <small>${esc(f.cost)}</small></summary><div class="ss-st-b">${body}</div></details>`; }).join('')}</div>`;
+    } catch (e) { ssErr(e); return ''; }
+}
+
+// ───── 🗝 공략 탭 (v2.8): 사람을 고르고 → ① 눈치 지수 ② 공략(오를 것 · 떨어질 것) ③ 비밀 게이지 ─────
+const KIND = { item: ['fa-gift', '아이템'], act: ['fa-person-walking', '행동'], say: ['fa-comment-dots', '말'] };
+const SUS_MAX = 10;
+const susWord = (v) => (v >= 8 ? '거의 확신하고 있어요' : v >= 3 ? '의심하는 중' : v > 0 ? '아직은 모르는 눈치' : '전혀 모르고 있어요');
+const advice = (list, cls, title, icon) => `<div class="ss-gd-col ${cls}"><h5><i class="fa-solid ${icon}"></i> ${title}</h5>${list.length ? `<ul>${list.map(x => `<li><em class="ss-gd-k"><i class="fa-solid ${KIND[x.k]?.[0] ?? KIND.act[0]}"></i>${KIND[x.k]?.[1] ?? KIND.act[1]}</em><span>${esc(x.t)}</span></li>`).join('')}</ul>` : none('적힌 게 없어요.')}</div>`;
+export function guideView(ui = {}) {
+    try {
+        const ps = people(); if (!st()) return '';
+        if (!ps.length) return `<div class="ss-story ss-guide" data-story="guide">${none('관계 칸에 사람이 있어야 공략을 볼 수 있어요.')}</div>`;
+        const who = ps.some(r => r.name === ui.gWho) ? ui.gWho : ps[0].name, w = esc(who), sus = susOf(who), g = guideOf(who), sec = secretsOf(who), tell = L().secTell !== false;
+        const pick = ps.length > 1 ? `<div class="ss-pills ss-gd-who">${ps.map(r => `<button class="ss-pill ${r.name === who ? 'on' : ''}" data-st="gwho" data-arg="${esc(r.name)}">${avatar(r.name)} ${esc(r.name)}${susOf(r.name) >= 3 ? ' <i class="fa-solid fa-eye" title="의심하는 중"></i>' : ''}</button>`).join('')}</div>` : '';
+        const susBox = `<section class="ss-card ss-gd-sec"><div class="ss-sec-h"><h4><i class="fa-solid fa-eye"></i> 눈치 지수</h4>${sus ? `<button class="ss-btn sm ghost" data-st="susone" data-arg="${w}" title="이 사람의 눈치를 0으로">지우기</button>` : ''}</div>
+            ${meter(sus, SUS_MAX, `눈치 ${sus} — ${susWord(sus)}`)}${none('공략을 받거나 비밀을 깔 때마다 올라요. 3부터 이 사람이 의심하기 시작하고, 8을 넘으면 따져 물을 수 있어요 (본편에 한 줄).')}</section>`;
+        const guideBox = `<section class="ss-card ss-gd-sec"><div class="ss-sec-h"><h4><i class="fa-solid fa-key"></i> ${w}의 공략</h4><button class="ss-btn sm" data-st="guide" data-arg="${w}" title="지금 상황에 맞춰 새로 받아요 (AI 1회 · 눈치 +1)">${ai1} ${g ? '다시 받기' : '공략 받기'} <small>눈치 +1</small></button></div>
+            ${g ? `<div class="ss-gd-cols">${advice(g.up ?? [], 'up', '이러면 호감이 올라요', 'fa-arrow-trend-up')}${advice(g.down ?? [], 'down', '이러면 호감이 떨어져요', 'fa-arrow-trend-down')}</div>${g.note ? `<p class="ss-gd-note">${avatar(who)} <span>${esc(g.note)}</span></p>` : ''}<small class="ss-hint">${esc(g.date ?? '')} 기준 — 상황이 바뀌면 다시 받아요.</small>`
+                : none(`${w}이(가) 직접 일러 줘요: 지금 상황에서 호감이 오를 것 세 가지 · 떨어질 것 세 가지 (아이템 · 행동 · 말).`)}</section>`;
+        const nOpen = (sec ?? []).filter(x => x.open).length;
+        const secBox = `<section class="ss-card ss-gd-sec"><div class="ss-sec-h"><h4><i class="fa-solid fa-lock"></i> 비밀 게이지${sec ? ` <small>${nOpen} / ${sec.length}</small>` : ''}</h4><button class="ss-btn sm ${sec ? 'ghost' : ''}" data-st="secgen" data-arg="${w}" title="이 사람의 비밀 네 단계를 만들어 가려 둬요 (AI 1회)">${ai1} ${sec ? '새로 만들기' : '비밀 만들기'}</button></div>
+            ${sec ? `<div class="ss-gd-gauge">${SECRET_LV.map(([lv, name]) => { const x = sec.find(y => y.lv === lv); return `<i class="lv-${lv} ${x?.open ? 'open' : ''} ${x ? '' : 'none'}" title="${name}${x ? (x.open ? ' — 깠어요' : ' — 가려져 있어요') : ' — 없음'}"></i>`; }).join('')}</div>
+                ${SECRET_LV.map(([lv, name, desc, cost]) => { const x = sec.find(y => y.lv === lv); if (!x) return ''; return `<div class="ss-gd-secret lv-${lv} ${x.open ? 'open' : ''}"><b><i class="ss-gd-dot"></i>${name}</b><small>${desc}</small>${x.open ? `<p>${esc(x.text)}</p>` : `<p class="hid">？？？</p><button class="ss-btn sm" data-st="secopen" data-arg="${w}|${lv}" title="비밀을 까 봐요 (AI 0회 · 눈치 +${cost})">까 보기 <small>눈치 +${cost}</small></button>`}</div>`; }).join('')}
+                <div class="ss-row-btns"><label class="ss-tog" title="켜 두면 본편 AI도 이 비밀들을 알고 이야기를 맞춰요 (매 턴 몇 줄). 끄면 여기서만 보는 설정이에요."><input type="checkbox" class="ss-switch" data-st-change="sectell" ${tell ? 'checked' : ''}><span>본편 AI에게도 알리기</span></label><button class="ss-btn sm ghost" data-st="secdel" data-arg="${w}">이 사람의 비밀 지우기</button></div>`
+                : none('초록(나만 모르는 것) → 노랑(몇 사람만) → 빨강(본인만) → 검정(죽어도 말 못 할 것). 만들면 가려진 채로 놓이고, 하나씩 깔 때마다 눈치가 올라요 — 무거운 비밀일수록 많이.')}</section>`;
+        return `<div class="ss-story ss-guide" data-story="guide">${pick}${susBox}${guideBox}${secBox}</div>`;
     } catch (e) { ssErr(e); return ''; }
 }
 
@@ -74,12 +95,14 @@ async function act(a, arg, btn, sec) {
         case 'prokeep': await settlePromise(arg, true); break;
         case 'probreak': await settlePromise(arg, false); break;
         case 'prodel': drop('promises', arg); break;
-        case 'hookadd': { const t = val('.ss-st-t'); if (!t) return; lst('hooks').push({ id: uid(), text: t, at: ctx().chat?.length ?? 0 }); break; }
-        case 'hookdone': { const h = storyData()?.hooks?.find(x => x.id === arg); if (h) h.done = true; break; }
-        case 'hookdel': drop('hooks', arg); break;
-        case 'maskpeek': seen.add(arg); addSus(arg, 1); break;
         case 'susclear': delete storyData().sus; break;
-        case 'mirror': case 'memory': if (!who) return; await ai(() => AI[a](who)); break;
+        case 'memory': if (!who) return; await ai(() => AI[a](who)); break;
+        // 🗝 공략 탭
+        case 'guide': if (!arg) return; await ai(() => AI.guide(arg)); return; // AI.guide가 저장까지 한다
+        case 'secgen': { if (!arg) return; if (secretsOf(arg)?.some(x => x.open) && !(await askConfirm(`${esc(arg)}의 비밀을 새로 만들까요? 이미 깐 비밀도 사라져요. (AI 1회)`))) return; await ai(() => AI.secrets(arg)); return; }
+        case 'secopen': { const i = arg.lastIndexOf('|'), n = arg.slice(0, i), lv = arg.slice(i + 1); if (!openSecret(n, lv)) return; break; }
+        case 'secdel': { const D = storyData(); if (D?.secrets) delete D.secrets[arg]; break; }
+        case 'susone': { const D = storyData(); if (D?.sus) delete D.sus[arg]; break; }
         case 'memdel': { const D = storyData(); if (D?.ai?.memory) delete D.ai.memory[arg]; break; }
         case 'meddleundo': await undoMeddle(arg); break;
         case 'tzero': Object.assign(storyData(true), { t: 0, tFire: false, calm: 0 }); break;
@@ -98,6 +121,7 @@ export function initStoryUI() {
         const b = e.target.closest?.('.ss-story [data-st]'); if (!b || b.disabled) return;
         e.preventDefault(); e.stopPropagation();
         const el = panelOf(b);
+        if (b.dataset.st === 'gwho') { if (el?._ss) (el._ss.ui ??= {}).gWho = b.dataset.arg; if (el?.isConnected) app.renderPanel?.(el); return; }
         try { await act(b.dataset.st, b.dataset.arg ?? '', b, b.closest('.ss-st-f')); } catch (err) { ssErr(err); toastr.error(`실패: ${esc(err?.message ?? err)}`, TITLE); }
         if (el?.isConnected) app.renderPanel?.(el);
     }, true);
@@ -105,6 +129,7 @@ export function initStoryUI() {
         const t = e.target; if (!t.closest?.('.ss-story')) return;
         if (t.dataset.stChange === 'every') { storyData(true).scanEvery = Number(t.value) || 0; storySave(); }
         if (t.dataset.stChange === 'tstep') { storyData(true).tStep = Number(t.value) || 7; storySave(); }
+        if (t.dataset.stChange === 'sectell') { storyData(true).secTell = !!t.checked; storySave(); }
     });
     // 접어 둔 칸은 다시 그려도 접힌 채로
     document.addEventListener('toggle', (e) => { const d = e.target; if (!d.classList?.contains('ss-st-f')) return; const el = d.closest('.ss-panel'); if (el?._ss) ((el._ss.ui ??= {}).stOpen ??= {})[d.dataset.f] = d.open; }, true);

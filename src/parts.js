@@ -128,7 +128,7 @@ export const PARTS = {
     ],
 };
 // 관계(자기 「보일 것」이 있음) · 관리(설정 화면)는 빼요
-export const NO_PARTS = new Set(['rel', 'manage']);
+export const NO_PARTS = new Set(['rel', 'manage', 'guide']); // 공략 탭은 칸(데이터)이 아니라 숨길 부분이 없다
 
 const list = (tab) => { const p = PARTS[tab]; return typeof p === 'function' ? p() : p ?? []; };
 export const offSet = (tab) => new Set(settings().partsOff?.[tab] ?? []);

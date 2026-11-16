@@ -820,15 +820,14 @@ body.ss-hp-wall .ss-hompy .ss-fb-grid:not(.off) > .ss-fb-card { background: tran
 
 /* ───── 머리줄 왼쪽: 고양이 + 「도우미」 말풍선 (v2.8) ─────
    오른쪽에 있던 도우미 단추는 뺐다 — 고양이 옆 말풍선을 누르면 도우미가 열리고, 고양이를 누르면 예전처럼 반응한다 (표정 · 냥 소리 · 말풍선 · 여러 번 누르면 신나거나 삐짐) */
-.ss-hompy .ss-head-a .ss-helpchip { display: none !important; }
+/* 도우미: 고양이 옆 말풍선 대신 오른쪽 아이콘 줄 맨 앞에 — 난이도 칩과 같은 모양 · 같은 높이로 나란히 (고양이는 왼쪽 그대로) */
+.ss-hompy .ss-head-a .ss-helpchip { order: -1; margin: 0 4px 0 0; gap: 5px; font-size: .92em; font-weight: 500; }
+.ss-hompy .ss-head-a .ss-helpchip i { color: var(--hp-acc); }
 .ss-hp-buddy { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; margin-right: 4px; }
 .ss-hp-buddy .ss-hp-pet { width: 40px; height: 40px; margin: -8px 0; object-fit: contain; transform-origin: 50% 90%; }
-.ss-hp-say { all: unset; cursor: pointer; position: relative; box-sizing: border-box; padding: 4px 11px; border-radius: 13px; background: var(--hp-paper); color: var(--hp-ink); border: 1.5px solid var(--hp-acc); font-weight: 700; font-size: max(min(12px, var(--hp-fs, 12px)), .8em); line-height: 1.3; white-space: nowrap; margin-left: 5px; }
-.ss-hp-say::before { content: ''; position: absolute; left: -6px; top: 50%; width: 8px; height: 8px; margin-top: -4px; background: var(--hp-paper); border-left: 1.5px solid var(--hp-acc); border-bottom: 1.5px solid var(--hp-acc); transform: rotate(45deg); border-radius: 0 0 0 2px; }
-.ss-hp-say:hover { background: var(--hp-acc); color: #fff; } .ss-hp-say:hover::before { background: var(--hp-acc); } .ss-hp-say:focus-visible { outline: 2px solid var(--hp-acc); outline-offset: 2px; }
-@media (hover: none) and (pointer: coarse) { .ss-hp-say::after { content: ''; position: absolute; inset: -9px -4px; } }
-body.ss-skin-dot .ss-hp-buddy .ss-hp-pet { width: 26px; height: 26px; margin: -4px 0; } body.ss-skin-dot .ss-hp-say { border-radius: 4px; padding: 1px 8px; }
-@media (max-width: 640px) { .ss-hp-buddy .ss-hp-pet { width: 34px; height: 34px; margin: -6px 0; } .ss-hp-say { padding: 3px 9px; } }
+
+body.ss-skin-dot .ss-hp-buddy .ss-hp-pet { width: 26px; height: 26px; margin: -4px 0; } 
+@media (max-width: 640px) { .ss-hp-buddy .ss-hp-pet { width: 34px; height: 34px; margin: -6px 0; }  }
 
 /* ═════ 홈 한 화면 (v2.8 마지막 정리) ═════
    앱은 작게 · 촘촘히 · 왼쪽부터 모아서, 사진은 남는 높이를 전부 채운다 (가로도 꽉) — 스크롤 없이 한 화면. 앱이 아주 많을 때만 앱 쪽이 안에서 스크롤. */
@@ -985,11 +984,7 @@ body.ss-skin-dot .ss-ctfloat { border-radius: 8px; border-width: 2px; box-shadow
 .ss-ctfloat.docked .ss-phone-in { padding: 6px 2px 2px; background: transparent; position: static; }
 .ss-ctfloat.docked .ss-phone-opt, .ss-ctfloat.docked .ss-phone-att { padding: 0 2px 4px; font-size: .9em; }
 @media (min-width: 900px) { .ss-hompy .ss-hp-homewrap.has > .ss-hp-main img { max-height: 45vh; } }
-/* 도우미 말풍선 v2: 테두리 선 대신 옅게 채운 알약(iOS 메시지 풍선처럼) — 얇은 글씨, 부드러운 꼬리, 누르면 살짝 눌림 */
-.ss-hp-say { padding: .32em .85em .34em; border-radius: 999px; border: 0 !important; background: color-mix(in srgb, var(--hp-acc) 13%, var(--hp-paper)); color: color-mix(in srgb, var(--hp-acc) 72%, var(--hp-ink)); font-weight: 600; letter-spacing: -.01em; margin-left: 7px; box-shadow: 0 1px 2px rgba(20, 22, 30, .06); transition: background .15s, transform .12s; }
-.ss-hp-say::before { left: -4px; top: auto; bottom: 22%; width: 9px; height: 9px; margin: 0; border: 0 !important; border-radius: 0 0 0 9px; transform: none; background: inherit; clip-path: polygon(100% 0, 100% 100%, 0 100%); }
-.ss-hp-say:hover { background: color-mix(in srgb, var(--hp-acc) 22%, var(--hp-paper)); color: color-mix(in srgb, var(--hp-acc) 80%, var(--hp-ink)); } .ss-hp-say:hover::before { background: inherit; } .ss-hp-say:active { transform: scale(.96); }
-body.ss-skin-dot .ss-hp-say { border-radius: 6px; padding: .15em .7em; box-shadow: none; } body.ss-skin-dot .ss-hp-say::before { border-radius: 0; }
+/* 도우미 말풍선 v2: 테두리 선 대신 옅게 채운 알약(iOS 메시지 풍선처럼) — 얇은 글씨, 부드러운 꼬리 { padding: .32em .85em .34em; border-radius: 999px; border: 0 !important; background: color-mix(in srgb, var(--hp-acc) 13%, var(--hp-paper)); color: color-mix(in srgb, var(--hp-acc) 72%, var(--hp-ink)); font-weight: 600; letter-spacing: -.01em; margin-left: 7px; box-shadow: 0 1px 2px rgba(20, 22, 30, .06); transition: background .15s, transform .12s; }
 
 /* 옆 창 채팅 v3: 창 크기 고정(더 크게) · 대화 칸만 스크롤 · 입력칸은 바닥에 고정 · 첨부와 답장 설정은 ＋ 하나로 */
 .ss-ctfloat.docked { height: clamp(380px, 62vh, 560px) !important; }

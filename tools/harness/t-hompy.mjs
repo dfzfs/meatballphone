@@ -29,7 +29,7 @@ for (const width of [1300, 390]) {
             // 기본은 빈 칸(눌러서 넣기) · 미트볼은 제목 옆에 작게 — 끄면 없음
             delete core.settings().hpFace; shell.rerenderPanels(true); await wait(150);
             out.faceEmptyByDefault = innerWidth <= 640 && !el.querySelector('.ss-hp-photo') || (!!el.querySelector('.ss-hp-photo.empty') && !el.querySelector('.ss-hp-photo img'));
-            out.petBesideTitle = !!el.querySelector('.ss-hp-url .ss-hp-buddy .ss-hp-pet.ss-mascot')?.getAttribute('src').includes('/img/mascot_') && !!el.querySelector('.ss-hp-url .ss-hp-buddy .ss-hp-say[data-act="help"]'); // v2.8: 머리줄 왼쪽의 고양이(누르면 반응) + 도우미 말풍선
+            out.petBesideTitle = !!el.querySelector('.ss-hp-url .ss-hp-buddy .ss-hp-pet.ss-mascot')?.getAttribute('src').includes('/img/mascot_') && !!el.querySelector('.ss-hp-url .ss-head-a .ss-helpchip[data-act="help"]') && !el.querySelector('.ss-hp-say'); // v2.8: 머리줄 왼쪽의 고양이(누르면 반응) + 도우미 말풍선
             core.settings().hpPet = false; shell.rerenderPanels(true); await wait(150); out.petOff = !el.querySelector('.ss-hp-pet'); delete core.settings().hpPet;
             core.settings().hpFace = 'auto'; shell.rerenderPanels(true); await wait(150);
             out.faceAuto = face().includes('/img/meatcon/');

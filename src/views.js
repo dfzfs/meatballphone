@@ -298,13 +298,13 @@ export const GROUPS = [
     { id: 'home', name: '홈', icon: 'fa-house', tabs: ['home', 'music', 'album', 'record'] },
     { id: 'me', name: '나', icon: 'fa-user', tabs: ['profile', 'stats', 'dice', 'wallet', 'fate', 'ach', 'memo', 'custom'] },
     { id: 'world', name: '세계', icon: 'fa-earth-asia', tabs: ['map', 'calendar', 'shop', 'base'] },
-    { id: 'people', name: '사람', icon: 'fa-user-group', tabs: ['rel', 'contact'] },
+    { id: 'people', name: '사람', icon: 'fa-user-group', tabs: ['rel', 'contact', 'guide'] },
     { id: 'feed', name: '소식', icon: 'fa-bullhorn', tabs: ['quest', 'news', 'gossip', 'board', 'sns'] },
     { id: 'manage', name: '관리', icon: 'fa-sliders', tabs: ['manage'] },
 ];
 // 칸(데이터)이 아닌 탭 — 늘 켜져 있고 편집 도구가 없다
-export const PSEUDO = new Set(['home', 'manage', 'album', 'record']);
-const PSEUDO_INFO = { home: { name: '홈', icon: 'fa-house' }, manage: { name: '관리', icon: 'fa-sliders' }, album: { name: '추억 앨범', icon: 'fa-star' }, record: { name: '플레이 기록', icon: 'fa-chart-simple' } };
+export const PSEUDO = new Set(['home', 'manage', 'album', 'record', 'guide']);
+const PSEUDO_INFO = { home: { name: '홈', icon: 'fa-house' }, manage: { name: '관리', icon: 'fa-sliders' }, album: { name: '추억 앨범', icon: 'fa-star' }, record: { name: '플레이 기록', icon: 'fa-chart-simple' }, guide: { name: '공략', icon: 'fa-key' } };
 export const TAB_MOD = (tab) => (tab === 'base' ? 'home' : tab === 'home' ? 'core' : tab);
 export const TAB_INFO = (tab) => (PSEUDO_INFO[tab] ?? (tab === 'base' ? MOD.home : MOD[tab]) ?? { name: tab, icon: 'fa-circle' });
 
