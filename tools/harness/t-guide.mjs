@@ -10,7 +10,8 @@ try {
         await window.__addUser('hi'); await window.__addAI(`s\n<meatball>\n${names.map(n => `aff: ${n} +10`).join('\n')}\n</meatball>`); await wait(400);
         window.__autoPopup = null; shell.openSheet('rel'); await wait(300);
         const el = [...shell.panels].find(p => p.isConnected);
-        const go = async (ui = {}) => { el._ss.tab = 'guide'; el._ss.ui = ui; el._ss.mode = 'view'; app.renderPanel(el); await wait(150); };
+        const go = async (ui = {}) => { el._ss.tab = 'extra'; // 🗝 공략은 이제 「부가 기능」 탭의 한 묶음
+             el._ss.ui = ui; el._ss.mode = 'view'; app.renderPanel(el); await wait(150); };
         const press = async (sel, ms = 700) => { const b = el.querySelector(sel); if (!b) return false; b.click(); await wait(ms); return true; };
         const GOOD_G = '{"up":[{"kind":"item","text":"u1"},{"kind":"act","text":"u2"},{"kind":"say","text":"u3"}],"down":[{"kind":"item","text":"d1"},{"kind":"act","text":"d2"},{"kind":"say","text":"d3"}],"note":"n"}', GOOD_S = '{"green":"g1","yellow":"y1","red":"r1","black":"k1"}';
         // 이름마다: 그려짐 → 공략 → 비밀 → 하나 까기 (눈치 1 + 1)

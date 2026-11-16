@@ -299,13 +299,13 @@ export const GROUPS = [
     { id: 'home', name: '홈', icon: 'fa-house', tabs: ['home', 'music', 'album', 'record'] },
     { id: 'me', name: '나', icon: 'fa-user', tabs: ['profile', 'stats', 'dice', 'wallet', 'fate', 'ach', 'memo', 'custom'] },
     { id: 'world', name: '세계', icon: 'fa-earth-asia', tabs: ['map', 'calendar', 'shop', 'base'] },
-    { id: 'people', name: '사람', icon: 'fa-user-group', tabs: ['rel', 'contact', 'guide'] },
+    { id: 'people', name: '사람', icon: 'fa-user-group', tabs: ['rel', 'contact'] },
     { id: 'feed', name: '소식', icon: 'fa-bullhorn', tabs: ['quest', 'news', 'gossip', 'board', 'sns'] },
-    { id: 'manage', name: '관리', icon: 'fa-sliders', tabs: ['manage', 'lab'] },
+    { id: 'manage', name: '관리', icon: 'fa-sliders', tabs: ['manage', 'extra'] },
 ];
 // 칸(데이터)이 아닌 탭 — 늘 켜져 있고 편집 도구가 없다
-export const PSEUDO = new Set(['home', 'manage', 'album', 'record', 'guide', 'lab']);
-const PSEUDO_INFO = { home: { name: '홈', icon: 'fa-house' }, manage: { name: '관리', icon: 'fa-sliders' }, album: { name: '추억 앨범', icon: 'fa-star' }, record: { name: '플레이 기록', icon: 'fa-chart-simple' }, guide: { name: '공략', icon: 'fa-key' }, lab: { name: '실험실', icon: 'fa-flask' } };
+export const PSEUDO = new Set(['home', 'manage', 'album', 'record', 'guide', 'extra']);
+const PSEUDO_INFO = { home: { name: '홈', icon: 'fa-house' }, manage: { name: '관리', icon: 'fa-sliders' }, album: { name: '추억 앨범', icon: 'fa-star' }, record: { name: '플레이 기록', icon: 'fa-chart-simple' }, guide: { name: '공략', icon: 'fa-key' }, extra: { name: '부가 기능', icon: 'fa-puzzle-piece' } };
 export const TAB_MOD = (tab) => (tab === 'base' ? 'home' : tab === 'home' ? 'core' : tab);
 export const TAB_INFO = (tab) => (PSEUDO_INFO[tab] ?? (tab === 'base' ? MOD.home : MOD[tab]) ?? { name: tab, icon: 'fa-circle' });
 
@@ -325,7 +325,7 @@ const chatKey = () => { try { const c = ctx(); return `${c.groupId ?? ''}|${c.ge
 // 🧩 선택 기능 스위치 (관리 탭 › 설정 · 도구): 확장 설정의 같은 체크 칸과 한 값을 쓴다 (모든 채팅 공통)
 //   [설정 키, 아이콘(fa- 또는 그림 글자), 이름, 설명, 기본이 켬인가]
 export const ADDON_FLAGS = [
-    ['guideOn', 'fa-key', '공략 탭', '인물이 일러 주는 조언 · 비밀 게이지 · 눈치 지수 (사람 묶음에 탭) · 누를 때만 AI 1회', true],
+    ['guideOn', 'fa-key', '공략', '인물이 일러 주는 조언 · 비밀 게이지 · 눈치 지수 (부가 기능 탭에 묶음이 생겨요) · 누를 때만 AI 1회', true],
     ['groupChat', 'fa-users', '단체방', '연락에 인물 여럿이 있는 방 · 말을 걸 때 AI 1회'],
     ['relRace', 'fa-crown', '루트 비교', '관계 탭 맨 위에 인물별 진행도를 나란히 · 토큰 0'],
     ['pairAff', 'fa-heart-circle-plus', '인물끼리 호감', '인물 둘 사이도 수치로 쌓여요 · 매 턴 한 줄'],
@@ -342,15 +342,29 @@ export const ADDON_FLAGS = [
 // 🧭 이야기 장치 14개도 같은 모양으로 (story.js의 목록 그대로)
 const STORY_FLAGS = STORY_DEVICES.map(d => [STORY_KEY[d.id], d.icon, d.name, `${d.desc} · ${d.cost}`]);
 const FLAG_KEYS = new Set([...ADDON_FLAGS, ...STORY_FLAGS].map(x => x[0]));
+const FLAG_BY = Object.fromEntries([...ADDON_FLAGS, ...STORY_FLAGS].map(f => [f[0], f]));
+// 부가 기능의 묶음 (관리 › 쓸 기능의 스위치 · 부가 기능 탭의 화면이 같은 분류를 쓴다) — [id, 이름, 스위치의 설정 키들]
+const EXTRA_GROUPS = [
+    ['people', '사람 · 관계', ['guideOn', 'relRace', 'pairAff', 'peekCost', 'relScar', 'memoryDrift', 'meddleOn', 'tasteBook', 'giftTaste', 'mergeContact']],
+    ['social', '연락 · 미니홈피', ['groupChat', 'crossMail', 'hpWave', 'guestbook', 'guestbookAuto']],
+    ['flow', '이야기 흐름', ['loopMode', 'swipeGhost', 'fateDebt', 'tensionOn', 'realGap', 'glitchView']],
+    ['ledger', '장부 · 약속', ['ledgerKnow', 'ledgerPromise', 'promiseClock']],
+    ['world', '세계 · 기록', ['ambientOn', 'ambientShop', 'trendMore']],
+].map(([id, name, keys]) => [id, name, keys.map(k => FLAG_BY[k]).filter(Boolean)]);
 const flagOn = (st, [k, , , , defOn]) => (defOn ? st[k] !== false : st[k] === true);
 const flagList = (st, list) => `<div class="ss-mods">${list.map(f => { const [k, icon, name, desc] = f, o = flagOn(st, f); return `<label class="ss-mod ${o ? 'on' : ''}"><input type="checkbox" class="ss-switch" data-chg="setflag" data-arg="${k}" ${o ? 'checked' : ''}>${icon.startsWith('fa-') ? `<i class="fa-solid ${icon}"></i>` : `<i class="ss-emo">${icon}</i>`}<span><b>${esc(name)}</b><small>${esc(desc)}</small></span></label>`; }).join('')}</div>`;
-// 🧪 실험실 탭: 선택 기능을 한곳에서 켜고 끄고, 켠 이야기 장치의 칸도 여기 모인다 (전부 접힌 채로 시작)
-export function labHTML(s, ui = {}, panels = '') {
-    const st = settings(), nA = ADDON_FLAGS.filter(f => flagOn(st, f)).length, nS = STORY_FLAGS.filter(f => flagOn(st, f)).length;
-    return `<p class="ss-hint">골라서 쓰는 기능을 모아 둔 곳이에요. 전부 선택이고, 켜고 끄는 것은 모든 채팅에 걸려요 (확장 설정의 같은 칸과 한 값). 끈 기능은 AI에게 아무것도 보내지 않아요.</p>
-        ${fold('labadd', 'fa-puzzle-piece', '선택 기능', `${nA}개 켬`, flagList(st, ADDON_FLAGS))}
-        ${fold('labstory', 'fa-compass', '이야기 장치', `${nS}개 켬`, flagList(st, STORY_FLAGS))}
-        ${panels ? sec('켠 장치 <small>눌러서 펴요</small>', panels) : ''}`;
+// 🧩 부가 기능 탭 (관리 옆): 켠 선택 기능의 「화면」만 묶음별로 모은다 — 켜고 끄기는 관리 › 쓸 기능 › 부가 기능. 묶음은 전부 접힌 채로 시작
+export function extraHTML(s, ui = {}, part = {}) {
+    const st = settings(), wave = st.hpWave === true;
+    const groups = [
+        ['guide', 'fa-key', '공략', '인물이 일러 주는 조언 · 비밀 · 눈치', part.guide],
+        ['people', 'fa-user-group', '사람 · 관계', '엿보기 · 흉터 · 기억 왜곡 · 손댄 흔적 · 취향 도감', part.rel],
+        ['social', 'fa-comments', '연락 · 미니홈피', '채팅 간 우편 · 방명록', `${part.contact ?? ''}${wave ? `<div class="ss-row-btns"><button class="ss-btn" data-act="hpwall"><i class="fa-solid fa-pen-to-square"></i> 방명록 열기</button></div><p class="ss-hint">파도타기는 전체화면 미니홈피의 일촌 창에서 이름을 눌러요.</p>` : ''}`],
+        ['flow', 'fa-compass', '이야기 흐름', '회차 · 유령 · 운명의 빚 · 긴장도 · 현실 시간', part.flow],
+        ['ledger', 'fa-book', '장부 · 약속', '누가 뭘 아는지 · 약속 장부', part.memo],
+    ].filter(g => g[4]);
+    return groups.length ? `<p class="ss-hint">켜 둔 부가 기능의 화면이 여기 모여요. 켜고 끄는 건 <b>관리 › 쓸 기능 › 부가 기능</b>에서 해요.</p>${groups.map(([id, icon, name, sum, inner]) => fold(`xt-${id}`, icon, name, sum, inner)).join('')}`
+        : `<p class="ss-hint">켜 둔 부가 기능이 없어요. <b>관리 › 쓸 기능 › 부가 기능</b>에서 골라 켜면 여기에 화면이 생겨요.</p><div class="ss-row-btns"><button class="ss-btn" data-act="tab" data-arg="manage"><i class="fa-solid fa-sliders"></i> 관리로 가기</button></div>`;
 }
 export function manageHTML(s, ui = {}, extra = '') {
     const meta = getMeta();
@@ -372,7 +386,8 @@ export function manageHTML(s, ui = {}, extra = '') {
         ${modOn('profile') ? sec('AI가 인물을 무엇으로 알게 할까요 <small>프로필 모드</small>', `${seg([['minimal', '카드 · 로어북대로 (최소)'], ['detailed', '이 상태창 프로필대로 (상세)']], s.data.profile?.mode ?? 'minimal', 'pmode', 'class="ss-seg wrap"')}<p class="ss-hint">${(s.data.profile?.mode ?? 'minimal') === 'detailed' ? '<b>상세</b>: 프로필 탭에 적힌 외모 · 성격 · 말투까지 AI에게 보내요. 캐릭터 카드가 부실하거나 프로필을 직접 다듬었을 때 좋아요 (토큰이 더 들어요).' : '<b>최소</b>: 인물 설명은 캐릭터 카드 · 로어북에 맡기고, 프로필은 한 줄 소개만 보내요. 카드가 이미 자세하면 이쪽이 가볍고 겹치지 않아요.'}</p>`) : ''}`)}
         ${mg('mods', 'fa-puzzle-piece', '쓸 기능', `${nOn}칸 켬`, `
         ${sec('쓸 기능 <small>끈 기능은 데이터는 남고 AI에게만 안 보내요</small>', GROUPS.filter(g => g.id !== 'manage').map(g => ({ ...g, tabs: g.tabs.filter(t => !PSEUDO.has(t) && MOD[TAB_MOD(t)]) })).filter(g => g.tabs.length).map(g => { const o = mgIsOpen(`mods-${g.id}`), ms = g.tabs.map(t => MOD[TAB_MOD(t)]), nOn = ms.filter(m => meta.mods?.[m.id] !== false && !(GLOBAL_OFF[m.id] && st[GLOBAL_OFF[m.id]] === false)).length; return `<div class="ss-modgrp ss-fold ${o ? 'open' : ''}"><button type="button" class="ss-mg-h" data-act="mgfold" data-arg="mods-${g.id}" aria-expanded="${o}"><b>${g.name}</b><small>${nOn}/${ms.length} 켬</small><i class="fa-solid fa-chevron-down ss-mg-chev"></i></button><div class="ss-mods"${o ? '' : ' hidden'}>${ms.map(m => { const gOff = GLOBAL_OFF[m.id] && st[GLOBAL_OFF[m.id]] === false; return `<label class="ss-mod ${meta.mods?.[m.id] === false || gOff ? '' : 'on'}" ${gOff ? 'title="확장 설정 › 기능 켜고 끄기에서 모든 채팅에 꺼 둔 칸이에요"' : ''}><input type="checkbox" class="ss-switch" data-chg="mod" data-arg="${m.id}" ${meta.mods?.[m.id] === false || gOff ? '' : 'checked'} ${gOff ? 'disabled' : ''}>
-            <i class="fa-solid ${m.icon}"></i><span><b>${m.name}</b><small>${gOff ? '모든 채팅에서 꺼 둠 — 확장 설정 › 기능 켜고 끄기' : m.desc}</small></span>${gOff ? '' : s.data[m.id] ? '' : '<em>비어 있음</em>'}</label>`; }).join('')}</div></div>`; }).join(''), MODSET_BTNS)}`)}
+            <i class="fa-solid ${m.icon}"></i><span><b>${m.name}</b><small>${gOff ? '모든 채팅에서 꺼 둠 — 확장 설정 › 기능 켜고 끄기' : m.desc}</small></span>${gOff ? '' : s.data[m.id] ? '' : '<em>비어 있음</em>'}</label>`; }).join('')}</div></div>`; }).join(''), MODSET_BTNS)}
+        ${sec('부가 기능 <small>전부 선택 · 모든 채팅에 걸려요 (확장 설정의 같은 칸과 한 값) · 켠 것의 화면은 「부가 기능」 탭에</small>', EXTRA_GROUPS.map(([id, name, flags]) => { const o = mgIsOpen(`ex-${id}`), nOn = flags.filter(f => flagOn(st, f)).length; return `<div class="ss-modgrp ss-fold ${o ? 'open' : ''}"><button type="button" class="ss-mg-h" data-act="mgfold" data-arg="ex-${id}" aria-expanded="${o}"><b>${name}</b><small>${nOn}/${flags.length} 켬</small><i class="fa-solid fa-chevron-down ss-mg-chev"></i></button><div class="ss-mg-b"${o ? '' : ' hidden'}>${flagList(st, flags)}</div></div>`; }).join(''))}`)}
         ${mg('save', 'fa-floppy-disk', '저장 · 되돌리기', `세이브 ${meta.saves?.length ?? 0} · ${meta.lastBackup ? `백업 ${new Date(meta.lastBackup).toLocaleDateString('ko-KR')}` : '백업 없음'}`, `
         ${sec('되돌리기', `<div class="ss-row-btns"><button class="ss-btn" data-act="undo" ${meta.adjust?.length ? '' : 'disabled'}><i class="fa-solid fa-rotate-left"></i> 마지막 편집 되돌리기</button><button class="ss-btn ghost" data-act="undoall" ${meta.adjust?.length ? '' : 'disabled'} title="편집 기록을 한 번에 전부 지워요 — 직접 한 편집이 모두 없던 일이 돼요"><i class="fa-solid fa-trash-can"></i> 편집 기록 싹 지우기</button>${clearedAdj && clearedAdj.key === chatKey() ? `<button class="ss-btn pri" data-act="undoallback"><i class="fa-solid fa-clock-rotate-left"></i> 방금 지운 기록 되살리기 (${clearedAdj.list.length}개)</button>` : ''}</div><p class="ss-hint">${meta.adjust?.length ? `마지막: ${esc(meta.adjust.at(-1).label || '(이름 없는 편집)')}` : '되돌릴 편집이 없어요.'} · 상태창에서 직접 한 편집·구매·연락만 되돌려요 (AI 답의 변화는 ✏️ 칩으로).</p><details class="ss-more ss-undolist" ${ui?.undoOpen ? 'open' : ''}><summary>편집 기록 — 골라서 지우기 <small>(최근 ${Math.min(40, (meta.adjust ?? []).length)}개 · 버튼 하나 누른 것까지 모두)</small></summary>${(meta.adjust ?? []).slice(-40).reverse().map(a => `<div class="ss-undo-row"><span>${esc(short(adjName(a), 60))}${a.silent || !a.label ? ' <small class="ss-dim">(조용한 기록)</small>' : ''}</span><small class="ss-dim">${a.at}번 뒤</small><button class="ss-btn sm ghost" data-act="undoat" data-arg="${a.t}" title="이 기록 하나만 지우기 — 그 편집이 없던 일이 돼요"><i class="fa-solid fa-trash-can"></i></button></div>`).join('') || '<p class="ss-hint">지울 기록이 없어요.</p>'}<p class="ss-hint">지우면 그 편집이 <b>없던 일</b>이 돼요 (상태 · 알림 · AI에게 가는 「방금 한 일」 줄까지 · 찌꺼기 없이). 그 뒤의 기록은 그대로 다시 계산돼요. AI 답에서 바뀐 건 여기 없어요 — 그 답 밑 칩의 ✏️로 고쳐요. 칸 하나를 통째로 비우려면 그 탭 위의 🧹.</p></details>`)}
         ${sec('<i class="fa-solid fa-floppy-disk"></i> 세이브', slotsHTML(meta))}

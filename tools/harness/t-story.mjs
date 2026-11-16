@@ -12,9 +12,9 @@ try {
         shell.openSheet('rel'); await wait(300);
         const el = [...shell.panels].find(p => p.isConnected);
         // 🧪 켠 장치의 칸은 이제 전부 「실험실」 탭에 모인다 (예전엔 관계 · 메모 · 연락 · 관리 탭 아래에 흩어져 있었음) → 그 탭들을 가리키던 곳은 실험실로 간다
-        const LAB = new Set(['rel', 'memo', 'contact', 'manage']);
+        const LAB = new Set(['rel', 'memo', 'contact', 'manage', 'guide']);
         const goRaw = async (tab, ui = {}) => { el._ss.tab = tab; el._ss.ui = ui; el._ss.mode = 'view'; app.renderPanel(el); await wait(200); };
-        const go = (tab, ui = {}) => goRaw(LAB.has(tab) && !ui.who ? 'lab' : tab, ui);
+        const go = (tab, ui = {}) => goRaw(LAB.has(tab) && !ui.who ? 'extra' : tab, ui);
         const secs = () => [...el.querySelectorAll('.ss-story .ss-st-f')].map(x => x.dataset.f).join(',');
         const click = async (f, a, ms = 350) => { const b = el.querySelector(`.ss-st-f[data-f="${f}"] [data-st="${a}"]`) ?? el.querySelector(`.ss-story [data-st="${a}"]`); if (!b) return false; b.click(); await wait(ms); return true; };
         const sec = (f) => el.querySelector(`.ss-st-f[data-f="${f}"]`);
@@ -28,10 +28,11 @@ try {
         for (const b of boxes) { b.checked = true; b.dispatchEvent(new Event('change', { bubbles: true })); await wait(15); }
         await wait(300);
         out.allOn = story.DEVICES.every(f => story.storyOn(f.id));
-        await goRaw('lab'); out.labHasAll = secs() === 'loop,ghost,debt,tension,realtime,peek,scar,memory,meddle,taste,know,promise,mail' || secs();
+        await goRaw('extra'); out.labHasAll = secs() === 'peek,scar,memory,meddle,taste,mail,loop,ghost,debt,tension,realtime,know,promise' || secs();
         out.labFolded = [...el.querySelectorAll('.ss-story details.ss-st-f')].every(d => !d.open); // 켜도 전부 접힌 채로
         out.labScan = !!el.querySelector('.ss-story [data-st="scan"]');
-        out.labSwitches = el.querySelectorAll('.ss-body [data-chg="setflag"]').length >= 24 && [...el.querySelectorAll('.ss-body [data-chg="setflag"]')].filter(i => i.checked).length >= 14;
+        out.extraNoSwitches = el.querySelectorAll('.ss-body [data-chg="setflag"]').length === 0 && !el.querySelector('.ss-tabs button[data-arg="guide"]') && !el.querySelector('.ss-tabs button[data-arg="lab"]') && !!el.querySelector('.ss-tabs button[data-arg="extra"]');
+        await goRaw('manage'); out.switchesInManage = el.querySelectorAll('.ss-mg[data-mg="mods"] [data-chg="setflag"]').length >= 27 && [...el.querySelectorAll('.ss-mg[data-mg="mods"] [data-chg="setflag"]')].filter(i => i.checked).length >= 14;
         for (const t of ['rel', 'memo', 'contact', 'manage', 'fate']) { await goRaw(t); if (el.querySelector('.ss-story:not(.ss-guide)')) out.otherTabsClean = t; } out.otherTabsClean ??= true;
         await goRaw('contact', { who: 'Leon' }); out.contactThreadClean = !el.querySelector('.ss-story');
         out.allDrawn = !el.textContent.includes('그리지 못했어요');
@@ -51,7 +52,7 @@ try {
         (L().sus ??= {}).Leon = 3; out.sus = inj().includes('SUSPICION'); delete L().sus;
         // ── 🗝 공략 탭 (사람 묶음) ──
         await go('guide');
-        out.guideTab = !!el.querySelector('.ss-guide [data-st="guide"]') && !!el.querySelector('.ss-tabs button[data-arg="guide"]') && !el.textContent.includes('그리지 못했어요');
+        out.guideTab = !!el.querySelector('.ss-guide [data-st="guide"]') && !el.querySelector('.ss-tabs button[data-arg="guide"]') && !el.textContent.includes('그리지 못했어요');
         el.querySelector('.ss-guide [data-st="gwho"][data-arg="Leon"]')?.click(); await wait(250);
         out.guideGet = (await click('', 'guide', 900) && L().guide?.Leon?.up.length === 3 && L().guide.Leon.down.length === 3 && L().sus?.Leon === 1 && el.querySelector('.ss-gd-col.up').textContent.includes('꽃을 건네면 좋아') && el.querySelector('.ss-gd-col.down').textContent.includes('약속에 늦지 마')) || JSON.stringify([L().guide, L().sus]);
         out.secGen = (await click('', 'secgen', 900) && L().secrets?.Leon?.length === 4 && L().secrets.Leon.every(x => !x.open) && !el.textContent.includes('사실은 왕의 사생아다') && el.querySelectorAll('.ss-gd-secret').length === 4 && inj().includes('SECRETS') && inj().includes('[black, hidden] 사실은 왕의 사생아다')) || JSON.stringify(L().secrets);
@@ -94,8 +95,8 @@ try {
         // ── 다시 전부 끄기 ──
         for (const b of boxes) { b.checked = false; b.dispatchEvent(new Event('change', { bubbles: true })); await wait(15); }
         await wait(300);
-        await go('rel'); const noRel = !el.querySelector('.ss-story'); await go('memo');
-        out.offAgain = inj() === '' && P4() === '' && noRel && !el.querySelector('.ss-story');
+        await go('rel'); const noRel = !el.querySelector('.ss-story:not(.ss-guide)'); await go('memo'); // 공략(기본 켬)은 부가 기능 탭에 남는다
+        out.offAgain = inj() === '' && P4() === '' && noRel && !el.querySelector('.ss-story:not(.ss-guide)');
         const t0 = L().t; await window.__addUser('x'); await window.__addAI('y'); await wait(600);
         out.offNoWork = L().t === t0 && inj() === '';
         out.errors = (window.__errors ?? []).map(String).slice(-4);

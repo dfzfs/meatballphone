@@ -7,7 +7,7 @@ import { commit, wipeModule, gatherSources, unreadCount, dueLetters } from './en
 import { genModule, instructModule } from './ai.js';
 import { popup, confirmPopup, askConfirm, busyBtn, editorHTML, bindEditor, diffHTML, ai1, gauge, applyTheme, mascot } from './kit.js';
 import { applyParts, PARTS_ACTIONS } from './parts.js';
-import { VIEW, VIEW_ACTIONS, VIEW_CHANGES, GROUPS, TAB_MOD, TAB_INFO, PSEUDO, manageHTML, labHTML, freshDot, tileBoard, tileAct, bindTileDrag, fitTiles, BOARD_BG } from './views.js';
+import { VIEW, VIEW_ACTIONS, VIEW_CHANGES, GROUPS, TAB_MOD, TAB_INFO, PSEUDO, manageHTML, extraHTML, freshDot, tileBoard, tileAct, bindTileDrag, fitTiles, BOARD_BG } from './views.js';
 import { fullBackup, restoreFile, saveSlot, loadSlot, deleteSlot, attachToCard, detachFromCard, loadFromCard, cardPack, prepareCarry, startCarry, carryFor, diagnose } from './safe.js';
 import { applyPreset } from './extra.js';
 import { unreadNotes } from './notify.js';
@@ -19,7 +19,7 @@ import { FATE_ACTIONS } from './fate.js';
 import { EDIT, viewTr, letterMode, GLOBAL_OFF } from './core.js';
 import { translateSheet, missingTr } from './translate.js';
 import { hintAfterAction } from './tips.js';
-import { storyAll, guideView } from './story_ui.js';
+import { storyPick, STORY_HOME, guideView } from './story_ui.js';
 import { hompyHTML, mountHompy, fitHompy, photoHTML, hpLayout, hpMinor , isDecoMode } from './hompy.js';
 import { setNoShort } from './util.js';
 import { openPromptWindow, openThemeWindow, openWizard } from './lazy.js';
@@ -48,7 +48,8 @@ const INSTRUCT_HINT = {
 // v2.7.3: 앨범 · 플레이 기록은 확장 설정에서 모든 채팅에 끌 수 있어요
 const PSEUDO_ON = { album: 'albumOn', record: 'recordOn', guide: 'guideOn' };
 VIEW.guide = (s, d, ui) => guideView(ui); // 🗝 공략 탭 (story_ui.js)
-VIEW.lab = (s, d, ui) => labHTML(s, ui, storyAll(ui)); // 🧪 실험실 탭: 선택 기능 스위치 + 켠 이야기 장치의 칸
+// 🧩 부가 기능 탭 (관리 옆): 켠 선택 기능의 화면을 묶음별로 모은다 — 공략 · 사람/관계 · 장부 · 이야기 흐름 · 연락 (켜고 끄기는 관리 › 쓸 기능 › 부가 기능)
+VIEW.extra = (s, d, ui) => extraHTML(s, ui, { guide: settings().guideOn !== false ? guideView(ui) : '', rel: storyPick(STORY_HOME.rel, ui), memo: storyPick(STORY_HOME.memo, ui), flow: storyPick(STORY_HOME.flow, ui), contact: storyPick(STORY_HOME.contact, ui) });
 function groupTabs(g, meta) {
     return g.tabs.filter(t => (PSEUDO.has(t) ? !PSEUDO_ON[t] || settings()[PSEUDO_ON[t]] !== false : modOn(TAB_MOD(t), meta)));
 }
@@ -246,7 +247,7 @@ function renderPanel0(el) {
     if (tab === 'manage') { try { secH = [...el.querySelectorAll(SEC_Q)].map(n => n.offsetHeight); } catch { secH = null; } }
     if (!(hp && mountHompy(el, html))) el.innerHTML = html; // ⚡ 미니홈피는 바뀐 창만 갈아 끼운다 (hompy.js)
     if (secH?.length) { const ns = el.querySelectorAll(SEC_Q); if (ns.length === secH.length) ns.forEach((n, i) => { if (secH[i] > 0) n.style.containIntrinsicSize = `auto ${secH[i]}px`; }); }
-    if (!merged && st.mode !== 'edit' && st.mode !== 'json' && tab !== 'manage' && tab !== 'lab' && (pseudo || data)) applyParts(el, tab); // 👁 보일 것 (v2.7.19)
+    if (!merged && st.mode !== 'edit' && st.mode !== 'json' && tab !== 'manage' && tab !== 'extra' && (pseudo || data)) applyParts(el, tab); // 👁 보일 것 (v2.7.19)
     labelIcons(el);
     if (!isFloat) queueMicrotask(placeCtFloat); else compactFloat(el);
     if (hp) fitHompy(el); // 📐 미니홈피: 홈 쪽 · 프로필 쪽을 한 화면에 맞춘다

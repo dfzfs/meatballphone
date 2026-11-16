@@ -41,15 +41,16 @@ const BODY = {
 const HOME = { rel: ['peek', 'scar', 'memory', 'meddle', 'taste'], memo: ['know', 'promise'], contact: ['mail'], flow: ['loop', 'ghost', 'debt', 'tension', 'realtime'] };
 const flowTab = () => (modOn('fate') && st()?.data?.fate ? 'fate' : 'manage');
 // 이 탭 아래에 붙일 칸들 (켠 장치가 없으면 빈 글 → 화면이 예전과 똑같다)
-// 🧪 실험실 탭: 켠 장치의 칸을 전부 한곳에 (예전엔 관계 · 메모 · 연락 · 운명 탭 아래에 흩어져 붙었음)
-export const storyAll = (ui = {}) => storySection('lab', ui, true);
+// 🧩 부가 기능 탭: 켠 장치의 칸을 묶음별로 골라 그린다 (예전엔 관계 · 메모 · 연락 · 운명 탭 아래에 흩어져 붙었음)
+export const STORY_HOME = HOME;
+export const storyPick = (ids, ui = {}) => storySection('extra', ui, ids);
 export function storySection(tab, ui = {}, all = false) {
     try {
         if (!st()) return '';
         if (tab === 'contact' && (ui.who || ui.rooms || ui.truth)) return ''; // 연락은 목록 화면에서만
-        const ids = all ? [...HOME.flow, ...HOME.rel, ...HOME.memo, ...HOME.contact].filter(storyOn) : [...(HOME[tab] ?? []), ...(tab === flowTab() ? HOME.flow : [])].filter(storyOn);
+        const ids = Array.isArray(all) ? all.filter(storyOn) : [...(HOME[tab] ?? []), ...(tab === flowTab() ? HOME.flow : [])].filter(storyOn);
         if (!ids.length) return '';
-        const bar = tab === 'memo' || (all && ['know', 'promise'].some(storyOn)) ? ledgerBar() : '';
+        const bar = tab === 'memo' || (Array.isArray(all) && all.some(id => ['know', 'promise'].includes(id) && storyOn(id))) ? ledgerBar() : '';
         return `<div class="ss-story" data-story="${esc(tab)}">${bar}${ids.map(id => { const f = DEVICES.find(x => x.id === id); let body; try { body = BODY[id]?.() ?? ''; } catch (e) { body = none(`그리지 못했어요: ${esc(e?.message ?? e)}`); }
             return `<details class="ss-st-f" data-f="${id}" ${ui.stOpen?.[id] === true ? 'open' : ''}><summary><b>${f.icon} ${esc(f.name)}</b> <small>${esc(f.cost)}</small></summary><div class="ss-st-b">${body}</div></details>`; }).join('')}</div>`;
     } catch (e) { ssErr(e); return ''; }

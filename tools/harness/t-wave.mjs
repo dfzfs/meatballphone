@@ -13,8 +13,8 @@ try {
         el.querySelector('[data-act="fullscreen"]').click(); await wait(800);
         const friends = () => [...el.querySelectorAll('.ss-hp-friends button')];
         out.offAsBefore = friends().length >= 2 && friends().every(b => b.dataset.act === 'tab' && b.dataset.arg === 'rel') && !el.querySelector('.ss-wv-foot') && app.hpFriend === undefined;
-        // 실험실 탭의 스위치로 켠다
-        el._ss.tab = 'lab'; el._ss.ui = {}; app.renderPanel(el); await wait(300);
+        // 관리 탭의 부가 기능 스위치로 켠다
+        el._ss.tab = 'manage'; el._ss.ui = {}; app.renderPanel(el); await wait(300); // 스위치는 관리 › 쓸 기능 › 부가 기능
         const sw = (k) => el.querySelector(`[data-chg="setflag"][data-arg="${k}"]`);
         out.labHasSwitches = ['hpWave', 'guestbook', 'guestbookAuto'].every(k => sw(k) && !sw(k).checked);
         sw('hpWave').checked = true; sw('hpWave').dispatchEvent(new Event('change', { bubbles: true })); await wait(900);

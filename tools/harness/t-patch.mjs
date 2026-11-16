@@ -24,7 +24,7 @@ try {
     };
     const tab = (t) => () => { el._ss.tab = t; el._ss.mode = 'view'; el._ss.ui = {}; delete el._ss.group; };
     await step('home', tab('home'));
-    await step('rel', tab('rel')); await step('stats', tab('stats')); await step('guide', tab('guide')); await step('manage', tab('manage')); await step('contact', tab('contact')); await step('home2', tab('home'));
+    await step('rel', tab('rel')); await step('stats', tab('stats')); await step('extra', tab('extra')); await step('manage', tab('manage')); await step('contact', tab('contact')); await step('home2', tab('home'));
     await step('turn-cash', async () => { await window.__addUser('a'); await window.__addAI('x\n<meatball>\ncash: -30\n체력: -10\n</meatball>'); });
     await step('turn-aff', async () => { await window.__addUser('b'); await window.__addAI('y\n<meatball>\naff: Leon +5\naff: Nova +12\n</meatball>'); });
     await step('quest-done', async () => { await window.__addUser('c'); await window.__addAI('z\n<meatball>\nquest: Find the Gate | 완료\n</meatball>'); });
