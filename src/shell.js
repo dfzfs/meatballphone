@@ -20,7 +20,7 @@ import { EDIT, viewTr, letterMode, GLOBAL_OFF } from './core.js';
 import { translateSheet, missingTr } from './translate.js';
 import { hintAfterAction } from './tips.js';
 import { storySection } from './story_ui.js';
-import { hompyHTML, fitHompy, photoHTML, hpLayout, hpMinor } from './hompy.js';
+import { hompyHTML, fitHompy, photoHTML, hpLayout, hpMinor , isDecoMode } from './hompy.js';
 import { setNoShort } from './util.js';
 import { openPromptWindow, openThemeWindow, openWizard } from './lazy.js';
 import { setBase, startBlank } from './engine.js';
@@ -99,16 +99,21 @@ const FB_VAL = {
 function featureBoard(s, meta) {
     if (settings().hpBoard === false) return '';
     const st = settings(), groups = GROUPS.filter(g => g.id !== 'manage').map(g => ({ g, tabs: g.tabs.filter(t => !PSEUDO.has(t) && MOD[TAB_MOD(t)]) })).filter(x => x.tabs.length).sort((a, b) => (a.g.id === 'home') - (b.g.id === 'home')); // 「그 밖에」(홈 묶음의 기능)는 맨 뒤
+    const deco = isDecoMode();
     const card = (t) => {
         const m = MOD[TAB_MOD(t)], gOff = GLOBAL_OFF[m.id] && st[GLOBAL_OFF[m.id]] === false, on = meta.mods?.[m.id] !== false && !gOff, d = s.data[m.id];
         let val = ''; try { val = on && d ? String(FB_VAL[m.id]?.(d) ?? '') : ''; } catch { val = ''; }
-        if (on) return `<button class="ss-fb-card" data-act="tab" data-arg="${t}" title="${esc(m.name)} — ${esc(m.desc ?? '')}"><i class="fa-solid ${m.icon}"></i><b>${esc(m.name)}</b><em>${val ? esc(val) : d ? '열기' : '비어 있음'}</em></button>`;
+        const inner = `<i class="fa-solid ${m.icon}"></i><b>${esc(m.name)}</b><em>${val ? esc(val) : d ? '열기' : '비어 있음'}</em>`;
+        // 꾸미기 모드: 누르면 열리는 대신 ◀ ▶ 로 순서를 바꾼다
+        if (on && deco) return `<div class="ss-fb-card edit" data-app="${t}">${inner}<span class="ss-fb-mv"><button data-hp="appmv" data-arg="${t}:-1" title="앞으로">◀</button><button data-hp="appmv" data-arg="${t}:1" title="뒤로">▶</button></span></div>`;
+        if (on) return `<button class="ss-fb-card" data-app="${t}" data-act="tab" data-arg="${t}" title="${esc(m.name)} — ${esc(m.desc ?? '')}">${inner}</button>`;
         return `<label class="ss-fb-card off" title="${gOff ? '확장 설정에서 모든 채팅에 꺼 둔 기능이에요' : '켜면 이 채팅에서 쓸 수 있어요'}"><i class="fa-solid ${m.icon}"></i><b>${esc(m.name)}</b><input type="checkbox" class="ss-switch" data-chg="mod" data-arg="${m.id}" ${gOff ? 'disabled' : ''}><small>${esc(m.desc ?? '')}</small></label>`;
     };
     const isOn = (t) => { const m = MOD[TAB_MOD(t)]; return meta.mods?.[m.id] !== false && !(GLOBAL_OFF[m.id] && st[GLOBAL_OFF[m.id]] === false); };
-    const all = groups.flatMap(x => x.tabs), onTabs = all.filter(isOn), offTabs = all.filter(t => !isOn(t));
+    const saved = Array.isArray(st.hpApps) ? st.hpApps : [], rank = (t) => { const i = saved.indexOf(t); return i < 0 ? 1e3 : i; }; // 직접 정한 순서 (꾸미기 모드의 ◀ ▶) — 새로 켠 기능은 뒤에
+    const all = groups.flatMap(x => x.tabs), onTabs = all.filter(isOn).map((t, i) => [t, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(x => x[0]), offTabs = all.filter(t => !isOn(t));
     // 켠 기능만 큰 카드로 (이름 + 지금 값) — 꺼 둔 기능은 아래 접는 줄에 설명과 스위치로
-    const tip = st.hpTip !== false ? `<div class="ss-fb-tip"><i class="fa-solid fa-lightbulb"></i><span><b>카드를 누르면 그 기능이 열려요.</b> 위(폰은 아래) 메뉴로도 옮겨 다녀요 · 모양은 「꾸미기」에서 · 모르는 건 「도우미」에게</span><button data-hp="tipoff" title="안내 닫기">알겠어요</button></div>` : '';
+    const tip = deco ? `<div class="ss-fb-tip"><i class="fa-solid fa-arrows-left-right"></i><span><b>◀ ▶ 로 앱 순서를 바꿔요.</b> 사진은 사진 아래 ↑ ↓ 단추로 앱들 위 · 아래로 옮겨요.</span></div>` : st.hpTip !== false ? `<div class="ss-fb-tip"><i class="fa-solid fa-lightbulb"></i><span><b>카드를 누르면 그 기능이 열려요.</b> 위(폰은 아래) 메뉴로도 옮겨 다녀요 · 모양은 「꾸미기」에서 · 모르는 건 「도우미」에게</span><button data-hp="tipoff" title="안내 닫기">알겠어요</button></div>` : '';
     return `<section class="ss-fb">${tip}<div class="ss-fb-grid">${onTabs.map(card).join('')}</div>
         ${offTabs.length ? `<details class="ss-fb-more" ${st.hpBoardOpen ? 'open' : ''}><summary><i class="fa-solid fa-plus"></i> 더 써 볼 기능 ${offTabs.length}개</summary><div class="ss-fb-grid off">${offTabs.map(card).join('')}</div></details>` : ''}</section>`;
 }
@@ -192,7 +197,8 @@ function renderPanel0(el) {
     const merged = pack && st.mode === 'view' && minors.includes(tab) && st.hpSolo !== tab;
     if (merged) {
         const one = (t) => { const m = TAB_MOD(t), ps = PSEUDO.has(t) && t !== 'home', dt = ps ? {} : m === 'core' ? s.core : s.data[m]; try { return ps ? VIEW[t](s, null, st.ui) : !dt ? '<p class="ss-hint">비어 있어요 — 제목을 눌러 채워요.</p>' : VIEW[t](s, dt, st.ui) + storySection(t, st.ui); } catch (e) { ssErr(LOG, 'merged', t, e); return '<p class="ss-hint">이 칸을 그리지 못했어요 — 제목을 눌러 열어 보세요.</p>'; } };
-        const open = st.hpOpen ?? (st.hpOpen = []); // 「모음」: 처음엔 제목만 — 누른 것만 펼친다
+        if (!st.hpOpen?.length || !minors.includes(st.hpOpen[0])) st.hpOpen = minors.length ? [minors[0]] : [];
+        const open = st.hpOpen; // 「모음」: 탭처럼 한 번에 하나만 — 처음엔 첫 칸, 다른 제목을 누르면 그 칸으로 바뀐다 (예전엔 누른 칸이 아래로 계속 쌓였음)
         body = `<div class="ss-hp-all">${minors.map(t => `<section class="ss-hp-win sub ${open.includes(t) ? 'open' : 'shut'}" data-sub="${t}"><div class="ss-hp-wt" data-hp="fold" data-arg="${t}" role="button" title="${open.includes(t) ? '접기' : '눌러서 펼치기'}"><b><i class="fa-solid ${TAB_INFO(t).icon}"></i> ${esc(TAB_INFO(t).name)}</b>${open.includes(t) ? `<button class="ss-ib sm" data-hp="solo" data-arg="${t}" title="이 칸만 크게 열기 — 편집 · AI로 수정 · 다시 생성"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button>` : '<i class="fa-solid fa-chevron-down"></i>'}</div>${open.includes(t) ? `<div class="ss-hp-wb">${one(t)}</div>` : ''}</section>`).join('')}</div>`;
     } else if (hp && tab === 'home' && st.mode === 'view' && data && !hpLayout().off.includes('photo')) {
         // 홈: 큰 사진 옆에 홈 칸들 (사진이 없으면 「사진 넣기」 한 줄만)

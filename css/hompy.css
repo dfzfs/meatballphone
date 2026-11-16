@@ -210,7 +210,7 @@ body.ss-retro dialog.ss-dlg :is(.popup-button-ok, .popup-button-cancel) { border
 .ss-hp-all > .ss-hp-win.sub { margin: 0; } .ss-hp-all > .ss-hp-win.sub.shut { flex: 0 0 auto; } .ss-hp-all > .ss-hp-win.sub.open { flex: 1 1 100%; order: 2; }
 .ss-hp-all > .ss-hp-win.sub.shut > .ss-hp-wt { border-bottom: 0; padding: 4px 9px; gap: 8px; } .ss-hp-all .ss-hp-wt { cursor: pointer; }
 /* 📰 뉴스 제목 · 기사 제목은 명조(궁서)체 그대로 */
-:is(.ss-hompy, .ss-rt, dialog.ss-dlg .ss-root) :is(.ss-mast b, .ss-article .ss-art-h b, .ss-art-b, .ss-letter-body) { font-family: 'Gungsuh', '궁서', 'GungSeo', var(--ss-serif) !important; -webkit-font-smoothing: auto; }
+:is(.ss-hompy, .ss-rt, dialog.ss-dlg .ss-root) :is(.ss-mast b, .ss-article .ss-art-h b, .ss-art-b, .ss-letter-body) { font-family: var(--ss-serif) !important; -webkit-font-smoothing: auto; } /* 궁서체는 뺌 — 기사 · 편지 글은 dev 때처럼 명조(Noto Serif KR → 나눔명조 → 바탕) */
 
 /* ✨ 깔끔한 블로그 모양 (티스토리풍) — 그림자 · 색 띠 · 무늬 · 도트 글꼴 없이: 흰 카드, 옅은 선, 넉넉한 여백, 포인트 색은 고른 칸 · 숫자에만 */
 .ss-root.ss-hompy, .ss-root.ss-rt { font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif; letter-spacing: -.01em; -webkit-font-smoothing: antialiased; }
@@ -691,7 +691,7 @@ body:not(.ss-skin-dot).ss-retro #ss-side .ss-side-handle, body:not(.ss-skin-dot)
 }
 @media (max-width: 340px) { .ss-hompy .ss-hp-url .ss-head-a { justify-content: flex-start; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent); } }
 /* 폰 아래 메뉴 글씨: 도트 · 노트 · 사이버 · 폰 모양에서 9px 안팎이던 것 → 11px 아래로는 안 내려가게 (애플 탭 막대 글씨 기준) */
-@media (max-width: 640px) { body:is(.ss-skin-dot, .ss-skin-note, .ss-skin-term, .ss-skin-phone) .ss-root.ss-hompy .ss-groups > button { font-size: max(12px, .74em); } }
+@media (max-width: 640px) { body:is(.ss-skin-dot, .ss-skin-note, .ss-skin-term, .ss-skin-phone) .ss-root.ss-hompy .ss-groups > button { font-size: max(min(12px, var(--hp-fs, 12px)), .74em); } }
 /* 글자를 크게 쓰는 기기 · 고대비 · 강제 색 */
 @media (prefers-contrast: more) { :is(.ss-hompy, .ss-rt) { --hp-ln: var(--hp-ol); --hp-dim: var(--hp-ink); } .ss-hp-win { border-width: 1.5px; } }
 @media (forced-colors: active) { .ss-hp-win, .ss-hp-sheet, .ss-hp-edbar { border: 1px solid CanvasText; } .ss-hp-bars i > b, .ss-hp-big i > em { background: Highlight; forced-color-adjust: none; } }
@@ -770,10 +770,10 @@ body.ss-hp-wall .ss-hompy .ss-fb-card:not(.off) { background: color-mix(in srgb,
     :is(.ss-hompy, .ss-rt) .ss-tabs > button { min-height: 44px; } :is(.ss-hompy, .ss-rt) details.ss-more > summary { min-height: 44px; display: flex; align-items: center; }
     .ss-side .ss-mini-foot .ss-ib { min-height: 44px; }
 }
-:is(.ss-hompy, .ss-rt, #ss-side .ss-side-mini) :is(small, .ss-badge, .ss-ai, .ss-chip, .ss-pill, .ss-pill b, .ss-role, .ss-stage, .ss-cal-w, .ss-meter span, .ss-meter em, .ss-attr span, .ss-seg > button, .ss-tog span, .ss-art-h em, .ss-hp-win:not(.main) > .ss-hp-wt b, .ss-hp-badges span, .ss-f span, .ss-dim, .ss-hint, .ss-fb-card small, .ss-fb-g > small, .ss-heat, .ss-tagc) { font-size: max(12px, .85em) !important; }
+:is(.ss-hompy, .ss-rt, #ss-side .ss-side-mini) :is(small, .ss-badge, .ss-ai, .ss-chip, .ss-pill, .ss-pill b, .ss-role, .ss-stage, .ss-cal-w, .ss-meter span, .ss-meter em, .ss-attr span, .ss-seg > button, .ss-tog span, .ss-art-h em, .ss-hp-win:not(.main) > .ss-hp-wt b, .ss-hp-badges span, .ss-f span, .ss-dim, .ss-hint, .ss-fb-card small, .ss-fb-g > small, .ss-heat, .ss-tagc) { font-size: max(min(12px, var(--hp-fs, 12px)), .85em) !important; }
 :is(.ss-hompy, .ss-rt) .ss-badge { font-size: 11.5px !important; }
 /* 이름 붙은 아이콘 단추 */
-.ss-ib[data-l], .ss-ib.lbl { width: auto !important; padding: 0 9px; gap: 5px; display: inline-flex; align-items: center; white-space: nowrap; border-radius: 999px; } .ss-ib[data-l]::after { content: attr(data-l); font-size: max(12px, .85em); font-weight: 600; } .ss-ib.lbl > span { font-size: max(12px, .85em); font-weight: 600; }
+.ss-ib[data-l], .ss-ib.lbl { width: auto !important; padding: 0 9px; gap: 5px; display: inline-flex; align-items: center; white-space: nowrap; border-radius: 999px; } .ss-ib[data-l]::after { content: attr(data-l); font-size: max(min(12px, var(--hp-fs, 12px)), .85em); font-weight: 600; } .ss-ib.lbl > span { font-size: max(min(12px, var(--hp-fs, 12px)), .85em); font-weight: 600; }
 :is(.ss-hompy, .ss-rt) .ss-body .ss-ib[data-l] { border: 1px solid var(--hp-ln); background: var(--hp-paper); color: var(--hp-ink); } :is(.ss-hompy, .ss-rt) .ss-body .ss-ib[data-l].on { border-color: var(--hp-acc); color: var(--hp-acc); }
 /* 머리줄 「더보기」 */
 .ss-head-more { position: relative; display: inline-flex; } .ss-head-more > summary { list-style: none; display: grid; place-items: center; cursor: pointer; } .ss-head-more > summary::-webkit-details-marker { display: none; }
@@ -802,7 +802,7 @@ body.ss-retro:not(.ss-skin-dot) :is(#ss-hud, #ss-side .ss-side-mini, .ss-float) 
 .ss-fb-card { grid-template-columns: 40px minmax(0, 1fr); column-gap: 12px; padding: 14px 14px; min-height: 76px; align-content: center; border-radius: calc(var(--hp-r, 12px) * 1.1); }
 .ss-fb-card > i { grid-row: 1 / 3; align-self: center; width: 40px; height: 40px; border-radius: 12px; font-size: 1.15em; }
 .ss-fb-card > b { grid-column: 2; font-size: .9em; font-weight: 600; color: var(--hp-dim); } .ss-fb-card > em { grid-column: 2; font-size: 1.12em; font-weight: 800; color: var(--hp-ink); line-height: 1.25; }
-.ss-fb-card.off { grid-template-columns: 40px minmax(0, 1fr) auto; min-height: 64px; } .ss-fb-card.off > b { color: var(--hp-ink); } .ss-fb-card.off > small { grid-column: 2 / 4; font-size: max(12px, .8em) !important; }
+.ss-fb-card.off { grid-template-columns: 40px minmax(0, 1fr) auto; min-height: 64px; } .ss-fb-card.off > b { color: var(--hp-ink); } .ss-fb-card.off > small { grid-column: 2 / 4; font-size: max(min(12px, var(--hp-fs, 12px)), .8em) !important; }
 .ss-fb-more > summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; border: 1px dashed var(--hp-ol); color: var(--hp-dim); font-weight: 700; } .ss-fb-more > summary::-webkit-details-marker { display: none; } .ss-fb-more[open] > summary { margin-bottom: 10px; color: var(--hp-acc); border-color: var(--hp-acc); }
 @media (pointer: coarse) { .ss-fb-more > summary { min-height: 44px; } }
 @media (max-width: 640px) { .ss-fb-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } .ss-fb-card { padding: 12px; grid-template-columns: 34px minmax(0, 1fr); column-gap: 10px; } .ss-fb-card > i { width: 34px; height: 34px; } .ss-fb-card.off { grid-template-columns: 34px minmax(0, 1fr) auto; } }
@@ -820,7 +820,91 @@ body.ss-retro:not(.ss-skin-dot) :is(#ss-hud, #ss-side .ss-side-mini, .ss-float) 
 .ss-fb-card:not(.off) { grid-template-columns: 40px minmax(0, 1fr) auto; } .ss-fb-card:not(.off)::after { content: '›'; grid-column: 3; grid-row: 1 / 3; align-self: center; color: var(--hp-dim); font-size: 1.5em; font-weight: 300; opacity: .7; } .ss-fb-card:not(.off):hover::after { color: var(--hp-acc); opacity: 1; }
 @media (max-width: 640px) { .ss-fb-card:not(.off) { grid-template-columns: 34px minmax(0, 1fr) auto; } }
 /* 창 제목 옆 「열기 ›」 */
-.ss-hp-go { all: unset; cursor: pointer; margin-left: auto; flex: 0 0 auto; color: var(--hp-acc); font-weight: 700; font-size: max(12px, .85em); white-space: nowrap; padding: 2px 4px; border-radius: 6px; position: relative; } .ss-hp-go:hover { text-decoration: underline; } .ss-hp-go:focus-visible { outline: 2px solid var(--hp-acc); }
+.ss-hp-go { all: unset; cursor: pointer; margin-left: auto; flex: 0 0 auto; color: var(--hp-acc); font-weight: 700; font-size: max(min(12px, var(--hp-fs, 12px)), .85em); white-space: nowrap; padding: 2px 4px; border-radius: 6px; position: relative; } .ss-hp-go:hover { text-decoration: underline; } .ss-hp-go:focus-visible { outline: 2px solid var(--hp-acc); }
 .ss-hp-wt:has(> .ss-hp-go) { display: flex; align-items: center; gap: 8px; } body:not(.ss-skin-dot) .ss-hp-wt:has(> .ss-hp-go) > .ss-hp-hearts { display: none; }
 @media (pointer: coarse) { .ss-hp-go::after { content: ''; position: absolute; inset: -12px -8px; } }
 .ss-head-more .ss-tool-pop { min-width: 250px; } .ss-head-more .ss-tool-pop .ss-tool span { white-space: nowrap; }
+
+/* ───── v2.8 홈 = 앱 판 + 가로 사진 ─────
+   가운데 창: 위에는 앱처럼 생긴 카드들(아이콘 · 이름 · 지금 값), 아래에는 사진을 가로로 길게 — 사진 아래 ↑ ↓ 로 위아래를 바꾸고, 꾸미기 모드에서 ◀ ▶ 로 앱 순서를 바꾼다 */
+/* 사진은 늘 한 화면 안에: 사진 줄의 높이를 정해 두고(창 높이의 1/3쯤), 앱이 많으면 앱 쪽만 안에서 스크롤 */
+.ss-hp-homewrap.has, .ss-hp-homewrap.has.flip { height: 100%; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) clamp(170px, 36%, 340px); align-content: stretch; gap: 12px; }
+.ss-hp-homewrap.has.flip { grid-template-rows: clamp(170px, 36%, 340px) minmax(0, 1fr); }
+.ss-hp-homewrap.has > .ss-hp-homebody { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding-right: 2px; } .ss-hp-homewrap.has > .ss-hp-main { min-height: 0; overflow: hidden; }
+.ss-hp-homewrap.has > .ss-hp-main { order: 2; } .ss-hp-homewrap.has.flip > .ss-hp-main { order: 0; } .ss-hp-homewrap.has > .ss-hp-homebody { order: 1; min-width: 0; }
+.ss-hp-homewrap.has > .ss-hp-main img { object-position: center; border-radius: calc(var(--hp-r, 12px) * 1.1); }
+@media (max-width: 640px) { .ss-hp-homewrap.has, .ss-hp-homewrap.has.flip { height: auto; grid-template-rows: auto; } .ss-hp-homewrap.has > .ss-hp-homebody { overflow: visible; } .ss-hp-homewrap.has > .ss-hp-main img { flex: 0 0 auto; height: auto; aspect-ratio: 16 / 9; } }
+/* 앱처럼: 아이콘이 위, 이름과 값이 아래 */
+.ss-fb-grid:not(.off) { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 10px 8px; }
+.ss-fb-grid:not(.off) > .ss-fb-card { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 4px; text-align: center; padding: 12px 6px 10px; min-height: 0; border-color: transparent; background: transparent; position: relative; }
+.ss-fb-grid:not(.off) > .ss-fb-card::after { content: none; }
+.ss-fb-grid:not(.off) > .ss-fb-card > i { width: 54px; height: 54px; border-radius: 16px; font-size: 1.45em; background: color-mix(in srgb, var(--hp-acc) 14%, var(--hp-paper)); box-shadow: 0 2px 8px color-mix(in srgb, var(--hp-acc) 14%, transparent); margin-bottom: 2px; transition: transform .12s ease; }
+.ss-fb-grid:not(.off) > .ss-fb-card > b { font-size: .92em; font-weight: 700; color: var(--hp-ink); line-height: 1.25; } .ss-fb-grid:not(.off) > .ss-fb-card > em { font-size: .84em; font-weight: 600; color: var(--hp-dim); line-height: 1.3; overflow-wrap: anywhere; }
+.ss-fb-grid:not(.off) > button.ss-fb-card:hover { background: color-mix(in srgb, var(--hp-acc) 7%, transparent); box-shadow: none; border-color: transparent; } .ss-fb-grid:not(.off) > button.ss-fb-card:hover > i { transform: scale(1.06); }
+body.ss-hp-wall .ss-hompy .ss-fb-grid:not(.off) > .ss-fb-card { background: transparent; }
+@media (max-width: 640px) { .ss-fb-grid:not(.off) { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 2px; } .ss-fb-grid:not(.off) > .ss-fb-card { padding: 8px 2px; } .ss-fb-grid:not(.off) > .ss-fb-card > i { width: 50px; height: 50px; } }
+/* 꾸미기 모드: 순서 바꾸기 */
+.ss-fb-card.edit { cursor: default; outline: 1px dashed var(--hp-ol); outline-offset: -2px; border-radius: 14px; } .ss-fb-mv { display: flex; gap: 6px; margin-top: 4px; }
+.ss-fb-mv > button { all: unset; cursor: pointer; box-sizing: border-box; min-width: 34px; height: 30px; display: grid; place-items: center; border-radius: 9px; border: 1px solid var(--hp-ln); background: var(--hp-paper); color: var(--hp-acc); font-size: .85em; position: relative; } .ss-fb-mv > button:hover { border-color: var(--hp-acc); } .ss-fb-mv > button:focus-visible { outline: 2px solid var(--hp-acc); }
+.ss-fb-grid > .ss-fb-card.edit:first-child .ss-fb-mv > button:first-child, .ss-fb-grid > .ss-fb-card.edit:last-child .ss-fb-mv > button:last-child { opacity: .3; pointer-events: none; }
+@media (pointer: coarse) { .ss-fb-mv > button { min-width: 40px; height: 36px; } .ss-fb-mv > button::after { content: ''; position: absolute; inset: -4px -2px; } }
+
+/* ───── 「모음」 = 탭 줄 + 고른 칸 하나 ─────
+   제목들은 위에 알약 단추로 나란히, 고른 칸의 내용만 그 아래에 (추천 음악을 보다 추억 앨범을 누르면 추천 음악은 사라지고 앨범만) */
+.ss-hompy .ss-hp-all { display: flex !important; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ss-hompy .ss-hp-all > .ss-hp-win.sub { display: contents !important; }
+.ss-hompy .ss-hp-all > .ss-hp-win.sub > .ss-hp-wt { order: 0; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 16px; min-height: 40px; box-sizing: border-box; border-radius: 999px; border: 1px solid var(--hp-ln); background: var(--hp-paper); color: var(--hp-dim); }
+.ss-hompy .ss-hp-all > .ss-hp-win.sub > .ss-hp-wt b { font-size: 1em !important; font-weight: 700; color: inherit; text-transform: none; letter-spacing: 0; } .ss-hompy .ss-hp-all > .ss-hp-win.sub > .ss-hp-wt > i.fa-chevron-down { display: none; }
+.ss-hompy .ss-hp-all > .ss-hp-win.sub.open > .ss-hp-wt { background: var(--hp-acc); border-color: var(--hp-acc); color: #fff; } .ss-hompy .ss-hp-all > .ss-hp-win.sub.open > .ss-hp-wt .ss-ib { color: #fff; }
+.ss-hompy .ss-hp-all > .ss-hp-win.sub > .ss-hp-wt:hover { border-color: var(--hp-acc); } .ss-hompy .ss-hp-all > .ss-hp-win.sub > .ss-hp-wt:focus-visible { outline: 2px solid var(--hp-acc); outline-offset: 2px; }
+.ss-hompy .ss-hp-all > .ss-hp-win.sub > .ss-hp-wb { order: 1; flex: 1 1 100%; min-width: 0; padding: 6px 0 0; }
+@media (pointer: coarse) { .ss-hompy .ss-hp-all > .ss-hp-win.sub > .ss-hp-wt { min-height: 44px; } }
+.ss-hompy .ss-hp-all > .ss-hp-win.sub > .ss-hp-wt .ss-ib { min-width: 26px !important; min-height: 26px !important; width: 26px; height: 26px; margin: -4px -8px -4px 0; }
+@media (max-width: 640px) { .ss-hompy .ss-hp-all > .ss-hp-win.sub > .ss-hp-wt { padding: 6px 14px; } }
+
+/* 사진은 길쭉하게 늘이지 않는다: 16:9 비율을 지키고 줄 높이에 맞춰 가운데에 (줄보다 넓어질 수 없음) · 앱은 넓게 벌리지 않고 정해진 크기로 모아서 */
+@media (min-width: 641px) {
+    .ss-hp-homewrap.has > .ss-hp-main { align-items: center; }
+    .ss-hp-homewrap.has > .ss-hp-main img { flex: 1 1 0; min-height: 0; height: 0; width: auto; max-width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+    .ss-hp-homewrap.has > .ss-hp-main figcaption { width: min(100%, 560px); }
+}
+.ss-fb-grid:not(.off) { grid-template-columns: repeat(auto-fill, 96px); justify-content: center; gap: 6px 4px; }
+.ss-fb-grid:not(.off) > .ss-fb-card { padding: 8px 2px 6px; }
+@media (max-width: 640px) { .ss-fb-grid:not(.off) { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 0; } }
+/* 아이콘 그림자 없이 (떠 보이지 않게) · 사진과 앱은 서로 겹치지 않는다 */
+.ss-fb-grid:not(.off) > .ss-fb-card > i { box-shadow: none; } .ss-hp-homewrap.has > .ss-hp-main, .ss-hp-homewrap.has > .ss-hp-homebody { position: relative; z-index: 0; }
+
+/* ───── 홈 사진 · 앱 배치 (마지막 정리) ─────
+   높이를 나눠 갖는 줄 배치를 버리고 그냥 위에서 아래로 쌓는다: 앱들(모여서) → 사진(16:9 · 정해진 크기 · 가운데). 서로 겹치거나 떠 보일 일이 없고, 길면 창 안에서 스크롤.
+   사진 아래 ↑ ↓ 단추로 사진을 앱들 위로 올릴 수 있다. */
+.ss-hompy .ss-hp-homewrap.has, .ss-hompy .ss-hp-homewrap.has.flip { display: flex; flex-direction: column; height: auto; gap: 14px; }
+.ss-hompy .ss-hp-homewrap.has > .ss-hp-homebody { order: 1; min-height: auto; overflow: visible; padding-right: 0; }
+.ss-hompy .ss-hp-homewrap.has > .ss-hp-main { order: 2; display: block; width: min(100%, 440px); margin: 0 auto; min-height: auto; overflow: visible; }
+.ss-hompy .ss-hp-homewrap.has.flip > .ss-hp-main { order: 0; }
+.ss-hompy .ss-hp-homewrap.has > .ss-hp-main img { display: block; flex: none; width: 100%; max-width: none; height: auto; aspect-ratio: 16 / 9; object-fit: cover; object-position: center; }
+.ss-hompy .ss-hp-homewrap.has > .ss-hp-main figcaption { width: 100%; }
+.ss-hompy .ss-hp-homewrap.has, .ss-hompy .ss-hp-homewrap.has.flip { align-items: stretch; }
+.ss-hompy .ss-hp-homewrap.has > .ss-hp-homebody { width: 100%; align-self: stretch; box-sizing: border-box; }
+.ss-hompy .ss-hp-homewrap.has > .ss-hp-main { align-self: center; }
+
+/* ───── 홈 사진: 창 가로를 꽉 채운다 (옆 여백 없음) · 높이는 정해 둠 — 세로로 길쭉해지지 않게 ───── */
+.ss-hompy .ss-hp-homewrap.has > .ss-hp-main { width: 100%; margin: 0; align-self: stretch; }
+.ss-hompy .ss-hp-homewrap.has > .ss-hp-main img { width: 100%; height: clamp(180px, 30vh, 300px); aspect-ratio: auto; object-fit: cover; object-position: center; }
+@media (max-width: 640px) { .ss-hompy .ss-hp-homewrap.has > .ss-hp-main img { height: clamp(150px, 26vh, 220px); } }
+/* 앱들도 창 가로를 꽉 채워 고르게 (가운데로 몰려 양옆이 비던 것) — 칸은 작게, 사이는 좁게 */
+.ss-fb-grid:not(.off) { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); justify-content: stretch; gap: 6px 2px; }
+
+/* 콘팩 고르기: 60개라 창 안에서 스크롤 */
+.ss-hp-faces.pack { max-height: 280px; overflow-y: auto; overscroll-behavior: contain; padding: 2px; } .ss-hp-pick h4 small { font-weight: 400; opacity: .7; margin-left: 6px; }
+
+/* ───── 머리줄 왼쪽: 고양이 + 「도우미」 말풍선 (v2.8) ─────
+   오른쪽에 있던 도우미 단추는 뺐다 — 고양이 옆 말풍선을 누르면 도우미가 열리고, 고양이를 누르면 예전처럼 반응한다 (표정 · 냥 소리 · 말풍선 · 여러 번 누르면 신나거나 삐짐) */
+.ss-hompy .ss-head-a .ss-helpchip { display: none !important; }
+.ss-hp-buddy { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; margin-right: 4px; }
+.ss-hp-buddy .ss-hp-pet { width: 40px; height: 40px; margin: -8px 0; object-fit: contain; transform-origin: 50% 90%; }
+.ss-hp-say { all: unset; cursor: pointer; position: relative; box-sizing: border-box; padding: 4px 11px; border-radius: 13px; background: var(--hp-paper); color: var(--hp-ink); border: 1.5px solid var(--hp-acc); font-weight: 700; font-size: max(min(12px, var(--hp-fs, 12px)), .8em); line-height: 1.3; white-space: nowrap; margin-left: 5px; }
+.ss-hp-say::before { content: ''; position: absolute; left: -6px; top: 50%; width: 8px; height: 8px; margin-top: -4px; background: var(--hp-paper); border-left: 1.5px solid var(--hp-acc); border-bottom: 1.5px solid var(--hp-acc); transform: rotate(45deg); border-radius: 0 0 0 2px; }
+.ss-hp-say:hover { background: var(--hp-acc); color: #fff; } .ss-hp-say:hover::before { background: var(--hp-acc); } .ss-hp-say:focus-visible { outline: 2px solid var(--hp-acc); outline-offset: 2px; }
+@media (pointer: coarse) { .ss-hp-say::after { content: ''; position: absolute; inset: -9px -4px; } }
+body.ss-skin-dot .ss-hp-buddy .ss-hp-pet { width: 26px; height: 26px; margin: -4px 0; } body.ss-skin-dot .ss-hp-say { border-radius: 4px; padding: 1px 8px; }
+@media (max-width: 640px) { .ss-hp-buddy .ss-hp-pet { width: 34px; height: 34px; margin: -6px 0; } .ss-hp-say { padding: 3px 9px; } }

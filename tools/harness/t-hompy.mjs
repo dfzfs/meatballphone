@@ -29,7 +29,7 @@ for (const width of [1300, 390]) {
             // 기본은 빈 칸(눌러서 넣기) · 미트볼은 제목 옆에 작게 — 끄면 없음
             delete core.settings().hpFace; shell.rerenderPanels(true); await wait(150);
             out.faceEmptyByDefault = innerWidth <= 640 && !el.querySelector('.ss-hp-photo') || (!!el.querySelector('.ss-hp-photo.empty') && !el.querySelector('.ss-hp-photo img'));
-            out.petBesideTitle = !!el.querySelector('.ss-hp-url .ss-hp-pet')?.getAttribute('src').includes('/img/meatcon/');
+            out.petBesideTitle = !!el.querySelector('.ss-hp-url .ss-hp-buddy .ss-hp-pet.ss-mascot')?.getAttribute('src').includes('/img/mascot_') && !!el.querySelector('.ss-hp-url .ss-hp-buddy .ss-hp-say[data-act="help"]'); // v2.8: 머리줄 왼쪽의 고양이(누르면 반응) + 도우미 말풍선
             core.settings().hpPet = false; shell.rerenderPanels(true); await wait(150); out.petOff = !el.querySelector('.ss-hp-pet'); delete core.settings().hpPet;
             core.settings().hpFace = 'auto'; shell.rerenderPanels(true); await wait(150);
             out.faceAuto = face().includes('/img/meatcon/');
@@ -173,7 +173,7 @@ for (const width of [1300, 390]) {
               const minorsOn = hpm.hpMinor().filter(k => !!window.__SS_TEST__).length === 3;
               const etc = [...el.querySelectorAll('.ss-hp-right > .ss-tabs > button')].find(b => b.textContent.includes('모음'));
               if (etc) { etc.click(); await wait(400); const subs = [...el.querySelectorAll('.ss-hp-win.sub')].map(x => x.dataset.sub);
-                const shut = !el.querySelector('.ss-hp-all .ss-hp-wb'); el.querySelector('.ss-hp-win.sub > .ss-hp-wt').click(); await wait(300); const opened = shut && el.querySelectorAll('.ss-hp-all .ss-hp-wb').length === 1; el.querySelector('.ss-hp-win.sub.open [data-hp="solo"]').click(); await wait(300); const solo = opened && !el.querySelector('.ss-hp-all') && !!el.querySelector('.ss-hp-back');
+                const shut = el.querySelectorAll('.ss-hp-all .ss-hp-wb').length === 1 /* v2.8: 「모음」은 탭처럼 — 처음부터 첫 칸 하나가 열려 있고, 한 번에 하나만 */; el.querySelector('.ss-hp-win.sub > .ss-hp-wt').click(); await wait(300); const opened = shut && el.querySelectorAll('.ss-hp-all .ss-hp-wb').length === 1; el.querySelector('.ss-hp-win.sub.open [data-hp="solo"]').click(); await wait(300); const solo = opened && !el.querySelector('.ss-hp-all') && !!el.querySelector('.ss-hp-back');
                 el.querySelector('.ss-hp-back').click(); await wait(300);
                 out.collection = (minorsOn && subs.length >= 2 && !names.includes('플레이 기록') && solo && !!el.querySelector('.ss-hp-all')) || JSON.stringify([names, subs, solo]); }
               else out.collection = names.length <= 2 || JSON.stringify(names); }

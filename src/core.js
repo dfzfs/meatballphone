@@ -138,6 +138,7 @@ export const DEFAULTS = Object.freeze({
     hpSets: [],              // 📒 저장한 꾸밈 세트 [{ name, data }] — 채팅에 묶으면 meta.hpSet = 이름
     hpWins: {},              // 📒 미니홈피에서 끈 창 ({ stats: false } …)
     hpFace: 'none',          // 📒 미니홈피 프로필 그림: none(비워 둠 · 눌러서 넣기) · auto(기분 따라 미트볼) · con:이름 · my:번호
+    conPack: false,          // 🐱 콘팩 (v2.8): 미트볼콘 60개를 받아서 쓸지 — 기본은 꺼짐 (기본 14개만) · 프로필 그림 고르기에서 「콘팩 받기」
     hpFaces: [],             // 📒 내가 올린 프로필 그림 (최대 12장 · 긴 변 320px)
     hompyFull: true,         // 📒 전체화면으로 열면 미니홈피(수첩) 모양으로 (v2.8 · 화면만 · 끄면 예전 전체화면)
     sheetFull: false,        // 상태창을 전체화면으로 열기
