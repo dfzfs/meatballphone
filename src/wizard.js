@@ -1,6 +1,6 @@
 // 처음 만들기 (마법사 · 기준 상태 세우기) — shell.js에서 떼어 냄
 import { DATA_V, app, ctx, settings, saveSettings, getMeta, saveMeta, MOD, MOD_IDS, EMPTY, NORM, normalize, DIFFS, GENRES, CONTACT_MODES, esc, clone, clamp, h, TITLE, LOG, PLAY_MODES, normPlay, playOf, mascotUrl, relFromProfiles, ssErr, ssWarn, PLAY_SETS } from './core.js';
-import { gatherSources, loreNames, chatCharacters, setBase, startBlank } from './engine.js';
+import { gatherSources, loreNames, loreChoice, setLorePick, chatCharacters, setBase, startBlank } from './engine.js';
 import { genModule, genGroup, GEN_GROUPS } from './ai.js';
 import { popup, askConfirm, busyBtn, seg, sec, mascot } from './kit.js';
 import { GROUPS, TAB_MOD } from './views.js';
@@ -61,7 +61,8 @@ export async function openWizard() {
             <label class="ss-tog"><input type="checkbox" class="ss-switch" data-src="card" checked><span>캐릭터 카드</span></label>
             <label class="ss-tog"><input type="checkbox" class="ss-switch" data-src="persona" checked><span>페르소나</span></label>
             <label class="ss-tog"><input type="checkbox" class="ss-switch" data-src="lore" checked><span>로어북</span></label>
-            <label class="ss-tog"><input type="checkbox" class="ss-switch" data-src="chat" ${chatN > 1 ? 'checked' : ''}><span>최근 채팅 ${settings().recentForGen}개</span></label></div></section>
+            <label class="ss-tog"><input type="checkbox" class="ss-switch" data-src="chat" ${chatN > 1 ? 'checked' : ''}><span>최근 채팅 ${settings().recentForGen}개</span></label></div>
+            <div class="ss-w-lore ss-hide"><small class="ss-hint">📚 읽을 로어북 — 끈 것은 이 채팅의 상태창을 만들 때 · 칸을 다시 만들 때 읽지 않아요</small><div class="ss-pills ss-w-lorelist"></div></div></section>
         <section class="ss-sec"><div class="ss-sec-h"><h4>난이도</h4></div>
             <div class="ss-seg" data-w="diff">${Object.entries(DIFFS).map(([k, v]) => `<button data-v="${k}" class="${W.diff === k ? 'on' : ''}"><i class="fa-solid ${v.icon}"></i> ${v.name}</button>`).join('')}</div>
             <p class="ss-hint ss-diffdesc">${esc(DIFFS[W.diff].desc)}</p></section>
@@ -87,6 +88,15 @@ export async function openWizard() {
     el.addEventListener('change', (e) => { const l = e.target.closest('.ss-mod'); if (l) l.classList.toggle('on', e.target.checked); cost(); });
     const syncPlay = () => { el.querySelector('.ss-hero').classList.toggle('ss-hide', W.play !== 'director' || el.querySelector('.ss-w-ens').checked); el.querySelector('.ss-ens').classList.toggle('ss-hide', W.play !== 'director'); el.querySelector('.ss-cardworld').classList.toggle('ss-hide', W.play === 'auto'); };
     el.querySelector('.ss-w-ens').addEventListener('change', syncPlay);
+    // 📚 읽을 로어북 고르기: 연결된 로어북은 켠 채로 · 연결 안 된 것은 고르기 칸에서 더한다 (이 채팅에 기억)
+    const loreBox = el.querySelector('.ss-w-lore'), loreList = el.querySelector('.ss-w-lorelist');
+    let LC = null;
+    const loreChip = (n, on) => `<label class="ss-tog"><input type="checkbox" class="ss-switch" data-lore="${esc(n)}" ${on ? 'checked' : ''}><span>${esc(n)}</span></label>`;
+    const loreMore = (rest) => (rest.length ? `<select class="ss-in ss-w-loreadd" title="이 채팅에 연결되지 않은 로어북도 읽게 해요"><option value="">＋ 다른 로어북 더하기…</option>${rest.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('')}</select>` : '');
+    const syncLore = () => loreBox.classList.toggle('ss-hide', !LC || !(LC.linked.length + LC.others.length) || !el.querySelector('[data-src="lore"]').checked);
+    loreChoice().then((lc) => { LC = lc; const shown = [...lc.linked, ...lc.on.filter(n => !lc.linked.includes(n))]; loreList.innerHTML = shown.map(n => loreChip(n, lc.on.includes(n))).join('') + loreMore(lc.others.filter(n => !shown.includes(n))); syncLore(); }).catch(e => ssWarn(LOG, 'lore pick', e));
+    el.querySelector('[data-src="lore"]').addEventListener('change', syncLore);
+    loreList.addEventListener('change', (e) => { const sel = e.target.closest('.ss-w-loreadd'); if (!sel || !sel.value) return; const n = sel.value; sel.querySelector(`option[value="${CSS.escape(n)}"]`)?.remove(); sel.value = ''; sel.insertAdjacentHTML('beforebegin', loreChip(n, true)); if (sel.options.length <= 1) sel.remove(); });
     syncPlay();
     el.addEventListener('click', (e) => {
         const sb = e.target.closest('[data-set]');
@@ -196,6 +206,7 @@ export async function openWizard() {
         const btn = e.currentTarget;
         const src = Object.fromEntries([...el.querySelectorAll('[data-src]')].map(i => [i.dataset.src, i.checked]));
         mods = Object.fromEntries([...el.querySelectorAll('[data-mod]')].map(i => [i.dataset.mod, i.checked]));
+        if (LC && src.lore) { try { setLorePick(LC.linked, [...el.querySelectorAll('[data-lore]')].filter(i => i.checked).map(i => i.dataset.lore)); } catch (e2) { ssWarn(LOG, 'lore pick', e2); } } // 📚 고른 로어북을 이 채팅에 기억 (자료를 모으기 전에)
         if (W.set && PLAY_SETS[W.set]) { const add = Object.entries(PLAY_SETS[W.set].set).filter(([k, v]) => settings()[k] !== v); if (add.length) { Object.assign(settings(), Object.fromEntries(add)); saveSettings(); } } // 세트의 선택 기능 켜기
         if (W.lang && settings().ssGenLang !== W.lang) { settings().ssGenLang = W.lang; saveSettings(); } // 생성 전에 — 모든 AI 호출 · 기본 틀이 이 언어로
         if (W.lang === 'enview' && W.tr && settings().trEngine !== W.tr) { settings().trEngine = W.tr; saveSettings(); }

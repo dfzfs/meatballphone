@@ -458,6 +458,7 @@ dialog.ss-dlg .popup-content > .ss-root, dialog.ss-dlg .popup-content > .ss-pane
 .ss-found b { min-width: 0; overflow-wrap: anywhere; }
 .ss-wizard .ss-f { margin-top: 10px; }
 .ss-cmode { margin-top: 12px; }
+.ss-w-lore { margin-top: 8px; } .ss-w-lore > .ss-hint { display: block; margin: 0 0 6px; } .ss-w-lore .ss-w-loreadd { width: auto; max-width: min(100%, 260px); min-height: 32px; }
 .ss-w-prog { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
 .ss-prog-row { display: flex; gap: 10px; align-items: center; padding: 7px 10px; border-radius: var(--ss-r2); background: var(--ss-surface); font-size: .92em; }
 .ss-prog-row small { margin-left: auto; color: var(--ss-dim); text-align: right; display: flex; gap: 6px; align-items: center; }

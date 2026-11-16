@@ -1715,11 +1715,25 @@ export async function loreNames() {
     } catch { /* optional */ }
     return [...names];
 }
+// 📚 생성 때 읽을 로어북 고르기 (이 채팅 · 메타 lorePick = { off: [뺀 것], add: [연결 안 된 것 중 더한 것] }) — 고른 적이 없으면 연결된 로어북 전부 (예전과 같음)
+export async function loreChoice() {
+    const linked = await loreNames(), p = getMeta()?.lorePick, off = new Set(Array.isArray(p?.off) ? p.off : []), add = (Array.isArray(p?.add) ? p.add : []).filter(n => !linked.includes(n));
+    let all = []; try { all = [...((await import('/scripts/world-info.js')).world_names ?? [])]; } catch { /* 옛 실리 · 시험대: 목록 없이 */ }
+    const others = [...new Set([...add, ...all])].filter(n => n && !linked.includes(n));
+    return { linked, others, on: [...linked, ...add].filter(n => !off.has(n)) };
+}
+export const lorePicked = async () => (getMeta()?.lorePick ? (await loreChoice()).on : loreNames());
+export function setLorePick(linked, on) {
+    const off = linked.filter(n => !on.includes(n)), add = on.filter(n => !linked.includes(n)), cur = getMeta()?.lorePick;
+    if (!off.length && !add.length) { if (cur) { delete getMeta().lorePick; saveMeta(); } return; }
+    const meta = getMeta(true); if (!meta) return;
+    meta.lorePick = { off, add }; saveMeta();
+}
 export async function loreText(limit) {
     const c = ctx();
     if (!c.loadWorldInfo || limit <= 0) return '';
     const items = [];
-    for (const name of await loreNames()) {
+    for (const name of await lorePicked()) {
         try {
             const book = await c.loadWorldInfo(name);
             const entries = Object.values(book?.entries ?? {}).filter(e => !e.disable).sort((a, b) => (b.constant ? 1 : 0) - (a.constant ? 1 : 0) || (a.order ?? 0) - (b.order ?? 0));
