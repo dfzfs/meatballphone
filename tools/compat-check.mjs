@@ -77,8 +77,14 @@ const org = await extImport('src/ext-organize.js');
     ok(!!plan, '그 확장 PLANS에 미트볼 칸 있음');
     if (plan) {
         const keys = new Set([...plan.intro.map(x => x[0]), ...plan.folds.flatMap(f => f[1].map(k => String(k).split(':')[0])), ...Object.keys(plan.cost ?? {}), ...(plan.start?.[1] ?? []).map(x => x[1])]);
-        const has = (k) => new RegExp(`data-s(?:-act)?="${k}"`).test(SETSRC);
-        for (const k of keys) ok(has(k), `열쇠 ${k}`, '이 열쇠가 없으면 그 확장이 그 줄을 조용히 원래 모습으로 둬요 (깨지진 않지만 정리가 빠져요)');
+        // 칸을 목록으로 돌려 만드는 줄(data-s="${k}")은 글자 그대로는 안 보인다 → 목록에 그 이름이 있으면 있는 것으로 본다
+        const looped = /data-s(?:-act)?="\$\{/.test(SETSRC);
+        const has = (k) => new RegExp(`data-s(?:-act)?="${k}"`).test(SETSRC) || (looped && new RegExp(`\\[\\s*'${k}'\\s*,`).test(SETSRC));
+        // 우리가 일부러 없앤 설정(core.js가 옛 값을 지우는 키) — 그 확장은 옛 판을 위해 남겨 두고 조용히 건너뛴다. 깨진 약속이 아니다
+        const retired = new Set([...SRC['src/core.js'].matchAll(/for \(const \w+ of \[([^\]]+)\]\) delete s\[/g)].flatMap(m => [...m[1].matchAll(/'(\w+)'/g)].map(x => x[1])));
+        const gone = [];
+        for (const k of keys) { if (!has(k) && retired.has(k)) { gone.push(k); continue; } ok(has(k), `열쇠 ${k}`, '이 열쇠가 없으면 그 확장이 그 줄을 조용히 원래 모습으로 둬요 (깨지진 않지만 정리가 빠져요)'); }
+        if (gone.length) console.log(`  ℹ 우리가 없앤 설정 ${gone.length}개 (그 확장이 조용히 건너뛰어요): ${gone.join(' ')}`);
     }
 }
 
