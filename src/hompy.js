@@ -82,6 +82,35 @@ const darkOn = () => { const v = D().hpDark; return v === 'dark' || v === 'auto'
 // 지금 글꼴: 도트 모양은 기본이 도트 글꼴(d)이지만, 직접 고르면(hpFontPick) 그 글꼴로 — 예전엔 도트 모양에서 글꼴을 못 바꿨다
 const fontKey = () => { const d = D(), dot = skinOf() === 'dot'; return d.hpFont === 'u' && settings().hpFontFile ? 'u' : dot && !(d.hpFontPick === true && FONTS[d.hpFont]) ? 'd' : FONTS[d.hpFont] && d.hpFont !== 'u' ? d.hpFont : 'g'; };
 const fontOpts = () => [...(skinOf() === 'dot' ? [['d', '도트']] : []), ...Object.entries(FONTS).filter(([k]) => k !== 'u' || settings().hpFontFile)];
+// ⚡ 글꼴 목록 줄이기: CSS의 글꼴 목록은 「있으면 쓰라」는 후보를 8~11개 늘어놓은 것인데, 브라우저는 글씨 크기 · 굵기가 새로 나올 때마다 앞에서부터 하나씩 「이 기기에 있나」를 찾아본다.
+//   없는 글꼴이 앞에 일곱 개 있으면 크기 · 굵기 하나에 여덟 번 — 상태창을 처음 열 때 화면 계산 시간의 대부분이 이 찾기였다 (재 보니 158번).
+//   → 이 기기에 실제로 있는 것만 남긴 목록을 한 번 만들어(한가할 때 · 기기에 기억) 덮어쓴다. 보이는 글꼴은 그대로다 — 어차피 없는 글꼴은 안 쓰였으니까.
+const FONT_STACKS = {
+    g: ["'IBM Plex Sans KR'", "'Pretendard Variable'", 'Pretendard', '-apple-system', 'BlinkMacSystemFont', "'Apple SD Gothic Neo'", "'Malgun Gothic'", "'Noto Sans KR'", 'sans-serif'],
+    s: ["'Noto Serif KR'", "'Nanum Myeongjo'", "'AppleMyungjo'", "'Batang'", 'Georgia', 'serif'],
+    r: ["'NanumSquareRound'", "'Nanum Gothic Round'", "'Jua'", "'Cafe24 Ssurround'", "'Arial Rounded MT Bold'", "'Hiragino Maru Gothic ProN'", "'Pretendard Variable'", 'Pretendard', "'Apple SD Gothic Neo'", "'Malgun Gothic'", 'sans-serif'],
+    m: ["'JetBrains Mono'", "'D2Coding'", "'Cascadia Mono'", "'Nanum Gothic Coding'", 'Consolas', "'Malgun Gothic'", 'monospace'],
+};
+const FONT_KEY = 'ss_hp_fontstacks_v1', GENERIC = new Set(['serif', 'sans-serif', 'monospace', 'system-ui']);
+const writeFontCss = (stacks) => { let el = document.getElementById('ss-hp-fonts'); if (!el) { el = document.createElement('style'); el.id = 'ss-hp-fonts'; document.head.appendChild(el); } const css = Object.entries(stacks).filter(([k, v]) => FONT_STACKS[k] && typeof v === 'string' && /^[\w\s'",-]+$/.test(v)).map(([k, v]) => `body.ss-hp-f-${k}.ss-hp-f-${k}{--hp-font:${v}}`).join('\n'); if (el.textContent !== css) el.textContent = css; };
+function detectFonts() {
+    const cv = document.createElement('canvas').getContext('2d'); if (!cv) return null;
+    const text = 'mmmmmmmmmmlli 가나다라마바사 0123', w = (f) => { cv.font = `72px ${f}`; return cv.measureText(text).width; };
+    const base = { monospace: w('monospace'), serif: w('serif') }, apple = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || ''), seen = new Map();
+    const has = (f) => { if (GENERIC.has(f)) return true; if (f === '-apple-system' || f === 'BlinkMacSystemFont') return apple; if (!seen.has(f)) seen.set(f, w(`${f}, monospace`) !== base.monospace || w(`${f}, serif`) !== base.serif); return seen.get(f); };
+    const out = {}; for (const [k, list] of Object.entries(FONT_STACKS)) { const keep = list.filter(has); out[k] = (keep.some(f => !GENERIC.has(f)) ? keep : list.filter(f => GENERIC.has(f))).join(', '); }
+    return out;
+}
+export function trimFonts(force = false) {
+    try {
+        const sig = `${navigator.userAgent}|${Object.values(FONT_STACKS).map(x => x.length).join(',')}`;
+        let saved = null; try { saved = JSON.parse(localStorage.getItem(FONT_KEY) || 'null'); } catch { /* 저장소를 못 쓰는 환경 */ }
+        if (!force && saved?.sig === sig && saved.stacks && Date.now() - (saved.t ?? 0) < 7 * 864e5) { writeFontCss(saved.stacks); return saved.stacks; } // 일주일에 한 번은 다시 본다 (그 사이 글꼴을 새로 깔았을 수 있으니)
+        const stacks = detectFonts(); if (!stacks) return null;
+        writeFontCss(stacks); try { localStorage.setItem(FONT_KEY, JSON.stringify({ sig, stacks, t: Date.now() })); } catch { /* 저장 못 해도 이번엔 적용됨 */ }
+        return stacks;
+    } catch (e) { ssErr(e); return null; }
+}
 export function applyRetro() {
     const b = document.body; if (!b) return; const d = D(), [, h, s] = themeOf(), on = settings().hpSkinHud !== false, dot = skinOf() === 'dot';
     b.classList.toggle('ss-retro', on); for (const k of Object.keys(SKINS)) b.classList.toggle(`ss-skin-${k}`, skinOf() === k); b.classList.toggle('ss-hp-dark', darkOn()); b.classList.toggle('ss-hp-still', d.hpMotion === false); b.classList.toggle('ss-hp-navtop', d.hpNavTop === true); for (const k of Object.keys(WALLS)) b.classList.toggle(`ss-hp-wall-${k}`, wallOf() === k); b.classList.toggle('ss-hp-wall', !!wallOf());
@@ -465,7 +494,9 @@ export function initHompy() {
     try { const st = settings(); if (st.hpFaceV !== 2) { if (st.hpFace === 'auto' || st.hpFace === undefined) st.hpFace = 'none'; st.hpFaceV = 2; saveSettings(); } } catch (e) { ssErr(e); }
     // (속도) 시작할 때는 표시(class) · 색 값만 걸고, 재야 하는 것(브라우저 최소 글꼴 · 팝업 알림 색 읽기)은 화면이 뜬 뒤 한가할 때
     booting = true; try { applyRetro(); } catch (e) { ssErr(e); } booting = false;
-    { const later = () => { try { applyRetro(); } catch (e) { ssErr(e); } }; if (globalThis.requestIdleCallback) requestIdleCallback(later, { timeout: 2500 }); else setTimeout(later, 800); }
+    // 글꼴 목록: 지난번에 이 기기에서 추려 둔 것이 있으면 바로 걸고(싸다), 없으면 한가할 때 한 번 추린다
+    try { const sv = JSON.parse(localStorage.getItem(FONT_KEY) || 'null'); if (sv?.stacks) writeFontCss(sv.stacks); } catch { /* 저장소를 못 쓰는 환경 */ }
+    { const later = () => { try { trimFonts(); applyRetro(); } catch (e) { ssErr(e); } }; if (globalThis.requestIdleCallback) requestIdleCallback(later, { timeout: 2500 }); else setTimeout(later, 800); }
     try { window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', () => applyRetro()); const C = ctx(); C.eventSource?.on?.(C.event_types?.CHAT_CHANGED ?? C.eventTypes?.CHAT_CHANGED, () => setTimeout(applyRetro, 300)); } catch (e) { ssErr(e); } // 채팅마다 다른 꾸밈 세트
     let rt = null; const refit = () => { clearTimeout(rt); rt = setTimeout(() => document.querySelectorAll('.ss-hompy').forEach(r => fitHompy(r.closest('.ss-panel'))), 120); };
     window.addEventListener('resize', refit);
