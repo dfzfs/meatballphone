@@ -355,6 +355,24 @@ export async function pruneTr() {
     app.rerenderPanels?.(true); translateView();
     toastr.success(`옛 번역 ${drop.length}개를 지웠어요.`, TITLE);
     return drop.length;
+}
+// 🗑 번역 전체 삭제 (v2.8): 이 채팅의 번역 사전을 비워요 — 번역이 마음에 안 들 때 통째로 다시 받으려고 (📌 내가 고친 건 남김 · 저장된 상태 · 숫자는 그대로 · 지우는 데는 AI 0회)
+export async function clearTr(btn = null) {
+    if (running) { toastr.info('번역하는 중이에요. 끝나거나 멈춘 뒤에 눌러 주세요.', TITLE); return 0; }
+    const meta = getMeta(); const d = meta?.tr;
+    if (!d || !Object.keys(d).length) { toastr.info('지울 번역이 없어요.', TITLE); return 0; }
+    const lock = meta.trLock ?? {}, drop = Object.keys(d).filter(k => !lock[k]), kept = Object.keys(d).length - drop.length;
+    if (!drop.length) { toastr.info(`남은 번역 ${kept}개는 모두 📌 내가 고친 것이에요. 「번역 고치기」에서 하나씩 지울 수 있어요.`, TITLE); return 0; }
+    const P = SillyTavern.getContext().Popup;
+    if (!(await P.show.confirm(TITLE, `이 채팅의 번역 ${drop.length}개를 모두 지울까요?${kept ? ` (📌 내가 고친 ${kept}개는 남겨요)` : ''}<br><small>화면에 보이는 번역만 지워요 — 저장된 상태 · 숫자 · 기록은 그대로예요. 지운 글은 다시 번역하기 전까지 영어로 보여요.</small>`))) return 0;
+    for (const k of drop) delete d[k];
+    trVer++; memo.clear(); missMemo.s = null; stuck.clear();
+    await saveMeta();
+    app.rerenderPanels?.(true); translateView();
+    toastr.success(`번역 ${drop.length}개를 지웠어요.`, TITLE);
+    // 바로 다시 받기: 화면만 번역일 때만 묻는다 (다른 방식은 번역본이 칸에 저장돼 있어 사전을 지워도 화면이 안 바뀐다)
+    if (viewTr() && app.current?.state && await P.show.confirm(TITLE, '지금 바로 다시 번역할까요?<br><small>번역 담당(번역 모델 · 실리 기본 번역)으로 상태창 글을 새로 번역해요. 나중에 하려면 「상태창 전체 번역」을 눌러요.</small>')) await translateSheet(btn);
+    return drop.length;
 } // 기본 틀 영어판이 화면 번역 짝을 넣을 때 (skeleton.js → 순환 import 없이)
 export function addPairs(pairs) {
     const meta = getMeta(true);

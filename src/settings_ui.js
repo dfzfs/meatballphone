@@ -89,7 +89,7 @@ export function renderSettings() {
             <label>화면만 번역: 본편 AI가 새로 쓴 영어 글 자동 번역<select class="text_pole" data-s="trAuto">${o('trAuto', 'st', '실리 기본 번역일 때만 (무료 · 추천)')}${o('trAuto', 'always', '항상 — 번역 모델이면 새 글이 생길 때 AI 1회씩')}${o('trAuto', 'off', '끔 — 「상태창 전체 번역」을 누를 때만')}</select></label>
             <label class="checkbox_label"><input type="checkbox" data-s="trLlmFallback" ${s.trLlmFallback !== false ? 'checked' : ''}> 실리 번역기가 영어 그대로 돌려준 글은 묻지 않고 번역 모델로 다시 (그 글만 · 토큰 조금)</label>
             <small><b>번역 모델</b>: 적은 글이 그대로 지침으로 가요. <b>실리 기본 번역</b>: 지침을 읽지 못해서 <code>원문 = 번역</code> 모양의 줄만 써요 (이름·용어 고정). 다른 줄은 무시돼요.</small>
-            <div class="ss-set-btns"><button class="menu_button" data-s-act="trsheet"><i class="fa-solid fa-language"></i> 상태창 전체 번역</button><button class="menu_button" data-s-act="trprune" title="지금 상태창에 없는 옛 번역을 지워 채팅 파일을 줄이고 화면 번역을 빠르게 (📌 고정한 건 남김 · AI 0회)"><i class="fa-solid fa-broom"></i> 번역 사전 정리</button><button class="menu_button" data-s-act="toenglish" title="예전에 한국어로 저장된 칸을 영어 저장으로 바꿔요. 지금 보이는 한국어는 화면 번역으로 남아요."><i class="fa-solid fa-right-left"></i> 한국어로 저장된 칸을 영어 저장으로 바꾸기</button></div>
+            <div class="ss-set-btns"><button class="menu_button" data-s-act="trsheet"><i class="fa-solid fa-language"></i> 상태창 전체 번역</button><button class="menu_button" data-s-act="trprune" title="지금 상태창에 없는 옛 번역을 지워 채팅 파일을 줄이고 화면 번역을 빠르게 (📌 고정한 건 남김 · AI 0회)"><i class="fa-solid fa-broom"></i> 번역 사전 정리</button><button class="menu_button" data-s-act="trclear" title="이 채팅의 번역을 모두 지워요 — 번역이 마음에 안 들 때 통째로 다시 받으려고 (📌 내가 고친 건 남김 · 저장된 상태는 그대로 · 지우는 데 AI 0회)"><i class="fa-solid fa-trash-can"></i> 번역 전체 삭제</button><button class="menu_button" data-s-act="toenglish" title="예전에 한국어로 저장된 칸을 영어 저장으로 바꿔요. 지금 보이는 한국어는 화면 번역으로 남아요."><i class="fa-solid fa-right-left"></i> 한국어로 저장된 칸을 영어 저장으로 바꾸기</button></div>
             <small>「화면만 번역」으로 바꿔도 <b>이미 한국어로 저장된 칸</b>은 그대로 한국어로 AI에게 가요. 위 오른쪽 버튼을 한 번 누르면 이 채팅의 칸들이 영어 저장으로 바뀌고, 지금 보이는 한국어는 화면 번역으로 그대로 남아요. (채팅마다 한 번)</small>
             <b class="ss-set-h">일시정지 · OOC</b>
             <label class="checkbox_label"><input type="checkbox" data-s="oocDetect" ${s.oocDetect ? 'checked' : ''}> 내 메시지가 OOC로 시작하면 그 턴은 상태창 안 보냄 <small>((, (OOC, [OOC, //</small></label>
@@ -286,6 +286,7 @@ export function renderSettings() {
         if (a === 'help') return openHelp();
         if (a === 'toenglish') return convertToEnglish(e.target.closest('button'));
         if (a === 'trprune') { const { pruneTr } = await import('./translate.js'); return pruneTr(); }
+        if (a === 'trclear') { const { clearTr } = await import('./translate.js'); return clearTr(e.target.closest('button')); }
         if (a === 'romrec' || a === 'romoff') {
             const set = settings(), on = a === 'romrec';
             if (on) { set.romBond = true; set.romCap = true; set.romFacts = true; }

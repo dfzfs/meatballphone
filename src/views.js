@@ -411,6 +411,7 @@ export function manageHTML(s, ui = {}, extra = '') {
             <button class="ss-btn" data-act="prompts"><i class="fa-solid fa-scroll"></i> 프롬프트 · 토큰</button>
             <button class="ss-btn" data-act="themewin"><i class="fa-solid fa-palette"></i> 꾸미기</button>
             <button class="ss-btn" data-act="trsheet"><i class="fa-solid fa-language"></i> 상태창 전체 번역</button>
+            <button class="ss-btn" data-act="trclear" title="이 채팅의 번역을 모두 지워요 — 번역이 마음에 안 들 때 통째로 다시 받으려고 (📌 내가 고친 건 남김 · 저장된 상태는 그대로)"><i class="fa-solid fa-trash-can"></i> 번역 전체 삭제</button>
         </div>`)}`)}
         ${mg('fix', 'fa-stethoscope', '문제 해결', '자가 진단 · 칩 점검 · 오류 보고', `
         ${sec('<i class="fa-solid fa-stethoscope"></i> 문제 해결', `<div class="ss-row-btns"><button class="ss-btn" data-act="diagnose"><i class="fa-solid fa-stethoscope"></i> 자가 진단 · 고치기</button><button class="ss-btn" data-act="pipcheck"><i class="fa-solid fa-magnifying-glass"></i> 마지막 답 칩 점검</button><button class="ss-btn" data-act="copydump"><i class="fa-solid fa-clipboard"></i> 지금 상태 복사</button><button class="ss-btn" data-act="perf"><i class="fa-solid fa-gauge-simple-high"></i> 부하 재기</button></div><p class="ss-hint">창이 안 뜨거나 숫자가 이상할 때 눌러 주세요. 망가진 기록을 찾아 고쳐요 (AI 호출 없음).</p>`)}`)}

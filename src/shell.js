@@ -348,6 +348,7 @@ async function onPanelAction(el, act, arg, btn) {
         case 'prompts': return openPromptWindow();
         case 'themewin': return openThemeWindow();
         case 'trsheet': return translateSheet(btn);
+        case 'trclear': return import('./translate.js').then(m => m.clearTr(btn));
         case 'sidemini': settings().sideState = 'mini'; saveSettings(); return ensureUI();
         case 'fullscreen': {
             const dlg = el.closest('dialog');
