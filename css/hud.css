@@ -140,4 +140,4 @@ dialog.popup.ss-dlg .popup-controls .menu_button.popup-button-ok { background: v
 @media (min-width: 701px) { .ss-side[data-state="mini"] .ss-side-handle { display: block; right: 232px; top: 14px; height: 44px; } }
 
 /* 전체화면 상태창이 떠 있는 동안에는 미니바(사이드)를 숨긴다 (shell.js syncFullOpen) */
-body.ss-fullopen #ss-side { display: none !important; }
+body.ss-fullopen #ss-side, body.ss-fullopen #ss-hud, body.ss-fullopen #ss-float { display: none !important; } /* 전체화면이 열려 있는 동안만 가린다 (설정은 안 건드림 → 끄거나 닫으면 그대로 다시 보인다) */

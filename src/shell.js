@@ -407,7 +407,7 @@ export function rerenderPanels(force = false) {
     for (const el of [...panels]) {
         if (!el.isConnected) { panels.delete(el); continue; }
         // 접혀 있는 사이드 펼침 패널은 안 보이니 그리지 않고, 펼칠 때 그린다 (갱신마다 숨은 화면을 그리던 것)
-        if (el.classList.contains('ss-panel-side') && settings().sideState !== 'full') { el._ssStale = true; continue; }
+        if (el.classList.contains('ss-panel-side') && (settings().sideState !== 'full' || fullOpen())) { el._ssStale = true; if (fullOpen()) fullStale = true; continue; }
         if (force && el._ss?.mode === 'view') { renderPanel(el, el.classList.contains('ss-panel-float')); continue; }
         if (el._ss?.hold) continue;
         if (el._ss?.mode && el._ss.mode !== 'view') continue;
@@ -428,7 +428,16 @@ export async function openSheet(tab, opt = {}) {
     try { await popup(el, { large: true, full }); } finally { panels.delete(el); setTimeout(syncFullOpen, 0); setTimeout(syncFullOpen, 300); }
 }
 // 전체화면 상태창이 떠 있는 동안에는 미니바(사이드)를 숨긴다 — 전체화면 위로 미니바가 남아 보였다. 닫으면 다시 보인다 (설정은 안 건드림)
-export function syncFullOpen() { try { document.body.classList.toggle('ss-fullopen', [...document.querySelectorAll('dialog[open] .ss-panel-pop')].some(p => p.closest('dialog').classList.contains('ss-full'))); } catch (e) { ssErr(LOG, 'fullopen', e); } }
+let fullStale = false; // 전체화면 동안 건너뛴 그리기가 있었나
+const fullOpen = () => document.body.classList.contains('ss-fullopen');
+// 전체화면이 열려 있는 동안: 미니바 · HUD · 떠 있는 버튼을 가리고(css/hud.css) 그리기도 건너뛴다. 끄거나 닫으면 밀린 것을 한 번 그린다. 설정(showHud · showSide · sideState)은 안 건드린다.
+export function syncFullOpen() {
+    try {
+        const was = fullOpen(), on = [...document.querySelectorAll('dialog[open] .ss-panel-pop')].some(p => p.closest('dialog').classList.contains('ss-full'));
+        if (was !== on) document.body.classList.toggle('ss-fullopen', on);
+        if (was && !on && fullStale) { fullStale = false; renderHud(); app.ensureUI?.(); }
+    } catch (e) { ssErr(LOG, 'fullopen', e); }
+}
 app.openSheet = (tab) => {
     const el = [...panels].find(p => p.isConnected && p.classList.contains('ss-panel-pop') && p.closest('dialog[open]') && p._ss?.mode === 'view' && !p._ss.rollOnly);
     if (!el) return openSheet(tab);
@@ -536,6 +545,7 @@ export function renderHud() {
     const show = set.enabled && set.showHud && isActive();
     document.body.classList.toggle('ss-nohud', !show);
     if (!show) { hud?.remove(); return; }
+    if (fullOpen() && hud) { fullStale = true; return; } // ⚡ 전체화면이 덮고 있는 동안은 안 그린다 — 끄거나 닫을 때 한 번 그린다 (syncFullOpen)
     const sheld = document.getElementById('sheld');
     const anchor = set.hudPos === 'bottom' ? document.getElementById('form_sheld') : document.getElementById('chat');
     if (!sheld || !anchor) return;
@@ -712,11 +722,12 @@ export function ensureUI() {
         if (side.dataset.state !== set.sideState) side.dataset.state = set.sideState;
         const w = `${clamp(Number(set.sideWidth) || 400, 300, 640)}px`;
         if (side.style.getPropertyValue('--ss-side-w') !== w) side.style.setProperty('--ss-side-w', w);
-        if (setHTML(side.querySelector('.ss-mini-body'), sideMiniHTML())) fitSoon(side.querySelector('.ss-mini-body'));
-        paintHost(side.querySelector('.ss-side-mini'), 'side');
+        if (fullOpen()) fullStale = true; // ⚡ 전체화면 동안은 미니바 안쪽을 안 그린다
+        else { if (setHTML(side.querySelector('.ss-mini-body'), sideMiniHTML())) fitSoon(side.querySelector('.ss-mini-body'));
+        paintHost(side.querySelector('.ss-side-mini'), 'side'); }
         const n = app.current ? unreadCount(app.current.state) : 0;
         const b = side.querySelector('.ss-side-handle .ss-badge'); b.textContent = n || ''; b.classList.toggle('ss-hide', !n);
-        if (set.sideState === 'full') { const pnl = side.querySelector('.ss-panel'); if (!pnl.innerHTML || !pnl._ssShown || pnl._ssStale) { pnl._ssShown = true; pnl._ssStale = false; renderPanel(pnl); } }
+        if (set.sideState === 'full' && !fullOpen()) { const pnl = side.querySelector('.ss-panel'); if (!pnl.innerHTML || !pnl._ssShown || pnl._ssStale) { pnl._ssShown = true; pnl._ssStale = false; renderPanel(pnl); } }
     }
 }
 app.ensureUI = ensureUI;
