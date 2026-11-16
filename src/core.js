@@ -144,6 +144,7 @@ export const DEFAULTS = Object.freeze({
     hpFace: 'none',          // 📒 미니홈피 프로필 그림: none(비워 둠 · 눌러서 넣기) · auto(기분 따라 미트볼) · con:이름 · my:번호
     conPack: false,          // 🐱 콘팩 (v2.8): 미트볼콘 60개를 받아서 쓸지 — 기본은 꺼짐 (기본 14개만) · 프로필 그림 고르기에서 「콘팩 받기」
     hpFaces: [],             // 📒 내가 올린 프로필 그림 (최대 12장 · 긴 변 320px)
+    startMode: '',           // 🍙 만들기 창에서 지난번에 고른 시작 방식 ('simple' | 'basic' · 빈 값 = 아직 안 골라 봄 → 처음이면 심플)
     themeAsked: false,       // 🎨 모양 고르기 창을 이미 보여 줬나 (처음 만들 때 · 2.8로 올라온 뒤 한 번 · src/themeask.js)
     hompyFull: false,        // 📒 전체화면으로 열면 미니홈피 모양으로 (v2.8 · 화면만 · 기본 끔 — 확장 설정 › 데이터 · 화면에서 켬)
     sheetFull: false,        // 상태창을 전체화면으로 열기
@@ -386,6 +387,12 @@ export function ensureLove(rel) {
 export const REC_MODS = ['profile', 'stats', 'wallet', 'rel', 'map', 'calendar'];
 export const defaultModOn = (id) => { const def = settings().defaultMods; return def ? def[id] !== false : REC_MODS.includes(id); };
 export const MOD = Object.fromEntries(MODS.map(m => [m.id, m]));
+// 🍙 심플 모드 (채팅마다 · meta.simple === true): 탭 없이 타일 판 하나 · 추천 6칸 + 아래 칸만 · 팁 · 추천 · 알림 창을 띄우지 않음 (src/simple.js)
+//   타일 한 칸으로 다 보이는 칸만 심플에서 더 켤 수 있다 — 연락 · 상점 · 본거지처럼 탭이 있어야 쓰는 칸은 「기본 모드」에서
+export const SIMPLE_EXTRA = ['quest', 'news', 'fate', 'music', 'custom'];
+export const SIMPLE_TILES = ['date', 'loc', 'bars', 'rel', 'cash', 'cond', 'quest', 'news', 'fate', 'music', 'custom'];
+export const simpleOk = (id) => REC_MODS.includes(id) || SIMPLE_EXTRA.includes(id);
+export const isSimple = (meta = getMeta()) => meta?.simple === true;
 export const MOD_IDS = MODS.map(m => m.id);
 
 export const DIFFS = {

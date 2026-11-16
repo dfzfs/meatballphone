@@ -1,0 +1,35 @@
+/* 🍙 심플 모드 (채팅마다 · body.ss-simple) — 탭 없는 상태창 · 톱니 창 · 만들기 창 줄이기. 끄면(기본 모드) 이 파일의 규칙은 하나도 걸리지 않는다 */
+
+/* 옆 미니창: 「펼치기」(탭 있는 상태창을 옆에 여는 단추)는 숨긴다 */
+body.ss-simple #ss-side .ss-mini-foot [data-side="full"] { display: none; }
+
+/* 상태창 창: 칸 하나만 본다 — 즐겨찾기 · AI에게 숨기기 · 더보기(다시 생성 · JSON · 전부 지우기)는 기본 모드에서 */
+.ss-scope.ss-root.simple .ss-tools [data-act="favtog"],
+.ss-scope.ss-root.simple .ss-tools [data-act="hidetog"],
+.ss-scope.ss-root.simple .ss-tools .ss-tool-more { display: none; }
+.ss-scope.ss-root.simple .ss-simple-back { align-self: flex-start; margin: 6px 0 2px; }
+
+/* 톱니 창 */
+.ss-scope.ss-simple-menu { display: flex; flex-direction: column; gap: 14px; text-align: left; }
+.ss-scope.ss-simple-menu .ss-sm-head { display: flex; flex-direction: column; gap: 2px; }
+.ss-scope.ss-simple-menu .ss-sm-head b { font-size: 1.15em; font-weight: 780; }
+.ss-scope.ss-simple-menu .ss-sm-head small,
+.ss-scope.ss-simple-menu h4 small { color: var(--ss-dim); font-weight: 500; font-size: .82em; }
+.ss-scope.ss-simple-menu h4 { margin: 0 0 6px; font-size: 1em; font-weight: 720; }
+.ss-scope.ss-simple-menu .ss-sm-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.ss-scope.ss-simple-menu .ss-sm-row > .ss-btn { flex: 1 1 auto; min-height: 40px; }
+.ss-scope.ss-simple-menu .ss-sm-mods { display: flex; flex-direction: column; gap: 6px; }
+.ss-scope.ss-simple-menu .ss-sm-mods .ss-tog { display: flex; align-items: center; gap: 10px; min-height: 40px; }
+.ss-scope.ss-simple-menu .ss-sm-mods .ss-tog > span { display: flex; flex-direction: column; min-width: 0; }
+.ss-scope.ss-simple-menu .ss-sm-mods .ss-tog small { color: var(--ss-dim); font-size: .82em; }
+.ss-scope.ss-simple-menu .ss-hint { margin: 6px 0 0; }
+
+/* 만들기 창: 심플을 고르면 「세계관 · 장르」와 「생성 시작」만 — 나머지는 「자세히 설정」을 눌렀을 때 */
+.ss-scope.ss-wizard .ss-wz-more { display: none; margin-top: 8px; }
+.ss-scope.ss-wizard.wz-simple .ss-wz-more { display: inline-flex; }
+.ss-scope.ss-wizard.wz-simple .ss-wz-full { display: none; }
+.ss-scope.ss-wizard.wz-simple:not(.wz-more) .ss-wz-adv { display: none; }
+
+/* 칸 하나만 연 화면: 「보일 것」 고르기 · 방금 바뀐 곳 빨간 점은 기본 모드에서 */
+.ss-scope.ss-root.simple .ss-relshow,
+.ss-scope.ss-root.simple .ss-fresh { display: none; }

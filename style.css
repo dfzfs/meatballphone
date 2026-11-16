@@ -6,3 +6,4 @@
 @import url("css/tiles.css"); /* 타일 판 (v2.7.21) */
 @import url("css/routes.css"); /* 루트 비교 · 인물끼리 호감 · 칸별 토큰 · 원클릭 세트 (선택 기능) */
 @import url("css/hompy.css"); /* 📒 미니홈피 화면 (v2.8 · 전체화면일 때만) */
+@import url("css/simple.css"); /* 🍙 심플 모드 — 탭 없는 화면 · 톱니 창 · 만들기 창 줄이기 */

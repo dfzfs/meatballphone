@@ -15,7 +15,7 @@ import { snsView, musicView, customView, relView, achView, albumView, recordView
 import { slotsHTML, cardPack, carryFor } from './safe.js';
 import { presetHTML } from './extra.js';
 import { detectPlay, instructModule } from './ai.js';
-import { PLAY_MODES, normPlay, playOf, REC_MODS } from './core.js';
+import { PLAY_MODES, normPlay, playOf, REC_MODS, isSimple } from './core.js';
 import { DEVICES as STORY_DEVICES, KEY as STORY_KEY } from './story.js';
 import { busyBtn, confirmPopup, mascot } from './kit.js';
 import { freshDot, usedPrice, placeIcon, miniWidgets } from './tiles.js';
@@ -34,8 +34,8 @@ function homeView(s, ui) {
     if (s.pendingRoll && modOn('dice')) alerts.push(`<div class="ss-callout warn" data-act="tab" data-arg="dice"><i class="fa-solid fa-dice-d20"></i><div><b>판정 요청</b><span>${esc(s.pendingRoll.label)}</span></div></div>`);
     if (meta.paused) alerts.push(`<div class="ss-callout pause">${mascot('sleep', 'sm') || '<i class="fa-solid fa-pause"></i>'}<div><b>일시정지 중</b><span>AI에게 상태를 보내지 않아요</span></div><button class="ss-btn sm pri" data-act="pause">재개</button></div>`);
     const order = ['bars', 'date', 'loc', 'cash', 'music', 'fate', 'cond', 'custom', 'quest', 'rel', 'news'];
-    if (!settings().helpCardOff) alerts.push(`<div class="ss-callout help"><i class="fa-solid fa-circle-question"></i><div><b>모르는 건 미트볼 도우미에게</b><span>「토큰 아끼려면?」 「칩이 안 떠요」처럼 물어보면 바로 답해요 · AI 0회</span></div><button class="ss-btn sm" data-act="help">물어보기</button><button class="ss-x" data-act="helpcardoff" title="닫기 (머리의 「도우미」 버튼은 그대로 있어요)">×</button></div>`);
-    if (meta.newV5) alerts.push(`<div class="ss-callout new"><i class="fa-solid fa-gift"></i><div><b>v2.5 새 기능</b><span>SNS · 추천 음악 · 내 탭이 생겼어요. 관리 → 쓸 기능에서 켤 수 있어요.</span></div><button class="ss-btn sm" data-act="tab" data-arg="manage">켜러 가기</button><button class="ss-x" data-act="newv5off" title="닫기">×</button></div>`);
+    if (!settings().helpCardOff && !isSimple(meta)) alerts.push(`<div class="ss-callout help"><i class="fa-solid fa-circle-question"></i><div><b>모르는 건 미트볼 도우미에게</b><span>「토큰 아끼려면?」 「칩이 안 떠요」처럼 물어보면 바로 답해요 · AI 0회</span></div><button class="ss-btn sm" data-act="help">물어보기</button><button class="ss-x" data-act="helpcardoff" title="닫기 (머리의 「도우미」 버튼은 그대로 있어요)">×</button></div>`);
+    if (meta.newV5 && !isSimple(meta)) alerts.push(`<div class="ss-callout new"><i class="fa-solid fa-gift"></i><div><b>v2.5 새 기능</b><span>SNS · 추천 음악 · 내 탭이 생겼어요. 관리 → 쓸 기능에서 켤 수 있어요.</span></div><button class="ss-btn sm" data-act="tab" data-arg="manage">켜러 가기</button><button class="ss-x" data-act="newv5off" title="닫기">×</button></div>`);
     return `<div class="ss-home">
         <div class="ss-hero"><div class="ss-hero-t"><small>${esc(c.genre || '세계')}${c.canon ? ` · ${esc(c.canon)}` : ''}</small><b>${esc(c.title || '이름 없는 세계')}</b></div>
             ${c.userRole ? `<p><b>${esc(userName())}</b> — ${esc(c.userRole)}</p>` : ''}
@@ -380,6 +380,8 @@ export function manageHTML(s, ui = {}, extra = '') {
         ${mg('play', 'fa-gamepad', '지금 플레이', `${meta.paused ? '⏸ 일시정지 중 · ' : ''}${esc(DIFFS[diffOf()].name)} · ${esc(PLAY_MODES[p0.mode].name)}`, `
         ${sec('일시정지', `<div class="ss-row-btns"><button class="ss-btn ${meta.paused ? 'pri' : ''}" data-act="pause"><i class="fa-solid ${meta.paused ? 'fa-play' : 'fa-pause'}"></i> ${meta.paused ? '재개하기' : '일시정지'}</button><button class="ss-btn ghost" data-act="skiponce" ${meta.skipOnce ? 'disabled' : ''}><i class="fa-solid fa-forward"></i> ${meta.skipOnce ? '다음 1번 건너뜀 예약됨' : '다음 1번만 건너뛰기'}</button></div>
             <p class="ss-hint">퀵리플라이·OOC·잡담할 때 눌러 두면 AI에게 상태창을 보내지 않고 &lt;meatball&gt;도 요구하지 않아요. ${st.oocDetect ? 'OOC 자동 감지 켜짐 · ' : ''}${st.skipQuiet ? '조용한 생성(/gen 등) 자동 제외 켜짐' : ''}</p>`)}
+        ${sec('🍙 심플 모드', `<div class="ss-row-btns"><button class="ss-btn" data-act="tosimple"><i class="fa-solid fa-minimize"></i> 심플 모드로 바꾸기</button></div>
+            <p class="ss-hint">탭 없이 타일 판 하나만 써요 — 꼭 필요한 칸만 보이고, 팁 · 추천 · 알림 창이 안 떠요. 지금 켜 둔 다른 칸은 숨기기만 하고 내용은 그대로 둬요 (언제든 다시 넓힐 수 있어요 · 이 채팅만).</p>`)}
         ${sec('난이도', `${seg(Object.entries(DIFFS).map(([k, v]) => [k, `<i class="fa-solid ${v.icon}"></i> ${v.name}`]), diffOf(), 'diff')}<p class="ss-hint">${esc(DIFFS[diffOf()].desc)}</p>`)}
         ${(() => { const p = playOf(meta); return sec('<i class="fa-solid fa-masks-theater"></i> 플레이 방식', `${seg(Object.entries(PLAY_MODES).map(([k, v]) => [k, `<i class="fa-solid ${v.icon}"></i> ${v.name}`]), p.mode, 'playmode', 'class="ss-seg wrap"')}
             <p class="ss-hint">${esc(PLAY_MODES[p.mode].desc)}</p>

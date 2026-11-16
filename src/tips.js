@@ -1,6 +1,6 @@
 // 💡 기능 추천 (v2.7): 처음엔 꼭 필요한 칸만 켜 두고, 이야기에 맞는 순간에 「이런 기능도 있어요」를 한 번씩 알려 준다.
 // AI 호출 없음. 한 채팅에서 기능마다 한 번만 · 몇 턴에 한 번만 · 설정에서 끌 수 있음 · 「다시 안 볼래요」는 모든 채팅에 적용.
-import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, MOD, GENRES, normalize, TITLE, LOG, ssWarn, GLOBAL_OFF } from './core.js';
+import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, MOD, GENRES, normalize, TITLE, LOG, ssWarn, GLOBAL_OFF, isSimple } from './core.js';
 import { commit, stripStatus } from './engine.js';
 import { skeleton } from './skeleton.js';
 
@@ -29,6 +29,7 @@ export function maybeTip() {
         const set = settings();
         if (set.featureTips === false || !app.current) return;
         const meta = getMeta(); if (!meta?.base || meta.paused) return;
+        if (isSimple(meta)) return; // 🍙 심플 모드에선 권하지 않는다 (본 걸로 치지도 않는다 — 넓히면 그때부터)
         const turn = app.current.state.turn ?? 0;
         const T = (meta.tips ??= { seen: {}, last: 0, start: turn });
         if (turn - (T.start ?? 0) < 6) return; // 막 만든 채팅엔 바로 권하지 않기
@@ -151,7 +152,7 @@ function show(h, { save = true } = {}) {
 // 상태창에서 뭔가 했을 때 (shell.js) — 그 칸의 안 본 팁 중 하나를, 가끔만
 export function hintAfterAction(tab) {
     try {
-        if (settings().featureTips === false || settings().actionTips === false || !getMeta()?.base) return;
+        if (settings().featureTips === false || settings().actionTips === false || !getMeta()?.base || isSimple()) return;
         const set = settings(), last = Math.max(session.at, Number(set.hintAt) || 0);
         if (session.n >= HINT_PER_SESSION || Date.now() - last < HINT_GAP) return;
         if (set.hintDay?.d === today() && set.hintDay.n >= HINT_PER_DAY) return;

@@ -1,5 +1,5 @@
 // 미니 위젯 · 타일 판 (HUD · 사이드 미니창 공통) — views.js에서 떼어 냄
-import { app, settings, saveSettings, getMeta, modOn, DIFFS, diffOf, esc, short, clamp, norm, fmtNum, dateShort, mascotUrl, eventsOn, TITLE, relAxes, DEFAULT_STAGES, viewTr } from './core.js';
+import { app, settings, saveSettings, getMeta, modOn, DIFFS, diffOf, esc, short, clamp, norm, fmtNum, dateShort, mascotUrl, eventsOn, TITLE, relAxes, DEFAULT_STAGES, viewTr, isSimple, SIMPLE_TILES } from './core.js';
 import { unreadCount, inTransit, stageIndex, isFresh } from './engine.js';
 import { trString } from './translate.js';
 import { gauge, chip, avatar, emojiOf } from './kit.js';
@@ -86,8 +86,8 @@ const DEF = {
 const defW = (k, cols) => Math.min(cols, DEF[cols]?.w[k] ?? TILES[k]?.w ?? 1);
 const hit = (a, b) => a.c < b.c + b.w && b.c < a.c + a.w && a.r < b.r + b.h && b.r < a.r + a.h;
 // 저장된 자리 + 아직 자리가 없는 칸은 빈 곳에 차례로 · 겹치면 아래로 밀기 (고정 = 방금 옮긴 칸)
-export function layoutOf(attr, keys, fixed = null) {
-    const g = gridOf(attr), saved = settings().tileLayout?.[g.key] ?? {}, out = {}, placed = [];
+export function layoutOf(attr, keys, fixed = null, plain = false) {
+    const g = gridOf(attr), saved = plain ? {} : settings().tileLayout?.[g.key] ?? {}, out = {}, placed = []; // plain = 🍙 심플: 저장된 자리를 안 쓰고 늘 기본 배치
     const norm1 = (k, x) => { const w = clamp(Math.round(+x?.w || defW(k, g.cols)), 1, g.cols), h = clamp(Math.round(+x?.h || 1), 1, 4); return { c: clamp(Math.round(+x?.c || 0), 0, g.cols - w), r: Math.max(0, Math.round(+x?.r || 0)), w, h }; };
     const di = (k) => { const o = DEF[g.cols]?.order ?? []; const i = o.indexOf(k); return i < 0 ? 99 + keys.indexOf(k) : i; };
     const order = [...keys].sort((a, b) => (a === fixed ? -1 : b === fixed ? 1 : 0) || ((saved[a] ? 0 : 1) - (saved[b] ? 0 : 1)) || ((saved[a]?.r ?? 0) - (saved[b]?.r ?? 0)) || ((saved[a]?.c ?? 0) - (saved[b]?.c ?? 0)) || di(a) - di(b));
@@ -101,18 +101,18 @@ export function layoutOf(attr, keys, fixed = null) {
 }
 const saveLayout = (attr, lay) => { const set = settings(), g = gridOf(attr); set.tileLayout = { ...(set.tileLayout ?? {}), [g.key]: lay }; saveSettings(); };
 export function tileBoard(s, attr, extra = '', lead = '') {
-    const set = settings(), meta = getMeta(), d = s.data, fr = app.current?.fresh, edit = !!app.tileEdit, open = attr === 'hud' ? app.hudExp : app.sideExp;
+    const set = settings(), meta = getMeta(), d = s.data, fr = app.current?.fresh, simple = isSimple(meta), edit = !simple && !!app.tileEdit, open = attr === 'hud' ? app.hudExp : app.sideExp;
     const g = gridOf(attr);
-    const keys = (set.sideMini ?? []).filter(k => TILES[k]);
+    const keys = simple ? SIMPLE_TILES : (set.sideMini ?? []).filter(k => TILES[k]); // 🍙 심플: 꾸미기에서 고른 칸과 상관없이 정해진 칸만
     const live = keys.filter(k => (!TMOD[k] || modOn(TMOD[k], meta)) && TILES[k].on(d));
-    const lay = layoutOf(attr, live);
+    const lay = layoutOf(attr, live, null, simple);
     const A = (v) => `data-${attr}="${v}"`, sel = edit ? app.tileSel : null;
     const rows = Math.max(1, ...live.map(k => lay[k].r + lay[k].h));
     const tiles = live.map(k => {
         const p = lay[k], L = p.w * p.h > defW(k, g.cols);
         let x; try { x = TILES[k].f(s, L); } catch { return ''; }
         const f = FR_OF[k] && isFresh(fr, ...FR_OF[k]);
-        return `<span class="ss-t t-${k}${L ? ' L' : ''}${p.h > 1 ? ' tall' : ''}${x.alert ? ' alert' : ''}${open === k ? ' on' : ''}${edit ? ' edit' : ''}${sel === k ? ' sel' : ''}" role="button" tabindex="0" data-k="${k}" ${edit ? '' : A(`exp:${k}`)} title="${esc(x.t ?? TILES[k].name)}" style="grid-column:${p.c + 1} / span ${p.w};grid-row:${p.r + 1} / span ${p.h};${cssCol(set.tileStyle?.[k])}"><span class="c"><span class="ci">${x.h}</span></span>${f && !edit ? '<i class="ss-t-dot"></i>' : ''}${edit ? `<i class="ss-t-x" ${A(`del:${k}`)} title="빼기">−</i><i class="ss-t-rs" title="끌어서 크기">⤡</i>` : ''}</span>`;
+        return `<span class="ss-t t-${k}${L ? ' L' : ''}${p.h > 1 ? ' tall' : ''}${x.alert ? ' alert' : ''}${open === k ? ' on' : ''}${edit ? ' edit' : ''}${sel === k ? ' sel' : ''}" role="button" tabindex="0" data-k="${k}" ${edit ? '' : A(`exp:${k}`)} title="${esc(x.t ?? TILES[k].name)}" style="grid-column:${p.c + 1} / span ${p.w};grid-row:${p.r + 1} / span ${p.h};${cssCol(set.tileStyle?.[k])}"><span class="c"><span class="ci">${x.h}</span></span>${f && !edit && !simple ? '<i class="ss-t-dot"></i>' : ''}${edit ? `<i class="ss-t-x" ${A(`del:${k}`)} title="빼기">−</i><i class="ss-t-rs" title="끌어서 크기">⤡</i>` : ''}</span>`;
     }).join('');
     // 편집 중엔 빈 칸을 옅게 보여 줌 (어디에 놓을 수 있는지)
     let ghost = '';
@@ -133,7 +133,7 @@ export function tileBoard(s, attr, extra = '', lead = '') {
             ${app.colMenu ? `<div class="ss-t-menu col">${Object.entries(BOARD_BG).map(([k, x]) => `<span class="ss-bgp${(set.boardPreset ?? 'daisy') === k ? ' on' : ''}" role="button" ${A(`bgp:${k}`)} title="${esc(x.name)}" style="background-color:${x.bg ?? 'var(--ss-bg)'};${x.img ? `background-image:${x.img.replace(/"/g, '&quot;')};background-size:${x.size}` : ''}"></span>`).join('')}${col('board:bg', bs.bg, '#f6f1e7', '판 배경')}${col('board:bd', bs.bd, '#e3d9c6', '판 테두리')}<label class="ss-t up" title="판 배경 그림 (작게 줄여서 저장)"><input type="file" accept="image/*" data-bgup="${attr}" hidden>${set.tileDeco?.[`${attr}Bg`] ? '배경 그림 바꾸기' : '배경 그림'}</label>${set.tileDeco?.[`${attr}Bg`] ? `<span class="ss-t" role="button" ${A('bgdel')}>배경 그림 빼기</span>` : ''}${sel ? `<b>${esc(TILES[sel]?.name ?? sel)}</b>${col(`tile:${sel}:bg`, ts.bg, '#efe7d8', '칸 배경')}${col(`tile:${sel}:bd`, ts.bd, '#e3d9c6', '칸 테두리')}${col(`tile:${sel}:ink`, ts.ink, '#2a2218', '글자')}<span class="ss-t" role="button" ${A(`colreset:${sel}`)}>이 칸 처음대로</span>` : '<small>칸을 누르면 그 칸의 색도 바꿔요</small>'}<span class="ss-t" role="button" ${A('colreset:board')}>판 처음대로</span></div>` : ''}
             </div>`;
     }
-    const det = !edit && open && live.includes(open) && MINI[open] ? `<div class="ss-t-det">${MINI[open].html(s)}<span role="button" class="go" ${A(`go:${MINI[open].tab}`)} title="이 칸의 탭을 열어요">이 탭 열기 ›</span></div>` : '';
+    const det = !edit && open && live.includes(open) && MINI[open] ? `<div class="ss-t-det">${MINI[open].html(s)}<span role="button" class="go" ${A(`go:${MINI[open].tab}`)} title="${simple ? '자세히 보고 직접 고쳐요' : '이 칸의 탭을 열어요'}">${simple ? '자세히 · 고치기 ›' : '이 탭 열기 ›'}</span></div>` : '';
     const bgImg = set.tileDeco?.[`${attr}Bg`];
     return `<div class="ss-tb ${attr}${edit ? ' editing' : ''}" data-tb="${attr}"><div class="ss-tb-row"><div class="ss-tg" style="--cols:${g.cols}">${ghost}${tiles}${stk}</div>${extra || lead ? `<div class="ss-tb-acts">${lead}${extra}</div>` : ''}</div>${tools}${det}</div>`;
 }

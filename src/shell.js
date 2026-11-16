@@ -16,7 +16,7 @@ import { CONTACT_ACTIONS , CONTACT_CHANGES } from './contact.js';
 import { FEED_ACTIONS, FEED_CHANGES } from './feeds.js';
 import { MONEY_ACTIONS } from './money.js';
 import { FATE_ACTIONS } from './fate.js';
-import { EDIT, viewTr, letterMode, GLOBAL_OFF } from './core.js';
+import { EDIT, viewTr, letterMode, GLOBAL_OFF, isSimple } from './core.js';
 import { translateSheet, missingTr } from './translate.js';
 import { hintAfterAction } from './tips.js';
 import { storyPick, STORY_HOME, guideView } from './story_ui.js';
@@ -149,6 +149,9 @@ function renderPanel0(el) {
     }
     const s = app.current.state;
     const meta = getMeta();
+    // 🍙 심플 모드: 탭 줄이 없다 — 「한눈에」(홈)와 켜 둔 칸 하나씩만 연다. 관리 · 부가 기능 · 꺼 둔 칸으로 들어오면 한눈에로
+    const simple = isSimple(meta);
+    if (simple) { const m0 = TAB_MOD(st.tab); if (st.tab !== 'home' && (PSEUDO.has(st.tab) || !MOD[m0] || !modOn(m0, meta))) { st.tab = 'home'; st.mode = 'view'; } if (st.mode === 'json') st.mode = 'view'; }
     const gs = groupsOn(meta);
     let g = groupOf(st.tab, st.group);
     if (!gs.some(x => x.id === g.id) || !groupTabs(g, meta).includes(st.tab)) { g = gs[0]; st.tab = groupTabs(g, meta)[0]; }
@@ -198,7 +201,7 @@ function renderPanel0(el) {
     const nNew = unreadNotes(meta);
     // 조각으로 만들어 두고 → 평소엔 그대로 이어 붙이고, 전체화면(미니홈피)일 땐 수첩 틀 안에 넣는다 (hompy.js)
     const dlg0 = el.closest('dialog'), isFull = dlg0 ? dlg0.classList.contains('ss-full') : !!st.full; // 창이 뜨기 전(첫 그리기)엔 여는 쪽이 적어 둔 값으로
-    const hp = !inSide && !isFloat && isFull && settings().hompyFull !== false;
+    const hp = !simple && !inSide && !isFloat && isFull && settings().hompyFull !== false;
     // 📒 미니홈피: 한 묶음의 칸들을 탭으로 나누지 않고 작은 창으로 한 화면에 (창 제목을 누르면 그 칸만 크게 — 편집 · AI로 수정은 거기서)
     const gTabs = groupTabs(g, meta), minorSet = hpMinor(), minors = hp ? gTabs.filter(t => minorSet.includes(t)) : [];
     const pack = minors.length >= 2, navTabs = pack ? gTabs.filter(t => !minors.includes(t)) : gTabs; // 「모음」으로 합쳐진 탭은 탭 줄에서 빠진다
@@ -212,8 +215,15 @@ function renderPanel0(el) {
         // 홈: 큰 사진 옆에 홈 칸들 (사진이 없으면 「사진 넣기」 한 줄만)
         body = `<div class="ss-hp-homewrap ${meta.hpPhoto?.src ? 'has' : ''} ${meta.hpPhoto?.pos === 'top' ? 'flip' : ''}">${photoHTML(meta)}<div class="ss-hp-homebody">${body}${featureBoard(s, meta)}</div></div>`;
     }
-    const rootCls = `ss-root ss-scope ${document.body.classList.contains('ss-retro') ? 'ss-rt' : ''} ${inSide ? 'in-side' : ''} ${meta.paused ? 'paused' : ''} ${settings().bottomNav && !hp ? 'navbottom' : ''}`;
-    const headHTML = `<header class="ss-head">
+    const rootCls = `ss-root ss-scope ${simple ? 'simple' : ''} ${document.body.classList.contains('ss-retro') ? 'ss-rt' : ''} ${inSide ? 'in-side' : ''} ${meta.paused ? 'paused' : ''} ${settings().bottomNav && !hp ? 'navbottom' : ''}`;
+    const headHTML = simple ? `<header class="ss-head">
+            <div class="ss-head-t"><b>${esc(c.title || TITLE)}</b>${sub2 ? `<small>${esc(sub2)}</small>` : ''}</div>
+            <div class="ss-head-a">
+                <button class="ss-ib ${meta.paused ? 'on' : ''}" data-act="pause" title="${meta.paused ? '재개' : '일시정지 (AI에게 상태를 보내지 않음)'}"><i class="fa-solid ${meta.paused ? 'fa-play' : 'fa-pause'}"></i></button>
+                <button class="ss-helpchip" data-act="help" title="미트볼 도우미 — 모르는 걸 물어보면 바로 답해요 (AI 0회)"><i class="fa-solid fa-circle-question"></i><span>도우미</span></button>
+                <button class="ss-ib" data-act="simplemenu" title="설정 — 보이는 곳 · 기능 더 켜기 · 기본 모드로 넓히기"><i class="fa-solid fa-gear"></i></button>
+            </div>
+        </header>` : `<header class="ss-head">
             ${settings().mascotBuddy !== false ? `<span class="ss-head-cat" data-act="help" title="궁금한 게 있으면 저를 눌러요 🐾 (미트볼 도우미)">${mascot(meta.paused ? 'sleep' : nNew ? 'surprise' : 'idle', 'head', 'bob')}</span>` : ''}
             <div class="ss-head-t"><b>${esc(c.title || TITLE)}</b>${sub2 ? `<small>${esc(sub2)}</small>` : ''}</div>
             <div class="ss-head-a">
@@ -231,8 +241,8 @@ function renderPanel0(el) {
             </div>
         </header>`;
     const pauseHTML = `${meta.paused ? `<div class="ss-pausebar">${mascot('sleep', 'xs') || '<i class="fa-solid fa-pause"></i>'} 일시정지 중 — AI에게 상태를 보내지 않아요<button class="ss-btn sm" data-act="pause">재개</button></div>` : ''}`;
-    const groupsHTML = `<nav class="ss-groups">${gs.map(x => `<button class="${x === g ? 'on' : ''}" data-act="group" data-arg="${x.id}"><i class="fa-solid ${x.icon}"></i><span>${x.name}</span>${x === g ? '' : groupBadge(x, s, meta)}</button>`).join('')}</nav>`;
-    const restHTML = `${gTabs.length > 1 ? `<nav class="ss-tabs">${navTabs.map(t => `<button class="${t === tab ? 'on' : ''}" data-act="tab" data-arg="${t}"><i class="fa-solid ${TAB_INFO(t).icon}"></i>${esc(TAB_INFO(t).name)}${isHidden(t === 'home' ? 'core' : TAB_MOD(t), meta) ? '<i class="fa-solid fa-eye-slash ss-hid" title="가림 — AI에게 안 보냄"></i>' : ''}${badgeFor(t, s, meta)}</button>`).join('')}${pack ? `<button class="${minors.includes(tab) ? 'on' : ''}" data-act="tab" data-arg="${minors[0]}" title="${esc(minors.map(t => TAB_INFO(t).name).join(' · '))}"><i class="fa-solid fa-layer-group"></i>모음${minors.map(t => badgeFor(t, s, meta)).join('')}</button>` : ''}</nav>` : ''}
+    const groupsHTML = simple ? '' : `<nav class="ss-groups">${gs.map(x => `<button class="${x === g ? 'on' : ''}" data-act="group" data-arg="${x.id}"><i class="fa-solid ${x.icon}"></i><span>${x.name}</span>${x === g ? '' : groupBadge(x, s, meta)}</button>`).join('')}</nav>`;
+    const restHTML = `${simple && tab !== 'home' ? `<button class="ss-btn sm ss-simple-back" data-act="tab" data-arg="home"><i class="fa-solid fa-chevron-left"></i> 한눈에</button>` : ''}${!simple && gTabs.length > 1 ? `<nav class="ss-tabs">${navTabs.map(t => `<button class="${t === tab ? 'on' : ''}" data-act="tab" data-arg="${t}"><i class="fa-solid ${TAB_INFO(t).icon}"></i>${esc(TAB_INFO(t).name)}${isHidden(t === 'home' ? 'core' : TAB_MOD(t), meta) ? '<i class="fa-solid fa-eye-slash ss-hid" title="가림 — AI에게 안 보냄"></i>' : ''}${badgeFor(t, s, meta)}</button>`).join('')}${pack ? `<button class="${minors.includes(tab) ? 'on' : ''}" data-act="tab" data-arg="${minors[0]}" title="${esc(minors.map(t => TAB_INFO(t).name).join(' · '))}"><i class="fa-solid fa-layer-group"></i>모음${minors.map(t => badgeFor(t, s, meta)).join('')}</button>` : ''}</nav>` : ''}
         ${hidden ? `<div class="ss-hidebar"><i class="fa-solid fa-eye-slash"></i><span>가린 칸 — AI에게 이 칸을 안 보내는 중이에요. 화면·직접 편집·변화 기록은 그대로예요.</span><button class="ss-btn sm" data-act="hidetog">다시 보내기</button></div>` : ''}
         ${tools || instruct ? `<div class="ss-toolrow"><div class="ss-toolrow-t"><i class="fa-solid ${info.icon}"></i>${esc(info.name)}</div>${tools}</div>${instruct}` : ''}
         ${pack && minors.includes(tab) && !merged ? `<button class="ss-btn sm ss-hp-back" data-hp="all"><i class="fa-solid fa-layer-group"></i> 모음으로</button>` : ''}
@@ -295,6 +305,8 @@ async function onPanelAction(el, act, arg, btn) {
         case 'inbox': return app.openInbox?.();
         case 'search': return app.openSearch?.();
         case 'help': return app.openHelp?.();
+        case 'simplemenu': return app.simpleMenu?.();
+        case 'tosimple': return import('./simple.js').then(m => m.toSimple()).catch(e => ssErr(LOG, 'simple', e));
         case 'ctfloat': settings().ctFloat = !settings().ctFloat; saveSettings(); placeCtFloat(); return rerenderPanels(true);
         case 'cardload': return loadFromCard(setBase, false);
         case 'carrystart': return startCarry(setBase);
@@ -455,6 +467,9 @@ async function togglePause() {
     toastr.info(m.paused ? '일시정지 — AI에게 상태창을 보내지 않아요. (OOC·퀵리플라이용)' : '다시 켰어요.', TITLE);
 }
 app.togglePause = togglePause;
+// 🍙 심플 모드의 톱니 창 — 누를 때 불러온다 (src/simple.js)
+app.resetChat = () => MANAGE_ACTIONS.reset(); // 이 채팅 상태창 삭제 (한 번 물어봄) — 심플 톱니 창에서도 쓴다
+app.simpleMenu = () => import('./simple.js').then(m => m.openSimpleMenu()).catch(e => ssErr(LOG, 'simple', e));
 
 // ───── 관리 동작 ─────
 const MANAGE_ACTIONS = {
@@ -507,6 +522,10 @@ function hudHTML() {
     if (due.length) alerts.push(`<button data-hud="tab:contact">📬 편지 도착 — ${due.map(x => esc(x.who)).join(', ')}</button>`);
     if (s.pendingRoll && modOn('dice', meta)) alerts.push(`<button data-hud="roll">🎲 판정 요청 — ${esc(s.pendingRoll.label)}</button>`);
     const d0 = DIFFS[diffOf(meta)];
+    // 🍙 심플 모드: 타일 판 + 일시정지 · 톱니 두 개만 (주사위 · 알림함 · 칸 편집 · 상태창 여는 아이콘 없음)
+    const simple = isSimple(meta);
+    if (simple) return `${tileBoard(s, 'hud', `<span class="ss-t ic${meta.paused ? ' on' : ''}" role="button" data-hud="pause" title="${meta.paused ? '재개' : '일시정지'}"><i class="fa-solid ${meta.paused ? 'fa-play' : 'fa-pause'}"></i></span><span class="ss-t ic" role="button" data-hud="gear" title="설정 — 보이는 곳 · 기능 더 켜기 · 기본 모드로 넓히기"><i class="fa-solid fa-gear"></i></span>`)}
+        ${meta.paused ? `<div class="ss-hud-pause"><i class="fa-solid fa-pause"></i> 일시정지 중 · AI에게 상태를 보내지 않아요</div>` : ''}`;
     // v2.7.21: 한 줄 — 여는 아이콘 · 타일 판 · 단추들 (제목은 아이콘에 마우스를 올리면)
     const acts = `${modOn('dice', meta) && d.dice ? `<span class="ss-t ic" role="button" data-hud="roll" title="주사위"><i class="fa-solid fa-dice-d20"></i></span>` : ''}${(() => { const n = unreadNotes(meta); return `<span class="ss-t ic" role="button" data-hud="inbox" title="알림함"><i class="fa-${n ? 'solid' : 'regular'} fa-bell"></i>${n ? `<b class="al">${n > 99 ? '99+' : n}</b>` : ''}</span>`; })()}<span class="ss-t ic${meta.paused ? ' on' : ''}" role="button" data-hud="pause" title="${meta.paused ? '재개' : '일시정지'}"><i class="fa-solid ${meta.paused ? 'fa-play' : 'fa-pause'}"></i></span><span class="ss-t ic${app.tileEdit ? ' on' : ''}" role="button" data-hud="edit" title="칸 편집 (순서 · 크기 · 넣고 빼기)"><i class="fa-solid fa-pen"></i></span>`;
     if (settings().hudTiles !== false) return `${tileBoard(s, 'hud', acts, `<span class="ss-t ic open" role="button" data-hud="open" title="${esc(s.core.title || TITLE)} — 상태창 열기"><i class="fa-solid fa-gauge-high"></i></span>`)}
@@ -533,6 +552,7 @@ function onHud(e) {
     if (a === 'roll') return openRoll(app.current?.state.pendingRoll?.label ?? '', app.current?.state.pendingRoll?.dc ?? 0);
     if (a === 'pause') return togglePause();
     if (a === 'inbox') return app.openInbox?.();
+    if (a === 'gear') return app.simpleMenu?.();
     if (a === 'fold') { settings().hudOpen = !settings().hudOpen; saveSettings(); return renderHud(); }
     if (a.startsWith('tab:')) return openSheet(a.slice(4));
     if (a.startsWith('go:')) { app.hudExp = null; renderHud(); return openSheet(a.slice(3)); }
@@ -586,16 +606,21 @@ function sideMiniHTML() {
     const s = app.current.state;
     const keys = settings().sideMini ?? [];
     const w = tileBoard(s, 'side'); // v2.7.21: HUD와 같은 타일 판
+    if (isSimple()) return `<div class="ss-mini-head"><b>${esc(short(s.core.title || TITLE, 16))}</b>${getMeta()?.paused ? '<i class="fa-solid fa-pause ss-hl"></i>' : ''}<span class="ss-t ic" role="button" data-side="gear" title="설정 — 보이는 곳 · 기능 더 켜기 · 기본 모드로 넓히기"><i class="fa-solid fa-gear"></i></span></div>${w}`; // 🍙 심플: 칸 편집 대신 톱니
     return `<div class="ss-mini-head"><b>${esc(short(s.core.title || TITLE, 16))}</b>${getMeta()?.paused ? '<i class="fa-solid fa-pause ss-hl"></i>' : ''}<span class="ss-t ic${app.tileEdit ? ' on' : ''}" role="button" data-side="edit" title="칸 편집"><i class="fa-solid fa-pen"></i></span></div>${w || '<small class="ss-hint">표시할 항목을 꾸미기에서 고르세요</small>'}`;
 }
 function onSide(e) {
     const b = e.target.closest('[data-side]'); if (!b) return;
     const a = b.dataset.side, set = settings();
     if (a === 'make') return openWizard();
+    if (a === 'gear') return app.simpleMenu?.();
     if (a.startsWith('go:')) { app.sideExp = null; return openSheet(a.slice(3)); }
     if (a.startsWith('exp:')) { const k = a.slice(4); app.sideExp = app.sideExp === k ? null : k; const body = document.querySelector('#ss-side .ss-mini-body'); if (body && setHTML(body, sideMiniHTML())) fitSoon(body); return; }
     if (tileAct(a, rerenderTiles, 'side')) return;
     const mobile = window.innerWidth <= 700 && !document.body.classList.contains('ss-nohud');
+    const simple = isSimple(); // 🍙 심플: 옆에 펼친 상태창(탭 있는 화면)은 없다 — 닫힘 ↔ 미니만
+    if (simple && a === 'full') return;
+    if (simple && a === 'cycle') { set.sideState = set.sideState === 'closed' ? 'mini' : 'closed'; saveSettings(); return ensureUI(); }
     if (a === 'cycle') set.sideState = mobile ? (set.sideState === 'full' ? 'mini' : 'full') : set.sideState === 'closed' ? 'mini' : set.sideState === 'mini' ? 'full' : 'closed';
     if (a === 'full') set.sideState = 'full';
     if (a === 'close') set.sideState = 'closed';
@@ -708,7 +733,7 @@ export function ensureUI() {
         side.addEventListener('click', onSide);
         bindTileDrag(side.querySelector('.ss-mini-body'), () => rerenderTiles()); watchFit(side.querySelector('.ss-mini-body'));
         side.querySelector('.ss-mini-body').addEventListener('click', (e) => { // 미니 위젯을 누르면 펼침
-            if (!e.target.closest('.ss-mini-w')) return;
+            if (!e.target.closest('.ss-mini-w') || isSimple()) return;
             settings().sideState = 'full'; saveSettings(); ensureUI();
         });
         const pnl = side.querySelector('.ss-panel');
@@ -717,10 +742,12 @@ export function ensureUI() {
     }
     if (!showSide && side) { panels.delete(side.querySelector('.ss-panel')); side.remove(); side = null; }
     // body 클래스는 바뀔 때만 건드린다 (지웠다 다시 붙이면 매 갱신마다 페이지 전체 스타일을 다시 계산 → 긴 채팅 렉의 주범)
-    const want = side && set.sideState !== 'closed' ? `ss-body-${set.sideState}` : '';
+    const simple = isSimple(); document.body.classList.toggle('ss-simple', simple); // 같은 값이면 아무것도 안 바뀐다
+    const sstate = simple && set.sideState === 'full' ? 'mini' : set.sideState; // 🍙 심플: 「펼침」으로 저장돼 있어도 미니로 보여 준다 (설정값은 안 건드림 — 다른 채팅은 그대로)
+    const want = side && sstate !== 'closed' ? `ss-body-${sstate}` : '';
     for (const c of ['ss-body-full', 'ss-body-mini']) document.body.classList.toggle(c, c === want);
     if (side) {
-        if (side.dataset.state !== set.sideState) side.dataset.state = set.sideState;
+        if (side.dataset.state !== sstate) side.dataset.state = sstate;
         const w = `${clamp(Number(set.sideWidth) || 400, 300, 640)}px`;
         if (side.style.getPropertyValue('--ss-side-w') !== w) side.style.setProperty('--ss-side-w', w);
         if (fullOpen()) fullStale = true; // ⚡ 전체화면 동안은 미니바 안쪽을 안 그린다
@@ -728,7 +755,7 @@ export function ensureUI() {
         paintHost(side.querySelector('.ss-side-mini'), 'side'); }
         const n = app.current ? unreadCount(app.current.state) : 0;
         const b = side.querySelector('.ss-side-handle .ss-badge'); b.textContent = n || ''; b.classList.toggle('ss-hide', !n);
-        if (set.sideState === 'full' && !fullOpen()) { const pnl = side.querySelector('.ss-panel'); if (!pnl.innerHTML || !pnl._ssShown || pnl._ssStale) { pnl._ssShown = true; pnl._ssStale = false; renderPanel(pnl); } }
+        if (sstate === 'full' && !fullOpen()) { const pnl = side.querySelector('.ss-panel'); if (!pnl.innerHTML || !pnl._ssShown || pnl._ssStale) { pnl._ssShown = true; pnl._ssStale = false; renderPanel(pnl); } }
     }
 }
 app.ensureUI = ensureUI;

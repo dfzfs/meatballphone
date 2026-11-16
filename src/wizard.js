@@ -18,13 +18,15 @@ export async function openWizard() {
     const meta = getMeta();
     const curMods = meta?.mods ?? Object.fromEntries(MOD_IDS.map(id => [id, defaultModOn(id)]));
     const W = { base: hasSrc ? 'auto' : 'new', pmode: 'minimal' /* 기본은 늘 최소 (토큰 절약) — 상세는 직접 고를 때만 */, diff: meta?.difficulty ?? settings().difficulty, genre: '', cmode: 'auto', play: meta?.play ? playOf(meta).mode : 'auto', gm: GEN_MODES[settings().genMode] ? settings().genMode : 'hybrid' };
+    // 🍙 시작 방식: 이 채팅이 이미 심플이면 심플 · 아니면 지난번에 고른 것 · 처음 만드는 사람은 심플부터 (써 온 사람 = 모양 고르기 창을 봤거나 미니홈피를 켠 사람은 기본)
+    W.start = meta?.simple === true ? 'simple' : meta?.base ? 'basic' : ['simple', 'basic'].includes(settings().startMode) ? settings().startMode : settings().themeAsked === true || settings().hompyFull === true ? 'basic' : 'simple';
     // v2.7.1 상태창 언어: 채팅이 거의 영어면 「영어로 저장 · 화면은 한국어」를 먼저 권한다
     const recentTxt = (ctx().chat ?? []).slice(-12).map(m => String(m?.mes ?? '')).join(' ').replace(/<[^>]+>/g, ' ');
     const latin = (recentTxt.match(/[A-Za-z]/g) ?? []).length, hangul = (recentTxt.match(/[가-힣]/g) ?? []).length;
     const chatEn = latin > 200 && latin > hangul * 3;
     W.tr = settings().trEngine === 'llm' ? 'llm' : 'st';
     W.lang = settings().ssGenLang === 'enview' || (settings().ssGenLang !== 'ko' && chatEn) ? 'enview' : settings().ssGenLang === 'ko' && !chatEn ? 'ko' : chatEn ? 'enview' : 'ko';
-    const el = h(`<div class="ss-root ss-scope ss-wizard">
+    const el = h(`<div class="ss-root ss-scope ss-wizard ${W.start === 'simple' ? 'wz-simple' : ''}">
         <div class="ss-wz-head"><i class="fa-solid fa-wand-magic-sparkles"></i><div><b>상태창 만들기</b><small>어떤 카드든, 카드가 없어도 돼요. AI가 관련 칸끼리 묶어서 채워요.</small></div></div>
         <div class="ss-card ss-found">
             <div><span>캐릭터</span><b>${chars.length ? chars.map(ch => esc(ch.name)).join(', ') : '없음'}</b></div>
@@ -32,15 +34,20 @@ export async function openWizard() {
             <div><span>로어북</span><b>${lore.length ? lore.map(esc).join(', ') : '없음'}</b></div>
             <div><span>채팅</span><b>${chatN}개</b></div>
         </div>
-        <section class="ss-sec"><div class="ss-sec-h"><h4>빠른 세트 <small>선택 · 누르면 아래 「플레이 방식」과 「쓸 기능」이 맞춰져요 (그 뒤에 하나씩 바꿔도 돼요)</small></h4></div>
+        <section class="ss-sec"><div class="ss-sec-h"><h4>어떻게 쓸까요</h4></div>
+            <div class="ss-seg wrap stack" data-w="start"><button data-v="simple" class="${W.start === 'simple' ? 'on' : ''}">🍙 심플<small>탭 없이 타일 판 하나 · 날짜 · 위치 · 수치 · 돈 · 관계만 · 팁 · 추천 · 알림 창 없음 — 처음이면 이쪽</small></button><button data-v="basic" class="${W.start === 'basic' ? 'on' : ''}">🍱 기본<small>탭이 있는 상태창 · 연락 · 상점 · 퀘스트 · 꾸미기까지 골라 켜요</small></button></div>
+            <p class="ss-hint">이 채팅만 정해요. 나중에 언제든 넓히거나 줄일 수 있고, 그때 내용은 지워지지 않아요.</p>
+            <button class="ss-btn sm ghost ss-wz-more"><i class="fa-solid fa-sliders"></i> <span>자세히 설정</span></button>
+        </section>
+        <section class="ss-sec ss-wz-full"><div class="ss-sec-h"><h4>빠른 세트 <small>선택 · 누르면 아래 「플레이 방식」과 「쓸 기능」이 맞춰져요 (그 뒤에 하나씩 바꿔도 돼요)</small></h4></div>
             <div class="ss-sets">${Object.entries(PLAY_SETS).map(([k, v]) => `<button class="ss-btn" data-set="${k}"><b><i class="fa-solid ${v.icon}"></i> ${v.name}</b><small>${v.desc}</small></button>`).join('')}</div>
             <p class="ss-hint ss-set-note ss-hide"></p>
         </section>
-        <section class="ss-sec"><div class="ss-sec-h"><h4>만드는 방식</h4></div>
+        <section class="ss-sec ss-wz-adv"><div class="ss-sec-h"><h4>만드는 방식</h4></div>
             <div class="ss-seg wrap stack" data-w="gm">${Object.entries(GEN_MODES).map(([k, v]) => `<button data-v="${k}" class="${W.gm === k ? 'on' : ''}"><i class="fa-solid ${v.icon}"></i> ${v.name}<small>${v.desc}</small></button>`).join('')}</div>
             <p class="ss-hint ss-gmhint ${W.gm === 'ai' ? 'ss-hide' : ''}">기본 틀은 아래 「장르」에 맞춰져요 (안 고르면 현대). 수치 · 주사위 · 달력 · 업적 · 운명 카드처럼 어떤 세계관에도 맞는 칸은 검증된 모양으로 고정되고, 나머지는 「기본 틀만」이면 빈 뼈대로 · 「기본 틀 + AI」면 AI가 세계관에 맞게 채워요.</p>
         </section>
-        <section class="ss-sec"><div class="ss-sec-h"><h4>상태창 언어</h4></div>
+        <section class="ss-sec ss-wz-adv"><div class="ss-sec-h"><h4>상태창 언어</h4></div>
             <div class="ss-seg wrap stack" data-w="lang"><button data-v="enview" class="${W.lang === 'enview' ? 'on' : ''}">🇺🇸 영어로 저장 · 화면은 한국어로<small>AI에게 영어로 가고(영어 롤플에 잘 맞음) · 상태창에선 한국어로 번역해 보여 줘요 · 기본 틀도 영어로</small></button><button data-v="ko" class="${W.lang === 'ko' ? 'on' : ''}">🇰🇷 한국어로 저장<small>저장도 화면도 한국어 · 번역 없음</small></button></div>
             <div class="ss-w-trbox ${W.lang === 'enview' ? '' : 'ss-hide'}"><small class="ss-hint">화면 한국어 번역은</small>
                 <div class="ss-seg wrap" data-w="tr"><button data-v="st" class="${W.tr === 'st' ? 'on' : ''}">무료 기본 번역 (추천)</button><button data-v="llm" class="${W.tr === 'llm' ? 'on' : ''}">AI 번역 모델 (토큰 듦)</button></div></div>
@@ -51,28 +58,28 @@ export async function openWizard() {
             <div class="ss-f wide"><span>장르 (고르면 지시에 들어가요 · 선택)</span><div class="ss-pills" data-w="genre">${GENRES.map(g => `<button class="ss-pill" data-v="${g.id}">${g.name}</button>`).join('')}</div></div>
             <label class="ss-f wide ss-canon ss-hide"><span>원작 이름 (2차 창작)</span><input class="ss-in ss-w-canon" placeholder="예: 소설·게임·드라마 제목…"></label>
         </section>
-        <section class="ss-sec"><div class="ss-sec-h"><h4>플레이 방식</h4></div>
+        <section class="ss-sec ss-wz-adv"><div class="ss-sec-h"><h4>플레이 방식</h4></div>
             <div class="ss-seg wrap stack" data-w="play"><button data-v="auto" class="${W.play === 'auto' ? 'on' : ''}">자동 (추천)<small>카드·채팅을 보고 AI가 알아서 (추가 호출 없음)</small></button>${Object.entries(PLAY_MODES).map(([k, v]) => `<button data-v="${k}" class="${W.play === k ? 'on' : ''}">${v.name}<small>${v.desc}</small></button>`).join('')}</div>
             <label class="ss-f wide ss-hero ${W.play === 'director' ? '' : 'ss-hide'}"><span>주인공 이름 (풀사칭 · 비우면 AI가 정함)</span><input class="ss-in ss-w-hero" value="${esc(meta?.play?.hero ?? '')}" placeholder="예: 서이현"></label>
             <label class="ss-tog ss-ens ${W.play === 'director' ? '' : 'ss-hide'}"><input type="checkbox" class="ss-switch ss-w-ens" ${meta?.play?.ensemble ? 'checked' : ''}><span>주인공 없음 — 군상극 (여러 인물을 고르게 · 인물끼리의 관계만)</span></label>
             <label class="ss-tog ss-cardworld ${W.play === 'auto' ? 'ss-hide' : ''}"><input type="checkbox" class="ss-switch ss-w-world" ${meta?.play?.cardIsWorld ? 'checked' : ''}><span>카드 이름이 캐릭터가 아니라 세계관·봇 이름이에요</span></label>
         </section>
-        <section class="ss-sec"><div class="ss-sec-h"><h4>참고할 자료</h4></div><div class="ss-pills">
+        <section class="ss-sec ss-wz-adv"><div class="ss-sec-h"><h4>참고할 자료</h4></div><div class="ss-pills">
             <label class="ss-tog"><input type="checkbox" class="ss-switch" data-src="card" checked><span>캐릭터 카드</span></label>
             <label class="ss-tog"><input type="checkbox" class="ss-switch" data-src="persona" checked><span>페르소나</span></label>
             <label class="ss-tog"><input type="checkbox" class="ss-switch" data-src="lore" checked><span>로어북</span></label>
             <label class="ss-tog"><input type="checkbox" class="ss-switch" data-src="chat" ${chatN > 1 ? 'checked' : ''}><span>최근 채팅 ${settings().recentForGen}개</span></label></div>
             <div class="ss-w-lore ss-hide"><small class="ss-hint">📚 읽을 로어북 — 끈 것은 이 채팅의 상태창을 만들 때 · 칸을 다시 만들 때 읽지 않아요</small><div class="ss-pills ss-w-lorelist"></div></div></section>
-        <section class="ss-sec"><div class="ss-sec-h"><h4>난이도</h4></div>
+        <section class="ss-sec ss-wz-adv"><div class="ss-sec-h"><h4>난이도</h4></div>
             <div class="ss-seg" data-w="diff">${Object.entries(DIFFS).map(([k, v]) => `<button data-v="${k}" class="${W.diff === k ? 'on' : ''}"><i class="fa-solid ${v.icon}"></i> ${v.name}</button>`).join('')}</div>
             <p class="ss-hint ss-diffdesc">${esc(DIFFS[W.diff].desc)}</p></section>
-        <section class="ss-sec"><div class="ss-sec-h"><h4>프로필</h4></div>
+        <section class="ss-sec ss-wz-adv"><div class="ss-sec-h"><h4>프로필</h4></div>
             <div class="ss-seg wrap stack" data-w="pmode"><button data-v="minimal" class="${W.pmode === 'minimal' ? 'on' : ''}">최소<small>카드·로어북 그대로, 요약만 (토큰 절약)</small></button><button data-v="detailed" class="${W.pmode === 'detailed' ? 'on' : ''}">상세<small>이 시트만으로 (외모·말투·배경까지)</small></button></div></section>
-        <section class="ss-sec"><div class="ss-sec-h"><h4>쓸 기능</h4><div class="ss-sec-r"><button class="ss-btn sm ghost" data-all="rec">추천만</button><button class="ss-btn sm ghost" data-all="1">전부</button><button class="ss-btn sm ghost" data-all="0">전부 끄기</button></div></div>
+        <section class="ss-sec ss-wz-full"><div class="ss-sec-h"><h4>쓸 기능</h4><div class="ss-sec-r"><button class="ss-btn sm ghost" data-all="rec">추천만</button><button class="ss-btn sm ghost" data-all="1">전부</button><button class="ss-btn sm ghost" data-all="0">전부 끄기</button></div></div>
             ${GROUPS.filter(g => !['home', 'manage', 'extra'].includes(g.id)).map(g => `<div class="ss-modgrp"><small>${g.name}</small><div class="ss-mods">${g.tabs.map(t => MOD[TAB_MOD(t)]).filter(Boolean).map(m => `<label class="ss-mod ${curMods[m.id] === false ? '' : 'on'}"><input type="checkbox" class="ss-switch" data-mod="${m.id}" ${curMods[m.id] === false ? '' : 'checked'}><i class="fa-solid ${m.icon}"></i><span><b>${m.name}</b><small>${m.desc}</small></span></label>`).join('')}</div></div>`).join('')}
             <div class="ss-f wide ss-cmode"><span>연락 방식</span><div class="ss-seg wrap" data-w="cmode">${Object.entries(CONTACT_MODES).map(([k, v]) => `<button data-v="${k}" class="${W.cmode === k ? 'on' : ''}"><i class="fa-solid ${v.icon}"></i> ${v.name}</button>`).join('')}</div><small class="ss-hint">휴대폰이 없는 세계관은 「편지」 — 배달부·갈매기·올빼미·강아지·마법 등으로 며칠 걸려 도착하고, 돈을 내면 급행(퀵)으로 바로 와요.</small></div>
         </section>
-        <section class="ss-sec"><div class="ss-sec-h"><h4>추가 지시 <small>선택 · 무엇이든</small></h4></div>
+        <section class="ss-sec ss-wz-adv"><div class="ss-sec-h"><h4>추가 지시 <small>선택 · 무엇이든</small></h4></div>
             <textarea class="ss-in ss-w-ins" rows="3" placeholder="예: 현대 도시 판타지, 유저는 신입 헌터. 화폐는 원. 본거지는 원룸. 남캐 5명과는 처음엔 서먹하게."></textarea></section>
         <div class="ss-row-btns"><button class="ss-btn pri big ss-w-go"><i class="fa-solid fa-play"></i> 생성 시작</button><small class="ss-hint ss-w-cost"></small></div>
         <div class="ss-w-prog"></div>
@@ -98,7 +105,20 @@ export async function openWizard() {
     el.querySelector('[data-src="lore"]').addEventListener('change', syncLore);
     loreList.addEventListener('change', (e) => { const sel = e.target.closest('.ss-w-loreadd'); if (!sel || !sel.value) return; const n = sel.value; sel.querySelector(`option[value="${CSS.escape(n)}"]`)?.remove(); sel.value = ''; sel.insertAdjacentHTML('beforebegin', loreChip(n, true)); if (sel.options.length <= 1) sel.remove(); });
     syncPlay();
+    // 🍙 심플을 고르면 쓸 기능을 추천 6칸으로 맞춘다 (화면에서는 그 묶음을 숨긴다) — 기본으로 바꾸면 아까 고른 대로 되돌린다
+    let modsWas = null;
+    const syncStart = () => {
+        const simple = W.start === 'simple';
+        el.classList.toggle('wz-simple', simple); if (!simple) el.classList.remove('wz-more');
+        el.querySelector('.ss-wz-more span').textContent = el.classList.contains('wz-more') ? '자세히 설정 접기' : '자세히 설정';
+        const boxes = [...el.querySelectorAll('[data-mod]')];
+        if (simple) { modsWas ??= Object.fromEntries(boxes.map(i => [i.dataset.mod, i.checked])); for (const i of boxes) { i.checked = REC_MODS.includes(i.dataset.mod); i.closest('.ss-mod').classList.toggle('on', i.checked); } if (W.set) { W.set = ''; el.querySelectorAll('[data-set]').forEach(x => x.classList.remove('pri')); el.querySelector('.ss-set-note').classList.add('ss-hide'); } }
+        else if (modsWas) { for (const i of boxes) { i.checked = !!modsWas[i.dataset.mod]; i.closest('.ss-mod').classList.toggle('on', i.checked); } modsWas = null; }
+        cost();
+    };
+    syncStart();
     el.addEventListener('click', (e) => {
+        if (e.target.closest('.ss-wz-more')) { el.classList.toggle('wz-more'); el.querySelector('.ss-wz-more span').textContent = el.classList.contains('wz-more') ? '자세히 설정 접기' : '자세히 설정'; return; }
         const sb = e.target.closest('[data-set]');
         if (sb) { // 원클릭 세트: 플레이 방식 · 쓸 기능을 맞추고, 선택 기능은 「생성 시작」 때 켠다
             const ps = PLAY_SETS[sb.dataset.set]; if (!ps) return;
@@ -135,6 +155,7 @@ export async function openWizard() {
         if (k === 'play') syncPlay();
         if (k === 'diff') el.querySelector('.ss-diffdesc').textContent = DIFFS[W.diff].desc;
         if (k === 'gm') { settings().genMode = W.gm; saveSettings(); cost(); }
+        if (k === 'start') syncStart();
     });
     const results = { core: null, data: {} };
     let mods = {};
@@ -194,7 +215,10 @@ export async function openWizard() {
             if (results.data.rel && results.data.profile) relFromProfiles(results.data.rel, results.data.profile); // 프로필에 있는 사람은 관계에도 꼭
             await setBase({ core: results.core, data: results.data }, mods, W.diff, results.play);
             applied = true;
-            toastr.success('상태창을 만들었어요!', TITLE);
+            const simple = W.start === 'simple';
+            try { settings().startMode = W.start; saveSettings(); await (await import('./simple.js')).startSimple(simple); } catch (e2) { ssWarn(LOG, 'simple start', e2); }
+            toastr.success(simple ? '상태창을 만들었어요! 타일을 누르면 자세히 보여요.' : '상태창을 만들었어요!', TITLE);
+            if (simple) { el.closest('dialog')?.querySelector('.popup-button-ok')?.click(); app.rerenderPanels?.(true); return; } // 🍙 모양 고르기 창도 · 상태창 창도 띄우지 않는다 — 타일 판이 바로 보인다
             if (settings().themeAsked !== true) setTimeout(() => import('./themeask.js').then(m => m.askTheme('made')).catch(() => {}), 900); // 🎨 처음 만들었을 때 한 번: 모양 고르기
             el.closest('dialog')?.querySelector('.popup-button-ok')?.click();
             if (!document.querySelector('.ss-panel-pop')) setTimeout(() => app.newSheet(), 300);
@@ -205,7 +229,7 @@ export async function openWizard() {
     const goRun = async (e) => {
         const btn = e.currentTarget;
         const src = Object.fromEntries([...el.querySelectorAll('[data-src]')].map(i => [i.dataset.src, i.checked]));
-        mods = Object.fromEntries([...el.querySelectorAll('[data-mod]')].map(i => [i.dataset.mod, i.checked]));
+        mods = Object.fromEntries([...el.querySelectorAll('[data-mod]')].map(i => [i.dataset.mod, W.start === 'simple' ? REC_MODS.includes(i.dataset.mod) : i.checked])); // 🍙 심플은 늘 추천 6칸
         if (LC && src.lore) { try { setLorePick(LC.linked, [...el.querySelectorAll('[data-lore]')].filter(i => i.checked).map(i => i.dataset.lore)); } catch (e2) { ssWarn(LOG, 'lore pick', e2); } } // 📚 고른 로어북을 이 채팅에 기억 (자료를 모으기 전에)
         if (W.set && PLAY_SETS[W.set]) { const add = Object.entries(PLAY_SETS[W.set].set).filter(([k, v]) => settings()[k] !== v); if (add.length) { Object.assign(settings(), Object.fromEntries(add)); saveSettings(); } } // 세트의 선택 기능 켜기
         if (W.lang && settings().ssGenLang !== W.lang) { settings().ssGenLang = W.lang; saveSettings(); } // 생성 전에 — 모든 AI 호출 · 기본 틀이 이 언어로

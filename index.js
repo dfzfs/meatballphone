@@ -528,6 +528,7 @@ function whatsNewOnLoad(fresh) {
     if (s.lastSeenNote === key || s.lastSeenVersion === VERSION) { if (s.lastSeenNote !== key) { s.lastSeenNote = key; saveSettings(); } return; }
     const done = () => { s.lastSeenVersion = VERSION; s.lastSeenNote = key; saveSettings(); };
     if (fresh || s.updateNotice === false) { done(); return; } // 처음 설치 · 알림 끔
+    if (getMeta()?.simple === true) return; // 🍙 심플 모드 채팅에서는 띄우지 않는다 — 본 걸로 치지 않아서, 다른 채팅을 열면 그때 한 번 뜬다
     const sameVer = s.lastSeenVersion === VERSION; // 버전은 같은데 내역만 바뀜 → 맨 위 내역만
     const list = sameVer ? CHANGELOG.slice(0, 1) : CHANGELOG.filter(c => !s.lastSeenVersion || verGt(c.v, s.lastSeenVersion));
     const heads = list.slice(0, 1).flatMap(c => c.items.map(([h]) => h.replace(/^\S+\s/u, ''))).slice(0, 4).join(' · '); // 알림 한 줄엔 최신 버전 것만
