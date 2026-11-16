@@ -20,7 +20,7 @@ import { EDIT, viewTr, letterMode, GLOBAL_OFF } from './core.js';
 import { translateSheet, missingTr } from './translate.js';
 import { hintAfterAction } from './tips.js';
 import { storySection, guideView } from './story_ui.js';
-import { hompyHTML, fitHompy, photoHTML, hpLayout, hpMinor , isDecoMode } from './hompy.js';
+import { hompyHTML, mountHompy, fitHompy, photoHTML, hpLayout, hpMinor , isDecoMode } from './hompy.js';
 import { setNoShort } from './util.js';
 import { openPromptWindow, openThemeWindow, openWizard } from './lazy.js';
 import { setBase, startBlank } from './engine.js';
@@ -233,8 +233,9 @@ function renderPanel0(el) {
         ${pack && minors.includes(tab) && !merged ? `<button class="ss-btn sm ss-hp-back" data-hp="all"><i class="fa-solid fa-layer-group"></i> 모음으로</button>` : ''}
         <main class="ss-body ${merged ? 'ss-hp-merged' : ''}" data-tab="${tab}">${body}</main>`;
     const enter = hp && !st.hpShown; st.hpShown = hp;
-    el.innerHTML = hp ? hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, s, meta, nNew, enter, homeGroup: tab === 'home' && st.mode === 'view' && !!data })
+    const html = hp ? hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, s, meta, nNew, enter, homeGroup: tab === 'home' && st.mode === 'view' && !!data })
         : `<div class="${rootCls}">${headHTML}${pauseHTML}${groupsHTML}${restHTML}</div>`;
+    if (!(hp && mountHompy(el, html))) el.innerHTML = html; // ⚡ 미니홈피는 바뀐 창만 갈아 끼운다 (hompy.js)
     if (!merged && st.mode !== 'edit' && st.mode !== 'json' && tab !== 'manage' && (pseudo || data)) applyParts(el, tab); // 👁 보일 것 (v2.7.19)
     labelIcons(el);
     if (!isFloat) queueMicrotask(placeCtFloat); else compactFloat(el);

@@ -431,7 +431,7 @@ export function fitHompy(el, tries = 0) {
     cols.forEach(c => { c.firstElementChild.style.zoom = ''; }); if (body) { body.style.zoom = ''; body.style.height = ''; const hb0 = body.querySelector('.ss-hp-homebody'); if (hb0) hb0.style.zoom = ''; } right?.classList.remove('ss-hp-over');
     // 탭이 바뀌었을 때 · 기분이 바뀌었을 때만 작은 움직임
     try { const st = el._ss, key = `${st?.group}/${st?.tab}`; if (el._hpTab !== undefined && el._hpTab !== key) body?.classList.add('ss-hp-swap'); el._hpTab = key; const face = root.querySelector('.ss-hp-pet') ?? root.querySelector('.ss-hp-photo img'), fk = face?.getAttribute('src'); if (el._hpFace !== undefined && fk && el._hpFace !== fk) face.classList.add('pop'); el._hpFace = fk; } catch { /* 꾸밈일 뿐 */ }
-    try { const gn = D().hpGroupNames ?? {}; root.querySelectorAll('.ss-groups > button[data-arg]').forEach(b => { const sp = b.querySelector('span'); if (!sp) return; if (!b.dataset.n0) b.dataset.n0 = sp.textContent; const n = gn[b.dataset.arg], t = n ? String(n).slice(0, 8) : b.dataset.n0; if (sp.textContent !== t) sp.textContent = t; }); } catch { /* 꾸밈일 뿐 */ }
+    try { const gn = D().hpGroupNames ?? {}; root.querySelectorAll(':scope > .ss-hp-marks .ss-groups > button[data-arg]').forEach(b => { const sp = b.querySelector('span'); if (!sp) return; if (!b.dataset.n0) b.dataset.n0 = sp.textContent; const n = gn[b.dataset.arg], t = n ? String(n).slice(0, 8) : b.dataset.n0; if (sp.textContent !== t) sp.textContent = t; }); } catch { /* 꾸밈일 뿐 */ }
     if (innerWidth <= 640) return; // (속도) matchMedia는 물을 때마다 스타일 계산을 한 번 더 시킨다
     if (root.querySelector('.ss-hp-book.free') || root.classList.contains('ss-hp-edit')) { right?.classList.add('ss-hp-over'); cols.forEach(c => c.classList.add('ss-hp-over')); return; } // 자유 배치: 창마다 정한 크기 안에서 스크롤
     // (v2.8 다이어트) 예전엔 줄마다 「재고 → 줄이고 → 다시 재고」를 최대 4번 돌려 화면 배치 계산을 여러 번 시켰다 (전체화면에서 한 턴 시간의 절반).
@@ -570,6 +570,47 @@ export function initHompy() {
             inp.click();
         } catch (err) { ssErr(err); }
     }, true);
+}
+// ⚡ (속도) 미니홈피를 다시 그릴 때 화면 전체(요소 400개 남짓)를 새로 붙이지 않고, 머리줄 · 메뉴 · 옆 창 가운데 **안 바뀐 것은 그대로 두고 바뀐 것만** 갈아 끼운다.
+//   · 견주는 것은 「붙일 때의 원래 HTML」 — 그린 뒤 손본 것(화면 번역 · 맞춤 배율 · 아이콘 이름표)과는 견주지 않는다
+//   · 가운데 창은 늘 새로 붙인다 (그린 뒤 손보는 것 — 「보일 것」 막대 · 입력칸 연결 — 이 그쪽에만 있어서)
+//   · 틀이 달라졌으면(창 수 · 자리 · 꾸미기 모드 · 자유 배치 · 번역 사전이 바뀜) 예전처럼 통째로
+const SRC = new WeakMap(), FRAME = new WeakMap();
+const colCls = (c) => c.className.replace(/\s*\bss-hp-over\b/g, '').trim();
+const frameOf = (root) => {
+    const book = root.querySelector(':scope > .ss-hp-book'); if (!book || book.classList.contains('free') || root.classList.contains('ss-hp-edit')) return null;
+    const kids = [...root.children].map(c => `${c.tagName}.${c.classList[0] ?? ''}`).join(' ');
+    const cols = [...book.children].map(c => (c.classList.contains('ss-hp-col') ? `col(${colCls(c)})[${[...c.querySelectorAll(':scope > .ss-hp-col-in > .ss-hp-win')].map(w => w.dataset.win).join(',')}]${c.querySelectorAll(':scope > .ss-hp-col-in > *').length}` : c.classList.contains('main') ? 'main' : `?${c.className}`)).join(' ');
+    return cols.includes('?') ? null : `${app.trEpoch?.() ?? ''}|${kids}|${cols}`;
+};
+const unitsOf = (root) => { const book = root.querySelector(':scope > .ss-hp-book'); return [...[...root.children].filter(c => c !== book), ...(book ? [...book.querySelectorAll(':scope > .ss-hp-col > .ss-hp-col-in > .ss-hp-win')] : [])]; };
+export function mountHompy(el, html) {
+    try {
+        const t = document.createElement('template'); t.innerHTML = html; const neu = t.content.firstElementChild;
+        if (!neu || t.content.childElementCount !== 1 || !neu.classList.contains('ss-hompy')) return false;
+        const fr = frameOf(neu); for (const u of unitsOf(neu)) SRC.set(u, u.outerHTML); if (fr) FRAME.set(neu, fr);
+        const old = el.childElementCount === 1 ? el.firstElementChild : null;
+        if (!fr || !old || FRAME.get(old) !== fr || settings().hpPatch === false) { el.replaceChildren(neu); return true; }
+        // 같은 틀: 바뀐 것만
+        if (old.className !== neu.className) old.className = neu.className;
+        if (old.getAttribute('style') !== neu.getAttribute('style')) old.setAttribute('style', neu.getAttribute('style') ?? '');
+        const ob = old.querySelector(':scope > .ss-hp-book'), nb = neu.querySelector(':scope > .ss-hp-book');
+        const swap = (o, n) => { if (SRC.get(o) !== SRC.get(n)) o.replaceWith(n); };
+        const oc = [...old.children], nc = [...neu.children];
+        for (let i = 0; i < oc.length; i++) if (oc[i] !== ob) swap(oc[i], nc[i]);
+        if (ob.className !== nb.className) ob.className = nb.className;
+        if (ob.getAttribute('style') !== nb.getAttribute('style')) ob.setAttribute('style', nb.getAttribute('style') ?? '');
+        const obc = [...ob.children], nbc = [...nb.children];
+        for (let i = 0; i < obc.length; i++) {
+            const o = obc[i], n = nbc[i];
+            if (!o.classList.contains('ss-hp-col')) { o.replaceWith(n); continue; } // 가운데 창
+            o.classList.remove('ss-hp-over'); // 새로 붙인 줄처럼: 넘침 표시는 맞춤(fitHompy) · 미니 채팅 붙이기가 다시 정한다 (폰에서는 맞춤이 안 돌아 예전 표시가 남았음)
+            const ow = [...o.querySelectorAll(':scope > .ss-hp-col-in > .ss-hp-win')], nw = [...n.querySelectorAll(':scope > .ss-hp-col-in > .ss-hp-win')];
+            for (let k = 0; k < ow.length; k++) swap(ow[k], nw[k]);
+        }
+        FRAME.set(old, fr);
+        return true;
+    } catch (e) { ssErr(e); return false; }
 }
 export function hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, s, meta, nNew, enter, homeGroup }) {
     const c = s.core, d = s.data, [con, feel] = mood(s, meta, nNew), [, hue, sat] = themeOf();

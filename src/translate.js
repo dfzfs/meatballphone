@@ -188,6 +188,7 @@ export async function trText(text, o = null) {
 const TR_MAX = 3000;
 const TR_CHARS = 300000; // 사전 전체 글자 수 상한 (약 300KB)
 let trVer = 0; // 사전이 바뀔 때마다 +1 (화면 번역기 캐시 갱신)
+app.trEpoch = () => `${trVer}/${settings().ssGenLang ?? ''}`; // 미니홈피의 「바뀐 창만 갈아 끼우기」가 번역이 바뀌면 통째로 다시 그리도록
 const hasLatin = (x) => /[A-Za-z]/.test(x);
 app.addTrPairs = (p) => addPairs(p);
 // ───── 🌐 번역 고치기 (v2.7.2): 화면에 보이는 한국어가 이상할 때 직접 고친다 (토큰 0 · 이 채팅만) ─────
