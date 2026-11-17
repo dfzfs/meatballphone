@@ -129,6 +129,9 @@ export function renderSettings() {
             <label>동시에 보낼 생성 요청 수 <small>(너무 높으면 API가 거절할 수 있어요)</small><input type="number" min="1" max="8" class="text_pole" data-s="genParallel" value="${s.genParallel}"></label>
             <label>확장 AI 최대 출력 토큰<input type="number" min="500" max="32000" class="text_pole" data-s="aiMaxTokens" value="${s.aiMaxTokens}"></label>
             <label>생성 때 읽을 최근 채팅 수<input type="number" min="0" max="100" class="text_pole" data-s="recentForGen" value="${s.recentForGen}"></label>
+            <label>📖 생성 때 채팅 읽는 방식 <small>(만들기 · 칸 다시 생성 · AI로 수정의 재료 — 길게 읽을수록 그 요청의 토큰이 늘어요. 본편 · 다른 확장 AI 호출은 그대로예요)</small><select class="text_pole" data-s="genRead">${o('genRead', 'short', '최근 채팅 · 메시지마다 앞 700자 (기본)')}${o('genRead', 'last', '최근 채팅 + 마지막 답은 전체')}${o('genRead', 'recent', '최근 채팅을 길게 (2,500자씩 · 마지막 답은 전체)')}${o('genRead', 'all', '채팅 전체 (처음부터 끝까지)')}</select></label>
+            <label>「채팅 전체」로 읽을 때 최대 글자 수 <small>(넘으면 오래된 메시지부터 앞부분만 남겨요)</small><input type="number" min="4000" max="2000000" step="10000" class="text_pole" data-s="genReadCap" value="${s.genReadCap}"></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="genNote" ${s.genNote === true ? 'checked' : ''}> 📝 생성 때 이 채팅의 작가 노트도 읽기 <small>(기본 끔 — 페르소나 · 세계관을 작가 노트에 적어 두는 분용. 문체 지시는 무시하고 사실만 참고하게 해요)</small></label>
             <label>생성 때 읽을 로어북 최대 글자 수<input type="number" min="0" max="100000" step="1000" class="text_pole" data-s="loreChars" value="${s.loreChars}"></label>
             <label>상태 주입 깊이 (0 = 맨 끝)<input type="number" min="0" max="20" class="text_pole" data-s="injectDepth" value="${s.injectDepth}"></label>
             <label class="checkbox_label"><input type="checkbox" data-s="injWorld" ${s.injWorld ? 'checked' : ''}> 세계관 요약·규칙도 매 턴 보내기 <small>(기본 끔 — 보통 카드·로어북에 이미 있어서 중복이에요. 카드·로어북에 세계관이 없을 때만 켜세요. 끄더라도 칸을 AI로 만들 때는 참고해요)</small></label>
@@ -233,6 +236,11 @@ export function renderSettings() {
             <div class="ss-set-btns"><button class="menu_button" data-s-act="mascotsound"><i class="fa-solid fa-volume-high"></i> 소리 미리 듣기</button></div>
             <div class="ss-set-btns"><button class="menu_button" data-s-act="diag"><i class="fa-solid fa-stethoscope"></i> 자가 진단 · 고치기</button><button class="menu_button" data-s-act="report"><i class="fa-solid fa-bug"></i> 오류 보고문</button><button class="menu_button" data-s-act="copydump" title="최근 메시지 원문 · 상태 전체 · 편집 기록 · 주입문 (가리지 않음 · 고쳐 달라고 붙여 넣는 용)"><i class="fa-solid fa-clipboard"></i> 지금 상태 복사</button><button class="menu_button" data-s-act="backup"><i class="fa-solid fa-box-archive"></i> 이 채팅 전체 백업</button></div>
             <b class="ss-set-h">다른 확장과 같이 쓰기</b>
+            <label class="checkbox_label"><input type="checkbox" data-s="hideSkip" ${s.hideSkip === true ? 'checked' : ''}> 🙈 눈 단추로 직접 숨긴 AI 답은 상태 계산에서 빼기 <small>(기본 끔 — 켜면 답의 눈 단추를 누를 때 그 답의 돈 · 호감 변화가 빠지고, 다시 보이게 하면 돌아와요. 요약 확장 · /hide 가 숨긴 옛 답은 예전처럼 계속 더해요. 켜기 전에 숨긴 답은 한 번 보였다가 다시 숨기면 돼요)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="askDelete" ${s.askDelete !== false ? 'checked' : ''}> 🗑 되돌릴 수 없는 지우기는 한 번 물어보기 <small>(알림함 비우기 · 비밀 · 기억 · 편지 지우기 · 답장 다시 받기)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="backClose" ${s.backClose !== false ? 'checked' : ''}> ◀ 폰 뒤로 가기로 미트볼 창 닫기 <small>(끄면 예전처럼 뒤로 가기가 앱 밖으로 나가요)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="guardData" ${s.guardData === true ? 'checked' : ''}> <b>🛡 데이터 보호</b> <small>(기본 끔 — 다른 확장이 미트볼의 상태창 자료 · 프롬프트 · 확인 창 · AI 요청에 끼어드는 것을 막아요. 밖에서 바뀐 기준 자료는 되돌리고, 프롬프트 끝에 덧붙은 덩어리는 떼고 보내고, 확인 창 자동 승인 · 다른 모델로 돌리기 · 답 빼기 표식을 건너뛰어요. 다른 확장이 미트볼에 덧댄 기능은 듣지 않게 돼요)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="guardLook" ${s.guardLook === true ? 'checked' : ''}> <b>🛡 화면 보호</b> <small>(기본 끔 — 기타 확장이 미트볼의 색 · 글꼴 · 아이콘 · 단추 · 설정 칸 배치를 덮는 것을 막아요. 미트볼 화면만 원래 모양으로 돌아가고 실리태번의 나머지 화면은 테마 그대로예요)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="stashTags" ${s.stashTags ? 'checked' : ''}> &lt;meatball&gt;을 읽은 뒤 본문에서 떼어 보관 <small>(추천 · 요약·번역·로그 복사 확장에 변화량 줄이 안 보여요. 고칠 땐 변동 칩의 ✏️)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="legacyStatus" ${s.legacyStatus !== false ? 'checked' : ''}> 옛 &lt;status&gt; 태그도 미트볼 것으로 읽고 숨기기 <small>(v2.5 이전 채팅용 · <b>다른 프리셋이 &lt;status&gt;를 쓰면 끄세요</b> — 끄면 &lt;meatball&gt;만 건드려요)</small></label>
             <div class="ss-set-btns"><button class="menu_button" data-s-act="stashall"><i class="fa-solid fa-box-archive"></i> 이 채팅의 옛 태그도 모두 보관</button></div>
@@ -253,6 +261,8 @@ export function renderSettings() {
         onLine(el);
         if (ADDON_SET.has(k) && settings()[k] === true) app.loadAddons?.(true); // 🧩 덧붙이는 기능은 켤 때 처음 불러온다
         hintSetting(k, settings()[k]); // 방금 바꾼 설정에 주의할 게 있으면 한 번
+        if (k === 'guardData' || k === 'guardLook') app.applyGuard?.(); // 🛡 바로 걸고 푼다
+        if (k === 'hideSkip') app.sweepHidden?.();
         if (k === 'autoRegex' && e.target.checked) app.installRegex();
         if (k === 'legacyStatus') app.installRegex(); // 정규식도 같이 바꾼다
         if (/^bind[A-Z]/.test(k)) { app.refreshNow(); app.sideSweep?.(); } // 📦 따로 보관으로 돌린 칸은 쌓인 기록을 덩어리 하나로

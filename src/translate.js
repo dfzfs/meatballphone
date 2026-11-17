@@ -348,7 +348,7 @@ export async function pruneTr() {
     const drop = Object.keys(d).filter(k => !lock[k] && !hay.includes(k) && !hay.includes(JSON.stringify(k).slice(1, -1)));
     if (!drop.length) { toastr.success('지울 옛 번역이 없어요. 사전이 깔끔해요.', TITLE); return 0; }
     const kb = Math.round(drop.reduce((n, k) => n + k.length + String(d[k]).length, 0) / 1024 * 3) ; // 한글은 3바이트쯤
-    if (!(await SillyTavern.getContext().Popup.show.confirm(TITLE, `번역 사전 ${Object.keys(d).length}개 중 지금 상태창에 없는 ${drop.length}개를 지울까요? (약 ${kb}KB · 📌 고정한 건 남겨요)<br><small>나중에 그 글이 다시 나오면 다시 번역돼요.</small>`))) return 0;
+    if (!(await ctx().Popup.show.confirm(TITLE, `번역 사전 ${Object.keys(d).length}개 중 지금 상태창에 없는 ${drop.length}개를 지울까요? (약 ${kb}KB · 📌 고정한 건 남겨요)<br><small>나중에 그 글이 다시 나오면 다시 번역돼요.</small>`))) return 0;
     for (const k of drop) delete d[k];
     trVer++; memo.clear();
     await saveMeta();
@@ -363,7 +363,7 @@ export async function clearTr(btn = null) {
     if (!d || !Object.keys(d).length) { toastr.info('지울 번역이 없어요.', TITLE); return 0; }
     const lock = meta.trLock ?? {}, drop = Object.keys(d).filter(k => !lock[k]), kept = Object.keys(d).length - drop.length;
     if (!drop.length) { toastr.info(`남은 번역 ${kept}개는 모두 📌 내가 고친 것이에요. 「번역 고치기」에서 하나씩 지울 수 있어요.`, TITLE); return 0; }
-    const P = SillyTavern.getContext().Popup;
+    const P = ctx().Popup;
     if (!(await P.show.confirm(TITLE, `이 채팅의 번역 ${drop.length}개를 모두 지울까요?${kept ? ` (📌 내가 고친 ${kept}개는 남겨요)` : ''}<br><small>화면에 보이는 번역만 지워요 — 저장된 상태 · 숫자 · 기록은 그대로예요. 지운 글은 다시 번역하기 전까지 영어로 보여요.</small>`))) return 0;
     for (const k of drop) delete d[k];
     trVer++; memo.clear(); missMemo.s = null; stuck.clear();
@@ -552,7 +552,7 @@ export async function translateSheet(btn) {
     if (viewTr()) return translateMissing(btn); // 화면만 번역: 아직 번역 안 된 글만 (v2.7.12 · 예전엔 다 번역된 칸까지 칸마다 다시)
     const meta = getMeta();
     const ids = ['core', ...MOD_IDS.filter(id => modOn(id, meta) && s.data[id])];
-    if (!(await SillyTavern.getContext().Popup.show.confirm(TITLE, `상태창 ${ids.length}칸을 「${esc(settings().trLang || '한국어')}」로 번역해요 (번역 모델 ${ids.length}회). 숫자·구조는 그대로 둬요. 다시 누르면 멈춰요.`))) return;
+    if (!(await ctx().Popup.show.confirm(TITLE, `상태창 ${ids.length}칸을 「${esc(settings().trLang || '한국어')}」로 번역해요 (번역 모델 ${ids.length}회). 숫자·구조는 그대로 둬요. 다시 누르면 멈춰요.`))) return;
     running = true; stop = false;
     const old = btn?.innerHTML;
     let k = 0;
@@ -778,7 +778,7 @@ export async function convertToEnglish(btn) {
     const ids = koPanels();
     if (!ids.length) { toastr.success('한국어로 저장된 칸이 없어요. 이미 영어로 저장돼 있어요.', TITLE); return; }
     const who = settings().trEngine === 'st' ? '실리 기본 번역 (토큰 0)' : `번역 모델 ${ids.length}회`;
-    if (!(await SillyTavern.getContext().Popup.show.confirm(TITLE, `한국어로 저장된 ${ids.length}칸을 영어 저장으로 바꿔요 (${esc(who)}).<br><br>• 지금 보이는 한국어는 <b>화면 번역으로 그대로 남아요</b> — 화면은 거의 그대로고, AI에게만 영어로 가요.<br>• 칸마다 「되돌리기」(<code>/ss-undo</code>)로 되돌릴 수 있어요. 걱정되면 먼저 관리 탭 › 세이브나 전체 백업을 해 두세요.<br>• 다시 누르면 멈춰요.`))) return;
+    if (!(await ctx().Popup.show.confirm(TITLE, `한국어로 저장된 ${ids.length}칸을 영어 저장으로 바꿔요 (${esc(who)}).<br><br>• 지금 보이는 한국어는 <b>화면 번역으로 그대로 남아요</b> — 화면은 거의 그대로고, AI에게만 영어로 가요.<br>• 칸마다 「되돌리기」(<code>/ss-undo</code>)로 되돌릴 수 있어요. 걱정되면 먼저 관리 탭 › 세이브나 전체 백업을 해 두세요.<br>• 다시 누르면 멈춰요.`))) return;
     running = true; stop = false;
     const old = btn?.innerHTML;
     let k = 0, fail = 0;

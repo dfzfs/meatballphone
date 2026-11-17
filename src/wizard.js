@@ -1,6 +1,6 @@
 // 처음 만들기 (마법사 · 기준 상태 세우기) — shell.js에서 떼어 냄
 import { DATA_V, app, ctx, settings, saveSettings, getMeta, saveMeta, MOD, MOD_IDS, EMPTY, NORM, normalize, DIFFS, GENRES, CONTACT_MODES, esc, clone, clamp, h, TITLE, LOG, PLAY_MODES, normPlay, playOf, mascotUrl, relFromProfiles, ssErr, ssWarn, PLAY_SETS } from './core.js';
-import { gatherSources, loreNames, loreChoice, setLorePick, chatCharacters, setBase, startBlank, storySoFar, LONG_CHAT } from './engine.js';
+import { gatherSources, loreNames, loreChoice, setLorePick, chatCharacters, setBase, startBlank, storySoFar, LONG_CHAT, READ_MODES, authorNote } from './engine.js';
 import { genModule, genGroup, GEN_GROUPS } from './ai.js';
 import { popup, askConfirm, busyBtn, seg, sec, mascot } from './kit.js';
 import { GROUPS, TAB_MOD } from './views.js';
@@ -74,7 +74,9 @@ export async function openWizard() {
             <label class="ss-tog"><input type="checkbox" class="ss-switch" data-src="card" checked><span>캐릭터 카드</span></label>
             <label class="ss-tog"><input type="checkbox" class="ss-switch" data-src="persona" checked><span>페르소나</span></label>
             <label class="ss-tog"><input type="checkbox" class="ss-switch" data-src="lore" checked><span>로어북</span></label>
-            <label class="ss-tog"><input type="checkbox" class="ss-switch" data-src="chat" ${chatN > 1 ? 'checked' : ''}><span>최근 채팅 ${settings().recentForGen}개</span></label></div>
+            <label class="ss-tog"><input type="checkbox" class="ss-switch" data-src="chat" ${chatN > 1 ? 'checked' : ''}><span>최근 채팅 ${settings().recentForGen}개</span></label>
+            ${authorNote() ? `<label class="ss-tog" title="이 채팅의 작가 노트에 적은 페르소나 · 세계관도 재료로 읽어요 (문체 지시는 무시)"><input type="checkbox" class="ss-switch" data-src="note" ${settings().genNote === true ? 'checked' : ''}><span>작가 노트</span></label>` : ''}</div>
+            <label class="ss-f wide ss-w-readrow"><span>📖 채팅 읽는 방식 <small class="ss-hint">길게 읽을수록 만드는 요청의 토큰이 늘어요</small></span><select class="ss-in ss-w-read">${Object.entries(READ_MODES).map(([k, v]) => `<option value="${k}" ${(READ_MODES[settings().genRead] ? settings().genRead : 'short') === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>
             <div class="ss-w-lore ss-hide"><small class="ss-hint">📚 읽을 로어북 — 끈 것은 이 채팅의 상태창을 만들 때 · 칸을 다시 만들 때 읽지 않아요</small><div class="ss-pills ss-w-lorelist"></div></div></section>
         <section class="ss-sec ss-wz-adv"><div class="ss-sec-h"><h4>난이도</h4></div>
             <div class="ss-seg" data-w="diff">${Object.entries(DIFFS).map(([k, v]) => `<button data-v="${k}" class="${W.diff === k ? 'on' : ''}"><i class="fa-solid ${v.icon}"></i> ${v.name}</button>`).join('')}</div>
@@ -241,6 +243,9 @@ export async function openWizard() {
         if (LC && src.lore) { try { setLorePick(LC.linked, [...el.querySelectorAll('[data-lore]')].filter(i => i.checked).map(i => i.dataset.lore)); } catch (e2) { ssWarn(LOG, 'lore pick', e2); } } // 📚 고른 로어북을 이 채팅에 기억 (자료를 모으기 전에)
         if (W.set && PLAY_SETS[W.set]) { const add = Object.entries(PLAY_SETS[W.set].set).filter(([k, v]) => settings()[k] !== v); if (add.length) { Object.assign(settings(), Object.fromEntries(add)); saveSettings(); } } // 세트의 선택 기능 켜기
         if (W.lang && settings().ssGenLang !== W.lang) { settings().ssGenLang = W.lang; saveSettings(); } // 생성 전에 — 모든 AI 호출 · 기본 틀이 이 언어로
+        { const rd = el.querySelector('.ss-w-read')?.value, nt = el.querySelector('[data-src="note"]'); // 📖 채팅 읽는 방식 · 📝 작가 노트 — 고른 대로 기억 (칸을 다시 만들 때도 같게)
+            if (rd && READ_MODES[rd] && settings().genRead !== rd) { settings().genRead = rd; saveSettings(); }
+            if (nt && settings().genNote !== nt.checked) { settings().genNote = nt.checked; saveSettings(); } }
         if (W.lang === 'enview' && W.tr && settings().trEngine !== W.tr) { settings().trEngine = W.tr; saveSettings(); }
         const g = GENRES.find(x => x.id === W.genre);
         const canon = el.querySelector('.ss-w-canon').value.trim();
@@ -250,7 +255,7 @@ export async function openWizard() {
         busyBtn(btn, true, '생성 중…');
         prog.innerHTML = settings().showMascot === false ? '' : `<div class="ss-mbanner">${mascot('think', 'md')}<span>열심히 만드는 중… 보통 1~2분 걸려요</span></div>`;
         results.core = null; results.data = {};
-        const sources = W.gm === 'tpl' ? '' : W.base === 'new' ? await gatherSources({ card: false, lore: false, chat: false, persona: src.persona }) : await gatherSources({ ...src, long: !!el.querySelector('.ss-w-long')?.checked });
+        const sources = W.gm === 'tpl' ? '' : W.base === 'new' ? await gatherSources({ card: false, lore: false, chat: false, persona: src.persona, note: src.note === true }) : await gatherSources({ ...src, long: !!el.querySelector('.ss-w-long')?.checked });
         const cmode = W.cmode === 'auto' && g && g.contact !== 'auto' ? g.contact : W.cmode;
         opts = { sources, instruction: W.base === 'new' ? `${instruction}\n(Create a NEW world. Ignore any existing card/lorebook.)` : instruction, pmode: W.pmode, cmode, play: W.play === 'auto' ? null : normPlay({ mode: W.play, hero: el.querySelector('.ss-w-hero').value, ensemble: el.querySelector('.ss-w-ens').checked, cardIsWorld: el.querySelector('.ss-w-world').checked }) };
         results.play = opts.play;

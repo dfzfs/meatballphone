@@ -9,3 +9,4 @@
 @import url("css/life.css"); /* 🎨 생활 판 — 욕구 타일 · 기분 얼굴 · 상태 딱지 · 인형 (v2.9) */
 @import url("css/mind.css"); /* 💭 프로필 › 속마음 칸 (v2.9) */
 @import url("css/simple.css"); /* 🍙 심플 모드 — 탭 없는 화면 · 톱니 창 · 만들기 창 줄이기 */
+@import url("css/guard.css"); /* 🛡 화면 보호 (설정 guardLook을 켰을 때만 걸리는 규칙) */

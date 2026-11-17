@@ -11,7 +11,7 @@ export async function open({ ext2 = false, width = 1300, height = 900, bind = fa
     const logs = [];
     page.on('console', m => { if (['error', 'warning'].includes(m.type())) logs.push(`${m.type()}: ${m.text()}`); });
     page.on('pageerror', e => logs.push(`pageerror: ${e.stack || e}`));
-    await page.goto(`http://127.0.0.1:${port}/${ext2 ? '?ext2=1' : ''}`);
+    await page.goto(`http://127.0.0.1:${port}/${ext2 ? `?ext2=1${typeof ext2 === 'string' ? `&ext2body=${encodeURIComponent(ext2)}` : ''}` : ''}`);
     await page.waitForFunction(() => window.__ready === true, null, { timeout: 15000 });
     // v2.8: 미니홈피 · HUD 같은 모양은 기본 끔으로 나간다 → 시나리오들은 켠 상태를 본다 (끈 상태 = 예전 화면은 defaults: true로)
     if (!defaults) await page.evaluate(async () => { const core = await import('/ext/src/core.js'); Object.assign(core.settings(), { hompyFull: true, hpSkinHud: true }); core.saveSettings(); try { (await import('/ext/src/hompy.js')).applyRetro(); } catch { /* 옛 판 */ } });

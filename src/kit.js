@@ -4,18 +4,59 @@ import { ctx, settings, esc, short, arr, sub, clamp, fmtNum, mascotUrl, app } fr
 export const mascot = (name, size = 'md', cls = '') => (settings().showMascot === false ? '' : `<img class="ss-mascot ${size} m-${name} ${cls}" src="${mascotUrl(name)}" alt="" title="눌러 보세요!" draggable="false">`);
 
 // ───── 팝업 ─────
+// ◀ 뒤로 가기로 창 닫기 (설정 backClose): 미트볼 창이 뜨면 방문 기록에 한 칸을 올리고, 뒤로 가기가 오면 맨 위 미트볼 창을 닫는다.
+//   실리태번 팝업엔 뒤로 가기 처리가 없어서, 폰에서 뒤로 가기를 누르면 창은 그대로인데 앱 밖으로 나가던 것.
+//   · 닫기는 사람이 누르는 것과 같은 단추로: 「취소」가 있으면 취소, 없으면 확인(닫기) 단추
+//   · 창이 단추로 닫히면 올려 둔 한 칸을 스스로 물린다 (그때 오는 뒤로 가기 사건은 삼킨다)
+//   · 다른 확장도 같은 창에 한 칸을 올려 뒀으면: 뒤로 가기가 그쪽 칸을 먼저 쓰고 우리 칸이 남는다 → 남은 것을 알아보고(지금 칸이 아직 우리 칸) 같이 물린다
+const backLayers = []; let backEat = 0, backHooked = false, backSeq = 0;
+const backDrop = () => { backEat++; try { history.back(); } catch { backEat--; } };
+function closeLikeUser(dlg) {
+    const shown = (x) => !!x && x.getClientRects().length > 0;
+    const cancel = dlg.querySelector('.popup-button-cancel');
+    const btn = (shown(cancel) ? cancel : null) ?? dlg.querySelector('.popup-button-ok') ?? dlg.querySelector('.popup-button-close');
+    if (btn) btn.click(); else dlg.close?.();
+}
+function backTrack(dlg) {
+    if (!dlg || settings().backClose === false || !globalThis.history?.pushState) return () => { /* 안 올림 */ };
+    if (!backHooked) {
+        backHooked = true;
+        window.addEventListener('popstate', () => {
+            if (backEat > 0) { backEat--; return; } // 우리가 스스로 물린 칸
+            const top = backLayers.at(-1); if (!top) return;
+            // 미트볼 창 위에 다른 창(확인 · 입력 창)이 떠 있으면 그것부터 닫고 미트볼 창은 남긴다 — 쓴 한 칸은 다시 올려 둔다
+            const open = [...document.querySelectorAll('dialog[open]')].at(-1);
+            const left = history.state?.ssDlg === top.id; // 우리 칸이 아직 지금 칸 = 방금 쓴 것은 남의 칸
+            if (open && open !== top.dlg && top.dlg.isConnected) { try { closeLikeUser(open); if (!left) history.pushState({ ...(history.state ?? {}), ssDlg: top.id }, ''); } catch { /* 다음 뒤로 가기에 */ } return; }
+            backLayers.pop(); top.gone = true;
+            if (top.dlg.isConnected) { try { closeLikeUser(top.dlg); } catch { /* 이미 닫힘 */ } }
+            if (left) backDrop();
+        });
+    }
+    const layer = { dlg, gone: false, id: ++backSeq };
+    try { history.pushState({ ...(history.state ?? {}), ssDlg: layer.id }, ''); } catch { return () => { /* 못 올림 */ }; }
+    backLayers.push(layer);
+    return () => { // 창이 닫힌 뒤
+        if (layer.gone) return;
+        layer.gone = true;
+        const i = backLayers.indexOf(layer); if (i >= 0) backLayers.splice(i, 1);
+        backDrop();
+    };
+}
 export async function popup(el, opts = {}) {
     const { Popup, POPUP_TYPE } = ctx();
     const p = new Popup(el, opts.type ?? POPUP_TYPE.TEXT, '', { wide: true, large: !!opts.large, allowVerticalScrolling: true, okButton: opts.okButton ?? '닫기', ...opts });
     p.dlg?.classList.add('ss-dlg', 'ss-scope');
     if (opts.full) p.dlg?.classList.add('ss-full');
-    return await p.show();
+    const done = backTrack(p.dlg);
+    try { return await p.show(); } finally { done(); }
 }
 export async function confirmPopup(el, ok = '적용', cancel = '취소') {
     const { Popup, POPUP_TYPE } = ctx();
     const p = new Popup(el, POPUP_TYPE.CONFIRM, '', { wide: true, allowVerticalScrolling: true, okButton: ok, cancelButton: cancel });
     p.dlg?.classList.add('ss-dlg', 'ss-scope');
-    const r = await p.show();
+    const done = backTrack(p.dlg);
+    let r; try { r = await p.show(); } finally { done(); }
     return r === 1 || r === true;
 }
 // 버튼 여러 개 중 하나 고르기 (v2.7.3) — 창 안의 [data-choice] 단추를 누르면 그 값, 닫기(취소)면 null
@@ -31,6 +72,11 @@ export async function choosePopup(el, cancel = '취소') {
     return choice;
 }
 export const askConfirm = async (text) => !!(await ctx().Popup.show.confirm('미트볼 상태창', text));
+// 🗑 되돌릴 수 없는 지우기 앞에서 한 번 묻기 (설정 askDelete · 끄면 예전처럼 바로 지움)
+//   사람이 누른 게 아닌 누름(스크립트가 대신 누른 것 — 누가 이미 물어본 뒤 다시 눌러 주는 경우)은 또 묻지 않는다
+let lastTrusted = true;
+try { window.addEventListener('click', (e) => { lastTrusted = e.isTrusted !== false; }, true); } catch { /* 화면 없는 곳 */ }
+export const askDelete = async (text) => settings().askDelete === false || !lastTrusted || askConfirm(text);
 export const askInput = async (title, text, def = '') => { const v = await ctx().Popup.show.input(title, text, def); return v === false || v === null || v === undefined ? null : String(v); };
 export function insertInput(text, send = false) {
     const ta = document.getElementById('send_textarea');
@@ -203,7 +249,8 @@ export function applyTheme() {
     let st = document.getElementById('ss-theme-vars');
     if (!st) { st = document.createElement('style'); st.id = 'ss-theme-vars'; document.head.appendChild(st); }
     const dark = s.theme === 'ink' || (s.themeCustom?.bg && isDark(s.themeCustom.bg));
-    const css = `:root .ss-scope{${THEME_KEYS.map(([k]) => `--ss-${k}:${t[k]};`).join('')}--ss-r:${clamp(Number(s.radius) || 12, 0, 24)}px;--ss-fs:${clamp(Number(s.fontScale) || 1, 0.8, 1.4)};--ss-shadow:${dark ? '0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.45)' : '0 1px 2px rgba(20,20,20,.05),0 8px 28px rgba(20,20,20,.10)'};color-scheme:${dark ? 'dark' : 'light'}}`;
+    // 🛡 화면 보호(guardLook): 테마가 같은 변수를 더 센 선택자로 덮는 것을 이기게 선택자를 올린다 (미니홈피 모양의 !important 규칙은 그대로 이긴다)
+    const css = `${s.guardLook === true ? ':root body.ss-guard-look .ss-scope.ss-scope.ss-scope' : ':root .ss-scope'}{${THEME_KEYS.map(([k]) => `--ss-${k}:${t[k]};`).join('')}--ss-r:${clamp(Number(s.radius) || 12, 0, 24)}px;--ss-fs:${clamp(Number(s.fontScale) || 1, 0.8, 1.4)};--ss-shadow:${dark ? '0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.45)' : '0 1px 2px rgba(20,20,20,.05),0 8px 28px rgba(20,20,20,.10)'};color-scheme:${dark ? 'dark' : 'light'}}`;
     // 매 갱신마다 불려서, 같은 글이면 건드리지 않는다 (다시 쓰면 페이지 전체 스타일을 다시 계산함)
     if (st.textContent !== css) st.textContent = css;
 }

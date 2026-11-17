@@ -262,6 +262,16 @@ export const DEFAULTS = Object.freeze({
     questExpire: true,       // ⌛ 퀘스트 기한이 지나면 실패 · 마지막 날 알림 (달력이 켜져 있을 때 · v2.7.5)
     goneInject: true,        // 🗑 버리거나 판 물건을 AI에게 「이제 없음」으로 알려 주기 (다시 꺼내 쓰지 않게)
     chipOutside: false,      // 변동 칩을 본문(.mes_text) 밖 아래에 붙이기 — 번역 확장이 원문을 숨겨 칩이 안 보일 때
+    // ── 만들기 재료 · 숨긴 답 · 지우기 확인 · 뒤로 가기 (기타 확장이 밖에서 덧대던 것을 미트볼이 직접) ──
+    genRead: 'short',        // 📖 만들기 · 다시 생성 때 채팅 읽기: short (최근 N개 · 앞 700자씩 — 예전 그대로) · last (+ 마지막 답은 전체) · recent (최근 N개를 길게) · all (채팅 전체)
+    genReadCap: 120000,      // 「채팅 전체」로 읽을 때 최대 글자 수 — 넘으면 오래된 메시지부터 앞부분만 남긴다
+    genNote: false,          // 📝 만들기 · 다시 생성 때 이 채팅의 작가 노트도 읽기 (페르소나 · 세계관을 작가 노트에 적는 사람용)
+    hideSkip: false,         // 🙈 눈 단추로 직접 숨긴 AI 답은 상태 계산에서 빼기 (요약 확장 · /hide로 숨겨진 답은 그대로 더한다)
+    askDelete: true,         // 🗑 되돌릴 수 없는 지우기(알림함 비우기 · 비밀 · 기억 · 편지 · 답장 다시 받기)는 한 번 물어보기
+    backClose: true,         // ◀ 폰 뒤로 가기로 미트볼 창 닫기 (앱 밖으로 나가지 않게)
+    // ── 🛡 간섭 차단 (둘 다 기본 끔 — 끄면 예전과 글자 하나 안 다르다) ──
+    guardData: false,        // 데이터 · 동작: 다른 확장이 상태창 자료 · 프롬프트 · 확인 창 · AI 요청에 끼어드는 것을 막는다
+    guardLook: false,        // 화면: 다른 확장 · 테마가 미트볼의 색 · 글꼴 · 아이콘 · 단추를 덮는 것을 막는다
 });
 // 전역 끄기 스위치가 있는 칸 (모든 채팅에서 꺼짐 — 채팅마다 켜고 끄는 「쓸 기능」보다 먼저)
 export const GLOBAL_OFF = { memo: 'memoOn' };
@@ -436,9 +446,22 @@ export const COURIER_PRESETS = [
 // getContext()는 부를 때마다 큰 객체를 새로 만든다 → 같은 동기 실행 안에서는 하나를 같이 쓴다 (계산 한 번에 수천 번 불림 · v2.7)
 // await 뒤나 다음 이벤트에선 새로 받으니 채팅이 바뀌어도 옛 값이 남지 않는다
 let ctxCache = null;
+// 🛡 데이터 보호(guardData): 다른 확장이 SillyTavern.getContext 를 감싸서 확인 창 · AI 요청에 끼어들 수 있다.
+// 켜져 있으면 실리태번 모듈에서 직접 받은 getContext 를 쓴다 (감싸개를 거치지 않음). 못 받았으면(옛 실리 · 시험대) 예전처럼 전역 것.
+export const pure = { getContext: null, tried: false };
+export async function loadPure() {
+    if (pure.tried) return !!pure.getContext;
+    pure.tried = true;
+    for (const url of ['/scripts/st-context.js', '/scripts/extensions.js']) {
+        try { const fn = (await import(url)).getContext; if (typeof fn === 'function' && fn().extensionSettings) { pure.getContext = fn; break; } } catch { /* 다음 주소 */ }
+    }
+    ctxCache = null;
+    return !!pure.getContext;
+}
+let guardOn = false; // settings()가 ctx()를 부르므로 여기서 settings()를 다시 부르지 않게 따로 둔다 — 설정을 읽을 때마다 맞춘다
 export const ctx = () => {
     if (ctxCache) return ctxCache;
-    ctxCache = SillyTavern.getContext();
+    ctxCache = guardOn && pure.getContext ? pure.getContext() : SillyTavern.getContext();
     queueMicrotask(() => { ctxCache = null; });
     return ctxCache;
 };
@@ -567,9 +590,10 @@ export function settings() {
     // 연결 프로필이 실패하면 멈추는 게 기본 (예전 기본은 「메인 연결로 다시 보내기」) → 한 번만 끔으로 맞춘다 (그 뒤 직접 켜면 그대로)
     if (s.fallbackFix !== '2.7.21') { s.aiFallbackMain = false; s.fallbackFix = '2.7.21'; }
     filled = s;
+    guardOn = s.guardData === true;
     return s;
 }
-export const saveSettings = () => { rev.n++; ctx().saveSettingsDebounced(); };
+export const saveSettings = () => { rev.n++; guardOn = settings().guardData === true; ctx().saveSettingsDebounced(); };
 // 👁 보일 것 × AI (v2.7.21): 데이터가 AI에게 가는 항목은 끄면 AI에게도 안 보낸다 (데이터는 남음 · 다시 켜면 그대로)
 // 화면 전용(단추 · 안내 · 머리 …)은 여기 없음. 달력 「오늘」은 날짜 · 시간이 빠지면 이야기가 흔들려서 화면 전용으로 둔다.
 // rel 은 관계 탭의 relShow… 설정(false = 끔), 다른 탭은 partsOff.
@@ -650,8 +674,30 @@ export function flushMeta() {
     clearTimeout(metaTimer); metaTimer = null;
     if (metaChat === chatNow()) return ctx().saveMetadata?.();
 }
+// 🛡 자료 봉인(guardData): 미트볼이 저장하거나 화면을 다 그릴 때마다 기준 자료(base · origin)의 지문을 떠 둔다.
+// 다음에 화면을 그리려는데 지문이 다르면 = 그 사이 미트볼 밖에서 고친 것 → 떠 둔 대로 되돌린다. 꺼져 있으면 아무것도 안 한다.
+const seal = { chat: '', sig: '' };
+const sealSig = (m) => JSON.stringify([m.base ?? null, m.origin ?? null]);
+export function sealMeta() {
+    if (!guardOn) { seal.sig = ''; return; }
+    try { const m = ctx().chatMetadata?.[MODULE]; seal.chat = chatNow(); seal.sig = m?.base ? sealSig(m) : ''; } catch (e) { seal.sig = ''; ssNote('봉인', e); }
+}
+// → 되돌렸으면 true
+export function checkSeal() {
+    if (!guardOn || !seal.sig) return false;
+    try {
+        const m = ctx().chatMetadata?.[MODULE];
+        if (!m?.base || seal.chat !== chatNow() || sealSig(m) === seal.sig) return false;
+        const [b, o] = JSON.parse(seal.sig);
+        m.base = b; if (o === null) delete m.origin; else m.origin = o;
+        rev.n++;
+        (ctx().saveMetadata ?? ctx().saveMetadataDebounced)?.();
+        return true;
+    } catch (e) { ssNote('봉인 확인', e); return false; }
+}
 export async function saveMeta(now = false) {
     rev.n++;
+    sealMeta();
     const c = ctx();
     if (now || !c.saveMetadata) { clearTimeout(metaTimer); metaTimer = null; return (c.saveMetadata ?? c.saveMetadataDebounced)?.(); }
     clearTimeout(metaTimer);

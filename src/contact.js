@@ -2,7 +2,7 @@
 import { letterMode, contactSimple, instantLetter, SIMPLE_THREAD, app, settings, getMeta, modOn, esc, short, clone, findBy, norm, uid, randInt, rand, clamp, num, fmtNum, nowTick, wholeTick, tickUnit, waitText, slotsPerDay, useDays, saveSettings, stamp, CONTACT_MODES, TITLE, COURIER_PRESETS, touchContact, msgText, ssErr, ssWarn } from './core.js';
 import { commit, addAdjust, dueLetters, inTransit, affMul, PIN_LINES } from './engine.js';
 import { phoneReply, letterReply, pingMessage, summarizeThread, truthReply, groupReply } from './ai.js';
-import { avatar, ai1, emptyBox, askInput, askConfirm, busyBtn, choosePopup } from './kit.js';
+import { avatar, ai1, emptyBox, askInput, askConfirm, askDelete, busyBtn, choosePopup } from './kit.js';
 
 const isLetter = (d) => letterMode(d);
 const simple = () => contactSimple();
@@ -728,6 +728,7 @@ export const CONTACT_ACTIONS = {
     },
     cmsgre: async (el, arg, btn, s) => {
         const f = findMsg(s.data.contact, arg); if (!f) return;
+        if (!(await askDelete('이 답장을 다시 받을까요? 이 말풍선 뒤에 이어진 상대 말풍선이 지워지고 새 답을 받아요 (AI 1회).'))) return;
         if (f.truth) { const nd = clone(s.data.contact); const g = findMsg(nd, arg); let end = g.k; while (end + 1 < g.th.length && g.th[end + 1].from === 'them') end++; g.th.splice(g.k + 1, end - g.k); await commit('contact', nd, ''); return getTruthReply(el, f.who, arg); } // 🕵 최면 어플: 다시 물어 새 답
         // 이 말풍선과 그 뒤에 이어진 상대 말풍선들을 지우고 다시 받는다
         const nd = clone(s.data.contact); const g = findMsg(nd, arg);

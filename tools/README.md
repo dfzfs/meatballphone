@@ -1,6 +1,6 @@
 # tools — 개발용 (실리태번은 이 폴더를 읽지 않아요)
 
-- `compat-check.mjs` — 함께 쓰는 테마 확장과의 호환 검사. 그 확장 저장소를 받아 둔 폴더를 주면 두 확장 사이의 약속(호출 스택 함수 이름 · 설정 키 · 주입 칸 · 설정 칸 선택자 · 정리한 보기 열쇠 · 맞춤 시트 클래스)이 깨졌는지 봐요.
+- `compat-check.mjs` — 함께 쓰는 기타 확장과의 호환 검사. 그 확장 저장소를 받아 둔 폴더를 주면 두 확장 사이의 약속(호출 스택 함수 이름 · 설정 키 · 주입 칸 · 설정 칸 선택자 · 정리한 보기 열쇠 · 맞춤 시트 클래스)이 깨졌는지 봐요.
   - `node tools/compat-check.mjs <폴더>` (정적) · `--live` (브라우저에서 그 확장의 설정 탭을 우리 설정 칸에 실제로 돌려 봄)
   - AI 부르는 함수 이름(`src/ai.js` · `src/help.js` · `src/translate.js`) · `aiProfile` · `prof*` · `trProfile` 설정 키 · `#ss-settings` · `b.ss-set-h` · `data-s` · `--ss-*` · `statussim_*` 를 바꾸면 이 검사를 꼭 돌려요.
 - `harness/` — 가짜 실리태번(`st-stub.js`)에 이 확장을 그대로 올려 Playwright로 눌러 보는 시험대.
@@ -31,6 +31,7 @@
 | 기능 | `src/needicons.js` | 🎨 욕구 그림(인라인 SVG) · 욕구 분류(`kindOf`) · 좋은 정도(`goodOf` · `lvOf`). 다른 파일을 안 불러오는 순수한 조각 — `life.js`와 `tiles.js`(HUD 딱지)가 같이 쓴다 |
 | 기능 | `src/life.js` | 🍞 생활 틀 (v2.9): 욕구 게이지 추천 세트(`withSet`) · 미트볼 상점(`meatShop`) · 생활비 틀(`withBills`) · 👕 옷차림 화면(`gearSection` — 계산은 `addons.js`). 욕구 계산은 `ops.js needsTick`(게이지의 `decay` · `stages` · `zero` · 상태의 `tick` · `speed` · `mods`). 시험: `t-life.mjs` |
 | 기능 | `src/simple.js` | 🍙 심플 모드 (채팅마다 `meta.simple`): 탭 없이 타일 판 하나 · 추천 6칸 + `SIMPLE_EXTRA`만 · 팁 · 추천 · 알림 창 없음. `toSimple`(기본 → 심플 · 심플에 없는 칸은 끄기만 하고 `meta.simpleBak`에 적어 둠) · `widen`(심플 → 기본 · 그 칸을 되살림) · `setExtra`(칸 하나 더 켜기 · AI 0회) · `openSimpleMenu`(톱니 창) · `startSimple`(만들기 창). 톱니를 누르거나 모드를 바꿀 때만 불러와요. 심플인지는 `core.js`의 `isSimple()` 하나로 봐요 — 갈리는 곳: `tiles.js`(칸 · 배치) · `shell.js`(HUD · 미니창 · 패널 머리) · `notify.js` · `tips.js` · `wizard.js`. 스타일은 `css/simple.css`. 시험: `t-simple.mjs` |
+| 틀 | `src/guard.js` · `css/guard.css` | 🛡 간섭 차단 (설정 `guardData` · `guardLook` — 둘 다 기본 끔): 다른 확장 · 테마가 미트볼에 끼어드는 것을 막는 스위치. **화면 쪽**만 이 파일에 있다 — 규칙의 절반 이상이 미트볼 선택자인 남의 시트를 끄고(`sheet.disabled`), 미트볼 화면 안에 끼워진 남의 요소를 숨긴다. **데이터 쪽**은 제자리에: `core.js`의 `ctx`(감싼 `getContext`를 건너뛰어 실리태번 모듈에서 직접 받기 — `loadPure`) · `sealMeta`/`checkSeal`(기준 자료 `base` · `origin` 봉인 — 미트볼이 저장하거나 다 그릴 때 지문을 뜨고, 다음에 그릴 때 다르면 되돌림) · `engine.js`의 `isStoryAI`(실리태번 종류가 아닌 `extra.type` 무시) · `prompts.js`의 `P`(문구 끝에 덧붙은 덩어리 떼기 — `stripForeign`). 기준 자료를 고치는 새 코드는 꼭 `saveMeta()`를 불러야 봉인이 따라온다 (안 부르고 화면만 다시 그리면 켠 사람에게선 되돌려진다). 시험: `t-guard.mjs` |
 | 틀 | `src/lazy.js` | 눌렀을 때 불러오는 창 목록 (`help.js` · `wizard.js` · `windows.js`) |
 | 틀 | `src/wizard.js` · `src/windows.js` | 처음 만들기 · 프롬프트/꾸미기 창 (눌렀을 때 불러옴) |
 | 맨 위 | `src/settings_ui.js` · `src/commands.js` | 확장 설정 서랍 · 슬래시 커맨드 |

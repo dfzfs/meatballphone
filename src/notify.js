@@ -1,5 +1,6 @@
 // 🔔 알림: 폰 알림처럼 떴다 사라지는 팝업 · 알림함 · 하루 정리 카드 · 추천 곡 카드
 import { app, settings, getMeta, saveMeta, esc, short, fmtNum, signed, uid, TITLE, stamp, mascotUrl, isSimple } from './core.js';
+import { askDelete } from './kit.js';
 
 // 추천 곡 ▶ 누르면 열 곳
 export const MUSIC_APPS = {
@@ -190,7 +191,7 @@ export async function openInbox() {
         if (e.target.closest('a')) return;
         const ok = e.target.closest('[data-hintok]')?.dataset.hintok;
         if (ok) { app.knowHint?.(ok); render(); return; }
-        if (e.target.closest('[data-clear]')) { meta.notes = []; await saveMeta(); render(); app.renderHud?.(); app.rerenderPanels?.(); return; }
+        if (e.target.closest('[data-clear]')) { if (!(await askDelete('알림함을 모두 비울까요? 이 채팅의 알림이 전부 지워져요. 되돌릴 수 없어요.'))) return; meta.notes = []; await saveMeta(); render(); app.renderHud?.(); app.rerenderPanels?.(); return; }
         const n = e.target.closest('.ss-note');
         if (n?.dataset.tab) { el.closest('dialog')?.querySelector('.popup-button-ok')?.click(); setTimeout(() => app.openSheet?.(n.dataset.tab), 200); }
     });

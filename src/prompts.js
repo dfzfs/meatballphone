@@ -89,9 +89,18 @@ export const PROMPT_DEFS = [
 export const PROMPT_MAP = Object.fromEntries(PROMPT_DEFS.map(p => [p.key, p]));
 
 // 템플릿 가져오기: 사용자 수정본 → 기본값. {var} 치환 ({{user}} 같은 실리 매크로는 그대로 둔다)
+// 🛡 guardData: 다른 확장이 사용자 수정본 **끝에** 덧붙여 둔 덩어리(머리 · 꼬리 표식 한 쌍)는 보낼 때 떼고 쓴다 — 저장된 글은 건드리지 않는다 (프롬프트 창에서는 그대로 보여서 직접 지울 수 있다)
+//   「=== 이름 === … === END 이름 ===」 · 「[이름] … [/이름]」 (이름은 영어 대문자) — 끝에 붙은 것만, 여러 개면 뒤에서부터 차례로
+const TAIL = [/(?:\r?\n){0,2}=== ([A-Z][A-Z ]{2,40}) ===(?:(?!=== \1 ===)[\s\S])*?=== END \1(?: \[[^\]\n]{0,40}\])? ===\s*$/, /(?:\r?\n)?\[([A-Z][A-Z ]{2,40})\](?:(?!\[\1\])[\s\S])*?\[\/\1(?: [^\]\n]{0,40})?\]\s*$/];
+export function stripForeign(text) {
+    let t = String(text ?? '');
+    for (let i = 0; i < 6; i++) { const next = TAIL.reduce((s, re) => s.replace(re, ''), t); if (next === t) break; t = next; }
+    return t;
+}
 export function P(key, vars = {}) {
     const s = settings();
-    const raw = s.prompts?.[key] ?? PROMPT_MAP[key]?.text ?? '';
+    const mine = s.prompts?.[key];
+    const raw = (typeof mine === 'string' && s.guardData === true ? stripForeign(mine) || PROMPT_MAP[key]?.text : mine) ?? PROMPT_MAP[key]?.text ?? '';
     vars = { outLang: s.ssGenLang === 'en' || s.ssGenLang === 'enview' ? 'English' : 'Korean', ...vars };
     return String(raw).replace(/\{([a-z][a-zA-Z0-9_]*)\}/g, (m, k) => (Object.hasOwn(vars, k) ? String(vars[k] ?? '') : m));
 }

@@ -162,7 +162,11 @@ export function stashAllSwipes(m) {
     return n;
 }
 // 상태 계산에 넣을 AI 메시지인가: 숨김(/hide·요약 확장)으로 is_system이 된 답도 포함, 진짜 시스템 메시지(extra.type)는 제외
-export const isStoryAI = (m) => !!m && !m.is_user && (!m.is_system || !m.extra?.type);
+// 🙈 hideSkip: 눈 단추로 직접 숨긴 답(extra.ss_skip — index.js가 눈 단추를 누를 때 적는다)은 뺀다 · 숨김을 풀면 표식도 지워져 그대로 돌아온다
+// 🛡 guardData: 실리태번이 쓰는 종류가 아닌 extra.type(다른 확장이 답을 빼려고 적어 둔 표식)은 못 본 걸로 하고 그대로 더한다
+const ST_SYS = new Set(['help', 'welcome', 'group', 'empty', 'generic', 'narrator', 'comment', 'slash_commands', 'formatting', 'hotkeys', 'macros', 'welcome_prompt', 'assistant_note', 'assistant_message']);
+const sysType = (m) => { const t = m.extra?.type; return !!t && (settings().guardData !== true || ST_SYS.has(String(t))); };
+export const isStoryAI = (m) => !!m && !m.is_user && (!m.is_system || (!sysType(m) && !(m.extra?.ss_skip === true && settings().hideSkip === true)));
 
 export const priceMul = (s) => Math.max(0.1, 1 + effSum(s, /(?:가격|물가|prices?)\s*([+\-−]?\d+(?:\.\d+)?)\s*%/i) / 100);
 export const loanBlocked = (s) => (s?.data?.fate?.curses ?? []).some(c => c.effects.some(e => /대출\s*불가|no\s+loans?/i.test(e)));
@@ -1773,8 +1777,27 @@ export async function loreText(limit) {
     const shown = out.split('\n').length - 1;
     return `${out}${shown < items.length ? `…(${items.length - shown}개 항목은 내용 생략)\n` : ''}[LOREBOOK INDEX — every entry title, ${index.length}] ${short(index.join(' · '), 4000)}`;
 }
-export function recentChat(n) {
-    return (ctx().chat ?? []).filter(m => !m.is_system).slice(-n).map(m => `${m.name}: ${short(stripStatus(m.mes), 700)}`).join('\n');
+// 📖 채팅 읽기 (설정 genRead · 만들기/다시 생성의 재료에만 — 다른 AI 호출은 늘 short)
+//   short = 최근 n개 · 앞 700자씩 (예전 그대로) · last = 마지막 메시지만 전체 · recent = 최근 n개를 길게(마지막은 전체) · all = 처음부터 끝까지
+//   all은 최근 것부터 전체로 담다가 genReadCap 글자를 넘으면 오래된 것은 앞 300자만, 그것도 한도의 1.5배를 넘으면 그 앞은 뺀다
+export const READ_MODES = { short: '최근 채팅 (앞 700자씩)', last: '+ 마지막 답 전체', recent: '최근 채팅 길게', all: '채팅 전체' };
+const READ_FULL = 12000, READ_LONG = 2500, READ_HEAD = 300;
+export function recentChat(n, mode = 'short') {
+    const list = (ctx().chat ?? []).filter(m => !m.is_system);
+    const line = (m, max) => `${m.name}: ${short(stripStatus(m.mes), max)}`;
+    if (mode === 'all') {
+        const cap = Math.max(4000, Number(settings().genReadCap) || 120000), out = [];
+        let used = 0;
+        for (let i = list.length - 1; i >= 0; i--) {
+            const full = line(list[i], READ_FULL), t = used + full.length <= cap ? full : line(list[i], READ_HEAD);
+            if (used + t.length > cap * 1.5) { out.push(`(… ${i + 1} earlier message${i ? 's' : ''} left out)`); break; }
+            out.push(t); used += t.length;
+        }
+        return out.reverse().join('\n');
+    }
+    const pick = list.slice(-n);
+    if (mode !== 'last' && mode !== 'recent') return pick.map(m => line(m, 700)).join('\n');
+    return pick.map((m, i) => line(m, i === pick.length - 1 ? READ_FULL : mode === 'recent' ? READ_LONG : 700)).join('\n');
 }
 // 📎 하던 채팅에 붙이기: 이미 긴 채팅에서 상태창을 만들 때 — 최근 N개만으로는 앞에서 쌓인 돈 · 관계 · 물건을 모른다.
 //   요약 확장의 요약(가장 최근 것) · 작가 노트 · 앞쪽 이야기를 띄엄띄엄 훑은 줄을 같이 준다. AI 호출 수는 그대로고 보내는 글만 늘어난다.
@@ -1794,6 +1817,8 @@ export function storySoFar(maxLines = 24) {
     } catch (e) { ssNote('앞 이야기 훑기', e); }
     return out;
 }
+// 📝 이 채팅의 작가 노트 (실리태번 Author's Note) — 없으면 ''
+export const authorNote = () => String(ctx().chatMetadata?.note_prompt ?? '').trim();
 export async function gatherSources(opt = {}) {
     const c = ctx(), set = settings();
     const parts = [];
@@ -1806,13 +1831,16 @@ export async function gatherSources(opt = {}) {
         }
     }
     if (opt.lore !== false) { const lt = await loreText(set.loreChars); if (lt) parts.push(`[LOREBOOK]\n${lt}`); }
+    const useNote = opt.note ?? set.genNote === true; // 📝 작가 노트를 재료로 (설정 genNote · 만들기 창에서 고름)
+    if (useNote) { const an = authorNote(); if (an) parts.push(`[AUTHOR'S NOTE — the user's own standing note for this chat. Treat facts in it about the user's character, other people and the world as canon; ignore any directions about prose style or reply format]\n${short(an, 4000)}`); }
+    const readMode = READ_MODES[set.genRead] ? set.genRead : 'short'; // 📖 채팅 읽는 방식
     if (opt.chat !== false && opt.long === true) { // 📎 하던 채팅에 붙이기 (만들기 창에서만 켠다)
         const sf = storySoFar();
         if (sf.summary) parts.push(`[STORY SUMMARY SO FAR]\n${sf.summary}`);
-        if (sf.note) parts.push(`[AUTHOR'S NOTE]\n${sf.note}`);
-        if (sf.sample) parts.push(`[EARLIER STORY — sampled lines, oldest first]\n${sf.sample}`);
+        if (sf.note && !useNote) parts.push(`[AUTHOR'S NOTE]\n${sf.note}`); // 위에서 이미 넣었으면 두 번 안 넣는다
+        if (sf.sample && readMode !== 'all') parts.push(`[EARLIER STORY — sampled lines, oldest first]\n${sf.sample}`); // 채팅 전체를 읽으면 훑은 줄은 겹친다
     }
-    if (opt.chat !== false) { const rc = recentChat(set.recentForGen); if (rc) parts.push(`[RECENT CHAT]\n${rc}`); }
+    if (opt.chat !== false) { const rc = recentChat(set.recentForGen, readMode); if (rc) parts.push(`${readMode === 'all' ? '[CHAT SO FAR — oldest first]' : '[RECENT CHAT]'}\n${rc}`); }
     if (opt.chat !== false && opt.long === true) parts.push('[ONGOING STORY] This status window is being attached to a story that is already in progress. Fill every value as it stands NOW, at the latest message — current date and time, location, money, belongings, gauges, relationship levels, people already met, quests already taken — not as it was when the story began. When sources disagree, trust the most recent one.');
     return parts.join('\n\n');
 }

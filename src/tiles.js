@@ -34,7 +34,7 @@ const FR_OF = { bars: ['stats', 'bars'], cond: ['stats', 'conds'], date: ['calen
 // ───── 타일 판 (v2.7.21) — HUD · 사이드 미니창 공통 · 아이폰 홈 화면처럼 ─────
 // 칸 = 격자 한 칸(작게) 또는 두 배(크게) · 글은 자르지 않고 칸에 맞게 글자 크기를 줄임(fitTiles)
 // 꾸미기: 스티커(미트볼 기본 그림 · 내가 올린 그림)를 판 안 아무 데나 · 판과 칸마다 배경 · 테두리 · 글자 색
-// 테마 확장이 꾸미는 부품(button · .ss-ava · .ss-gauge)을 안 써서 어느 테마에서도 같은 크기
+// 기타 확장이 꾸미는 부품(button · .ss-ava · .ss-gauge)을 안 써서 어느 테마에서도 같은 크기
 // 저장: sideMini(순서) · tileSize{칸:'L'} · tileStyle{칸:{bg,bd,ink}} · boardStyle{bg,bd} · tileDeco{hud:[스티커], side:[스티커]}
 const face = (name) => `<span class="ss-tf" title="${esc(name)}">${esc(emojiOf(name) || String(name).slice(0, 1))}</span>`;
 const fi = (c) => `<i class="fa-solid ${c}"></i>`;

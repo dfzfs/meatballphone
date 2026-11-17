@@ -3,7 +3,7 @@
 //   연락 탭(목록): 채팅 간 우편   |   운명 탭(운명 칸이 꺼져 있으면 관리 탭): 회차 · 유령 · 운명의 빚 · 긴장도 · 현실 시간
 // (화면은 나중에 크게 손볼 예정 — 지금은 자리만 옮겨 둔 것)
 import { app, ctx, settings, saveSettings, esc, short, TITLE, uid, relAxes, modOn, ssErr } from './core.js';
-import { busyBtn, ai1, avatar, askInput, askConfirm } from './kit.js';
+import { busyBtn, ai1, avatar, askInput, askConfirm, askDelete } from './kit.js';
 import { DEVICES, storyOn, storyData, storySave, people, loopInfo, findScars, undoMeddle, AI, kept, ledgerScan, settlePromise, SECRET_LV, susOf, guideOf, secretsOf, openSecret } from './story.js';
 
 const st = () => app.current?.state ?? null;
@@ -104,15 +104,15 @@ async function act(a, arg, btn, sec) {
         case 'guide': if (!arg) return; await ai(() => AI.guide(arg)); return; // AI.guide가 저장까지 한다
         case 'secgen': { if (!arg) return; if (secretsOf(arg)?.some(x => x.open) && !(await askConfirm(`${esc(arg)}의 비밀을 새로 만들까요? 이미 깐 비밀도 사라져요. (AI 1회)`))) return; await ai(() => AI.secrets(arg)); return; }
         case 'secopen': { const i = arg.lastIndexOf('|'), n = arg.slice(0, i), lv = arg.slice(i + 1); if (!openSecret(n, lv)) return; break; }
-        case 'secdel': { const D = storyData(); if (D?.secrets) delete D.secrets[arg]; break; }
+        case 'secdel': { if (!(await askDelete('이 사람의 비밀을 지울까요? 이미 연 비밀도 같이 사라져요. 되돌릴 수 없어요.'))) return; const D = storyData(); if (D?.secrets) delete D.secrets[arg]; break; }
         case 'susone': { const D = storyData(); if (D?.sus) delete D.sus[arg]; break; }
-        case 'memdel': { const D = storyData(); if (D?.ai?.memory) delete D.ai.memory[arg]; break; }
+        case 'memdel': { if (!(await askDelete('이 사람의 기억을 지울까요? 본편에서도 빠져요. 되돌릴 수 없어요.'))) return; const D = storyData(); if (D?.ai?.memory) delete D.ai.memory[arg]; break; }
         case 'meddleundo': await undoMeddle(arg); break;
         case 'tzero': Object.assign(storyData(true), { t: 0, tFire: false, calm: 0 }); break;
         case 'tfire': Object.assign(storyData(true), { t: 100, tFire: true }); break;
         case 'mailsend': if (!who) return; await ai(() => AI.mail(who)); toastr.success('부쳤어요. 다른 채팅의 연락 탭에서 보여요.', TITLE); break;
         case 'maildrop': { const m = (settings().crossMailBox ?? []).find(x => x.id === arg); if (m) { storyData(true).drop = { who: m.who, world: m.world, text: m.text }; toastr.info('다음 답에서 편지가 나타나요.', TITLE); } break; }
-        case 'maildel': settings().crossMailBox = (settings().crossMailBox ?? []).filter(x => x.id !== arg); saveSettings(); break;
+        case 'maildel': if (!(await askDelete('이 편지를 지울까요? 되돌릴 수 없어요.'))) return; settings().crossMailBox = (settings().crossMailBox ?? []).filter(x => x.id !== arg); saveSettings(); break;
         default: return;
     }
     storySave();

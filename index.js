@@ -2,8 +2,9 @@
 // 어떤 카드·세계관에도 붙는 상태창. 모든 칸은 AI가 처음 채우고, 직접 편집 · 추가 지시 · 다시 생성이 된다.
 import {
     rev, ctxReset, app, ctx, settings, saveSettings, migrateParts, getMeta, saveMeta, isActive,
-    ready, modOn, esc, splitBar, TITLE, LOG, VERSION, MODULE, rand, ssErr, ssWarn, ssNote, SLOT_SEL, isSlotEl,
+    ready, modOn, esc, splitBar, TITLE, LOG, VERSION, MODULE, rand, ssErr, ssWarn, ssNote, SLOT_SEL, isSlotEl, sealMeta, checkSeal, loadPure,
 } from './src/core.js';
+import { applyGuardLook } from './src/guard.js';
 import { opInfo } from './src/engine.js';
 import {
     shiftSwipeAnchors, clampAdjust, noteGeneration, compute, buildInjection, setInjection, addAdjust, stashStatus, stashAllSwipes,
@@ -647,9 +648,43 @@ function domSig() {
     return `${el.childElementCount}|${el.firstElementChild?.getAttribute('mesid')}|${el.lastElementChild?.getAttribute('mesid')}|${set0().msgCard}|${set0().albumOn}|${set0().chipOutside}`;
 }
 const set0 = () => settings();
+// 🛡 데이터 보호: 미트볼 밖에서 바뀐 기준 자료를 되돌렸을 때 — 몇 번 연달아 나도 알림은 15초에 한 번
+let guardTold = 0;
+function guardHit() {
+    app.guardHits = (app.guardHits ?? 0) + 1;
+    ssNote('데이터 보호', new Error('미트볼 밖에서 바뀐 상태창 자료를 되돌림'));
+    if (Date.now() - guardTold > 15000) { guardTold = Date.now(); toastr.info('🛡 다른 확장이 바꾼 상태창 자료를 원래대로 되돌렸어요. (확장 설정 › 다른 확장과 같이 쓰기 › 데이터 보호)', TITLE, { timeOut: 8000 }); }
+}
+// 🙈 숨긴 답 빼기 (hideSkip): 눈 단추를 **직접** 누른 AI 답에만 표식(extra.ss_skip)을 적는다 → engine.js isStoryAI가 그 답을 건너뛴다.
+//   요약 확장 · /hide 가 숨긴 답은 표식이 없어서 예전처럼 계속 더한다 (옛 답이 숨겨져도 돈 · 호감이 날아가지 않게). 숨김을 풀면 표식을 지운다.
+function markHidden(id, hide, tries = 0) {
+    const m = ctx().chat?.[id]; if (!m || m.is_user) return;
+    if (!!m.is_system !== hide) { if (tries < 8) setTimeout(() => markHidden(id, hide, tries + 1), 250); return; } // 실리태번이 아직 숨기는 중
+    if (hide) { if (m.extra?.type || m.extra?.ss_skip === true) return; (m.extra ??= {}).ss_skip = true; }
+    else if (m.extra?.ss_skip !== undefined) delete m.extra.ss_skip; else return;
+    rev.n++; ctx().saveChat?.(); refresh(true);
+    const meta = getMeta(); if (!meta?.base || meta.off) return;
+    if (hide && id < (meta.startAt ?? 0)) toastr.info('오래된 답이라 이미 합쳐 둔 기록이에요 — 숨겨도 숫자는 그대로예요.', TITLE, { timeOut: 6000 });
+    else toastr.info(hide ? '숨긴 답의 변화를 상태 계산에서 뺐어요. 다시 보이게 하면 돌아와요.' : '다시 보이게 한 답의 변화를 상태 계산에 넣었어요.', TITLE, { timeOut: 4000 });
+}
+function sweepHidden() { // 숨김이 다른 길(/unhide 등)로 풀린 답에 남은 표식 지우기 — 나중에 요약 확장이 숨겨도 빠지지 않게
+    let n = 0; for (const m of ctx().chat ?? []) if (m?.extra?.ss_skip !== undefined && !m.is_system) { delete m.extra.ss_skip; n++; }
+    if (n) { rev.n++; ctx().saveChat?.(); }
+}
+function watchHide() {
+    document.addEventListener('click', (e) => {
+        if (settings().hideSkip !== true) return;
+        const btn = e.target?.closest?.('#chat .mes_hide, #chat .mes_unhide'); if (!btn) return;
+        const id = Number(btn.closest('.mes')?.getAttribute('mesid')); if (!Number.isInteger(id)) return;
+        const hide = btn.classList.contains('mes_hide');
+        setTimeout(() => { try { markHidden(id, hide); } catch (err) { ssNote('숨긴 답 표식', err); } }, 300);
+    }, true);
+}
+app.sweepHidden = () => { if (settings().hideSkip === true) sweepHidden(); };
 function refreshNow({ soft = false } = {}) {
     clearTimeout(refreshTimer);
     let same = false;
+    try { if (set0().guardData === true && checkSeal()) { lastFp = ''; guardHit(); } } catch (e) { ssNote('데이터 보호 확인', e); }
     try {
         if (!isActive() || !ready()) { app.current = null; setInjection(null); lastFp = ''; }
         else {
@@ -667,8 +702,15 @@ function refreshNow({ soft = false } = {}) {
     } catch (e) { ssErr(LOG, e); }
     // 계산이 어디서 실패해도 상태창 화면은 그린다 (안 그리면 '창이 안 떠요'가 됨)
     try { ensureUI(); if (!same) rerenderPanels(); } catch (e) { ssErr(LOG, 'ui', e); }
+    sealMeta(); // 🛡 꺼져 있으면 아무것도 안 함
 }
 app.refreshNow = () => refreshNow();
+// 🛡 간섭 차단 스위치를 바꿨을 때 (settings_ui.js가 부른다) · 시작할 때
+app.applyGuard = async () => {
+    if (settings().guardData === true) { await loadPure(); ctxReset(); }
+    try { applyGuardLook(); applyTheme(); } catch (e) { ssNote('화면 보호', e); }
+    refreshNow();
+};
 
 // ───── 🏎 부하 재기 (v2.7.3): 한 턴에 미트볼이 쓰는 시간을 직접 재서 보여 준다 (AI 0회) ─────
 async function measureLoad() {
@@ -857,6 +899,7 @@ app.loadAddons = loadAddons;
 async function onChatChanged() {
     try { loadAddons(); } catch (e) { ssWarn(LOG, 'addons', e); }
     ctxReset(); lastFp = ''; lastDom = ''; app.lastGenSkipped = false;
+    try { app.sweepHidden(); } catch (e) { ssNote('숨긴 답 표식 정리', e); }
     notified = new Set();
     pingCounter = 0;
     for (const el of panels) if (el._ss) { el._ss.mode = 'view'; el._ss.ui = {}; el._ss.tab = 'home'; el._ss.group = null; }
@@ -911,6 +954,8 @@ function init() {
     if (fresh) { Object.assign(settings(), structuredClone(PRESETS.light.set)); settings().v27asked = true; saveSettings(); }
     try { if (!fresh && migrateParts()) toastr.info('「보일 것」에서 로봇 표시 항목은 이제 끄면 AI에게도 안 보내요. 예전에 꺼 둔 것은 화면에서만 숨긴 채로 뒀어요 — 다시 눌러 켰다 끄면 AI에서도 빠져요.', TITLE, { timeOut: 15000 }); else migrateParts(); } catch (e) { ssWarn(LOG, 'parts mig', e); }
     applyTheme();
+    try { if (settings().guardData === true) loadPure().then(() => { ctxReset(); refreshNow(); }).catch(e => ssNote('데이터 보호 준비', e)); applyGuardLook(); if (settings().guardLook === true) applyTheme(); } catch (e) { ssWarn(LOG, 'guard', e); } // 🛡 간섭 차단 (둘 다 기본 끔)
+    try { watchHide(); } catch (e) { ssWarn(LOG, 'hide', e); } // 🙈 숨긴 답 빼기 (기본 끔)
     initMascot();
     renderSettings();
     registerCommands();

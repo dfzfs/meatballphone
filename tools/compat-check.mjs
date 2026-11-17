@@ -1,4 +1,4 @@
-// 🧩 함께 쓰는 테마 확장과의 호환 검사 (dev 전용 · 실리태번은 이 파일을 읽지 않아요)
+// 🧩 함께 쓰는 기타 확장과의 호환 검사 (dev 전용 · 실리태번은 이 파일을 읽지 않아요)
 // 그 확장은 미트볼 상태창의 이름 · 선택자 · 설정 키 · 함수 이름을 보고 화면을 맞추고 기능 다리를 놓아요.
 // 그 약속(계약)이 깨졌는지 그 확장 저장소의 최신 코드를 직접 읽어서 확인해요.
 //
@@ -109,7 +109,9 @@ if (process.argv.includes('--live')) {
     console.log('\n⑤ 브라우저에서 그 확장 설정 탭 · 정리한 보기를 우리 설정 칸에 돌려 보기');
     process.env.EXT2_DIR = EXT;
     const { open } = await import('./harness/lib.mjs');
-    const { page, logs, close } = await open({ ext2: true });
+    // 그 확장 시트가 body에 거는 이름(시트의 body.○○ 가운데 가장 많이 나오는 것)을 시트에서 읽어 그대로 붙여 준다
+    const bodyCls = (() => { try { const n = {}; for (const m of textOf('src/ext-status.css').matchAll(/\bbody\.([a-z][\w-]*)/g)) n[m[1]] = (n[m[1]] ?? 0) + 1; return Object.entries(n).sort((a, b) => b[1] - a[1])[0]?.[0] ?? ''; } catch { return ''; } })();
+    const { page, logs, close } = await open({ ext2: bodyCls || true });
     try {
         await page.evaluate(() => document.body.classList.add('show-settings'));
         const r = await page.evaluate(async () => {
@@ -117,23 +119,23 @@ if (process.argv.includes('--live')) {
             const o = await import('/ext2/src/ext-organize.js');
             m.buildAll(document);
             const root = document.getElementById('ss-settings');
-            const tabs = [...root.querySelectorAll('.bl-ext-tab')].map(t => t.textContent.trim());
+            const tabs = [...root.querySelectorAll(':is([class$="-ext-tab"], [class*="-ext-tab "])')].map(t => t.textContent.trim());
             const rows = [...root.querySelectorAll('[data-s]')];
             const lost = []; // 어느 탭에도 안 보이는 줄
             const seen = new Set();
             for (let i = 0; i < tabs.length; i++) {
                 m.showGroup(root, i);
-                for (const b of root.querySelectorAll('.bl-ext-fold[aria-expanded="false"]')) o.toggleFold(root, b); // 접힌 갈래 펼치기 (그 확장 화면에선 갈래 단추를 누르면 펼쳐져요)
+                for (const b of root.querySelectorAll(':is([class$="-ext-fold"], [class*="-ext-fold "])[aria-expanded="false"]')) o.toggleFold(root, b); // 접힌 갈래 펼치기 (그 확장 화면에선 갈래 단추를 누르면 펼쳐져요)
                 for (const d of root.querySelectorAll('details')) d.open = true;
                 for (const el of rows) { const r0 = el.getBoundingClientRect(); if (r0.width && r0.height) seen.add(el.dataset.s); }
             }
             for (const el of rows) if (!seen.has(el.dataset.s)) lost.push(el.dataset.s);
-            return { tabs, lost, n: rows.length, org: root.dataset.blOrg !== undefined };
+            return { tabs, lost, n: rows.length, org: Object.keys(root.dataset).some(k => /Org$/.test(k)) };
         });
         ok(r.tabs.length >= 10, `분류 탭 ${r.tabs.length}개: ${r.tabs.join(' | ')}`);
         ok(r.tabs.includes('기능 켜고 끄기'), '새 묶음 「기능 켜고 끄기」가 탭으로 보임');
         ok(!r.lost.length, `설정 ${r.n}칸이 모두 어느 탭에선가 보임`, `안 보이는 칸: ${r.lost.join(', ')}`);
-        await page.screenshot({ path: '/tmp/bl-settings.png', fullPage: false });
+        await page.screenshot({ path: '/tmp/compat-settings.png', fullPage: false });
     } finally { if (logs.length) console.log(logs.slice(0, 8).join('\n')); await close(); }
 }
 
