@@ -404,7 +404,7 @@ export async function fortuneRead(o, state) {
     const sys = P('ai.fortune', { who: o.who, method: FT_METHOD[o.method] ?? o.method, methodRule: P(`ai.fortune.${o.method}`, { who: o.who }), birthRule });
     const r = await finJSON(await aiJSON('fortune', sys, fortuneBody(o, state), 4000));
     const S = (v) => (typeof v === 'string' ? v.trim() : v === null || v === undefined ? '' : String(v));
-    const sections = (Array.isArray(r.sections) ? r.sections : []).filter(x => x && S(x.text)).map(x => ({ title: S(x.title), text: S(x.text) })).slice(0, 12);
+    const sections = (Array.isArray(r.sections) ? r.sections : []).filter(x => x && S(x.text)).map(x => ({ title: S(x.title), text: S(x.text), ...(['spirit', 'vision'].includes(S(x.voice).toLowerCase()) ? { voice: S(x.voice).toLowerCase() } : {}) })).slice(0, 16);
     if (!sections.length && !S(r.summary)) throw new Error('점괘가 비어서 왔어요. 다시 해 주세요.');
     return { person: r.person && typeof r.person === 'object' ? r.person : null, teller: S(r.teller), summary: S(r.summary), sections, omen: S(r.omen), advice: S(r.advice), lucky: S(r.lucky) };
 }
@@ -419,7 +419,7 @@ export async function gutRite(o, state) {
     const r = await finJSON(await aiJSON('gut', P('ai.gut', { who: o.who, rite: o.rite }), body, 1500));
     const S = (v) => (typeof v === 'string' ? v.trim() : '');
     if (!S(r.rite)) throw new Error('굿 장면이 비어서 왔어요. 다시 해 주세요.');
-    return { rite: S(r.rite), result: S(r.result), omen: S(r.omen) };
+    return { rite: S(r.rite), spirit: S(r.spirit), result: S(r.result), omen: S(r.omen) };
 }
 export async function newNews(state) {
     const o = normalize('news', await freshItems('news', 'news', state));

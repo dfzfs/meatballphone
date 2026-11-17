@@ -787,7 +787,7 @@ export async function purgeTrash(names) {
 // 미트볼 전용 기록 키(_roll 같은 것)가 어느 칸 것인지
 export const PRIV_MOD = {
     _qask: 'quest', _needmod: 'stats', _achtog: 'ach', _bond: 'rel', _love: 'rel', _nolove: 'rel', _leave: 'rel', _unbond: 'rel', _peekday: 'rel', _merge: 'rel',
-    _draw: 'fate', _effect: 'fate', _fortune: 'fate', _birth: 'fate', _ftfee: 'fate', _loan: 'wallet', _repay: 'wallet', _sellused: 'wallet', _tobag: 'wallet', _memo: 'memo', _questpay: 'quest',
+    _draw: 'fate', _effect: 'fate', _fortune: 'fate', _birth: 'fate', _ftfee: 'fate', _ftdel: 'fate', _loan: 'wallet', _repay: 'wallet', _sellused: 'wallet', _tobag: 'wallet', _memo: 'memo', _questpay: 'quest',
     _read: 'contact', _nread: 'news', _roll: 'dice', _trash: 'home', _purge: 'home', _restore: 'home', _tostore: 'home', _unplace: 'home', _travel: 'map', _spot: 'map', _clock: 'calendar',
 };
 export const opMod = (s, k) => opInfo(s, k).mod ?? PRIV_MOD[k] ?? null;

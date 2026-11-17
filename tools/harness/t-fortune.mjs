@@ -3,7 +3,7 @@ import { open, makeStatus, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open();
 const st = () => page.evaluate(() => { const d = window.__SS_TEST__.api.app.current.state.data; return { cash: d.wallet.cash, f: d.fate }; });
 const inj = () => page.evaluate(() => Object.values(window.__prompts).map(p => p.value).join('\n'));
-const READ = { person: { birth: '제국력 302년 3월 14일', hour: '새벽 (인시)', age: '24', zodiac: '호랑이띠', star: '물고기자리', element: '木', place: '북부 항구', nature: '겉은 차갑고 속은 무르다.' }, teller: '어디 보자…', summary: '큰 물을 건너면 길이 열린다', sections: [{ title: '총운', text: '올해는 움직이는 해다.' }, { title: '애정', text: '가까운 사람을 다시 봐라.' }], omen: '붉은 옷을 입은 사람이 소식을 가져온다', advice: '서두르지 마라', lucky: '붉은색 · 7 · 남쪽' };
+const READ = { person: { birth: '제국력 302년 3월 14일', hour: '새벽 (인시)', age: '24', zodiac: '호랑이띠', star: '물고기자리', element: '木', place: '북부 항구', nature: '겉은 차갑고 속은 무르다.' }, teller: '어디 보자…', summary: '큰 물을 건너면 길이 열린다', sections: [{ title: '총운', text: '올해는 움직이는 해다.' }, { title: '장군님', text: '네 놈 뒤에 물귀신이 붙었다.', voice: 'spirit' }, { title: '애정', text: '가까운 사람을 다시 봐라.' }], omen: '붉은 옷을 입은 사람이 소식을 가져온다', advice: '서두르지 마라', lucky: '붉은색 · 7 · 남쪽' };
 try {
     await makeStatus(page, ['profile', 'stats', 'wallet', 'rel', 'calendar', 'fate']);
     await page.evaluate(() => window.__addUser('hello'));
@@ -38,6 +38,7 @@ try {
     check(r1?.who === 'Leon' && r1.method === 'tarot' && r1.draw.length === 3 && r1.fee === c0 - s1.cash, '타로 3장 점괘가 기록됐다 (복채 = 줄어든 돈)');
     check(r1.draw.every(x => body.includes(x)), '뽑은 카드 3장이 그대로 AI에게 갔다');
     check((await page.$$('dialog')).length === 1 && !!(await page.$('dialog .ss-ft .ss-ft-pop')), '점괘가 새 창 없이 같은 창 안에 펼쳐진다');
+    check(await page.$eval('dialog .ss-ft-pop .ss-ft-spirit', e => e.textContent.includes('물귀신') && getComputedStyle(e).color === 'rgb(224, 40, 46)').catch(() => false), '빙의한 말은 빨간 글씨');
     check(/STORY time/.test(body) && /Real-world time now/.test(body) && body.includes('이 사람을 믿어도 될까?'), '이야기 속 시간 기준 · 질문이 AI에게 갔다');
     check(/TAROT/.test(sys) && /Nothing is recorded yet/.test(sys), '타로 규칙 · 「생년월일을 정해라」가 갔다');
     check(s1.f.births.find(b => b.name === 'Leon')?.birth === READ.person.birth, 'Leon의 생년월일이 기억됐다');
@@ -95,6 +96,16 @@ try {
     await page.click('dialog .ss-ft details:has(.ss-ft-log) summary'); await sleep(150);
     await page.click('dialog [data-act="ftview"]'); await sleep(300);
     check(!!(await page.$('dialog .ss-ft-pop')), '지난 점괘를 다시 열 수 있다');
+    // 지우기: 하나 · 전부
+    const before = (await st()).f.readings.length;
+    const id0 = (await st()).f.readings[0].id;
+    await page.click(`dialog [data-act="ftdel"][data-arg="${id0}"]`); await sleep(300);
+    check((await st()).f.readings.length === before - 1 && !(await st()).f.readings.some(r => r.id === id0), '점괘 하나 지우기');
+    await page.click('dialog [data-act="ftdelall"]'); await sleep(200);
+    await page.click('dialog [data-act="ftdelall"][data-arg="yes"]'); await sleep(300);
+    const z = (await st()).f;
+    check(!z.readings.length && !z.births.length && !z.omen && (await page.$$('dialog')).length === 1, '점집 기록 전부 지우기 (새 창 없음)');
+    check(!/Fortune today/.test(await inj()), '지우면 AI에게 가던 점괘 줄도 사라진다');
     await page.screenshot({ path: '/tmp/fortune-pop.png' });
     check(!logs.length, 'no console errors', logs.join(' | '));
 } finally { console.log(logs.join('\n')); await close(); }

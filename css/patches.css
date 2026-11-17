@@ -675,7 +675,7 @@ dialog.popup.ss-dlg.ss-full .popup-content { max-height: none; }
 .ss-ft .ss-seg small { opacity: .7; margin-left: 3px; }
 .ss-ft-gut > *:not(summary) { margin-top: 8px; }
 .ss-ft-log { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.ss-ft-log .ss-btn { width: 100%; justify-content: flex-start; text-align: left; white-space: normal; }
+.ss-ft-log li .ss-btn:first-child { width: 100%; justify-content: flex-start; text-align: left; white-space: normal; }
 .ss-ft-busy { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ss-ft-edit { display: flex; flex-direction: column; gap: 8px; }
 .ss-ft-edit > small:first-child { color: var(--ss-hi); font-weight: 700; }
@@ -702,3 +702,99 @@ dialog.popup.ss-dlg.ss-full .popup-content { max-height: none; }
 .ss-scope .ss-maped { margin-top: 8px; display: grid; gap: 8px; }
 .ss-scope .ss-maped .ss-place-h .ss-btn { margin-left: auto; }
 .ss-scope .ss-maped .ss-sws { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+
+/* 🔮 점집: 빙의 (빨간 글씨) · 수정구슬에 비친 것 */
+.ss-scope .ss-ft-spirit { color: #e0282e; font-weight: 700; letter-spacing: .02em; }
+.ss-scope .ss-ft-sec.v-spirit { padding: 6px 10px; border-left: 3px solid #e0282e; background: color-mix(in srgb, #e0282e 7%, transparent); border-radius: 4px; }
+.ss-scope .ss-ft-sec.v-spirit h5 { color: #e0282e; }
+.ss-scope .ss-ft-vision { font-style: italic; color: color-mix(in srgb, #8a5cf6 75%, var(--ss-fg, currentColor)); }
+.ss-scope .ss-ft-sec.v-vision { padding: 6px 10px; border-left: 3px solid #8a5cf6; background: color-mix(in srgb, #8a5cf6 7%, transparent); border-radius: 4px; }
+.ss-ft-log li { display: flex; gap: 4px; align-items: stretch; }
+.ss-ft-log li .ss-btn:first-child { flex: 1; }
+
+/* 🔮 점집 — 점쟁이 소개 · 무대 */
+.ss-ft-teller { margin: -4px 0 0; padding: 8px 10px; border-radius: var(--ss-r2); background: color-mix(in srgb, var(--ss-hi) 6%, var(--ss-bg)); font-size: .9em; }
+.ss-ft-stage { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 6px 0; }
+.ss-ft-busy { display: flex; flex-direction: column; align-items: center; text-align: center; }
+
+/* 🃏 타로 카드 (그림 파일 없이) */
+.ss-scope .ss-tc { --cw: 62px; position: relative; width: var(--cw); flex: 0 0 var(--cw); perspective: 600px; padding: 0; border: 0; background: none; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.ss-tc-in { position: relative; width: 100%; aspect-ratio: 2 / 3; border-radius: 7px; transform-style: preserve-3d; box-shadow: 0 2px 6px rgba(0, 0, 0, .25); }
+.ss-tc-back { position: absolute; inset: 0; border-radius: 7px; border: 2px solid #c9a24a;
+    background: radial-gradient(circle at 50% 50%, #f3d27a 0 7%, transparent 8%), repeating-linear-gradient(45deg, #2a1d5c 0 6px, #3a2a7a 6px 12px); }
+.ss-tc-back::after { content: '✦'; position: absolute; inset: 0; display: grid; place-items: center; color: #f3d27a; font-size: 18px; text-shadow: 0 0 6px #f3d27a; }
+.ss-tc-face { position: absolute; inset: 0; border-radius: 7px; border: 2px solid #c9a24a; background: linear-gradient(160deg, #fffaf0, #f3e6c8); color: #3a2a1a;
+    display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 4px 2px; overflow: hidden; }
+.ss-tc.major .ss-tc-face { border-color: #8a5cf6; background: linear-gradient(160deg, #fbf6ff, #eadcff); }
+.ss-tc-top { font: 700 calc(var(--cw, 62px) * .16)/1 Georgia, serif; letter-spacing: .05em; }
+.ss-tc-emo { font-size: calc(var(--cw, 62px) * .4); line-height: 1; }
+.ss-tc-name { font-size: max(8px, calc(var(--cw, 62px) * .15)); line-height: 1.15; text-align: center; word-break: keep-all; }
+.ss-tc.rev .ss-tc-face { transform: rotate(180deg); }
+.ss-tc-pos { font-size: 10px; color: var(--ss-dim); text-align: center; line-height: 1.2; max-width: 70px; }
+.ss-tc.just .ss-tc-in { animation: ss-tcflip .6s ease-out both; }
+.ss-tc.deal .ss-tc-in { animation: ss-tcdeal .6s ease-out both; animation-delay: calc(var(--i, 0) * .25s); }
+@keyframes ss-tcflip { from { transform: rotateY(180deg) scale(1.15); } to { transform: none; } }
+@keyframes ss-tcdeal { from { transform: translateY(-18px) rotateY(180deg); opacity: 0; } to { transform: none; opacity: 1; } }
+.ss-ft-fan { container-type: inline-size; width: 100%; display: flex; justify-content: center; padding: 10px 0 2px; }
+.ss-scope .ss-ft-fan > * { --cw: clamp(34px, 10cqw, 62px); flex: 0 0 var(--cw); width: var(--cw); }
+.ss-scope .ss-ft-fan > * + * { margin-left: calc(var(--cw) * -.14); }
+.ss-scope .ss-ft-fan .ss-tc-slot .ss-tc { --cw: inherit; }
+.ss-ft-fan .ss-tc-pos { font-size: 9px; }
+.ss-ft-fan > * { transform: rotate(calc((var(--i, 0) - 5.5) * 1.6deg)); transition: transform .15s; }
+.ss-scope .ss-ft-fan button.ss-tc { cursor: pointer; }
+.ss-scope .ss-ft-fan button.ss-tc:hover:not(:disabled) { transform: translateY(-8px) rotate(0deg); }
+.ss-scope .ss-ft-fan button.ss-tc:disabled { opacity: .45; cursor: default; }
+.ss-ft-spread { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; padding: 6px 0; }
+
+/* 🪭 무당: 방울 · 오방기 */
+.ss-ft-bells { font-size: 28px; animation: ss-shake .35s ease-in-out infinite alternate; }
+@keyframes ss-shake { from { transform: rotate(-8deg); } to { transform: rotate(8deg); } }
+.ss-ft-flags { display: flex; justify-content: center; }
+.ss-ft-flag { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+.ss-ft-flag i { width: 26px; height: 18px; background: var(--c); border: 1px solid rgba(0, 0, 0, .3); clip-path: polygon(0 0, 100% 0, 85% 50%, 100% 100%, 0 100%); box-shadow: inset 2px 0 0 #6b4a2a; }
+
+/* 🔮 수정구슬 — 보라 방석 위의 구슬 */
+.ss-orb-wrap { --sz: 120px; display: flex; flex-direction: column; align-items: center; }
+.ss-orb-wrap.big { --sz: 190px; }
+.ss-orb { position: relative; width: var(--sz); height: var(--sz); border-radius: 50%; overflow: hidden; z-index: 1;
+    box-shadow: inset 0 0 0 2px rgba(190, 235, 255, .7), inset -12px -16px 28px rgba(70, 20, 110, .45), inset 10px 12px 24px rgba(255, 255, 255, .45), 0 6px 26px rgba(214, 140, 255, .45); }
+.ss-orb.idle { background: conic-gradient(from 0deg, #ffd1e8, #fff2b8, #c8f7d6, #bfe6ff, #e2cdff, #ffd1e8); animation: ss-orbhue 8s linear infinite; }
+.ss-orb.idle::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 45% 40%, rgba(255, 255, 255, .85), rgba(255, 255, 255, .15) 55%, rgba(255, 255, 255, 0) 70%); }
+.ss-orb.galaxy { background:
+    radial-gradient(circle at 52% 42%, #fff 0 3%, #ffd3f4 6%, rgba(255, 160, 230, 0) 24%),
+    radial-gradient(ellipse 70% 35% at 35% 82%, rgba(255, 226, 205, .95), rgba(255, 210, 220, 0) 70%),
+    radial-gradient(circle at 72% 30%, rgba(196, 140, 255, .9), rgba(196, 140, 255, 0) 50%),
+    radial-gradient(circle at 50% 50%, #e3a1dc 0, #a866c9 48%, #63308c 100%); }
+.ss-orb-mist { position: absolute; inset: -25%; border-radius: 50%; opacity: .55; mix-blend-mode: screen;
+    background: conic-gradient(from 30deg, rgba(255, 180, 240, 0), rgba(255, 190, 245, .8), rgba(170, 120, 255, 0) 30%, rgba(255, 235, 210, .7) 55%, rgba(255, 180, 240, 0) 75%); animation: ss-orbspin 14s linear infinite; }
+.ss-orb.busy .ss-orb-mist { animation-duration: 3s; opacity: .8; }
+.ss-orb-glitter { position: absolute; inset: 0; opacity: .75; mix-blend-mode: screen;
+    background: radial-gradient(circle, #fff 0 .8px, transparent 1.4px) 0 0 / 11px 11px, radial-gradient(circle, #ffe9b0 0 .7px, transparent 1.3px) 5px 7px / 17px 17px; animation: ss-orbspin 40s linear infinite reverse; }
+.ss-orb.idle .ss-orb-glitter { opacity: .35; }
+.ss-orb-spark { position: absolute; width: 12px; height: 12px; margin: -6px; pointer-events: none; animation: ss-orbtw 2.8s ease-in-out infinite; }
+.ss-orb-spark::before, .ss-orb-spark::after { content: ''; position: absolute; left: 50%; top: 50%; background: #fff; border-radius: 2px; box-shadow: 0 0 6px #fff, 0 0 10px #ffc8f0; }
+.ss-orb-spark::before { width: 2px; height: 12px; margin: -6px 0 0 -1px; }
+.ss-orb-spark::after { width: 12px; height: 2px; margin: -1px 0 0 -6px; }
+.ss-orb-shine { position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(ellipse 38% 20% at 32% 18%, rgba(255, 255, 255, .9), rgba(255, 255, 255, 0) 70%), radial-gradient(ellipse 60% 70% at 50% 50%, rgba(255, 255, 255, 0) 70%, rgba(200, 240, 255, .35) 92%); }
+.ss-orb-v { position: absolute; inset: 20%; display: grid; place-items: center; text-align: center; opacity: 0; z-index: 2; }
+.ss-scope .ss-orb .ss-orb-v span { display: block; width: 100%; max-height: 100%; overflow: hidden; white-space: normal !important; text-wrap: wrap !important; overflow-wrap: anywhere; word-break: keep-all; font-size: 11.5px; line-height: 1.35; color: #fff; font-style: italic; text-shadow: 0 0 6px #6a2b8f, 0 0 2px #3b1060; }
+.ss-scope .ss-orb-wrap:not(.big) .ss-orb-v span { font-size: 10px; }
+.ss-orb-v.n1 { opacity: 1; animation: ss-orbv1 4s ease-in-out infinite alternate; }
+.ss-orb-v.n2 { animation: ss-orbv2 12s infinite; } .ss-orb-v.n3 { animation: ss-orbv3 18s infinite; } .ss-orb-v.n4 { animation: ss-orbv4 24s infinite; }
+@keyframes ss-orbv1 { from { opacity: .75; filter: blur(.6px); } to { opacity: 1; filter: none; } }
+@keyframes ss-orbv2 { 0% { opacity: 0; filter: blur(5px); } 8%, 42% { opacity: 1; filter: none; } 50%, 100% { opacity: 0; filter: blur(5px); } }
+@keyframes ss-orbv3 { 0% { opacity: 0; filter: blur(5px); } 6%, 28% { opacity: 1; filter: none; } 33%, 100% { opacity: 0; filter: blur(5px); } }
+@keyframes ss-orbv4 { 0% { opacity: 0; filter: blur(5px); } 4%, 21% { opacity: 1; filter: none; } 25%, 100% { opacity: 0; filter: blur(5px); } }
+@keyframes ss-orbspin { to { transform: rotate(360deg); } }
+@keyframes ss-orbhue { to { filter: hue-rotate(360deg); } }
+@keyframes ss-orbtw { 0%, 100% { opacity: 0; transform: scale(.3) rotate(0); } 50% { opacity: 1; transform: scale(1) rotate(45deg); } }
+.ss-orb-cushion { position: relative; width: calc(var(--sz) * 1.05); height: calc(var(--sz) * .3); margin-top: calc(var(--sz) * -.16); border-radius: 50%;
+    background: radial-gradient(ellipse at 50% 35%, #a98be8, #6d4bb8 60%, #4a2f86); box-shadow: 0 5px 10px rgba(40, 10, 80, .35); }
+.ss-orb-cushion i { position: absolute; bottom: -5px; width: 9px; height: 13px; border-radius: 3px 3px 5px 5px; background: linear-gradient(#ffe08a, #d8a632); }
+.ss-orb-cushion i:first-child { left: 4%; transform: rotate(18deg); } .ss-orb-cushion i:last-child { right: 4%; transform: rotate(-18deg); }
+
+@media (prefers-reduced-motion: reduce) {
+    .ss-orb, .ss-orb *, .ss-tc-in, .ss-ft-bells { animation: none !important; }
+    .ss-orb-v { opacity: 0; } .ss-orb-v.n1 { opacity: 1; }
+}

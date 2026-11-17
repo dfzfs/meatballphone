@@ -946,11 +946,12 @@ export const NORM = {
         readings: arr(d.readings).filter(r => r?.who && r?.method).map(r => ({
             id: str(r.id) || uid(), who: str(r.who), method: ['tarot', 'orb', 'shaman', 'gut'].includes(r.method) ? r.method : 'tarot', topic: str(r.topic), q: str(r.q),
             when: str(r.when), basis: r.basis === 'real' ? 'real' : 'story', fee: Math.max(0, Math.round(num(r.fee, 0))), draw: arr(r.draw).map(x => str(x)).filter(Boolean).slice(0, 12),
-            teller: str(r.teller), summary: str(r.summary), sections: arr(r.sections).filter(x => x?.text).map(x => ({ title: str(x.title), text: str(x.text) })).slice(0, 12),
+            teller: str(r.teller), summary: str(r.summary), sections: arr(r.sections).filter(x => x?.text).map(x => ({ title: str(x.title), text: str(x.text), ...(['spirit', 'vision'].includes(x.voice) ? { voice: x.voice } : {}) })).slice(0, 16),
+            spirit: str(r.spirit),
             omen: str(r.omen), advice: str(r.advice), lucky: str(r.lucky), rite: str(r.rite), result: str(r.result), person: fortunePerson(r.person),
         })).slice(-12),
         births: arr(d.births).map(b => ({ name: str(b?.name), ...fortunePerson(b) })).filter(b => b.name).slice(0, 80),
-        omen: d.omen?.text ? { who: str(d.omen.who), method: str(d.omen.method), text: str(d.omen.text), day: num(d.omen.day, 0) } : null,
+        omen: d.omen?.text ? { id: str(d.omen.id), who: str(d.omen.who), method: str(d.omen.method), text: str(d.omen.text), day: num(d.omen.day, 0) } : null,
         feeTarot: Math.max(0, Math.round(num(d.feeTarot, 0))), feeOrb: Math.max(0, Math.round(num(d.feeOrb, 0))), feeShaman: Math.max(0, Math.round(num(d.feeShaman, 0))), feeGut: Math.max(0, Math.round(num(d.feeGut, 0))),
     }),
     sns: (d) => ({

@@ -646,13 +646,21 @@ function opXFortune(s, val, info, L, T, key, rawKey) {
     if (f.readings.length > 12) f.readings.shift();
     keepBirth(f, r.who, r.person);
     const gist = r.omen || r.summary || r.result || '';
-    if (gist) f.omen = { who: r.who, method: r.method, text: gist, day: today(s) ?? s.turn };
+    if (gist) f.omen = { id: f.readings.at(-1).id, who: r.who, method: r.method, text: gist, day: today(s) ?? s.turn };
     // 굿: 저주 풀기 · 가호(축복) 걸기는 여기서 실제로 일어난다
     if (r.method === 'gut') {
         if (r.lift) { const ex = findBy(f.curses, r.lift); if (ex) { f.curses.splice(f.curses.indexOf(ex), 1); L(`해제: ${ex.name}`); } }
         if (r.bless?.name) addCurse(s, { name: r.bless.name, kind: 'bless', desc: r.bless.desc ?? '', effects: r.bless.effects ?? [], days: r.bless.days ?? null, cure: '' }, info);
     }
     L(`🔮 ${FT_NAME[r.method] ?? '점'}: ${r.who}${r.topic ? ` · ${r.topic}` : ''}`);
+    return;
+}
+// 🗑 점괘 지우기: id 하나 · * = 점괘 전부 + 생년월일 전부 (낸 돈 · 굿으로 풀린 저주 · 받은 가호는 그대로)
+function opXFtdel(s, val, info, L, T, key, rawKey) {
+    const f = s.data.fate; if (!f) return;
+    if (val === '*') { f.readings = []; f.births = []; f.omen = null; return; }
+    f.readings = (f.readings ?? []).filter(r => r.id !== val);
+    if (f.omen?.id === val) f.omen = null;
     return;
 }
 // 생년월일 직접 고치기 (이름 | JSON) · 지우기 (-이름)
@@ -1197,6 +1205,7 @@ const OPS = {
     '_fortune': opXFortune,
     '_birth': opXBirth,
     '_ftfee': opXFee,
+    '_ftdel': opXFtdel,
     '_loan': opXLoan,
     '_repay': opXRepay,
     'stat': opStat,
