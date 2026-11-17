@@ -34,18 +34,20 @@ function stories(cx, cy, a, h, n) {
 
 // ───── 장소 종류 → 모양 (이름 · 종류로 짐작 — 못 맞히면 기본 상자 + 이모지) ─────
 const KINDS = [
-    [/등대|lighthouse|탑|tower|첨탑/i, 'tower'], [/성당|교회|신전|사원|절$|church|temple|shrine|cathedral|chapel/i, 'church'],
-    [/성$|성채|궁|왕궁|castle|palace|fort|요새|citadel/i, 'castle'],
-    [/항구|선착장|부두|port|harbor|harbour|dock|pier/i, 'harbor'], [/바다|해변|해안|beach|sea|ocean|coast|섬|island|강|호수|river|lake|폭포|waterfall|연못|pond/i, 'water'],
+    [/등대|lighthouse|탑$|tower|첨탑/i, 'tower'], [/성당|교회|신전|사원|절$|church|temple|shrine|cathedral|chapel/i, 'church'],
+    [/성$|성채|궁|왕궁|castle|palace|fort|fortress|요새|citadel/i, 'castle'],
+    [/항구|선착장|부두|port|harbor|harbour|dock|pier/i, 'harbor'], [/바다|해변|해안|beach|sea|ocean|coast|섬$|island|강$|강변|강가|호수|river|lake|폭포|waterfall|연못|pond/i, 'water'],
     [/숲|forest|woods|정글|jungle/i, 'forest'], [/산$|산맥|mountain|봉우리|peak|절벽|cliff|화산|volcano/i, 'mountain'],
-    [/동굴|던전|cave|dungeon|지하|ruin|폐허|유적|광산|mine/i, 'cave'], [/공원|정원|garden|park|농장|밭|farm|ranch|목장|초원|들판|field|meadow/i, 'park'],
+    [/동굴|던전|cave|dungeon|지하(?!철)|ruin|폐허|유적|광산|mine/i, 'cave'], [/공원|정원|garden|park|농장|밭|farm|ranch|목장|초원|들판|field|meadow/i, 'park'],
     [/광장|square|plaza|거리|street|road|골목|alley|다리|bridge|길$|교차로/i, 'plaza'],
     [/시장|market|bazaar|장터|저잣거리|상점|가게|shop|store|잡화|편의점|매점|마트|mart/i, 'shop'],
     [/술집|선술집|주점|여관|객잔|tavern|inn|bar$|pub|카페|찻집|cafe|café|coffee|식당|레스토랑|restaurant|diner|빵집|bakery/i, 'inn'],
     [/마을|village|town|어귀|촌$/i, 'village'],
-    [/학교|학원|아카데미|school|academy|대학|univ|병원|의원|clinic|hospital|도서관|library|회사|사무실|office|본부|headquarters|연구소|실험실|lab|역$|정거장|station|터미널|경찰|police|길드|guild|도시|city|번화가|downtown|빌딩|building|아파트|apartment|호텔|hotel|백화점|기지|base|격납고|hangar|체육관|gym|극장|theater/i, 'big'],
+    [/학교|학원|아카데미|school|academy|대학|university|college|병원|의원|clinic|hospital|도서관|library|회사|사무실|office|본부|headquarters|연구소|실험실|lab|laboratory|역$|정거장|station|터미널|경찰|police|길드|guild|도시|city|번화가|downtown|빌딩|building|아파트|apartment|호텔|hotel|백화점|기지|base|격납고|hangar|체육관|gym|극장|theater/i, 'big'],
     [/집|home|house|자택|숙소|기숙사|dorm|하숙|오두막|cottage|cabin|방$|침실|bedroom|room|저택|mansion|별장/i, 'house'],
 ];
+// 영어 낱말은 낱말 첫머리에서만 맞춘다 (짧은 낱말은 끝도) — airport가 항구(port), research가 바다(sea), public library가 술집(pub)이 되지 않게
+for (const k of KINDS) k[0] = new RegExp(k[0].source.split('|').map(t => (/^[a-zé]+$/i.test(t) ? (t.length <= 4 ? `\\b${t}s?\\b` : `\\b${t}`) : t)).join('|'), 'i');
 export const isoKind = (p) => KINDS.find(([re]) => re.test(String(p?.name ?? '').trim()) || (p?.kind && re.test(String(p.kind).trim())))?.[1] ?? 'box';
 const BIG_COLOR = [[/병원|의원|clinic|hospital/i, '#e9eef2'], [/학교|학원|school|academy|대학|univ/i, '#e8c9a0'], [/도서관|library/i, '#c9b39a'], [/경찰|police|기지|base/i, '#9fb0c9'], [/길드|guild/i, '#c9a27e']];
 
@@ -97,6 +99,11 @@ export function parseFloors(floors) {
         return { name: name || str.trim(), rooms: rest.split(/[\/·|]/).map(r => r.trim()).filter(Boolean).slice(0, 12).map(r => ({ name: r })) };
     }).filter(f => f.name);
 }
+// 「지금 여기」(spot)가 가리키는 층 — 층 이름으로 시작하는 것 중 가장 길게 맞는 하나 (「2층 교실」 → 「2층」)
+export function spotFloor(fls, spot) {
+    const sp = norm(spot ?? ''); if (!sp) return null;
+    return fls.filter(f => norm(f.name) && sp.startsWith(norm(f.name))).sort((x, y) => norm(y.name).length - norm(x.name).length)[0] ?? null;
+}
 // 본거지 방들을 층별로 (층을 안 적은 방은 1층) — 아래층부터
 export function homeFloors(home) {
     const lvOf = (r) => (Number.isFinite(r.floor) ? r.floor : 1);
@@ -139,27 +146,13 @@ export function planSVG(floor, o = {}) {
 export function floorsSVG(p, spot, canSet) {
     const fl = (p.floors ?? []).slice(0, 12).map(x => floorName(x)), n = fl.length; if (!n) return '';
     const a = 20, b = a * K, h = 3.4, gap = 11.5, H = (n - 1) * gap + 2 * b + h + 5, base = H - b - 2.5;
+    const at = spotFloor(fl.map(name => ({ name })), spot)?.name; // 입체 보기에서 방까지 고른 「2층 교실」도 평면 보기에서 2층에 불이 들어오게
     const rows = fl.map((name, i) => {
-        const cy = base - i * gap, on = spot && norm(spot) === norm(name);
+        const cy = base - i * gap, on = at === name;
         return `<g class="fl ${on ? 'on' : ''} ${canSet ? 'can' : ''}" ${canSet ? `data-act="spot" data-arg="${esc(name)}" role="button"` : ''}>${G(on ? 'var(--ss-hi)' : '#e6dfd0', box(26, cy, a, h))}
             <line class="lead" x1="46" y1="${R(cy - h / 2)}" x2="52" y2="${R(cy - h / 2)}"/><text x="54" y="${R(cy - h / 2 + 1.5)}">${esc(short(name, 16))}${on ? ' · 지금 여기' : ''}</text></g>`;
     }).join('');
     return `<svg class="ss-iso ss-floors" viewBox="0 0 110 ${R(H)}" preserveAspectRatio="xMinYMid meet" role="img" aria-label="${esc(p.name)} 안">${rows}</svg>`;
-}
-
-// ───── 건물 안으로 (지도에서 건물을 눌러 확대했을 때): 층마다 바닥 + 뒤쪽 벽 두 장을 띄워 쌓는다 · 이름은 바닥 위에 ─────
-export function buildingSVG(p, spot, canSet) {
-    const fl = (p.floors ?? []).slice(0, 12), n = fl.length; if (!n) return '';
-    const a = 24, b = a * K, wall = 5.5, gap = n > 6 ? 22 : 27, top = -(n - 1) * gap - b - wall - 9, bot = b + 4;
-    const pillars = n > 1 ? [-a, a].map(x => `<line class="pil" x1="${x}" y1="0" x2="${x}" y2="${R(-(n - 1) * gap)}"/>`).join('') : '';
-    const rows = fl.map((name, i) => {
-        const cy = -i * gap, on = !!spot && norm(spot) === norm(name);
-        return `<g class="fl ${on ? 'on' : ''} ${canSet ? 'can' : ''}" ${canSet ? `data-act="spot" data-arg="${esc(name)}" role="button"` : ''}><title>${esc(name)}${canSet ? (on ? ' — 지금 여기 (다시 누르면 지움)' : ' — 눌러서 「지금 여기」로') : ''}</title>
-            <g style="--c:${on ? 'var(--ss-hi)' : /지하|basement|cellar|b\d/i.test(name) ? '#cfc9bd' : /옥상|roof|다락|attic/i.test(name) ? '#d5e6c8' : '#efe6d4'}">${poly('w-l', [[-a, cy], [0, cy - b], [0, cy - b - wall], [-a, cy - wall]])}${poly('w-r', [[a, cy], [0, cy - b], [0, cy - b - wall], [a, cy - wall]])}${flat(0, cy, a)}</g>
-            <text class="nm" x="0" y="${R(cy + b * 0.42)}">${esc(short(name, 14))}</text>
-            ${on ? `<g class="pin"><line x1="0" y1="${R(cy - 1.5)}" x2="0" y2="${R(cy - 5.5)}"/><circle cx="0" cy="${R(cy - 7)}" r="1.9"/></g>` : ''}</g>`;
-    }).join('');
-    return `<svg class="ss-iso ss-bldg" viewBox="${R(-a - 6)} ${R(top)} ${R(2 * a + 12)} ${R(bot - top)}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${esc(p.name)} 안">${pillars}${rows}</svg>`;
 }
 
 // ───── 집 안 구조 (본거지): 지붕을 걷어낸 인형의 집 — 방마다 바닥 한 칸 + 뒤쪽 벽 두 장 · 가구는 이모지 ─────

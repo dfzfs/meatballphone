@@ -1059,7 +1059,7 @@ export const EDIT = {
     ],
     home: [
         { k: 'name', label: '이름', type: 'text' }, { k: 'desc', label: '설명', type: 'area' },
-        { k: 'rooms', label: '방 · 구역', type: 'list', title: 'name', fields: [{ k: 'name', label: '이름', type: 'text' }, { k: 'floor', label: '층 (숫자 · 선택)', type: 'num' }, { k: 'desc', label: '모습', type: 'area' }, { k: 'decor', label: '배치된 가구 (쉼표)', type: 'tags' }] },
+        { k: 'rooms', label: '방 · 구역', type: 'list', title: 'name', fields: [{ k: 'name', label: '이름', type: 'text' }, { k: 'floor', label: '층 (숫자 · 선택)', type: 'num', blank: true }, { k: 'desc', label: '모습', type: 'area' }, { k: 'decor', label: '배치된 가구 (쉼표)', type: 'tags' }] },
         { k: 'storage', label: '창고 (미배치, 쉼표)', type: 'tags' },
         { k: 'trash', label: '쓰레기통', type: 'list', title: 'name', fields: [{ k: 'name', label: '이름', type: 'text' }, { k: 'date', label: '버린 날', type: 'text' }] },
     ],

@@ -593,15 +593,6 @@ dialog.popup.ss-dlg.ss-full .popup-content { max-height: none; }
 @keyframes ss-iso-in { from { opacity: 0; transform: scale(.72); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .ss-inpic { animation: none; } }
 .ss-inpic > svg { display: block; width: 100%; height: auto; max-height: 62vh; user-select: none; -webkit-user-select: none; }
-.ss-bldg .pil { stroke: color-mix(in srgb, var(--ss-ink) 35%, transparent); stroke-width: .3; stroke-dasharray: 1 1; }
-.ss-bldg .fl text { text-anchor: middle; pointer-events: none; }
-.ss-bldg .fl .nm { font-size: 3.6px; font-weight: 700; fill: #3a3128; paint-order: stroke; stroke: rgba(255,255,255,.8); stroke-width: .8px; stroke-linejoin: round; }
-.ss-bldg .fl.can { cursor: pointer; }
-.ss-bldg .fl.can:hover .f-t { stroke: var(--ss-hi); stroke-width: .5; }
-.ss-bldg .fl.on .f-t { stroke: var(--ss-hi); stroke-width: .6; }
-.ss-bldg .pin line { stroke: var(--ss-hi); stroke-width: .6; stroke-linecap: round; }
-.ss-bldg .pin circle { fill: var(--ss-hi); stroke: #fff; stroke-width: .5; }
-.ss-bldg .pin { animation: ss-iso-bob 1.6s ease-in-out infinite; }
 
 /* 📐 층 도면 (건물 안 · 위에서 본 평면도) */
 .ss-mapwrap.inside { background: linear-gradient(color-mix(in srgb, var(--ss-ink) 7%, transparent) 1px, transparent 0) 0 0 / 100% 14px, linear-gradient(90deg, color-mix(in srgb, var(--ss-ink) 7%, transparent) 1px, transparent 0) 0 0 / 14px 100%, var(--ss-surface); }

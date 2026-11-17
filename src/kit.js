@@ -158,7 +158,7 @@ const getPath = (o, path) => path.reduce((x, k) => x?.[k], o);
 const setPath = (o, path, v) => { const p = getPath(o, path.slice(0, -1)); if (p) p[path.at(-1)] = v; };
 function blankFor(fields) {
     const o = {};
-    for (const f of fields) o[f.k] = f.type === 'num' ? 0 : f.type === 'bool' ? (f.k === 'known' || f.k === 'inject') : f.type === 'tags' || f.type === 'list' ? [] : f.type === 'select' ? f.options[0][0] : '';
+    for (const f of fields) o[f.k] = f.type === 'num' ? (f.blank ? null : 0) : f.type === 'bool' ? (f.k === 'known' || f.k === 'inject') : f.type === 'tags' || f.type === 'list' ? [] : f.type === 'select' ? f.options[0][0] : '';
     return o;
 }
 function fieldHTML(f, v, path) {
