@@ -3,6 +3,7 @@ import {
     app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, MODS, MOD, MOD_IDS, DIFFS, diffOf, esc, short, clamp, norm, findBy,
     fmtNum, clone, splitBar, parseNum, dateStr, dayIndex, eventsOn, nextTime, nextTimeWraps, CLOCK_STYLES, timeWords, upcoming, userName, TITLE, VERSION, EMPTY, CONTACT_MODES, stamp, weekday, viewTr, GLOBAL_OFF,
 } from './core.js';
+import { tagKeysFor, buildInjection } from './engine.js';
 import { addAdjust, commit, dueLetters, priceMul, peopleAt, hopsBetween, whereNow, seasonOf, SEASON_NAME, purgeTrash, undoAt, skillRoll, SOCIAL_RE } from './engine.js';
 import { trString } from './translate.js';
 import { walletView, fxText } from './money.js';
@@ -412,7 +413,7 @@ const mgIsOpen = (id) => (settings().mgOpen ?? MG_DEF)[id] === true;
 const fold = (id, icon, name, sum, inner) => { const o = mgIsOpen(id); return `<section class="ss-sec ss-fold ${o ? 'open' : ''}" data-fold="${id}"><button type="button" class="ss-mg-h" data-act="mgfold" data-arg="${id}" aria-expanded="${o}">${icon ? `<i class="fa-solid ${icon}"></i>` : ''}<b>${name}</b><small>${sum}</small><i class="fa-solid fa-chevron-down ss-mg-chev"></i></button><div class="ss-mg-b"${o ? '' : ' hidden'}>${inner}</div></section>`; };
 // 「쓸 기능」 머리줄의 한 번에 고르기 — 처음 만들 때(만들기 창)와 같은 세 단추. 끈 칸의 내용은 지워지지 않는다
 const FLAGSET_BTNS = '<button class="ss-btn sm ghost" data-act="flagset" data-arg="rec" title="처음 값으로 — 공략만 켜요">처음 값</button><button class="ss-btn sm ghost" data-act="flagset" data-arg="all" title="선택 기능을 전부 켜요 — 켠 만큼 토큰을 써요">전부</button><button class="ss-btn sm ghost" data-act="flagset" data-arg="none">전부 끄기</button>';
-const MODSET_BTNS = '<button class="ss-btn sm ghost" data-act="modset" data-arg="rec" title="꼭 필요한 6칸(프로필 · 수치 · 재산 · 관계 · 지도 · 달력)만 켜요">추천만</button><button class="ss-btn sm ghost" data-act="modset" data-arg="all">전부</button><button class="ss-btn sm ghost" data-act="modset" data-arg="none">전부 끄기</button>';
+const s0Empty = (id) => { try { return !app.current?.state?.data?.[id]; } catch { return false; } };
 let clearedAdj = null; // 방금 「싹 지운」 편집 기록 (이 채팅 · 새로 고침 전까지만 되살릴 수 있다)
 const chatKey = () => { try { const c = ctx(); return `${c.groupId ?? ''}|${c.getCurrentChatId?.() ?? ''}`; } catch { return ''; } };
 // 🧩 선택 기능 스위치 (관리 탭 › 설정 · 도구): 확장 설정의 같은 체크 칸과 한 값을 쓴다 (모든 채팅 공통)
@@ -462,6 +463,90 @@ export function extraHTML(s, ui = {}, part = {}) {
     return groups.length ? `<p class="ss-hint">켜 둔 부가 기능의 화면이 여기 모여요. 켜고 끄는 건 <b>관리 › 쓸 기능 › 부가 기능</b>에서 해요.</p>${groups.map(([id, icon, name, sum, inner]) => fold(`xt-${id}`, icon, name, sum, inner)).join('')}`
         : `<p class="ss-hint">켜 둔 부가 기능이 없어요. <b>관리 › 쓸 기능 › 부가 기능</b>에서 골라 켜면 여기에 화면이 생겨요.</p><div class="ss-row-btns"><button class="ss-btn" data-act="tab" data-arg="manage"><i class="fa-solid fa-sliders"></i> 관리로 가기</button></div>`;
 }
+// ───── 🎛 기능 고르기 (관리 › 쓸 기능) ─────
+// 고르는 곳은 여기 하나: ① 묶음으로 한 번에 ② 칸 하나씩 — 칸마다 「AI 안내가 몇 토큰 느는지」 · 「같이 켜면 좋은 칸」 · (켰을 때만) 그 칸에 딸린 옵션
+// 딸린 옵션 = 부가 기능 스위치(모든 채팅 공통 · 확장 설정의 같은 칸과 한 값). 딸린 칸이 없는 것만 맨 아래 「그 밖의 장치」에 남는다
+const PK_PARENT = {
+    profile: ['peekCost'],
+    stats: ['trendMore', 'glitchView'],
+    rel: ['guideOn', 'relRace', 'pairAff', 'giftTaste', 'tasteBook', 'relScar', 'memoryDrift', 'meddleOn', 'realGap'],
+    contact: ['groupChat', 'socialAff', 'mergeContact', 'crossMail'],
+    calendar: ['ambientOn', 'ambientShop'],
+    memo: ['ledgerKnow', 'ledgerPromise', 'promiseClock'],
+};
+const PK_CHILD = new Set(Object.values(PK_PARENT).flat());
+// 묶음: 추천 6칸에 무엇을 더하나 (부가 기능 스위치는 건드리지 않는다)
+const PK_SETS = [
+    ['rel', 'fa-heart', '관계 중심', ['contact', 'sns', 'gossip', 'memo'], '연락 · SNS · 가십지 · 메모'],
+    ['game', 'fa-dice-d20', '모험 · 게임', ['dice', 'shop', 'quest', 'fate', 'ach', 'home'], '주사위 · 상점 · 퀘스트 · 운명 · 업적 · 본거지'],
+    ['world', 'fa-earth-asia', '세상 소식', ['news', 'gossip', 'board', 'sns'], '뉴스 · 가십지 · 게시판 · SNS'],
+];
+// 같이 켜면 좋은 칸 — [칸, 왜] (서로 실제로 이어지는 것만)
+const PK_SYN = {
+    profile: [['rel', '인물마다 관계 · 속마음이 프로필에 붙어요']],
+    stats: [['dice', '능력치가 판정에 보정으로 붙어요'], ['shop', '음식 · 물약을 사서 게이지를 채워요'], ['calendar', '시간이 흐르면 욕구가 줄어요 (생활 탭)']],
+    dice: [['stats', '능력치 보정'], ['quest', '퀘스트 완료 판정'], ['wallet', '흥정 · 일하기 판정']],
+    wallet: [['shop', '사고팔기'], ['map', '이동 요금'], ['quest', '보상']],
+    shop: [['wallet', '돈이 있어야 사요 (꼭 필요)'], ['stats', '산 물건을 써서 게이지를 채워요'], ['calendar', '밤에는 가게 닫기 (날씨 · 시간대 효과)']],
+    home: [['map', '지도에서 집을 눌러 안을 봐요'], ['wallet', '가구를 사서 놓아요']],
+    rel: [['profile', '속마음이 프로필 밑에 떠요'], ['contact', '연락이 호감에 반영돼요'], ['calendar', '기념일 · 약속']],
+    map: [['calendar', '이동하면 시간이 흘러요'], ['wallet', '이동 요금'], ['home', '집 안 보기']],
+    calendar: [['map', '이동하면 시간이 흘러요'], ['contact', '편지가 며칠 걸려 와요'], ['quest', '기한'], ['stats', '시간이 흐르면 욕구가 줄어요']],
+    contact: [['rel', '연락이 호감에 반영돼요'], ['calendar', '편지가 며칠 걸려 와요']],
+    quest: [['calendar', '기한'], ['wallet', '보상'], ['dice', '완료 판정'], ['ach', '업적']],
+    news: [['gossip', '세상 소식 묶음'], ['board', '세상 소식 묶음']],
+    gossip: [['rel', '인물들의 소문'], ['news', '세상 소식 묶음']],
+    board: [['news', '세상 소식 묶음'], ['quest', '의뢰 글']],
+    ach: [['quest', '퀘스트를 끝내면']],
+    memo: [['rel', '약속 장부 — 지키면 우정이 올라요']],
+    fate: [['dice', '저주 · 축복이 판정에'], ['calendar', '며칠 가는 저주']],
+    sns: [['rel', '인물들의 글'], ['contact', '사람 묶음']],
+};
+// 토큰 어림: 영문 · 숫자 4글자 = 1 · 한글 1.6글자 = 1 (정확한 값이 아니라 「많다 · 적다」를 보는 용도)
+const pkTok = (t) => { let a = 0, k = 0; for (const ch of String(t ?? '')) { if (ch.charCodeAt(0) < 128) a++; else k++; } return Math.round(a / 4 + k / 1.6); };
+function pkCosts(meta) { // 칸마다: 켰을 때 AI에게 가는 「적는 법 안내」가 몇 토큰 느나
+    const out = {}, mods = { ...(meta?.mods ?? {}) };
+    for (const id of MOD_IDS) { try { out[id] = Math.max(0, pkTok(tagKeysFor({ ...meta, mods: { ...mods, [id]: true } })) - pkTok(tagKeysFor({ ...meta, mods: { ...mods, [id]: false } }))); } catch { out[id] = null; } }
+    return out;
+}
+function pkTotal() { try { const r = app.current; if (!r || getMeta()?.paused) return null; const inj = buildInjection(r); return pkTok(inj.main) + pkTok(inj.people) + pkTok(inj.romance); } catch { return null; } }
+function pkSub(id, s, st) { // 켠 칸 밑의 딸린 옵션
+    const parts = [];
+    if (id === 'calendar' && s.data.calendar) parts.push(`<div class="ss-pk-opt"><small>시간 적는 법</small>${seg(CLOCK_STYLES.map(([v, name, ex]) => [v, `${name} <small>${ex}</small>`]), s.data.calendar.clock ?? '', 'clockstyle', 'class="ss-seg wrap"')}</div>`);
+    if (id === 'map') parts.push(`<div class="ss-pk-opt"><small>지도 보기</small>${seg([['iso', '입체'], ['flat', '평면'], ['list', '목록']], ['iso', 'flat', 'list'].includes(st.mapMode) ? st.mapMode : 'iso', 'mapmode', 'class="ss-seg wrap"')}</div>`);
+    const flags = (PK_PARENT[id] ?? []).map(k => FLAG_BY[k]).filter(Boolean);
+    if (flags.length) parts.push(`<div class="ss-pk-opt"><small>딸린 옵션 · 모든 채팅에 걸려요</small>${flagList(st, flags)}</div>`);
+    return parts.join('');
+}
+function pickerHTML(s, meta, st) {
+    const live = mgCur() === 'mods'; // 다른 탭을 보고 있을 땐 세지 않는다 (숨겨진 채 그려지므로)
+    const cost = live ? pkCosts(meta) : {}, total = live ? pkTotal() : null;
+    const isOn = (m) => meta.mods?.[m.id] !== false && !(GLOBAL_OFF[m.id] && st[GLOBAL_OFF[m.id]] === false);
+    const onIds = MODS.filter(isOn).map(m => m.id), recOnly = onIds.length === REC_MODS.length && REC_MODS.every(id => onIds.includes(id));
+    const setOn = (add) => { const want = new Set([...REC_MODS, ...add]); return onIds.length === want.size && onIds.every(id => want.has(id)); };
+    const card = (m) => {
+        const gOff = GLOBAL_OFF[m.id] && st[GLOBAL_OFF[m.id]] === false, on = isOn(m), c = cost[m.id];
+        const syn = (PK_SYN[m.id] ?? []).filter(([o]) => MOD[o]);
+        return `<div class="ss-pk ${on ? 'on' : ''}" data-pk="${m.id}">
+            <label class="ss-mod ${on ? 'on' : ''}"><input type="checkbox" class="ss-switch" data-chg="mod" data-arg="${m.id}" ${on ? 'checked' : ''} ${gOff ? 'disabled' : ''}>
+            <i class="fa-solid ${m.icon}"></i><span><b>${m.name}</b><small>${gOff ? '모든 채팅에서 꺼 둠 — 확장 설정 › 기능 켜고 끄기' : m.desc}</small></span>${gOff ? '' : `${s.data[m.id] ? '' : '<em>비어 있음</em>'}${Number.isFinite(c) ? `<em class="ss-pk-cost" title="켜면 AI에게 가는 「적는 법 안내」가 이만큼 늘어요 (어림 · 그 칸의 내용은 따로)">${c ? `+${c} 토큰` : '토큰 0'}</em>` : ''}`}</label>
+            ${syn.length ? `<div class="ss-pk-syn"><small>같이 켜면</small>${syn.map(([o, why]) => { const oo = isOn(MOD[o]); return oo ? `<span class="ss-chip" title="${esc(why)}"><i class="fa-solid fa-check"></i> ${MOD[o].name}</span>` : `<button type="button" class="ss-chip btn" data-act="pkon" data-arg="${o}" title="${esc(why)} — 눌러서 켜기"><i class="fa-solid fa-plus"></i> ${MOD[o].name}</button>`; }).join('')}</div>` : ''}
+            <div class="ss-pk-sub"${on ? '' : ' hidden'}>${pkSub(m.id, s, st)}</div></div>`;
+    };
+    const groups = GROUPS.filter(g => g.id !== 'manage').map(g => ({ ...g, tabs: g.tabs.filter(t => !PSEUDO.has(t) && MOD[TAB_MOD(t)]) })).filter(g => g.tabs.length);
+    const rest = [...ADDON_FLAGS, ...STORY_FLAGS].filter(f => !PK_CHILD.has(f[0]));
+    const oRest = mgIsOpen('ex-rest'), nRest = rest.filter(f => flagOn(st, f)).length;
+    return `${sec('🎛 기능 고르기 <small>이 채팅만 · 끈 칸은 내용은 남고 AI에게만 안 보내요</small>', `
+            <div class="ss-pk-sum"><span><i class="fa-solid fa-gauge-high"></i> 켠 칸 <b>${onIds.length}</b>개</span>${total !== null ? `<span>지금 매 턴 AI에게 가는 글 <b>약 ${fmtNum(total)} 토큰</b></span>` : ''}</div>
+            <div class="ss-seg wrap stack ss-pk-sets">
+                <button class="${recOnly ? 'on' : ''}" data-act="modset" data-arg="rec" title="꼭 필요한 6칸(프로필 · 수치 · 재산 · 관계 · 지도 · 달력)만 켜요"><i class="fa-solid fa-feather"></i> 가볍게<small>추천 6칸만</small></button>
+                ${PK_SETS.map(([id, icon, name, add, hint]) => `<button class="${setOn(add) ? 'on' : ''}" data-act="pkset" data-arg="${id}"><i class="fa-solid ${icon}"></i> ${name}<small>6칸 + ${hint}</small></button>`).join('')}
+            </div>
+            <p class="ss-hint">묶음을 누르면 칸만 바뀌어요 (딸린 옵션은 그대로). 나중에 켠 칸은 그때부터 적히고, 끈 칸은 다시 켜면 내용이 그대로 돌아와요.</p>
+            ${groups.map(g => { const o = mgIsOpen(`mods-${g.id}`), ms = g.tabs.map(t => MOD[TAB_MOD(t)]), nOn = ms.filter(isOn).length; return `<div class="ss-modgrp ss-fold ${o ? 'open' : ''}"><button type="button" class="ss-mg-h" data-act="mgfold" data-arg="mods-${g.id}" aria-expanded="${o}"><b>${g.name}</b><small>${nOn}/${ms.length} 켬 · ${ms.map(m => m.name).join(' · ')}</small><i class="fa-solid fa-chevron-down ss-mg-chev"></i></button><div class="ss-mg-b"${o ? '' : ' hidden'}><div class="ss-pklist">${ms.map(card).join('')}</div></div></div>`; }).join('')}
+            <div class="ss-modgrp ss-fold ${oRest ? 'open' : ''}"><button type="button" class="ss-mg-h" data-act="mgfold" data-arg="ex-rest" aria-expanded="${oRest}"><b>그 밖의 장치</b><small>${nRest}/${rest.length} 켬 · 칸에 딸리지 않은 선택 기능 · 모든 채팅에 걸려요</small><i class="fa-solid fa-chevron-down ss-mg-chev"></i></button><div class="ss-mg-b"${oRest ? '' : ' hidden'}>${flagList(st, rest)}<p class="ss-hint">켠 장치의 화면은 「부가 기능」 탭에 모여요.</p><div class="ss-row-btns"><small>딸린 옵션 · 장치를 한 번에</small>${FLAGSET_BTNS}</div></div></div>`,
+        `<button class="ss-btn sm ghost" data-act="modset" data-arg="all" title="칸을 전부 켜요 (딸린 옵션은 그대로)">칸 전부</button><button class="ss-btn sm ghost" data-act="modset" data-arg="none" title="칸과 딸린 옵션을 전부 꺼요 — 내용은 남아요">전부 끄기</button>`)}`;
+}
 export function manageHTML(s, ui = {}, extra = '') {
     const meta = getMeta();
     const st = settings();
@@ -484,9 +569,7 @@ export function manageHTML(s, ui = {}, extra = '') {
         ${modOn('profile') ? sec('AI가 인물을 무엇으로 알게 할까요 <small>프로필 모드</small>', `${seg([['minimal', '카드 · 로어북대로 (최소)'], ['detailed', '이 상태창 프로필대로 (상세)']], s.data.profile?.mode ?? 'minimal', 'pmode', 'class="ss-seg wrap"')}<p class="ss-hint">${(s.data.profile?.mode ?? 'minimal') === 'detailed' ? '<b>상세</b>: 프로필 탭에 적힌 외모 · 성격 · 말투까지 AI에게 보내요. 캐릭터 카드가 부실하거나 프로필을 직접 다듬었을 때 좋아요 (토큰이 더 들어요).' : '<b>최소</b>: 인물 설명은 캐릭터 카드 · 로어북에 맡기고, 프로필은 한 줄 소개만 보내요. 카드가 이미 자세하면 이쪽이 가볍고 겹치지 않아요.'}</p>`) : ''}`)}
         ${mg('mods', 'fa-puzzle-piece', '쓸 기능', `${nOn}칸 켬`, `
         ${lifeBox()}
-        ${sec('쓸 기능 <small>끈 기능은 데이터는 남고 AI에게만 안 보내요</small>', GROUPS.filter(g => g.id !== 'manage').map(g => ({ ...g, tabs: g.tabs.filter(t => !PSEUDO.has(t) && MOD[TAB_MOD(t)]) })).filter(g => g.tabs.length).map(g => { const o = mgIsOpen(`mods-${g.id}`), ms = g.tabs.map(t => MOD[TAB_MOD(t)]), nOn = ms.filter(m => meta.mods?.[m.id] !== false && !(GLOBAL_OFF[m.id] && st[GLOBAL_OFF[m.id]] === false)).length; return `<div class="ss-modgrp ss-fold ${o ? 'open' : ''}"><button type="button" class="ss-mg-h" data-act="mgfold" data-arg="mods-${g.id}" aria-expanded="${o}"><b>${g.name}</b><small>${nOn}/${ms.length} 켬</small><i class="fa-solid fa-chevron-down ss-mg-chev"></i></button><div class="ss-mods"${o ? '' : ' hidden'}>${ms.map(m => { const gOff = GLOBAL_OFF[m.id] && st[GLOBAL_OFF[m.id]] === false; return `<label class="ss-mod ${meta.mods?.[m.id] === false || gOff ? '' : 'on'}" ${gOff ? 'title="확장 설정 › 기능 켜고 끄기에서 모든 채팅에 꺼 둔 칸이에요"' : ''}><input type="checkbox" class="ss-switch" data-chg="mod" data-arg="${m.id}" ${meta.mods?.[m.id] === false || gOff ? '' : 'checked'} ${gOff ? 'disabled' : ''}>
-            <i class="fa-solid ${m.icon}"></i><span><b>${m.name}</b><small>${gOff ? '모든 채팅에서 꺼 둠 — 확장 설정 › 기능 켜고 끄기' : m.desc}</small></span>${gOff ? '' : s.data[m.id] ? '' : '<em>비어 있음</em>'}</label>`; }).join('')}</div></div>`; }).join(''), MODSET_BTNS)}
-        ${sec('부가 기능 <small>전부 선택 · 모든 채팅에 걸려요 (확장 설정의 같은 칸과 한 값) · 켠 것의 화면은 「부가 기능」 탭에</small>', EXTRA_GROUPS.map(([id, name, flags]) => { const o = mgIsOpen(`ex-${id}`), nOn = flags.filter(f => flagOn(st, f)).length; return `<div class="ss-modgrp ss-fold ${o ? 'open' : ''}"><button type="button" class="ss-mg-h" data-act="mgfold" data-arg="ex-${id}" aria-expanded="${o}"><b>${name}</b><small>${nOn}/${flags.length} 켬</small><i class="fa-solid fa-chevron-down ss-mg-chev"></i></button><div class="ss-mg-b"${o ? '' : ' hidden'}>${flagList(st, flags)}</div></div>`; }).join(''), FLAGSET_BTNS)}`)}
+        ${pickerHTML(s, meta, st)}`)}
         ${mg('save', 'fa-floppy-disk', '저장 · 되돌리기', `세이브 ${meta.saves?.length ?? 0} · ${meta.lastBackup ? `백업 ${new Date(meta.lastBackup).toLocaleDateString('ko-KR')}` : '백업 없음'}`, `
         ${sec('되돌리기', `<div class="ss-row-btns"><button class="ss-btn" data-act="undo" ${meta.adjust?.length ? '' : 'disabled'}><i class="fa-solid fa-rotate-left"></i> 마지막 편집 되돌리기</button><button class="ss-btn ghost" data-act="undoall" ${meta.adjust?.length ? '' : 'disabled'} title="편집 기록을 한 번에 전부 지워요 — 직접 한 편집이 모두 없던 일이 돼요"><i class="fa-solid fa-trash-can"></i> 편집 기록 싹 지우기</button>${clearedAdj && clearedAdj.key === chatKey() ? `<button class="ss-btn pri" data-act="undoallback"><i class="fa-solid fa-clock-rotate-left"></i> 방금 지운 기록 되살리기 (${clearedAdj.list.length}개)</button>` : ''}</div><p class="ss-hint">${meta.adjust?.length ? `마지막: ${esc(meta.adjust.at(-1).label || '(이름 없는 편집)')}` : '되돌릴 편집이 없어요.'} · 상태창에서 직접 한 편집·구매·연락만 되돌려요 (AI 답의 변화는 ✏️ 칩으로).</p><details class="ss-more ss-undolist" ${ui?.undoOpen ? 'open' : ''}><summary>편집 기록 — 골라서 지우기 <small>(최근 ${Math.min(40, (meta.adjust ?? []).length)}개 · 버튼 하나 누른 것까지 모두)</small></summary>${(meta.adjust ?? []).slice(-40).reverse().map(a => `<div class="ss-undo-row"><span>${esc(short(adjName(a), 60))}${a.silent || !a.label ? ' <small class="ss-dim">(조용한 기록)</small>' : ''}</span><small class="ss-dim">${a.at}번 뒤</small><button class="ss-btn sm ghost" data-act="undoat" data-arg="${a.t}" title="이 기록 하나만 지우기 — 그 편집이 없던 일이 돼요"><i class="fa-solid fa-trash-can"></i></button></div>`).join('') || '<p class="ss-hint">지울 기록이 없어요.</p>'}<p class="ss-hint">지우면 그 편집이 <b>없던 일</b>이 돼요 (상태 · 알림 · AI에게 가는 「방금 한 일」 줄까지 · 찌꺼기 없이). 그 뒤의 기록은 그대로 다시 계산돼요. AI 답에서 바뀐 건 여기 없어요 — 그 답 밑 칩의 ✏️로 고쳐요. 칸 하나를 통째로 비우려면 그 탭 위의 🧹.</p></details>`)}
         ${sec('<i class="fa-solid fa-floppy-disk"></i> 세이브', slotsHTML(meta))}
@@ -629,6 +712,18 @@ export const VIEW_ACTIONS = {
         await saveMeta(); app.refreshNow(); app.rerenderPanels?.(true); app.renderPanel(el);
         toastr.info(arg === 'rec' ? '추천 6칸만 켰어요 (부가 기능은 공략만). 끈 칸의 내용은 그대로 남아 있어요.' : arg === 'all' ? '칸을 전부 켰어요. 부가 기능은 그대로 뒀어요 — 아래 「부가 기능」에서 골라 켜요.' : '칸과 부가 기능을 전부 껐어요. 내용은 그대로 남아 있어요.', TITLE);
     },
+    pkset: async (el, arg) => { // 🎛 묶음: 추천 6칸 + 그 묶음의 칸 (부가 기능 스위치는 그대로)
+        const set = PK_SETS.find(x => x[0] === arg); if (!set) return;
+        const meta = getMeta(true), want = new Set([...REC_MODS, ...set[3]]); meta.mods ??= {};
+        for (const id of MOD_IDS) meta.mods[id] = want.has(id);
+        await saveMeta(); app.refreshNow(); app.rerenderPanels?.(true); app.renderPanel(el);
+        toastr.info(`「${set[2]}」 묶음으로 맞췄어요 — 추천 6칸 + ${set[4]}. 끈 칸의 내용은 그대로 남아 있어요.`, TITLE);
+    },
+    pkon: async (el, arg) => { // 🎛 「같이 켜면」의 칸을 눌러 켜기
+        if (!MOD[arg]) return; const meta = getMeta(true), need = MOD[arg].needs; meta.mods ??= {}; meta.mods[arg] = true; if (need) meta.mods[need] = true;
+        await saveMeta(); app.refreshNow(); app.rerenderPanels?.(true); app.renderPanel(el);
+        toastr.info(`「${MOD[arg].name}」 칸을 켰어요${s0Empty(arg) ? ' — 아직 비어 있어요. 그 탭에서 만들거나, 이야기가 흐르면 채워져요' : ''}.`, TITLE);
+    },
     flagset: async (el, arg) => { // 🧩 부가 기능 스위치 한 번에: 처음 값(공략만) · 전부 · 전부 끄기
         if (arg === 'all' && !(await askConfirm('부가 기능을 전부 켤까요? 켠 기능마다 AI에게 가는 글이 몇 줄씩 늘어요 (토큰 ↑). 모든 채팅에 걸려요.'))) return;
         setFlags(arg); if (arg === 'all') await app.loadAddons?.(true);
@@ -752,7 +847,11 @@ export const VIEW_CHANGES = {
         try { app.storyChanged?.(); } catch { /* 화면 표시일 뿐 */ }
         app.refreshNow(); app.rerenderPanels?.(true);
     },
-    mod: async (el, t) => { const meta = getMeta(true); meta.mods[t.dataset.arg] = t.checked; await saveMeta(); app.refreshNow(); },
+    mod: async (el, t) => { // 칸 켜고 끄기 — 꼭 필요한 칸(상점 → 재산)은 같이 켠다 · 켜면 딸린 옵션이 펼쳐지게 다시 그린다
+        const meta = getMeta(true), id = t.dataset.arg, need = MOD[id]?.needs; meta.mods ??= {}; meta.mods[id] = t.checked;
+        if (t.checked && need && meta.mods[need] === false) { meta.mods[need] = true; toastr.info(`${MOD[id].name}에 꼭 필요한 「${MOD[need].name}」 칸도 같이 켰어요.`, TITLE); }
+        await saveMeta(); app.refreshNow(); app.renderPanel(el);
+    },
     memotog: (el, t) => addAdjust({ ops: [['_memo', `tog|${t.dataset.arg}`]], silent: true }),
     ...MUSIC_CHANGES,
     playhero: async (el, t) => { const meta = getMeta(true); meta.play = normPlay({ ...playOf(meta), hero: t.value }); await saveMeta(); app.refreshNow(); },

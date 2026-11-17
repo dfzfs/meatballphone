@@ -614,3 +614,23 @@ dialog.popup.ss-dlg.ss-full .popup-content { max-height: none; }
 .ss-clockrow > small { opacity: .7; }
 .ss-clockrow .ss-seg { flex: 1 1 220px; }
 .ss-clockrow .ss-seg button small { opacity: .65; margin-left: 2px; }
+/* 🎛 기능 고르기 (관리 › 쓸 기능): 칸 카드 + 같이 켜면 좋은 칸 + 켰을 때만 딸린 옵션 */
+.ss-pk-sum { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; padding: 8px 10px; margin-bottom: 8px; border-radius: var(--ss-r); background: var(--ss-bg); border: 1px solid var(--ss-line); font-size: .9em; }
+.ss-pk-sum i { color: var(--ss-hi); margin-right: 4px; }
+.ss-pk-sets { margin-bottom: 6px; }
+.ss-pklist { display: grid; gap: 6px; }
+.ss-pk { min-width: 0; border-radius: var(--ss-r); }
+.ss-pk > .ss-mod { opacity: .78; }
+.ss-pk.on > .ss-mod { opacity: 1; }
+.ss-pk .ss-pk-cost { color: var(--ss-dim); white-space: nowrap; }
+.ss-pk-syn { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 4px 4px 0 38px; font-size: .82em; }
+.ss-pk-syn > small { color: var(--ss-dim); margin-right: 2px; }
+.ss-pk-syn .ss-chip { font-size: 1em; }
+.ss-pk-syn .ss-chip.btn { cursor: pointer; border-style: dashed; }
+.ss-pk-syn .ss-chip:not(.btn) { opacity: .6; }
+.ss-pk-sub { margin: 6px 0 4px 38px; padding-left: 10px; border-left: 2px solid var(--ss-line); display: grid; gap: 8px; }
+.ss-pk-sub:empty { display: none; }
+.ss-pk-opt { display: grid; gap: 4px; min-width: 0; }
+.ss-pk-opt > small { color: var(--ss-dim); font-size: .8em; }
+.ss-pk-opt .ss-seg button small { opacity: .65; margin-left: 2px; }
+@media (max-width: 520px) { .ss-pk-syn { padding-left: 4px; } .ss-pk-sub { margin-left: 4px; } }
