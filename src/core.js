@@ -948,6 +948,7 @@ export const NORM = {
             when: str(r.when), basis: r.basis === 'real' ? 'real' : 'story', fee: Math.max(0, Math.round(num(r.fee, 0))), draw: arr(r.draw).map(x => str(x)).filter(Boolean).slice(0, 12),
             teller: str(r.teller), summary: str(r.summary), sections: arr(r.sections).filter(x => x?.text).map(x => ({ title: str(x.title), text: str(x.text), ...(['spirit', 'vision'].includes(x.voice) ? { voice: x.voice } : {}) })).slice(0, 16),
             spirit: str(r.spirit),
+            luck: arr(r.luck).filter(l => l?.a && l?.v).map(l => ({ a: str(l.a), v: str(l.v) })).slice(0, 8),
             omen: str(r.omen), advice: str(r.advice), lucky: str(r.lucky), rite: str(r.rite), result: str(r.result), person: fortunePerson(r.person),
         })).slice(-12),
         births: arr(d.births).map(b => ({ name: str(b?.name), ...fortunePerson(b) })).filter(b => b.name).slice(0, 80),

@@ -396,6 +396,8 @@ function fortuneBody(o, state) {
         o.topic ? `Topic asked: ${o.topic}` : '',
         o.q ? `The customer's question: ${o.q}` : '',
         o.draw?.length ? `Drawn (fixed — interpret exactly these):\n${o.draw.map(x => `- ${x}`).join('\n')}` : '',
+        o.luck?.length ? `FATE ROLLS — already decided by real dice before the reading. Deliver each verdict exactly and plainly in its section; never soften or flip it:\n${o.luck.map(x => `- ${x}`).join('\n')}` : '',
+        o.hooks?.length ? `CONCRETE DETAILS — work every one of these into the reading as specific predictions (spread over different sections): ${o.hooks.join(' · ')}` : '',
     ].filter(Boolean).join('\n\n');
 }
 export async function fortuneRead(o, state) {

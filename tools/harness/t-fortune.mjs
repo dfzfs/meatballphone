@@ -42,6 +42,7 @@ try {
     check(/STORY time/.test(body) && /Real-world time now/.test(body) && body.includes('이 사람을 믿어도 될까?'), '이야기 속 시간 기준 · 질문이 AI에게 갔다');
     check(!/Recent story|Relationship with/.test(body) && /walk-in stranger/.test(body) && /OBJECTIVE READING/.test(sys), '점괘엔 이야기 · 관계를 안 보낸다 (처음 보는 손님)');
     check(/TAROT/.test(sys) && /Nothing is recorded yet/.test(sys), '타로 규칙 · 「생년월일을 정해라」가 갔다');
+    check(/FATE ROLLS/.test(body) && /(BAD|DISASTROUS)/.test(body) && /CONCRETE DETAILS/.test(body) && r1.luck?.length === 6 && !!(await page.$('dialog .ss-ft-luck .ss-ft-stamp.b1, dialog .ss-ft-luck .ss-ft-stamp.b2')), '운세표: 주사위로 정한 판정(나쁜 곳 1개 이상) · 구체적인 것들이 AI에게 갔고 도장으로 보인다');
     check(s1.f.births.find(b => b.name === 'Leon')?.birth === READ.person.birth, 'Leon의 생년월일이 기억됐다');
     check(/Fortune today/.test(await inj()) && (await inj()).includes(READ.omen), '오늘 본 점괘가 AI에게 가는 글에 한 줄 붙었다');
 

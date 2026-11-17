@@ -34,8 +34,10 @@ function cardArt(name) {
 const parseDraw = (x) => { const m = String(x).match(/^(.*?)\s+—\s+(.*?)\s+\((정방향|역방향)\)$/); return m ? { pos: m[1], name: m[2], rev: m[3] === '역방향' } : null; };
 export function cardHTML(name, rev, pos = '', cls = '') {
     const a = cardArt(name);
-    return `<div class="ss-tc up ${a.major ? 'major' : ''} ${rev ? 'rev' : ''} ${cls}"><div class="ss-tc-in"><div class="ss-tc-face"><span class="ss-tc-top">${esc(a.top)}</span><span class="ss-tc-emo">${a.emo}</span><b class="ss-tc-name">${esc(name)}</b></div></div>${pos ? `<small class="ss-tc-pos">${esc(pos)}${rev ? ' · 역' : ''}</small>` : ''}</div>`;
+    return `<div class="ss-tc up ${a.major ? 'major' : ''} ${rev ? 'rev' : ''} ${cls}"><div class="ss-tc-in"><div class="ss-tc-face"><span class="ss-tc-top">${esc(a.top)}</span><span class="ss-tc-emo">${a.emo}</span><b class="ss-tc-name">${esc(name)}</b></div><div class="ss-tc-back"></div></div>${pos ? `<small class="ss-tc-pos">${esc(pos)}${rev ? ' · 역' : ''}</small>` : ''}</div>`;
 }
+// 엎어 둔 카드 (뒷면만)
+const backHTML = (label = '', cls = '') => `<div class="ss-tc down ${cls}"><div class="ss-tc-in"><div class="ss-tc-back"></div></div>${label ? `<small class="ss-tc-pos">${esc(label)}</small>` : ''}</div>`;
 // 🔮 수정구슬: 보라 방석 위의 구슬 — 평소엔 무지개빛으로 일렁이고, 점을 보는 중 · 결과에선 분홍 은하로 소용돌이친다
 const SPARKS = [[22, 30, 0], [68, 22, 1.2], [78, 58, 2.1], [35, 70, 0.6], [55, 45, 1.7], [15, 55, 2.6], [60, 80, 0.3], [45, 18, 2.3]];
 const orbHTML = (texts = [], big = false, busy = false) => {
@@ -56,6 +58,27 @@ export const GUTS = {
     wish: { name: '소원굿', desc: '바라는 것을 적고 빌어요. 수치는 안 바뀌고 이야기에만 남아요.' },
 };
 const R = (n) => Math.floor(Math.random() * n);
+const pickOne = (a) => a[R(a.length)];
+// 🎲 운세표: 좋고 나쁨은 AI가 아니라 주사위가 먼저 정한다 (AI에게 맡기면 늘 듣기 좋은 소리만 했음)
+export const LUCK_AREAS = [['총운', 'overall'], ['애정', 'love'], ['재물', 'money'], ['건강', 'health'], ['일 · 진로', 'work'], ['사람', 'people']];
+const VERDICTS = [['대길', 'GREAT FORTUNE', 10], ['길', 'GOOD', 20], ['평', 'FLAT / MIXED', 22], ['흉', 'BAD', 32], ['대흉', 'DISASTROUS', 16]];
+const VERDICT_EN = Object.fromEntries(VERDICTS.map(([k, en]) => [k, en]));
+const TOPIC_AREA = { 애정: '애정', 재물: '재물', 건강: '건강', '진로 · 일': '일 · 진로', 인간관계: '사람' };
+function rollVerdict() { let x = R(100); for (const [k, , w] of VERDICTS) { if (x < w) return k; x -= w; } return '평'; }
+function rollLuck() {
+    const luck = LUCK_AREAS.map(([a]) => ({ a, v: rollVerdict() }));
+    if (!luck.some(l => l.v === '흉' || l.v === '대흉')) pickOne(luck).v = R(3) ? '흉' : '대흉'; // 나쁜 곳이 하나는 꼭 있다
+    return luck;
+}
+// 점괘에 꼭 들어갈 구체적인 것들 (뻔한 소리 막기)
+const HOOK_PERSON = ['a left-handed man', 'an older woman who wears glasses', 'someone from your past who reappears', 'a family member', 'a stranger met while traveling', 'a person who smells of tobacco', 'a coworker or rival', 'someone born in winter', 'a young person who talks too much', 'a person in a uniform'];
+const HOOK_EVENT = ['a lost object', 'a request to borrow money', 'a move or a change of place', 'a small accident or injury', 'an unexpected message late at night', 'a loud quarrel', 'a test or evaluation', 'a secret coming out', 'a broken promise', 'a sudden expense', 'a door that will not open', 'an invitation you should refuse'];
+const HOOK_OBJECT = ['a red umbrella', 'a cracked mirror', 'an old key', 'a letter', 'a black cat', 'shoes', 'a ring', 'a knife', 'running water', 'a stopped clock', 'a white flower', 'a bridge'];
+const HOOK_DIR = ['east', 'west', 'south', 'north', 'northeast', 'northwest', 'southeast', 'southwest'];
+const rollHooks = () => [`within ${1 + R(12)} weeks`, `the ${pickOne(HOOK_DIR)}`, pickOne(HOOK_PERSON), pickOne(HOOK_EVENT), pickOne(HOOK_OBJECT), `the number ${1 + R(9)}`];
+export const luckLines = (luck, topic) => luck.map(l => `${LUCK_AREAS.find(x => x[0] === l.a)?.[1] ?? l.a}: ${VERDICT_EN[l.v] ?? l.v}${TOPIC_AREA[topic] === l.a ? '  ← the asked topic' : ''}`);
+const VCLS = { 대길: 'g2', 길: 'g1', 평: 'g0', 흉: 'b1', 대흉: 'b2' };
+const luckHTML = (luck) => (luck?.length ? `<div class="ss-ft-luck">${luck.map(l => `<span class="ss-ft-stamp ${VCLS[l.v] ?? ''}"><small>${esc(l.a)}</small><b>${esc(l.v)}</b></span>`).join('')}</div>` : '');
 
 // ───── 시간: 이야기 속 · 현실 ─────
 export const storyNow = (s) => { const c = s.data.calendar && modOn('calendar') ? s.data.calendar : null; return c ? `${dateStr(c)} ${c.time}${c.weather ? ` · ${c.weather}` : ''}` : ''; };
@@ -91,18 +114,19 @@ export function fortuneFees(s) {
 // ───── 화면 ─────
 // 🃏 펼쳐 둔 카드 12장 (뒷면) — 눌러서 고른다. 다 안 고르고 점을 보면 나머지는 세라가 뽑는다
 function deckOf(ui) {
-    if (!ui.ftDeck) { const pool = [...TAROT]; ui.ftDeck = Array.from({ length: 12 }, () => ({ name: pool.splice(R(pool.length), 1)[0], rev: R(3) === 0 })); ui.ftPicked = []; ui.ftJust = -1; }
+    if (!ui.ftDeck) { const pool = [...TAROT]; ui.ftDeck = Array.from({ length: TAROT.length }, () => ({ name: pool.splice(R(pool.length), 1)[0], rev: R(3) === 0 })); ui.ftPicked = []; }
     return ui.ftDeck;
 }
 function fanHTML(ui, sp) {
-    const deck = deckOf(ui), picked = ui.ftPicked ?? [];
-    const n = sp.pos.length;
-    return `<div class="ss-ft-stage tarot"><div class="ss-ft-fan">${deck.map((c, i) => {
-        const k = picked.indexOf(i);
-        if (k < 0) return `<button class="ss-tc back" data-act="ftpick" data-arg="${i}" ${picked.length >= n ? 'disabled' : ''} style="--i:${i}" title="이 카드 뽑기"><div class="ss-tc-in"><div class="ss-tc-back"></div></div></button>`;
-        return `<div class="ss-tc-slot" style="--i:${i}">${cardHTML(c.name, c.rev, sp.pos[k], ui.ftJust === i ? 'just' : '')}</div>`;
-    }).join('')}</div>
-        <div class="ss-row-btns"><small class="ss-dim">${picked.length < n ? `마음 가는 카드를 ${n - picked.length}장 더 골라요 — 안 고르고 보면 세라가 대신 뽑아요` : '다 골랐어요. 이제 점 보기!'}</small><button class="ss-btn sm ghost" data-act="ftshuffle"><i class="fa-solid fa-shuffle"></i> 다시 섞기</button></div></div>`;
+    const deck = deckOf(ui), picked = ui.ftPicked ?? [], n = sp.pos.length, full = picked.length >= n;
+    const ROW = 26;
+    const rows = [0, 1, 2].map(r => deck.slice(r * ROW, r * ROW + ROW).map((c, j) => {
+        const i = r * ROW + j;
+        return picked.includes(i) ? `<span class="ss-tc-gap" style="--j:${j}"></span>` : `<button class="ss-tc back" data-act="ftpick" data-arg="${i}" ${full ? 'disabled' : ''} style="--j:${j}" title="이 카드 뽑기"><div class="ss-tc-in"><div class="ss-tc-back"></div></div></button>`;
+    }).join(''));
+    return `<div class="ss-ft-stage tarot"><div class="ss-ft-fan">${rows.map(x => `<div class="ss-ft-fanrow">${x}</div>`).join('')}</div>
+        <div class="ss-ft-spread pick">${sp.pos.map((pos, k) => (picked[k] !== undefined ? backHTML(pos, 'placed') : `<div class="ss-tc empty"><div class="ss-tc-in"></div><small class="ss-tc-pos">${esc(pos)}</small></div>`)).join('')}</div>
+        <div class="ss-row-btns"><small class="ss-dim">78장 중에서 ${full ? '다 골랐어요. 카드는 점을 볼 때 뒤집어요!' : `마음 가는 카드를 ${n - picked.length}장 더 골라요 — 안 고르고 보면 세라가 대신 뽑아요`}</small><button class="ss-btn sm ghost" data-act="ftshuffle"><i class="fa-solid fa-shuffle"></i> 다시 섞기</button></div></div>`;
 }
 const form = (ui) => (ui.ft ??= { who: '', name: '', method: 'tarot', spread: '3', topic: '종합', q: '', basis: 'story', gut: 'ward', wish: '' });
 const whoOf = (F) => (F.name.trim() || F.who || userName());
@@ -141,7 +165,7 @@ export function fortuneView(s, d, ui) {
             <div class="ss-ft-row">${[['feeTarot', '타로 (3장 기준)', fees.tarot], ['feeOrb', '수정구슬', fees.orb], ['feeShaman', '무당', fees.shaman], ['feeGut', '굿', fees.gut]].map(([k, l, now]) => `<label class="ss-f"><span>${l} <small>지금 ${fmtNum(now)}</small></span><input class="ss-in" type="number" min="0" data-ftf="${k}" value="${d[k] || ''}" placeholder="자동"></label>`).join('')}</div>
             <div class="ss-row-btns"><button class="ss-btn pri sm" data-act="ftfsave">저장</button><button class="ss-btn sm ghost" data-act="ftclose">취소</button></div></div>` : '';
     return sec('🔮 점집 <small>타로 · 수정구슬 · 무당 · 굿</small>', `<div class="ss-ft">
-        ${ui.ftBusy ? `<div class="ss-card ss-ft-busy ${esc(ui.ftBusyKind ?? '')}">${ui.ftBusyKind === 'orb' ? orbHTML(['…', '무언가 비친다', '…'], true, true) : ui.ftBusyKind === 'tarot' && ui.ftBusyDraw?.length ? `<div class="ss-ft-spread">${ui.ftBusyDraw.map(parseDraw).filter(Boolean).map((c, i) => cardHTML(c.name, c.rev, c.pos, 'deal" style="--i:' + i)).join('')}</div>` : ui.ftBusyKind === 'shaman' || ui.ftBusyKind === 'gut' ? '<div class="ss-ft-bells">🔔🪭🔔</div>' : ''}<div><i class="fa-solid fa-spinner fa-spin"></i> ${esc(ui.ftBusy)} <small class="ss-dim">창을 닫아도 끝까지 받아서 알려 드려요</small></div></div>` : ''}
+        ${ui.ftBusy ? `<div class="ss-card ss-ft-busy ${esc(ui.ftBusyKind ?? '')}">${ui.ftBusyKind === 'orb' ? orbHTML(['…', '무언가 비친다', '…'], true, true) : ui.ftBusyKind === 'tarot' && ui.ftBusyDraw?.length ? `<div class="ss-ft-spread">${ui.ftBusyDraw.map(parseDraw).filter(Boolean).map(c => backHTML(c.pos, 'wait')).join('')}</div>` : ui.ftBusyKind === 'shaman' || ui.ftBusyKind === 'gut' ? '<div class="ss-ft-bells">🔔🪭🔔</div>' : ''}<div><i class="fa-solid fa-spinner fa-spin"></i> ${esc(ui.ftBusy)} <small class="ss-dim">창을 닫아도 끝까지 받아서 알려 드려요</small></div></div>` : ''}
         ${shown ? `<div class="ss-card ss-ft-pop">${readingHTML(shown)}<div class="ss-row-btns"><button class="ss-btn sm ghost" data-act="ftclose"><i class="fa-solid fa-xmark"></i> 점괘 접기</button></div></div>` : ''}
         <div class="ss-ft-clock"><span title="이야기 속 지금">📅 이야기 속 <b>${esc(sn || '달력 칸이 없어요')}</b></span><span title="현실의 지금">🕰 현실 <b>${esc(realNow())}</b></span></div>
         <div class="ss-ft-row">
@@ -182,6 +206,7 @@ function readingHTML(r) {
         ${r.method === 'tarot' && r.draw?.length ? `<div class="ss-ft-spread">${r.draw.map(parseDraw).filter(Boolean).map((c, i) => cardHTML(c.name, c.rev, c.pos, 'deal" style="--i:' + i)).join('')}</div>` : ''}
         ${r.method === 'shaman' && r.draw?.length ? `<div class="ss-ft-flags">${r.draw.map(x => { const nm = String(x).replace(/^오방기 — /, ''); const col = FLAG_COLOR[nm.split(' ')[0]] ?? '#888'; return `<span class="ss-ft-flag"><i style="--c:${col}"></i>${esc(nm)}</span>`; }).join('')}</div>` : ''}
         ${r.method === 'orb' ? `<div class="ss-ft-stage orb">${orbHTML((r.sections ?? []).filter(x => x.voice === 'vision').map(x => x.text).concat((r.sections ?? []).some(x => x.voice === 'vision') ? [] : [r.summary]), true)}</div>` : ''}
+        ${luckHTML(r.luck)}
         ${r.teller ? `<blockquote class="ss-pre">${esc(r.teller)}</blockquote>` : ''}
         ${r.rite ? `<p class="ss-pre">${esc(r.rite)}</p>` : ''}
         ${r.spirit ? `<p class="ss-pre ss-ft-spirit">${esc(r.spirit)}</p>` : ''}
@@ -223,7 +248,7 @@ export const FORTUNE_ACTIONS = {
         keepForm(el); const ui = el._ss.ui, sp = SPREADS[form(ui).spread] ?? SPREADS[3], i = Number(arg);
         deckOf(ui);
         if (ui.ftPicked.includes(i) || ui.ftPicked.length >= sp.pos.length) return;
-        ui.ftPicked.push(i); ui.ftJust = i;
+        ui.ftPicked.push(i);
         app.renderPanel(el);
     },
     ftshuffle: (el) => { keepForm(el); el._ss.ui.ftDeck = null; app.renderPanel(el); },
@@ -234,17 +259,18 @@ export const FORTUNE_ACTIONS = {
         const fees = fortuneFees(s), sp = SPREADS[F.spread] ?? SPREADS[3];
         const fee = fees.free ? 0 : F.method === 'tarot' ? Math.max(1, Math.round(fees.tarot * sp.mul)) : fees[F.method];
         if (!canPay(s, fee)) return;
+        const luck = rollLuck(), hooks = rollHooks();
         const T = stampOf(s, F), draw = drawFor(F, el._ss.ui), saved = findBy(s.data.fate?.births ?? [], who) ?? null;
         if (el._ss.ui.ftBusy) return; // 한 번에 하나
         el._ss.ui.ftShow = '';
         setBusy(el, `${FT_METHODS[F.method].teller}이(가) ${who}의 점괘를 보는 중…`, F.method, draw);
         el._ss.ui.ftDeck = null; // 다음 점은 새로 섞은 카드로
         let res;
-        try { res = await fortuneRead({ who, method: F.method, topic: F.topic, q: F.q.trim(), basis: T.basis, storyNow: T.sn, realNow: T.rn, draw, saved }, s); }
+        try { res = await fortuneRead({ who, method: F.method, topic: F.topic, q: F.q.trim(), basis: T.basis, storyNow: T.sn, realNow: T.rn, draw, saved, luck: luckLines(luck, F.topic), hooks }, s); }
         catch (e) { toastr.error(`점을 보지 못했어요 (복채는 안 나갔어요): ${esc(e.message)}`, TITLE); setBusy(el, ''); return; }
         el._ss.ui.ftBusy = '';
         const keep = Object.fromEntries(Object.entries(saved ?? {}).filter(([k, v]) => FORTUNE_PERSON_KEYS.includes(k) && v));
-        const r = { id: uid(), who, method: F.method, topic: F.topic, q: F.q.trim(), when: T.when, basis: T.basis, fee, draw, ...res, person: fortunePerson({ ...(res.person ?? {}), ...keep }) };
+        const r = { id: uid(), who, method: F.method, topic: F.topic, q: F.q.trim(), when: T.when, basis: T.basis, fee, draw, luck, ...res, person: fortunePerson({ ...(res.person ?? {}), ...keep }) };
         const cur = s.data.wallet?.currency ?? '';
         await addAdjust({ ops: [...(fee ? [['cash', `-${fee}`]] : []), ['_fortune', JSON.stringify(r)]], label: `🔮 점집 — ${FT_METHODS[F.method].name}(으)로 ${who}의 ${F.topic} 운을 봤다${fee ? ` (복채 ${fmtNum(fee)} ${cur})` : ''}: ${short(r.summary || r.omen, 90)}` });
         showReading(el, r);
