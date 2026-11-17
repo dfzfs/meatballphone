@@ -10,6 +10,8 @@
 <script type="module">
 globalThis.__SS_TEST__ = {};
 { const q = new URLSearchParams(location.search); if (q.get('ext2')) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = '/ext2/src/ext-status.css'; document.head.appendChild(l); const cls = q.get('ext2body'); if (cls) document.body.classList.add(cls); } }
+// ?oldset=1 → 예전 판을 쓰던 사람처럼 확장 설정이 이미 있는 채로 시작 (업데이트로 받은 경우 · 새 기본값이 기존 사용자에게 어떻게 오는지 보는 시나리오용)
+if (new URLSearchParams(location.search).get('oldset')) window.__st.extensionSettings.statussim = { enabled: true, contactReflect: 'detail', lastSeenVersion: '2.8.0', v27asked: true };
 await import('/ext/index.js');
 await SillyTavern.getContext().eventSource.emit('app_ready');
 window.__ready = true;

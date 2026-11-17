@@ -48,3 +48,14 @@ try {
     check((await meta()).base && !(await Q(() => !!document.querySelector('.ss-wizard'))), '바로 시작을 누르면 설정 창 없이 틀이 생김');
     const errs = logs.filter(l => /pageerror|TypeError|ReferenceError/.test(l)); check(!errs.length, 'no console errors', errs.slice(0, 3).join('\n').slice(0, 600));
 } finally { await close(); }
+// 업데이트로 받은 사람: 예전 설정이 이미 있으면 바로 시작은 꺼진 채로 온다 → 옛 채팅에 틀이 저절로 생겨 본편 AI에게 가지 않는다
+{
+    const o = await open({ auto: true, oldset: true });
+    try {
+        await sleep(2400);
+        const r = await o.page.evaluate(async () => { const core = await import('/ext/src/core.js'); return { auto: core.settings().autoStart, base: !!core.getMeta()?.base, inj: (window.__prompts?.statussim_state?.value ?? '').length }; });
+        check(r.auto === false, '업데이트로 받은 사람은 바로 시작이 꺼진 채로 옴', JSON.stringify(r));
+        check(!r.base && r.inj === 0, '옛 채팅을 열어도 틀이 생기지 않고 AI에게 아무것도 안 감', JSON.stringify(r));
+        const errs = o.logs.filter(l => /pageerror|TypeError|ReferenceError/.test(l)); check(!errs.length, 'no console errors (업데이트)', errs.slice(0, 3).join('\n').slice(0, 600));
+    } finally { await o.close(); }
+}
