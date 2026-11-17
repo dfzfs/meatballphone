@@ -39,5 +39,10 @@ try {
     check(!(await meta()).base, '「바로 만들기」를 끄면 새 채팅에 안 만듦');
     await Q(async () => { const core = await import('/ext/src/core.js'); core.settings().autoStart = true; core.saveSettings(); await window.__changeChat('c3'); }); await sleep(1200);
     check((await meta()).base, '켜면 새 채팅에 다시 바로');
+    // 「바로 만들기」를 꺼 둔 채팅: 빈 화면의 큰 단추는 설정 창 없이 틀을 바로 · 예전 만들기 창은 작은 단추로
+    await Q(async () => { const core = await import('/ext/src/core.js'); core.settings().autoStart = false; core.saveSettings(); document.querySelectorAll('dialog[open]').forEach(d => d.close()); await window.__changeChat('c4'); window.__SS_TEST__.api.app.openSheet('home'); }); await sleep(900);
+    check(await Q(() => { const el = document.querySelector('dialog .ss-empty'); return !!el?.querySelector('.ss-btn.pri[data-act="quickstart"]') && !!el.querySelector('.ss-btn.ghost[data-act="wizard"]'); }), '빈 화면: 큰 단추 = 바로 시작 · 작은 단추 = 하나씩 골라서 만들기');
+    await Q(() => document.querySelector('dialog .ss-empty [data-act="quickstart"]').click()); await sleep(1200);
+    check((await meta()).base && !(await Q(() => !!document.querySelector('.ss-wizard'))), '바로 시작을 누르면 설정 창 없이 틀이 생김');
     const errs = logs.filter(l => /pageerror|TypeError|ReferenceError/.test(l)); check(!errs.length, 'no console errors', errs.slice(0, 3).join('\n').slice(0, 600));
 } finally { await close(); }

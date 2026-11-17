@@ -45,7 +45,7 @@ export function renderSettings() {
             <div class="ss-set-on" data-s-on></div>
             <div class="ss-set-btns">
                 <button class="menu_button" data-s-act="open"><i class="fa-solid fa-gauge-high"></i> 상태창 열기</button>
-                <button class="menu_button" data-s-act="wizard"><i class="fa-solid fa-wand-magic-sparkles"></i> 만들기</button>
+                <button class="menu_button" data-s-act="wizard" title="장르 · 난이도 · 칸을 하나씩 골라서 AI로 한 번에 만들어요 (보통은 채팅을 열면 틀이 바로 생겨요)"><i class="fa-solid fa-wand-magic-sparkles"></i> 하나씩 골라서 만들기</button>
                 <button class="menu_button" data-s-act="prompts"><i class="fa-solid fa-scroll"></i> 프롬프트 · 토큰</button>
                 <button class="menu_button" data-s-act="theme"><i class="fa-solid fa-palette"></i> 꾸미기</button>
                 <button class="menu_button" data-s-act="help"><i class="fa-solid fa-circle-question"></i> 도우미에게 물어보기</button>

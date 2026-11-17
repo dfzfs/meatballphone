@@ -10,15 +10,19 @@ import { cardPack } from './safe.js';
 import { busyBtn, askConfirm } from './kit.js';
 
 let making = false;
-export async function autoStart() {
+// force = 「바로 시작」 단추를 직접 눌렀을 때: 설정이 꺼져 있어도 · 카드 상태창을 거절했어도 만든다
+export async function autoStart({ force = false } = {}) {
     const st = settings();
-    if (!st.enabled || st.autoStart === false || making) return false;
+    if (!st.enabled || making || (!force && st.autoStart === false)) return false;
     const c = ctx();
     if ((c.characterId === undefined || c.characterId === null) && !c.groupId) return false; // 채팅이 안 열려 있음
     if (!c.getCurrentChatId?.()) return false;
     const meta = getMeta();
-    if (meta?.base || meta?.off || meta?.cardAsked) return false;
-    try { if (st.cardOffer && cardPack()) return false; } catch (e) { ssWarn(LOG, 'auto card', e); } // 카드에 붙은 상태창이 먼저 (그쪽에서 물어본다)
+    if (meta?.base || meta?.off) return false;
+    if (!force) {
+        if (meta?.cardAsked) return false; // 카드 · 2회차 상태창을 물어봤던 채팅은 그대로 둔다 (단추로는 만들 수 있다)
+        try { if (st.cardOffer && cardPack()) return false; } catch (e) { ssWarn(LOG, 'auto card', e); } // 카드에 붙은 상태창이 먼저 (그쪽에서 물어본다)
+    }
     making = true;
     try {
         const mods = Object.fromEntries(MOD_IDS.map(id => [id, REC_MODS.includes(id)]));
@@ -90,4 +94,11 @@ export async function fillChosen(btn) {
     app.refreshNow?.(); app.rerenderPanels?.(true);
     toastr[fail ? 'warning' : 'success'](fail ? `${todo.length - fail}칸을 채웠어요 · ${fail}칸은 실패 — 다시 누르면 남은 칸만 채워요.` : '고른 대로 채웠어요!', TITLE);
 }
-app.autoStart = autoStart;
+// 「바로 시작」 단추 (빈 화면 · HUD · 옆 창의 만들기): 설정 창 없이 틀을 바로 만들고 상태창을 연다
+export async function quickStart() {
+    if (getMeta()?.base) { try { app.openSheet?.('home'); } catch (e) { ssWarn(LOG, 'quick open', e); } return true; }
+    const ok = await autoStart({ force: true });
+    if (!ok && !getMeta()?.base) toastr.warning('틀을 만들지 못했어요 — 채팅을 연 뒤에 다시 눌러 주세요.', TITLE);
+    return ok;
+}
+app.autoStart = autoStart; app.quickStart = quickStart;

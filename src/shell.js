@@ -140,8 +140,9 @@ function renderPanel0(el) {
             ${mascot('idle', 'lg', 'bob') || '<i class="fa-solid fa-wand-magic-sparkles"></i>'}<b>아직 이 채팅의 상태창이 없어요</b>
             ${pack ? `<button class="ss-btn pri big" data-act="cardload"><i class="fa-solid fa-id-card-clip"></i> 카드에 든 상태창 불러오기</button><small class="ss-hint">${esc(pack.title || '상태창')} · AI 호출 없이 바로 시작</small>` : ''}
             ${cr ? `<button class="ss-btn pri big" data-act="carrystart"><i class="fa-solid fa-clapperboard"></i> ${cr.round}회차로 시작</button><small class="ss-hint">${esc(cr.title || '')} — 지난 회차에서 이어받기</small>` : ''}
-            <p>장르만 고르면 돼요. 수치·달력 같은 기본 칸은 바로 채우고, 인물·지도 같은 세계관 칸은 AI가 카드·로어북을 읽고 채워요. AI 없이 「기본 틀만」으로 바로 시작할 수도 있어요. 어떤 카드든, 카드가 없어도 돼요.</p>
-            <button class="ss-btn ${pack || cr ? '' : 'pri big'}" data-act="wizard"><i class="fa-solid fa-wand-magic-sparkles"></i> 상태창 만들기</button>
+            <p>누르면 꼭 필요한 6칸의 틀이 바로 생겨요 (AI 0회 · 고를 것 없음). 이것저것 눌러 본 뒤 <b>관리 › 쓸 기능</b>에서 쓸 칸을 고르면, 고른 칸만 이 이야기에 맞게 채워 드려요.</p>
+            <button class="ss-btn ${pack || cr ? '' : 'pri big'}" data-act="quickstart"><i class="fa-solid fa-bolt"></i> 바로 시작</button>
+            <button class="ss-btn ghost" data-act="wizard" title="장르 · 난이도 · 칸 · 읽을 자료를 하나씩 골라서 AI로 한 번에 만들어요"><i class="fa-solid fa-wand-magic-sparkles"></i> 하나씩 골라서 만들기</button>
             <button class="ss-btn ghost" data-act="blank"><i class="fa-regular fa-file"></i> 빈 상태창으로 시작</button>
             <button class="ss-btn ghost" data-act="filerestore"><i class="fa-solid fa-box-open"></i> 백업 · 파일에서 불러오기</button>
         </div></div>`;
@@ -286,6 +287,7 @@ async function onPanelAction(el, act, arg, btn) {
     const mname = TAB_INFO(tab)?.name;
     const rr = () => renderPanel(el);
     switch (act) {
+        case 'quickstart': return import('./autostart.js').then(m => m.quickStart()).catch(e => ssErr(LOG, 'quickstart', e)); // 🧆 설정 창 없이 틀을 바로
         case 'wizard': return openWizard();
         case 'blank': return startBlank();
         case 'group': { const g = allGroups().find(x => x.id === arg); if (!g) return; st.group = g.id; st.tab = groupTabs(g, getMeta())[0]; st.mode = 'view'; st.ui = {}; return rr(); }
@@ -514,7 +516,7 @@ const MANAGE_ACTIONS = {
 // ───── HUD (채팅 위 상태 바) ─────
 function hudHTML() {
     const meta = getMeta();
-    if (!app.current) return `<div class="ss-hud-row"><button class="ss-hud-t" data-hud="make"><b><i class="fa-solid fa-gauge-high"></i> ${TITLE}</b><small>이 채팅에 상태창 만들기</small></button></div>`;
+    if (!app.current) return `<div class="ss-hud-row"><button class="ss-hud-t" data-hud="make"><b><i class="fa-solid fa-gauge-high"></i> ${TITLE}</b><small>눌러서 바로 시작 (틀 · AI 0회)</small></button></div>`;
     const s = app.current.state, d = s.data;
     const cal = modOn('calendar', meta) && d.calendar, here = modOn('map', meta) && d.map?.here;
     const un = unreadCount(s, meta);
@@ -549,7 +551,7 @@ function hudHTML() {
 function onHud(e) {
     const b = e.target.closest('[data-hud]'); if (!b) return;
     const a = b.dataset.hud;
-    if (a === 'make') return openWizard();
+    if (a === 'make') return import('./autostart.js').then(m => m.quickStart()).catch(e => ssErr(LOG, 'quickstart', e)); // 🧆 설정 창 없이 틀을 바로
     if (a === 'open') return openSheet();
     if (a === 'roll') return openRoll(app.current?.state.pendingRoll?.label ?? '', app.current?.state.pendingRoll?.dc ?? 0);
     if (a === 'pause') return togglePause();
@@ -604,7 +606,7 @@ function setHTML(el, html) { if (!el || el._ssHtml === html) return false; el.in
 
 // ───── 사이드 패널 (닫힘 · 미니 · 펼침) ─────
 function sideMiniHTML() {
-    if (!app.current) return `<div class="ss-mini-empty"><button class="ss-btn pri sm" data-side="make"><i class="fa-solid fa-wand-magic-sparkles"></i> 만들기</button></div>`;
+    if (!app.current) return `<div class="ss-mini-empty"><button class="ss-btn pri sm" data-side="make"><i class="fa-solid fa-bolt"></i> 바로 시작</button></div>`;
     const s = app.current.state;
     const keys = settings().sideMini ?? [];
     const w = tileBoard(s, 'side'); // v2.7.21: HUD와 같은 타일 판
@@ -614,7 +616,7 @@ function sideMiniHTML() {
 function onSide(e) {
     const b = e.target.closest('[data-side]'); if (!b) return;
     const a = b.dataset.side, set = settings();
-    if (a === 'make') return openWizard();
+    if (a === 'make') return import('./autostart.js').then(m => m.quickStart()).catch(e => ssErr(LOG, 'quickstart', e)); // 🧆 설정 창 없이 틀을 바로
     if (a === 'gear') return app.simpleMenu?.();
     if (a.startsWith('go:')) { app.sideExp = null; return openSheet(a.slice(3)); }
     if (a.startsWith('exp:')) { const k = a.slice(4); app.sideExp = app.sideExp === k ? null : k; const body = document.querySelector('#ss-side .ss-mini-body'); if (body && setHTML(body, sideMiniHTML())) fitSoon(body); return; }
