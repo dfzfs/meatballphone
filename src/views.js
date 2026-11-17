@@ -99,7 +99,11 @@ export const VIEW = {
         // 📍 인물 핀 (v2.9): 고른 인물이 지금 있는 곳에 이모지로 — 나는 현재 위치 · 다른 사람은 프로필의 사는 곳 · 일과로 (이 채팅만 기억 · AI에게 안 감)
         const pinCfg = getMeta()?.mapPins ?? {};
         const roster = people ? (s.data.profile.list ?? []) : [];
-        const pinned = roster.filter(pf => Object.hasOwn(pinCfg, pf.name)).map(pf => ({ name: pf.name, e: pinEmoji(pinCfg, pf.name), at: pf.role === 'user' ? M.hereName : (findBy(d.places, whereNow(pf, s.data.calendar))?.name ?? '') }));
+        // 있는 곳: 나 = 현재 위치 + 건물 안(map.spot) · 다른 인물 = 일과의 「학교 > 2층 교실」처럼 「>」 뒤가 건물 안 (없으면 층 모름)
+        const pinned = roster.filter(pf => Object.hasOwn(pinCfg, pf.name)).map(pf => {
+            const user = pf.role === 'user', [pl, ...rest] = user ? [] : String(whereNow(pf, s.data.calendar) ?? '').split(/\s*[>›]\s*/);
+            return { name: pf.name, e: pinEmoji(pinCfg, pf.name), user, at: user ? M.hereName : (findBy(d.places, pl)?.name ?? ''), sub: user ? String(d.spot ?? '') : rest.join(' ').trim() };
+        });
         const pinsAt = (p) => pinned.filter(x => x.at && norm(x.at) === norm(p.name));
         const net = lineEdges(pairs, pos, st, { edit, sel: edSel.startsWith('e:') ? edSel.slice(2) : '' }); // 길을 노선으로 묶은 것 (색 · 이름표 자리에 씀)
         const lineOut = lineNodes(shown, { pos, here: d.here, sel: edit ? (edSel.startsWith('s:') ? findBy(d.places, edSel.slice(2)) : null) : sel, st, net, pins: pinsAt,
@@ -136,12 +140,24 @@ export const VIEW = {
             const spot = hereIn && !home ? norm(d.spot ?? '') : '';
             const spotFl = spotFloor(fls, spot); // norm은 빈칸을 지우므로 「2층 교실」→「2층교실」 — 이름이 가장 길게 맞는 층 하나만 (「지하」와 「지하 2층」이 같이 있을 때)
             const spotOf = (f, r) => (r.whole ? f.name : `${f.name} ${r.name}`);
-            const me = pinned.find(x => roster.find(pf => pf.name === x.name)?.role === 'user')?.e ?? '';
+            const me = pinned.find(x => x.user)?.e ?? '';
+            // 📍 표시해 둔 다른 인물: 그 층 · 방에 이모지로 (방까지 모르면 그 층 첫 칸 · 층도 모르면 위 줄에 「층 모름」)
+            const inHere = pinned.filter(x => !x.user && x.at && norm(x.at) === norm(sel.name));
+            const placed = new Map();
+            for (const x of inHere) {
+                const sub = norm(x.sub); if (!sub) continue;
+                let f = spotFloor(fls, sub), r = null;
+                if (f) r = f.rooms.find(rm => norm(spotOf(f, rm)) === sub || sub.endsWith(norm(rm.name))) ?? f.rooms[0] ?? null;
+                else for (const f2 of fls) { const r2 = f2.rooms.find(rm => norm(rm.name) === sub || sub.endsWith(norm(rm.name))); if (r2) { f = f2; r = r2; break; } } // 본거지: 「거실」처럼 방 이름만
+                if (f) placed.set(x.name, { f, rn: r?.name ?? '' });
+            }
+            const pinsAt = (f, r) => inHere.filter(x => { const P = placed.get(x.name); return P && P.f === f && (r.whole || !P.rn || P.rn === r.name); });
+            const lost = inHere.filter(x => !placed.has(x.name));
             const pic = elevSVG(fls, home
-                ? { home: true, act: 'selroom', on: (f, r) => !!ui.hroom && norm(ui.hroom) === norm(r.name), arg: (f, r) => r.name }
-                : { act: hereIn ? 'spot' : '', me, at: (f) => f === spotFl, on: (f, r) => !!spot && (spot === norm(spotOf(f, r)) || (!f.rooms.length && f === spotFl)), arg: spotOf });
+                ? { home: true, act: 'selroom', pinsAt, on: (f, r) => !!ui.hroom && norm(ui.hroom) === norm(r.name), arg: (f, r) => r.name }
+                : { act: hereIn ? 'spot' : '', me, pinsAt, at: (f) => f === spotFl, on: (f, r) => !!spot && (spot === norm(spotOf(f, r)) || (!f.rooms.length && f === spotFl)), arg: spotOf });
             return `${headHTML}
-                <div class="ss-mapwrap inside"><div class="ss-inbar"><button class="ss-btn sm" data-act="mapout"><i class="fa-solid fa-arrow-left"></i> 지도로</button><b>${esc(placeIcon(sel))} ${esc(viewTr() ? trString(sel.name) : sel.name)}${spotFl ? ` · ${esc(d.spot)}` : ''}</b>${hereIn ? chip('현재 위치', 'hi') : ''}</div><div class="ss-inpic">${pic}</div></div>
+                <div class="ss-mapwrap inside"><div class="ss-inbar"><button class="ss-btn sm" data-act="mapout"><i class="fa-solid fa-arrow-left"></i> 지도로</button><b>${esc(placeIcon(sel))} ${esc(viewTr() ? trString(sel.name) : sel.name)}${spotFl ? ` · ${esc(d.spot)}` : ''}</b>${hereIn ? chip('현재 위치', 'hi') : ''}${lost.length ? `<span class="ss-inlost" title="일과에 「${esc(sel.name)} > 2층 교실」처럼 「>」 뒤에 건물 안을 적으면 그 층에 떠요">층 모름: ${lost.map(x => `${esc(x.e)} ${esc(x.name)}`).join(' · ')}</span>` : ''}</div><div class="ss-inpic">${pic}</div></div>
                 <p class="ss-hint">${home ? '본거지의 방과 가구예요. 방 「고치기」에서 층(숫자)을 적으면 층별로 나뉘어요. 가구 옮기기 · 창고는 「집 안 보기」(본거지 탭)에서 해요.' : `${hereIn ? '방(층)을 누르면 「지금 여기」로 표시하고 AI에게도 알려요. 다시 누르면 지워요.' : '여기로 이동하면 방을 눌러 「지금 여기」를 표시할 수 있어요.'} 방은 장소 「고치기」 › 안쪽 · 층에 「2층: 교실/복도/화장실」처럼 적어요.`}</p>
                 ${card}`;
         }

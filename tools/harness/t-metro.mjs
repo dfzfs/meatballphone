@@ -144,6 +144,25 @@ try {
     check(await q(() => window.__SS_TEST__.api.app.current.state.data.map.spot) === '2층 병원', '층을 누르면 spot = 「2층 병원」');
     await render({ place: '병원', inside: '병원' });
     check(await q(() => { const el = document.querySelector('dialog .ss-panel'); return el.querySelector('svg.ss-elev .lv.on text')?.textContent === '2층' && /지금 여기/.test(el.querySelector('svg.ss-elev .rm.on .here')?.textContent ?? ''); }), '지금 있는 층에 불 · 「지금 여기」');
+    // 📍 표시해 둔 다른 인물이 그 층 · 방에 — 일과 「본부 > 2층 통신실」 · 층만 「1층」 · 건물만(층 모름) · 핀을 안 켠 인물은 안 뜸
+    await q(async () => {
+        const { addAdjust } = await import('/ext/src/engine.js'); const { getMeta } = await import('/ext/src/core.js');
+        const prof = structuredClone(window.__SS_TEST__.api.app.current.state.data.profile);
+        const set = (n, sched) => { const p = prof.list.find(x => x.name === n); p.sched = sched; p.home = ''; };
+        set('로우', '항상: 본부 > 2층 통신실'); set('사보', '항상: 본부 > 1층'); set('떠돌이', '항상: 본부');
+        prof.list.push({ ...prof.list[1], name: '숨은이', role: 'npc', sched: '항상: 본부 > 2층 작전실', emoji: '🙈' });
+        await addAdjust({ set: { mod: 'profile', data: prof }, label: 'p2' });
+        getMeta().mapPins = { '나': '', '로우': '', '사보': '⭐', '떠돌이': '' };
+    });
+    await render({ place: '본부', inside: '본부' }); await sleep(300);
+    const elevPins = await q(() => Object.fromEntries([...document.querySelectorAll('dialog .ss-panel svg.ss-elev .rm')].filter(g => g.querySelector('.pp')).map(g => [g.querySelector('title').textContent, g.querySelector('.pp text').textContent])));
+    check(elevPins['2층 · 통신실'] === '🐯' && elevPins['1층 · 로비'] === '⭐' && Object.keys(elevPins).length === 2, `정면도: 로우는 2층 통신실 · 사보는 1층 첫 칸 (${JSON.stringify(elevPins)})`);
+    check(await q(() => /층 모름: .*떠돌이/.test(document.querySelector('dialog .ss-panel .ss-inlost')?.textContent ?? '') && !/🙈/.test(document.querySelector('dialog .ss-panel svg.ss-elev').textContent)), '건물만 적힌 인물은 「층 모름」 · 핀 안 켠 인물은 안 뜸');
+    await render({}); await sleep(200);
+    check(await q(() => /🐯/.test(document.querySelector('dialog .ss-panel svg.ss-map g.ln-n[data-name="본부"] .pins')?.textContent ?? '')), '노선도에서도 「본부 > 2층 통신실」인 인물이 본부에');
+    await q(async () => { const { getMeta } = await import('/ext/src/core.js'); getMeta().mapPins = {}; });
+    await render({ place: '본부', inside: '본부' }); await sleep(200);
+    check(await q(() => !document.querySelector('dialog .ss-panel svg.ss-elev .pp') && !document.querySelector('dialog .ss-panel .ss-inlost')), '인물 표시를 다 끄면 정면도에도 안 뜸');
     // 방이 많은 층 (일곱 넘으면 두 줄) · 층 하나짜리
     check(await q(async () => { const { elevSVG } = await import('/ext/src/metro.js'); const d = document.createElement('div'); d.innerHTML = elevSVG([{ name: '1층', rooms: 'abcdefghi'.split('').map(n => ({ name: n })) }]) + elevSVG([]); return d.querySelectorAll('.rm').length === 9 && !d.querySelector('.shaft') && !/NaN|undefined/.test(d.innerHTML); }), '방 아홉 · 층 하나 · 빈 목록도 안 깨짐');
     const errs = logs.filter(l => /error/i.test(l) && !/favicon|404|Failed to load resource/.test(l));

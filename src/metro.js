@@ -144,7 +144,7 @@ export function lineNodes(places, o) {
 }
 
 // ───── 🏢 정면도: 건물을 앞에서 자른 그림 — 모든 층 · 방이 한 장에 ─────
-// fls = [{ name, rooms: [{ name, items? }] }] (아래층부터) · o = { act ('spot' | 'selroom' | ''), on(f, r), arg(f, r), at(f) → 지금 있는 층인가, home (집이면 박공지붕), me (지금 여기에 띄울 이모지) }
+// fls = [{ name, rooms: [{ name, items? }] }] (아래층부터) · o = { act ('spot' | 'selroom' | ''), on(f, r), arg(f, r), at(f) → 지금 있는 층인가, home (집이면 박공지붕), me (지금 여기에 띄울 이모지), pinsAt(f, r) → 그 칸에 띄울 인물 [{ e, name }] }
 const UNDER = /지하|basement|cellar|^b\d/i, DECK = /^(옥상|루프탑|rooftop|roof\b)/i, HALL = /복도|통로|corridor|hallway|홀$|^hall$|계단|stairs?$/i;
 const LV = /^(지하\s*\d*\s*층?|b\d+f?|\d+\s*층|\d+f|옥상|옥탑|루프탑|다락방?|rooftop|roof|attic|basement|로비|lobby)\s*/i;
 // 「2층 병원」 → 층 이름표 「2층」 + 칸 안 글 「병원」
@@ -174,12 +174,14 @@ export function elevSVG(fls, o = {}) {
             line.forEach((r, i) => {
                 const x = X0 + i * w, on = !!o.on?.(f, r), name = r.whole ? rest : r.name, items = (r.items ?? []).slice(0, Math.max(2, Math.floor(w / 5.5)));
                 const col = row.under ? '#d5d0c6' : HALL.test(r.name) ? '#e9e4da' : ROOM_COLOR.find(([re]) => re.test(r.name))?.[1] ?? '#f4eee2';
+                const pp = o.pinsAt?.(f, r) ?? [], ppTxt = pp.length ? pp.slice(0, w < 24 ? 2 : 4).map(p => p.e).join('') + (pp.length > (w < 24 ? 2 : 4) ? `+${pp.length - (w < 24 ? 2 : 4)}` : '') : '';
                 const hereTxt = on && o.act === 'spot' ? (w < 24 ? (o.me || '●') : `${o.me || '●'} 지금 여기`) : '';
                 cells += `<g class="rm ${on ? 'on' : ''} ${o.act ? 'can' : ''} ${row.deck ? 'deck' : ''}" ${o.act ? `data-act="${o.act}" data-arg="${esc(o.arg ? o.arg(f, r) : r.name)}" role="button"` : ''}><title>${esc(r.whole ? f.name : `${f.name} · ${r.name}`)}${r.items?.length ? ` — ${esc(r.items.join(', '))}` : ''}</title>
                     <rect x="${R(x)}" y="${R(cy)}" width="${R(w)}" height="${R(ch)}" style="--c:${col}"/>
                     ${name ? `<text class="nm" x="${R(x + w / 2)}" y="${R(cy + ch / 2 + (items.length || hereTxt ? -1.6 : 1.4))}">${esc(short(name, Math.max(3, Math.floor(w / 3.9))))}</text>` : ''}
                     ${items.length ? `<text class="fu" x="${R(x + w / 2)}" y="${R(cy + ch / 2 + 4.6)}">${items.map(furnIcon).join('')}${r.items.length > items.length ? '…' : ''}</text>` : ''}
-                    ${hereTxt ? `<text class="here" x="${R(x + w / 2)}" y="${R(cy + ch - (items.length ? 0.9 : 3))}">${esc(hereTxt)}</text>` : ''}</g>`;
+                    ${hereTxt ? `<text class="here" x="${R(x + w / 2)}" y="${R(cy + ch - (items.length ? 0.9 : 3))}">${esc(hereTxt)}</text>` : ''}
+                    ${ppTxt ? `<g class="pp"><title>${esc(pp.map(p => p.name).join(', '))}</title><text x="${R(x + w - 1.2)}" y="${R(cy + 4.3)}">${esc(ppTxt)}</text></g>` : ''}</g>`;
             });
         });
         if (row.deck) deco += `<path class="rail" d="M${X0} ${R(row.y + row.h)}V${R(row.y + 5)}H${XE}V${R(row.y + row.h)}"/>${[1, 2, 3, 4, 5, 6, 7].map(k => `<line class="rail p" x1="${R(X0 + (BW * k) / 8)}" y1="${R(row.y + 5)}" x2="${R(X0 + (BW * k) / 8)}" y2="${R(row.y + row.h)}"/>`).join('')}`;

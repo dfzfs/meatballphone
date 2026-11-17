@@ -262,7 +262,7 @@ export function peopleAt(s, place) {
     for (const p of list) {
         if (p.role === 'user') continue;
         if (p.home && norm(p.home) === norm(place)) live.push(p.name);
-        const w = whereNow(p, cal);
+        const w = String(whereNow(p, cal) ?? '').split(/\s*[>›]\s*/)[0]; // 일과 「학교 > 2층 교실」 → 학교 (v2.9 · 건물 안은 지도 정면도에서)
         if (w && norm(w) === norm(place)) now.push(p.name);
     }
     return { live, now };

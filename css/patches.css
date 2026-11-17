@@ -798,3 +798,8 @@ dialog.popup.ss-dlg.ss-full .popup-content { max-height: none; }
     .ss-orb, .ss-orb *, .ss-tc-in, .ss-ft-bells { animation: none !important; }
     .ss-orb-v { opacity: 0; } .ss-orb-v.n1 { opacity: 1; }
 }
+/* 📍 건물 안 정면도의 인물 (v2.9): 표시해 둔 인물이 그 층 · 방 오른쪽 위에 */
+.ss-elev .pp text { text-anchor: end; font-size: 3.4px; }
+.ss-elev .pp { animation: ss-iso-bob 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .ss-elev .pp { animation: none; } }
+.ss-scope .ss-inlost { font-size: .8em; color: var(--ss-dim); }
