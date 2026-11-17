@@ -733,7 +733,8 @@ function nameSplit(s, val, any = false) { // any: 모르는 이름도 나눈다 
 function numShape(val) {
     let v = String(val).replace(/([=+\-−])\s+(?=\d)/g, '$1'); // 「= 50」 「+ 5」
     const a = v.match(ARROW_RE); if (a) v = `${a[1]}=${a[2]}`;
-    v = v.replace(/^([^:：\d|]*\p{L}[^:：\d|]*?)\s*[:：]\s*(\d[\d.,]*)\s*$/u, '$1 =$2'); // 「체력: 50」 = 50으로 (검수: 덧셈으로 읽혀 최대에 막혔다)
+    v = v.replace(/^([^:：\d|]*\p{L}[^:：\d|]*?)\s*[:：]\s*(\d[\d.,]*)\s*$/u, '$1 =$2');
+    v = v.replace(/^([^:：\d|]*\p{L}[^:：\d|]*?)\s*[:：]\s*(?=[=+\-−]\s*\d)/u, '$1 '); // 「기력: -3」 — 쌍점이 이름에 붙어 「기력:」 게이지가 새로 생겼다 // 「체력: 50」 = 50으로 (검수: 덧셈으로 읽혀 최대에 막혔다)
     return v;
 }
 const dropPipeNote = (val) => { const i = val.indexOf('|'); return i > 0 && /\d\s*$/.test(val.slice(0, i)) ? val.slice(0, i).trim() : val; };
