@@ -655,7 +655,11 @@ function opXFortune(s, val, info, L, T, key, rawKey) {
     // 굿: 저주 풀기 · 가호(축복) 걸기는 여기서 실제로 일어난다
     if (r.method === 'gut') {
         if (r.lift) { const ex = findBy(f.curses, r.lift); if (ex) { f.curses.splice(f.curses.indexOf(ex), 1); L(`해제: ${ex.name}`); } }
-        if (r.bless?.name) addCurse(s, { name: r.bless.name, kind: 'bless', desc: r.bless.desc ?? '', effects: r.bless.effects ?? [], days: r.bless.days ?? null, cure: '' }, info);
+        if (r.bless?.name) { // AI가 효과를 글 하나로 · 날수를 「3일」로 줘도 (검수: 글자마다 효과 하나로 쪼개졌다)
+            const eff = (Array.isArray(r.bless.effects) ? r.bless.effects : String(r.bless.effects ?? '').split(/\s*[,，\n]\s*/)).map(x => String(x ?? '').trim()).filter(Boolean).slice(0, 6);
+            const days = parseInt(r.bless.days, 10);
+            addCurse(s, { name: String(r.bless.name).slice(0, 40), kind: 'bless', desc: String(r.bless.desc ?? ''), effects: eff, days: Number.isFinite(days) && days > 0 ? days : null, cure: '' }, info);
+        }
     }
     L(`🔮 ${FT_NAME[r.method] ?? '점'}: ${r.who}${r.topic ? ` · ${r.topic}` : ''}`);
     return;

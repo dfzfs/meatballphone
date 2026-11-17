@@ -2,7 +2,7 @@
 import { open, makeStatus, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open();
 try {
-    await makeStatus(page, ['profile', 'stats', 'wallet', 'rel', 'map', 'calendar', 'quest', 'contact', 'memo']);
+    await makeStatus(page, ['profile', 'stats', 'wallet', 'rel', 'map', 'calendar', 'quest', 'contact', 'memo', 'fate']);
     const r = await page.evaluate(async () => {
         const core = await import('/ext/src/core.js');
         Object.assign(core.settings(), { mindMode: 'thought', mindFreq: 'always' }); core.saveSettings();
@@ -50,6 +50,9 @@ try {
         await say('msg: Leon: 내일 보자'); out.msgColon = (st().data.contact.threads.Leon ?? []).some(m => m.text === '내일 보자');
         await say('msg: Leon'); out.msgNoTextMiss = /msg: Leon/.test(missOf());
         await say('mind: Leon: 설렌다'); out.mindColon = /설렌다/.test(st().data.rel.user.find(x => x.name === 'Leon')?.mind?.text ?? '');
+        // 🪘 굿 가호: AI가 효과를 글 하나로 · 날수를 「3일」로 줘도 (예전엔 글자마다 효과 하나)
+        { const ops = await import('/ext/src/ops.js'); const s2 = structuredClone(st()); ops.applyOp(s2, '_fortune', JSON.stringify({ who: 'Me', method: 'gut', bless: { name: '가호', effects: '가격 -10%, 호감 +20%', days: '3일' } }), { labels: [], alerts: [], seed: 'x' });
+          const b = s2.data.fate.curses.find(c => c.name === '가호'); out.gutBless = JSON.stringify(b?.effects) === '["가격 -10%","호감 +20%"]' && b.days === 3 && b.kind === 'bless'; }
         // 📌 고정 메모 최대 0 = 안 보냄 (예전엔 0이 8로 바뀌고 · slice(-0)이 전부를 돌려줬다)
         const eng = await import('/ext/src/engine.js');
         await eng.addAdjust({ ops: [['_memo', 'add|핀메모비밀']], label: 'm' }); await wait(200);
