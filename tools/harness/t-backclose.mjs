@@ -5,7 +5,13 @@ const { page, logs, close } = await open();
 try {
     await makeStatus(page, ['profile', 'stats', 'wallet', 'rel', 'map', 'calendar', 'contact']);
     const st = () => page.evaluate(() => ({ open: [...document.querySelectorAll('dialog[open]')].length, input: !!document.querySelector('dialog[open] textarea.popup-input'), len: history.length, id: history.state?.ssDlg ?? null }));
+    // PC(마우스)에서는 방문 기록을 아예 안 건드린다
     await page.evaluate(() => { window.__autoPopup = null; window.__SS_TEST__.api.app.openSheet('contact'); }); await sleep(600);
+    const p0 = await st();
+    check(p0.open === 1 && p0.id === null, 'PC에서는 상태창을 열어도 방문 기록을 안 건드림', JSON.stringify(p0));
+    await page.evaluate(() => { document.querySelectorAll('dialog[open] .popup-button-ok').forEach(b => b.click()); window.__ssBackAlways = true; }); await sleep(400);
+    // 여기부터는 폰처럼
+    await page.evaluate(() => { window.__SS_TEST__.api.app.openSheet('contact'); }); await sleep(600);
     const s0 = await st();
     check(s0.open === 1 && s0.id !== null, '상태창을 열면 방문 기록에 한 칸', JSON.stringify(s0));
     await page.evaluate(() => document.querySelector('dialog [data-act="cmenu"]')?.click()); await sleep(400);

@@ -18,7 +18,9 @@ function closeLikeUser(dlg) {
     if (btn) btn.click(); else dlg.close?.();
 }
 function backTrack(dlg) {
-    if (!dlg || settings().backClose === false || !globalThis.history?.pushState) return () => { /* 안 올림 */ };
+    // 폰 · 태블릿(손가락)에서만 — PC엔 쓸 일이 없고, 방문 기록을 건드리면 뒤로 가기(popstate)를 듣는 다른 확장이 창을 닫아 버린다 (확인을 누르면 창이 다 꺼지던 것)
+    const touch = (() => { try { return globalThis.__ssBackAlways === true || matchMedia('(pointer: coarse)').matches; } catch { return false; } })();
+    if (!dlg || settings().backClose === false || !touch || !globalThis.history?.pushState) return () => { /* 안 올림 */ };
     // 미트볼 창 위에 뜨는 작은 창(메뉴 · 입력 · 확인)은 칸을 올리지 않는다 — 메뉴가 닫히며 한 칸을 물리는(history.back) 동안
     // 다음 창(추가 지시 입력 등)이 뜨면 실리태번에서 창이 꺼지던 것. 뒤로 가기는 아래 popstate가 맨 위 창부터 닫아 준다
     if (backLayers.some(l => !l.gone && l.dlg.isConnected)) return () => { /* 바깥 창의 칸을 같이 씀 */ };
