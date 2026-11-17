@@ -3,7 +3,7 @@
 //   🤝 약속 기한 D-day (promiseClock) · 📚 연락처별 로어북 · 🎁 취향 ↔ 선물 (giftTaste) · 📊 이 채팅 크기 · 🖼 상태 카드 그림
 // 설정은 전부 기본 끔이고 === true 로만 본다. 끄면 주입 · 계산 · 저장이 모두 0 (app.extraInject는 빈 글)
 // 채팅마다의 자료: meta.gear · meta.roomTell · meta.ctLore (없으면 만들지 않는다)
-import { app, ctx, settings, getMeta, saveMeta, norm, short, findBy, clone, clamp, stamp, isActive, ready, ssNote, TITLE, MODULE, fmtNum } from './core.js';
+import { app, ctx, settings, getMeta, saveMeta, norm, short, findBy, clone, clamp, stamp, isActive, ready, ssNote, TITLE, MODULE, fmtNum, timeWords } from './core.js';
 import { commit, questDue, today, affMul, loreNames, addAdjust } from './engine.js';
 import { aiGenerate, P, PROMPT_DEFS, PROMPT_MAP } from './prompts.js';
 import { askConfirm } from './kit.js';
@@ -82,7 +82,7 @@ export const ambientOn = () => on('ambientOn');
 // → { weather, time, tags: ['rain', 'night'…], notes: [화면용 한 줄…], slow: 이동이 느린가, shopClosed: 가게가 닫았나 }
 export function ambientOf(s = st()) {
     const cal = s?.data?.calendar; if (!cal) return { weather: '', time: '', tags: [], notes: [], slow: false, shopClosed: false };
-    const w = String(cal.weather ?? ''), t = String(cal.time ?? ''), words = w.split(/[\s,，·/()]+/).filter(Boolean), tags = WX.filter(([, re]) => words.some(x => re.test(x))).map(([k]) => k).slice(0, 2);
+    const w = String(cal.weather ?? ''), t = timeWords(cal), words = w.split(/[\s,，·/()]+/).filter(Boolean), tags = WX.filter(([, re]) => words.some(x => re.test(x))).map(([k]) => k).slice(0, 2);
     if (NIGHT.test(t)) tags.push('night');
     return { weather: w, time: t, tags, notes: tags.map(k => WX_KO[k]), slow: tags.some(k => ['storm', 'snow', 'rain'].includes(k)), shopClosed: tags.includes('night') };
 }

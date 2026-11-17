@@ -78,7 +78,64 @@ export function parseDate(cal, v) {
     if (name >= 0 && dn) return { y: null, m: name + 1, d: +dn[1] };
     return null;
 }
-export function nextTime(c) { const i = c.times.indexOf(c.time); return c.times[(i + 1) % c.times.length] ?? c.times[0]; }
+// ───── 🕐 시각 (v2.9): 달력의 「시간 적는 법」 cal.clock ─────
+//   '' 시간대 낱말(아침 · 낮 · 저녁 — 예전 그대로) · '24' 14:30 · '12' 오후 2:30 · 'both' 낮 · 14:30
+//   값은 그대로 cal.time 한 글자열에 들어간다 (따로 숫자를 두지 않는다 → 끄면 예전 자료와 똑같다)
+export const CLOCK_STYLES = [['', '시간대', '아침 · 낮 · 저녁'], ['24', '24시간', '14:30'], ['12', '오전 · 오후', '오후 2:30'], ['both', '시간대 + 시각', '낮 · 14:30']];
+// 글에서 시각을 읽는다 → 0시부터 몇 분 (못 읽으면 null). 「14:30」 「오후 2:30」 「2:30 PM」 「밤 9시 반」 「14시 5분」
+export function parseClock(v) {
+    const s = String(v ?? ''); let h, m = 0, colon = false;
+    let x = s.match(/(\d{1,2})\s*[:：]\s*(\d{2})(?!\d)/);
+    if (x) { h = +x[1]; m = +x[2]; colon = true; }
+    else if ((x = s.match(/(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분|\s*(반))?/))) { h = +x[1]; m = x[3] ? 30 : +(x[2] ?? 0); }
+    else if ((x = s.match(/(?:^|[^\d])(\d{1,2})\s*([ap])\.?m\b/i))) { h = +x[1]; }
+    else return null;
+    if (!(h >= 0 && h <= 24 && m >= 0 && m <= 59)) return null;
+    const pm = /오후|p\.?m\b/i.test(s), am = /오전|a\.?m\b/i.test(s);
+    if (pm) { if (h < 12) h += 12; }
+    else if (am) { if (h === 12) h = 0; }
+    else if (!colon) { // 「저녁 7시」 「밤 9시」 「새벽 12시」 — 숫자만 적은 12시간 표기를 낱말로 가늠 (14:30처럼 쌍점으로 적은 것은 24시간으로 본다)
+        if (/저녁|evening/i.test(s)) { if (h < 12) h += 12; }
+        else if (/밤|night/i.test(s)) { if (h >= 6 && h < 12) h += 12; else if (h === 12) h = 0; }
+        else if (/새벽|dawn/i.test(s)) { if (h === 12) h = 0; }
+        else if (/낮|오후|afternoon/i.test(s)) { if (h >= 1 && h <= 6) h += 12; }
+    }
+    return (h % 24) * 60 + m;
+}
+// 시간대 낱말이 몇 시에 시작하나 (모르는 말은 null) — 낱말만 적혔을 때의 시각은 시작 1시간 뒤로 잡는다 (아침 → 07:00 · 저녁 → 19:00)
+const SLOT_HOUR = [[/심야|자정|한밤|midnight|late night/i, 0], [/새벽|dawn|early morning/i, 4], [/아침|morning|sunrise/i, 6], [/오전|forenoon/i, 9], [/정오|점심|noon|midday/i, 12], [/오후|afternoon/i, 13], [/낮|daytime|day/i, 12], [/저녁|evening|dusk|sunset/i, 18], [/밤|night/i, 21]];
+export function slotHour(word) { const w = String(word ?? ''); for (const [re, h] of SLOT_HOUR) if (re.test(w)) return h; return null; }
+// 그 시각이 달력의 시간대 목록 중 어디인가 (아는 낱말이 없으면 하루를 고르게 나눈 칸)
+export function slotOfClock(min, times) {
+    const ts = Array.isArray(times) ? times : []; if (!ts.length) return '';
+    const known = ts.map(t => [t, slotHour(t)]).filter(x => x[1] !== null).sort((a, b) => a[1] - b[1]);
+    if (!known.length) return ts[Math.min(ts.length - 1, Math.floor(min / 1440 * ts.length))];
+    let best = known[known.length - 1]; // 첫 시간대보다 이른 시각은 전날 마지막 시간대(밤)에 든다
+    for (const k of known) if (k[1] * 60 <= min) best = k;
+    return best[0];
+}
+export function fmtClock(min, style, times, en = false) {
+    min = ((Math.round(min) % 1440) + 1440) % 1440;
+    const h = Math.floor(min / 60), mm = String(min % 60).padStart(2, '0'), h24 = `${String(h).padStart(2, '0')}:${mm}`;
+    if (style === '12') return en ? `${h % 12 || 12}:${mm} ${h < 12 ? 'AM' : 'PM'}` : `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${mm}`;
+    if (style === 'both') { const sl = slotOfClock(min, times); return sl ? `${sl} · ${h24}` : h24; }
+    return h24;
+}
+// 지금 적힌 시간을 그 적는 법으로 (시각 ↔ 시간대 낱말). 못 읽는 글은 그대로 둔다
+export function toClockStyle(time, style, times, en = false) {
+    const t = String(time ?? ''); let min = parseClock(t);
+    if (!style) return min === null ? t : (slotOfClock(min, times) || t);
+    if (min === null) { const h = slotHour(t); if (h === null) return t; min = h * 60 + 60; }
+    return fmtClock(min, style, times, en);
+}
+// 밤낮을 낱말로 보는 곳(밤 지도 · 날씨 · 시간대 효과)에 주는 글 — 시각만 적혀 있으면 시간대 낱말을 붙여 준다
+export function timeWords(cal) { const t = String(cal?.time ?? ''), m = parseClock(t); return m === null ? t : `${t} ${m < 300 ? '심야' : m < 420 ? '새벽' : m < 660 ? '아침' : m < 1080 ? '낮' : m < 1260 ? '저녁' : '밤'}`; }
+// 다음 시간: 시간대면 다음 칸 · 시각이면 1시간 뒤 (자정을 넘으면 wrap = true)
+export function nextTime(c, en = false) {
+    if (c.clock) { const min = parseClock(c.time) ?? (slotHour(c.time) ?? -1) * 60 + 60; return fmtClock(min + 60, c.clock, c.times, en); }
+    const i = c.times.indexOf(c.time); return c.times[(i + 1) % c.times.length] ?? c.times[0];
+}
+export const nextTimeWraps = (c) => (c.clock ? (parseClock(c.time) ?? 0) + 60 >= 1440 : c.times.indexOf(c.time) === c.times.length - 1);
 export function upcoming(c, days = 30) {
     const out = [];
     const t = { ...c };

@@ -1,7 +1,7 @@
 // 칸별 화면 · 대시보드 · 관리 (미니 위젯 · 타일 판은 tiles.js)
 import {
     app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, MODS, MOD, MOD_IDS, DIFFS, diffOf, esc, short, clamp, norm, findBy,
-    fmtNum, clone, splitBar, parseNum, dateStr, dayIndex, eventsOn, nextTime, upcoming, userName, TITLE, VERSION, EMPTY, CONTACT_MODES, stamp, weekday, viewTr, GLOBAL_OFF,
+    fmtNum, clone, splitBar, parseNum, dateStr, dayIndex, eventsOn, nextTime, nextTimeWraps, CLOCK_STYLES, timeWords, upcoming, userName, TITLE, VERSION, EMPTY, CONTACT_MODES, stamp, weekday, viewTr, GLOBAL_OFF,
 } from './core.js';
 import { addAdjust, commit, dueLetters, priceMul, peopleAt, hopsBetween, whereNow, seasonOf, SEASON_NAME, purgeTrash, undoAt, skillRoll, SOCIAL_RE } from './engine.js';
 import { trString } from './translate.js';
@@ -115,7 +115,7 @@ export const VIEW = {
                 <text x="${o.x}" y="${o.y - 4.4}">${esc(p.known ? short(viewTr() ? trString(p.name) : p.name, 8) : '???')}</text>${n ? `<text class="ppl" x="${o.x + 2.6}" y="${o.y + 1.2}">👥${n}</text>` : ''}</g>`;
         }).join('');
         const vb = ui.mapVB ?? (() => { const f = fitBox(shown.map(p => pos.get(p.name))); return iso ? [f[0], f[1] - 5, f[2], f[3] + 5] : f; })(); // 입체: 높은 건물 · 핀이 위로 잘리지 않게
-        const night = iso && modOn('calendar') && /밤|새벽|심야|자정|night|midnight|dawn/i.test(s.data.calendar?.time ?? '');
+        const night = iso && modOn('calendar') && /밤|새벽|심야|자정|night|midnight|dawn/i.test(timeWords(s.data.calendar));
         const inKind = iso && ui.inside && sel && norm(ui.inside) === norm(sel.name) ? insideKind(s, sel) : '';
         const inside = !!inKind; // 🔍 건물 안으로 들어가 있는 중
         let card = '';
@@ -206,10 +206,12 @@ export const VIEW = {
                     <span class="ss-today2-t"><i class="fa-solid fa-clock"></i> ${esc(d.time)}${d.weather ? ` <i class="fa-solid fa-cloud-sun"></i> ${esc(d.weather)}` : ''} <button class="ss-ib sm" data-act="setweather" title="날씨 바꾸기"><i class="fa-solid fa-pen"></i></button></span></div>
             </div>
             <div class="ss-timebar">
-                <button class="ss-btn sm" data-act="timenext" title="다음 시간대로"><i class="fa-solid fa-forward-step"></i> ${esc(nextTime(d))}</button>
+                <button class="ss-btn sm" data-act="timenext" title="${d.clock ? '1시간 뒤로' : '다음 시간대로'}"><i class="fa-solid fa-forward-step"></i> ${esc(nextTime(d, viewTr()))}</button>
+                ${d.clock ? '<button class="ss-btn sm" data-act="timeset" title="시각을 직접 적어요 (예: 14:30 · 오후 2시 반)"><i class="fa-solid fa-clock"></i> 시각 맞추기</button>' : ''}
                 <button class="ss-btn sm" data-act="dayplus" title="하루 넘기기"><i class="fa-solid fa-sun"></i> +1일</button>
                 <button class="ss-btn sm ghost" data-act="timeundo" ${canUndo ? '' : 'disabled'} title="${canUndo ? `방금 넘긴 시간을 되돌려요: ${esc(lastA.label || '')}` : '되돌릴 시간 넘기기가 없어요 (가장 최근 편집이 시간 넘기기일 때만)'}"><i class="fa-solid fa-rotate-left"></i> 되돌리기</button>
             </div>
+            <div class="ss-clockrow" title="시간을 어떻게 적을지 — AI도 이 모양으로 적어요 (이 채팅만)"><small>시간 적는 법</small>${seg(CLOCK_STYLES.map(([v, name, ex]) => [v, `${name} <small>${ex}</small>`]), d.clock ?? '', 'clockstyle', 'class="ss-seg wrap"')}</div>
             <div class="ss-cal-head"><button class="ss-ib" data-act="calnav" data-arg="-1" title="이전 달"><i class="fa-solid fa-chevron-left"></i></button><b>${y}년 ${esc(month.name)}</b><button class="ss-ib" data-act="calnav" data-arg="1" title="다음 달"><i class="fa-solid fa-chevron-right"></i></button>${y !== d.y || m !== d.m ? '<button class="ss-btn sm ghost" data-act="calnav" data-arg="0">오늘로</button>' : ''}</div>
             <div class="ss-cal" style="grid-template-columns:repeat(${w},minmax(0,1fr))">${d.week.map(x => `<div class="ss-cal-w">${esc(x)}</div>`).join('')}${cells.join('')}</div>
             ${selDay ? `<div class="ss-card ss-calday"><div class="ss-sec-h"><h4>${esc(dateStr(d, y, m, selDay))}</h4><button class="ss-ib" data-act="calday" data-arg="" title="닫기"><i class="fa-solid fa-xmark"></i></button></div>
@@ -675,7 +677,9 @@ export const VIEW_ACTIONS = {
         await commit('calendar', nd, '');
     },
     dayplus: () => addAdjust({ ops: [['date', '+1']], label: '하루가 지났다' }),
-    timenext: (el, arg, btn, s) => { const t = nextTime(s.data.calendar); return addAdjust({ ops: [['time', t]], label: `시간 → ${t}` }); },
+    timenext: (el, arg, btn, s) => { const c = s.data.calendar, t = nextTime(c, viewTr()), wrap = !!c.clock && nextTimeWraps(c); return addAdjust({ ops: [...(wrap ? [['date', '+1']] : []), ['time', t]], label: `시간 → ${t}` }); }, // 🕐 시각 달력은 자정을 넘기면 날짜도 넘어간다 (시간대 달력은 예전 그대로)
+    timeset: async (el, arg, btn, s) => { const v = await askInput('시각 맞추기', '지금 몇 시인가요? (예: 14:30 · 오후 2시 반 · 저녁)', s.data.calendar.time); if (v === null || !String(v).trim()) return; return addAdjust({ ops: [['time', String(v).trim()]], label: `시간 → ${String(v).trim()}` }); },
+    clockstyle: (el, arg, btn, s) => { if ((s.data.calendar.clock ?? '') === arg) return; const nm = CLOCK_STYLES.find(x => x[0] === arg)?.[1] ?? '시간대'; return addAdjust({ ops: [['_clock', arg]], label: `시간 적는 법 → ${nm}` }); },
     jumpday: (el) => { const ui = el._ss.ui; return addAdjust({ ops: [['date', `${ui.cal.y}년 ${ui.cal.m}월 ${ui.day}일`]], label: `날짜 → ${ui.cal.m}/${ui.day}` }); },
     addevent: async (el, arg, btn, s) => {
         const ui = el._ss.ui; const title = el.querySelector('.ss-ev-title').value.trim(); if (!title) return;

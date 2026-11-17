@@ -788,7 +788,7 @@ export async function purgeTrash(names) {
 export const PRIV_MOD = {
     _qask: 'quest', _needmod: 'stats', _achtog: 'ach', _bond: 'rel', _love: 'rel', _nolove: 'rel', _leave: 'rel', _unbond: 'rel', _peekday: 'rel', _merge: 'rel',
     _draw: 'fate', _effect: 'fate', _loan: 'wallet', _repay: 'wallet', _sellused: 'wallet', _tobag: 'wallet', _memo: 'memo', _questpay: 'quest',
-    _read: 'contact', _nread: 'news', _roll: 'dice', _trash: 'home', _purge: 'home', _restore: 'home', _tostore: 'home', _unplace: 'home', _travel: 'map', _spot: 'map',
+    _read: 'contact', _nread: 'news', _roll: 'dice', _trash: 'home', _purge: 'home', _restore: 'home', _tostore: 'home', _unplace: 'home', _travel: 'map', _spot: 'map', _clock: 'calendar',
 };
 export const opMod = (s, k) => opInfo(s, k).mod ?? PRIV_MOD[k] ?? null;
 // 편집 기록에서 조건에 맞는 변화만 빼기 (빈 기록은 통째로) → 뺀 개수
@@ -807,7 +807,7 @@ function stripAdjust(meta, s, drop) {
 }
 // 칸 전체 삭제할 때 남겨 두는 「틀」 (날짜 · 화폐 · 단계표 · 연락 방식처럼 내용이 아니라 설정인 것)
 const WIPE_KEEP = {
-    calendar: ['y', 'm', 'd', 'time', 'era', 'months', 'week', 'times', 'autoWeather', 'noAuto'], wallet: ['currency', 'fx', 'prices'],
+    calendar: ['y', 'm', 'd', 'time', 'era', 'months', 'week', 'times', 'autoWeather', 'noAuto', 'clock'], wallet: ['currency', 'fx', 'prices'],
     contact: ['mode', 'app', 'couriers', 'express'], rel: ['stages', 'affName', 'trustName'], dice: ['system', 'rules', 'quick'],
     music: ['taste'], fate: ['deck', 'drawChance', 'rules'], news: ['name'], gossip: ['name'], board: ['name'], sns: ['name'], profile: ['mode'], home: ['name', 'desc'], map: ['name'],
 };
@@ -1069,7 +1069,7 @@ export function tagKeysFor(meta) {
         const pa = settings().pairAff === true ? ' · pairaff (A & B ±N — how close two characters OTHER than {{user}} are to each other, -100..100; +1~+3 after a real moment between them, − after they clash)' : '';
         K.push(playOf(meta).ensemble ? `pair (A & B = 관계 — how two characters relate; add or update when it truly changes)${pa}` : `${relKeyHint()} · rel (이름 = 관계 이름, when it truly changes) · pair (A & B = 관계)${pa}`);
     }
-    if (on('calendar')) K.push('days (+1 when days pass / 3월 14일 to jump) · period (one of the time slots) · weather (only when the story changes it) · event (날짜 | 제목 | 설명 — a new appointment)');
+    if (on('calendar')) K.push(`days (+1 when days pass / 3월 14일 to jump) · ${calClock() ? 'period (the clock time now, 24-hour HH:MM like 14:30 — write it in every reply where time has passed, even a few minutes; add "days: +1" when it passes midnight)' : 'period (one of the time slots)'} · weather (only when the story changes it) · event (날짜 | 제목 | 설명 — a new appointment)`);
     if (on('quest')) K.push('quest (제목 | 새/수락/완료/실패 | 설명 — a new request appears, {{user}} accepts, or it ends; 제목 | 진행 내용 = progress)');
     if (on('news')) K.push('news (헤드라인 | 내용 — only for big public events)');
     if (on('gossip')) K.push('rumor (제목 | 내용 | 관련 인물 — when people start whispering about something)');
@@ -1091,6 +1091,7 @@ export function tagKeysFor(meta) {
     return keysI(K); // 화면만 번역이면 자리표시도 영어로 (v2.7.14: 예전엔 한 경로에서만 바꿔서 본편 주입 · 분석 호출에 한국어가 섞여 감)
 }
 
+const calClock = () => { try { return app.current?.state?.data?.calendar?.clock || ''; } catch { return ''; } }; // 🕐 시각으로 적는 달력인가
 const musicTaste = () => { try { return app.current?.state?.data?.music?.taste || settings().musicTaste || ''; } catch { return settings().musicTaste || ''; } };
 
 // ───── 칸별 보내는 때: always · kw(관련 말이 나올 때만) · n3 · n5 ─────

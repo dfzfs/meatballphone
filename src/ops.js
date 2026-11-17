@@ -1,6 +1,6 @@
 // 규칙 · 변화량 처리 — <meatball> 한 줄(키=값)을 상태에 반영 (engine.js에서 떼어 냄)
 import { setAlias } from './core.js';
-import { letterMode, ctx, settings, EMPTY, DIFFS, GLOBAL_OFF, clamp, num, norm, findBy, parseNum, splitBar, signed, fmtNum, short, dayIndex, addDays, dateStr, eventsOn, parseDate, nowTick, wholeTick, useDays, stamp, viewTr, diffOf, loveIndex, touchContact, THREAD_MAX, dateShort, DEFAULT_STAGES, relAxes, romanceStart, ssNote } from './core.js';
+import { letterMode, ctx, settings, EMPTY, DIFFS, GLOBAL_OFF, clamp, num, norm, findBy, parseNum, splitBar, signed, fmtNum, short, dayIndex, addDays, dateStr, eventsOn, parseDate, nowTick, wholeTick, useDays, stamp, viewTr, diffOf, loveIndex, touchContact, THREAD_MAX, dateShort, DEFAULT_STAGES, relAxes, romanceStart, ssNote, parseClock, toClockStyle, fmtClock } from './core.js';
 import { enStr } from './skeleton_en.js';
 
 export const KEYMAP = {
@@ -566,6 +566,14 @@ function opCurse(s, val, info, L, T, key, rawKey) {
 }
 function opXEffect(s, val, info, L, T, key, rawKey) { applyLines(s, val, info); return; }
 function opWeather(s, val, info, L, T, key, rawKey) { const cal = ensure(s, 'calendar'); if (val !== cal.weather) { cal.weather = val; L(`날씨: ${val}`); } return; }
+// 🕐 시간 적는 법 바꾸기 (달력 탭) — '' 시간대 · '24' · '12' · 'both'. 지금 적힌 시간도 그 모양으로 옮긴다
+function opXClock(s, val, info, L) {
+    const cal = s.data.calendar; if (!cal) return;
+    const st = ['24', '12', 'both'].includes(String(val)) ? String(val) : '';
+    if (st) cal.clock = st; else delete cal.clock;
+    const t = toClockStyle(cal.time, st, cal.times, viewTr());
+    if (t !== cal.time) { cal.time = t; L(`🕐 ${t}`); }
+}
 function opXSpot(s, val) { const mp = s.data.map; if (!mp) return; if (String(val ?? '').trim()) mp.spot = String(val).trim(); else delete mp.spot; return; } // 🏢 건물 안 어디 (층 · 방) — 지도 탭에서 층을 눌렀을 때
 function opXTravel(s, val, info, L, T, key, rawKey) {
     // 지도에서 이동: 위치 + 칸 수만큼 시간대가 흐름(하루를 넘기면 날짜도) + 요금
@@ -576,6 +584,13 @@ function opXTravel(s, val, info, L, T, key, rawKey) {
     applyOp(s, 'loc', p.name, info);
     const cal = s.data.calendar;
     if (cal && hops > 0 && info.mods?.calendar !== false) {
+        if (cal.clock) { // 🕐 시각 달력: 한 칸에 1시간
+            const t = (parseClock(cal.time) ?? 0) + Math.min(hops, 240) * 60, days = Math.floor(t / 1440);
+            if (days) applyOp(s, 'date', `+${days}`, info);
+            applyOp(s, 'time', fmtClock(t, cal.clock, cal.times, viewTr()), info);
+            if (p.fare && s.data.wallet) applyOp(s, 'cash', `-${p.fare}`, info);
+            return;
+        }
         let i = Math.max(0, cal.times.indexOf(cal.time)), days = 0;
         for (let k = 0; k < hops; k++) { i++; if (i >= cal.times.length) { i = 0; days++; } }
         if (days) applyOp(s, 'date', `+${days}`, info);
@@ -904,6 +919,8 @@ function opDate(s, val, info, L, T, key, rawKey) {
 }
 function opTime(s, val, info, L, T, key, rawKey) {
     const cal = ensure(s, 'calendar');
+    // 🕐 시각으로 적는 달력: AI가 「오후 2시 반」 「14:30」 「저녁」 어느 쪽으로 적어도 고른 모양 하나로 맞춘다 (시간대 달력은 예전 그대로 — 적힌 글 그대로)
+    if (cal.clock) val = toClockStyle(val, cal.clock, cal.times, viewTr());
     if (val !== cal.time) { cal.time = val; L(`🕐 ${val}`); }
     return;
 }
@@ -1124,6 +1141,7 @@ const OPS = {
     'weather': opWeather,
     '_travel': opXTravel,
     '_spot': opXSpot,
+    '_clock': opXClock,
     '_trash': opXTrash,
     '_sellused': opXTrash,
     '_purge': opXPurge,

@@ -1,7 +1,7 @@
 // 미트볼 상태창 (Meatball Stats) — 공통: 상수 · 유틸 · 설정 · 데이터 모양
 import { toEnglish, usedPairs } from './skeleton_en.js'; // 영어 저장일 때 기본 관계 단계도 영어로 (skeleton_en은 아무것도 안 불러서 순환 없음)
-import { clamp, clone, num, str, arr, norm, fmtNum, uid, short, DEFAULT_MONTHS, DEFAULT_WEEK, DEFAULT_TIMES, dayIndex } from './util.js';
-export { clamp, clone, esc, num, str, arr, norm, fmtNum, signed, uid, short, splitBar, rand, randInt, parseNum, DEFAULT_MONTHS, DEFAULT_WEEK, DEFAULT_TIMES, yearDays, dayIndex, addDays, weekday, dateStr, dateShort, eventsOn, parseDate, nextTime, upcoming, stamp } from './util.js'; // 순수 도구는 util.js로 — 다른 파일은 예전처럼 core.js에서 받아도 된다
+import { clamp, clone, num, str, arr, norm, fmtNum, uid, short, DEFAULT_MONTHS, DEFAULT_WEEK, DEFAULT_TIMES, dayIndex, parseClock } from './util.js';
+export { clamp, clone, esc, num, str, arr, norm, fmtNum, signed, uid, short, splitBar, rand, randInt, parseNum, DEFAULT_MONTHS, DEFAULT_WEEK, DEFAULT_TIMES, yearDays, dayIndex, addDays, weekday, dateStr, dateShort, eventsOn, parseDate, nextTime, nextTimeWraps, CLOCK_STYLES, parseClock, slotHour, slotOfClock, fmtClock, toClockStyle, timeWords, upcoming, stamp } from './util.js'; // 순수 도구는 util.js로 — 다른 파일은 예전처럼 core.js에서 받아도 된다
 export const MODULE = 'statussim';
 export const LOG = '[미트볼 상태창]';
 export const TITLE = '미트볼 상태창';
@@ -866,6 +866,7 @@ export const NORM = {
             months: ms, week: arr(d.week).length ? arr(d.week).map(String) : [...DEFAULT_WEEK], times: arr(d.times).length ? arr(d.times).map(String) : [...DEFAULT_TIMES],
             events: arr(d.events).filter(e => e?.title).map(e => ({ y: e.y === undefined || e.y === null || e.y === '' ? null : Math.round(num(e.y, 0)), m: clamp(Math.round(num(e.m, 1)), 1, ms.length), d: clamp(Math.round(num(e.d, 1)), 1, 99), title: str(e.title), desc: str(e.desc), repeat: e.repeat === 'yearly' ? 'yearly' : 'once' })),
             weather: str(d.weather), autoWeather: d.autoWeather !== false,
+            ...(['24', '12', 'both'].includes(d.clock) ? { clock: d.clock } : {}), // 🕐 시간 적는 법 (안 고르면 열쇠 자체가 없다 = 예전 자료와 같음)
         };
     },
     contact: (d) => {
@@ -1157,6 +1158,7 @@ const SLOT_HINT = [[/새벽|dawn|early morning/i, 0.08], [/오후|afternoon/i, 0
 export function dayFrac(cal) {
     const raw = String(cal?.time ?? ''), t = norm(raw), times = Array.isArray(cal?.times) ? cal.times : [];
     if (!t) return 0;
+    const cm = parseClock(raw); if (cm !== null) return cm / 1440; // 🕐 시각이 적혀 있으면 그 시각만큼
     const i = times.findIndex(x => norm(x) === t);
     if (i >= 0) return i / times.length;
     for (const [re, f] of SLOT_HINT) if (re.test(raw)) return f;

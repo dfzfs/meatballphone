@@ -609,3 +609,8 @@ dialog.popup.ss-dlg.ss-full .popup-content { max-height: none; }
 .ss-plan .outer { fill: none; stroke: var(--ss-ink); stroke-width: 1.5; stroke-linejoin: miter; pointer-events: none; }
 .ss-plan .gap { stroke: var(--ss-surface); stroke-width: 1.9; pointer-events: none; }
 .ss-plan .door { fill: none; stroke: var(--ss-ink); stroke-width: .3; pointer-events: none; opacity: .75; }
+/* 🕐 달력: 시간 적는 법 (시간대 · 24시간 · 오전/오후 · 시간대 + 시각) */
+.ss-clockrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 2px; }
+.ss-clockrow > small { opacity: .7; }
+.ss-clockrow .ss-seg { flex: 1 1 220px; }
+.ss-clockrow .ss-seg button small { opacity: .65; margin-left: 2px; }

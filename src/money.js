@@ -1,5 +1,5 @@
 // 💰 재산: 소지금 · 환율 · 소지품(사용 효과) · 물가표 · 일거리 · 정기 수입/지출 · 빚
-import { app, ctx, settings, getMeta, modOn, esc, short, clone, findBy, norm, clamp, num, fmtNum, splitBar, nextTime, dateStr, dayIndex, TITLE, EMPTY } from './core.js';
+import { app, ctx, settings, getMeta, modOn, esc, short, clone, findBy, norm, clamp, num, fmtNum, splitBar, nextTime, viewTr, dateStr, dayIndex, TITLE, EMPTY } from './core.js';
 import { addAdjust, commit, priceMul, loanBlocked, LOAN_KIND, skillRoll, JUDGE_MUL, JUDGE_NAME } from './engine.js';
 import { askPrice } from './ai.js';
 import { sec, emptyBox, chip, ai1, seg, askInput, askConfirm, busyBtn, insertInput, closeIfPopup } from './kit.js';
@@ -123,7 +123,7 @@ export const MONEY_ACTIONS = {
         const pay = Math.round(j.pay * (r ? JUDGE_MUL[r.cls] : 1));
         const ops = pay ? [['cash', `+${pay}`]] : [];
         if (j.effect && (!r || r.cls !== 'fumble')) ops.push(['_effect', j.effect]);
-        if (s.data.calendar && modOn('calendar')) ops.push(['time', nextTime(s.data.calendar)]);
+        if (s.data.calendar && modOn('calendar')) ops.push(['time', nextTime(s.data.calendar, viewTr())]);
         if (r) toastr[r.cls === 'fumble' ? 'warning' : 'info'](`${esc(j.name)}: ${{ crit: '🌟 대성공 — 일당 1.5배!', ok: '✅ 성공', fail: '😅 실패 — 일당 절반', fumble: '💥 대실패 — 허탕쳤어요' }[r.cls]}<br><small>${esc(r.detail)}</small>`, TITLE, { escapeHtml: false });
         return addAdjust({ ops, label: `${j.name}(으)로 일했다${r && r.cls !== 'ok' ? ` (🎲 ${JUDGE_NAME[r.cls]})` : ''} +${fmtNum(pay)} ${s.data.wallet.currency}` });
     },
