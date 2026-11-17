@@ -16,9 +16,10 @@ try {
     await page.click('dialog [data-act="lifetab"][data-arg="needs"]'); await sleep(400);
     check(await ev(() => [...document.querySelectorAll('dialog .ss-tabs button')].some(b => /욕구/.test(b.textContent))), '켜면 「욕구」 탭이 생긴다 (이 채팅만)');
     await panel('needs'); await sleep(600); await panel('needs'); // 도트 인형 그림은 처음 그릴 때 불러온다
-    check(await ev(() => document.querySelectorAll('dialog [data-act="lifeset"]').length === 4 && !!document.querySelector('dialog .ss-tama svg.ss-px')), '욕구 탭: 다마고치 화면(도트 인형) · 추천 세트 4개');
-    const dl = await ev(async () => { const D = await import('/ext/src/doll.js'); return { hairs: Object.keys(D.HAIRS).length, faces: Object.keys(D.FACES).length, kinds: Object.fromEntries(Object.entries(D.SHAPES).map(([k, o]) => [k, Object.keys(o).length])), bad: [...Object.values(D.HAIRS).flatMap(h => [h.f, h.b]), ...Object.values(D.SHAPES).flatMap(o => Object.values(o).flatMap(x => [x.f, x.b]))].filter(Boolean).filter(mp => mp.length !== D.H || mp.some(r => r.length !== D.W)).length, hurt: D.hurtParts(['왼팔 부상', 'Broken leg', '배고픔']).sort().join(), red: /ss-px-hurt/.test(D.dollSVG({}, [], 3, '', ['arms'])) && !/ss-px-hurt/.test(D.dollSVG({}, [], 3)) }; });
-    check(dl.bad === 0 && dl.hairs >= 20 && dl.faces >= 12 && Object.values(dl.kinds).every(n => n >= 16), '도트 인형: 머리 20+ · 표정 12+ · 옷 종류마다 16+ · 그림 줄 길이가 모두 맞음', JSON.stringify(dl));
+    check(await ev(() => document.querySelectorAll('dialog [data-act="lifeset"]').length === 4 && !!document.querySelector('dialog .ss-tama .ss-px img')), '욕구 탭: 다마고치 화면(도트 인형) · 추천 세트 4개');
+    const dl = await ev(async () => { const D = await import('/ext/src/doll.js'); let bad = 0; for (const [kind, o] of Object.entries(D.SHAPES)) for (const id of Object.keys(o)) { try { if (!/data:image\/png/.test(D.dollSVG({}, [{ kind, shape: id, color: '#4a8fe2' }], 3))) bad++; } catch { bad++; } } for (const id of Object.keys(D.HAIRS)) { try { D.dollSVG({ hair: id }, [], 3); } catch { bad++; } } for (const id of Object.keys(D.FACES)) { try { D.dollSVG({ face: id }, [], 3); } catch { bad++; } }
+        return { hairs: Object.keys(D.HAIRS).length, faces: Object.keys(D.FACES).length, kinds: Object.fromEntries(Object.entries(D.SHAPES).map(([k, o]) => [k, Object.keys(o).length])), bad, size: `${D.W}x${D.H}`, diff: D.dollSVG({}, [{ kind: 'top', shape: 'hoodie', color: '#4a8fe2' }], 3) !== D.dollSVG({}, [{ kind: 'top', shape: 'shirt', color: '#4a8fe2' }], 3), hurt: D.hurtParts(['왼팔 부상', 'Broken leg', '배고픔']).sort().join(), red: /ss-px-hurt/.test(D.dollSVG({}, [], 3, '', ['arms'])) && !/ss-px-hurt/.test(D.dollSVG({}, [], 3)) }; });
+    check(dl.bad === 0 && dl.size === '32x48' && dl.diff && dl.hairs >= 20 && dl.faces >= 12 && Object.values(dl.kinds).every(n => n >= 18), '도트 인형(32×48): 머리 20+ · 표정 12+ · 옷 종류마다 18+ · 전부 그려지고 모양마다 그림이 다름', JSON.stringify(dl));
     check(dl.hurt === 'arms,legs' && dl.red, '「왼팔 부상」 · 「Broken leg」 → 팔 · 다리가 빨갛게 (배고픔은 아님)', JSON.stringify(dl));
     await page.click('dialog [data-act="lifeset"][data-arg="sims"]'); await sleep(500);
     const h0 = await bar('hunger'), hp0 = await bar('hp');
@@ -75,7 +76,7 @@ try {
     // 👕 옷차림: 「허기 -50%」를 입으면 덜 준다
     await panel('wallet'); await page.click('dialog [data-act="lifetab"][data-arg="wear"]'); await sleep(900); await panel('wear'); await sleep(300);
     check(await ev(() => [...document.querySelectorAll('dialog .ss-tabs button')].some(b => /옷차림/.test(b.textContent)) && !!document.querySelector('dialog .ss-px') && window.__st.extensionSettings.statussim.gearOn === true), '옷차림 탭을 켜면 탭이 생기고 옷 입히기도 같이 켜진다');
-    check(await ev(() => document.querySelectorAll('dialog .ss-doll .ss-slot').length === 6 && !!document.querySelector('dialog .ss-doll svg.ss-px')), '도트 인형 양옆에 칸 6개 (무기 · 겉옷 · 상의 · 하의 · 신발 · 장신구)');
+    check(await ev(() => document.querySelectorAll('dialog .ss-doll .ss-slot').length === 6 && !!document.querySelector('dialog .ss-doll .ss-px img')), '도트 인형 양옆에 칸 6개 (무기 · 겉옷 · 상의 · 하의 · 신발 · 장신구)');
     await ev(async (hn) => { const E = await import('/ext/src/engine.js'); await E.addAdjust({ ops: [['item', `+Lucky Apron 1| test | ${hn} -50%`], ['stat', `${hn} =100`]], silent: true, label: '' }); const A = await import('/ext/src/addons.js'); A.equip('상의', 'Lucky Apron'); await A.syncNeedMods(); }, hn); await sleep(400);
     check(Object.values((await stats()).mods ?? {})[0] === -50, '갈아입으면 욕구 보정이 상태에 적힌다', JSON.stringify((await stats()).mods));
     await panel('wallet');

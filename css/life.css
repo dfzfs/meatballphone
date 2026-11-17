@@ -147,3 +147,16 @@
 .ss-scope .ss-pick-c.on { border-color: var(--ss-ink); box-shadow: 0 0 0 2px var(--ss-ink); }
 .ss-scope .ss-pick-c:focus-visible { outline: 2px solid var(--ss-hi); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .ss-scope .ss-px-hurt, .ss-px-hurt { animation: none; opacity: .4; } }
+
+/* 🧸 도트 인형 v3: 32×48칸 PNG 한 장 (+ 다친 곳 한 장을 겹침) */
+.ss-scope .ss-px, .ss-px { position: relative; }
+.ss-scope .ss-px img, .ss-px img { display: block; width: 100%; height: auto; image-rendering: pixelated; image-rendering: crisp-edges; }
+.ss-scope .ss-px img.ss-px-hurt, .ss-px img.ss-px-hurt { position: absolute; inset: 0; }
+.ss-scope .ss-px.big { width: 128px; }
+.ss-scope .ss-tama-pet .ss-px { width: 72px; }
+.ss-scope .ss-tama-pet { height: 116px; }
+.ss-scope .ss-pick-c .ss-px { width: 56px; }
+.ss-scope .ss-prof-doll .ss-px.big { width: 64px; }
+.ss-scope .ss-doll { grid-template-columns: minmax(0, 1fr) 116px minmax(0, 1fr); }
+.ss-scope .ss-doll .ss-doll-stage { padding: 8px 4px; }
+.ss-scope .ss-doll .ss-doll-stage .ss-px.big { width: 96px; }

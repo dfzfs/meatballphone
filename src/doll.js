@@ -1,139 +1,204 @@
-// 🧸 도트 인형 v2 (v2.9) — 16×26칸짜리 꼬마 캐릭터를 코드로 그린다 (직접 디자인한 그림 · SVG 네모들 · 내려받는 파일 없음 · 다른 파일을 안 불러오는 순수한 조각).
-//   옷 · 머리는 「모양(윤곽) + 무늬」를 겹쳐 만든다. 명암 · 테두리는 그릴 때 자동으로 넣는다 (아래 · 오른쪽 가장자리는 어둡게).
-//   겹치는 순서: 뒤쪽 머리 · 망토 · 날개 → 몸 → 하의 → 신발 → 상의 → 앞머리 → 겉옷 → 얼굴 → 장신구 → 손에 든 것 → 다친 곳(빨갛게)
-//   글자: s 살 · h 머리카락 · c 옷 색 · a 포인트 색(옷 색을 밝게) · L 옷 색의 밝은 쪽 · w 흰색 · k 짙은 갈색 · g 바닥 그림자
+// 🧸 도트 인형 v3 (v2.9) — 32×48칸짜리 꼬마 캐릭터를 코드로 그린다 (직접 디자인한 그림 · 내려받는 파일 없음 · 다른 파일을 안 불러오는 순수한 조각).
+//   모양 하나하나를 네모 · 타원 · 선 · 다각형으로 「그려서」 칸에 찍는다 → 명암 · 테두리는 칠할 때 자동 (테두리 · 그늘 · 바탕 · 밝은 띠 4단계).
+//   다 그린 그림은 작은 PNG(data URL) 한 장이 된다 — 한 번 그린 것은 기억해 둔다.
+//   겹치는 순서: 뒤쪽 머리 · 망토 · 날개 → 몸 → 하의 → 신발 → 상의 → 앞머리 → 겉옷 → 얼굴 → 장신구 → 손에 든 것 (+ 다친 곳은 빨간 그림 한 장 더)
+//   글자: s 살 · h 머리카락 · c 옷 색 (이 셋은 자동 명암) / a 포인트 색 · L 옷 색의 밝은 쪽 · D 어두운 쪽 · w 흰색 · k 짙은 갈색 · e 눈 · W 눈빛 · m 입 · b 볼 · t 눈물 · p 분홍
 //   이 파일은 욕구 · 옷차림 탭을 켠 채팅에서만 불러온다 (life.js loadDL).
-export const W = 16, H = 26;
-const E = '.'.repeat(W);
-// m(시작 줄, '줄', '줄*반복', …)
-function m(start, ...rs) { const a = Array(H).fill(E); let y = start; for (const r of rs) { const i = r.indexOf('*'), row = i < 0 ? r : r.slice(0, i), n = i < 0 ? 1 : Number(r.slice(i + 1)); for (let k = 0; k < n && y < H; k++) a[y++] = row; } return a; }
-// 여러 장을 겹친다 (뒤에 온 것이 위)
-const U = (...maps) => Array.from({ length: H }, (_, y) => { const row = E.split(''); for (const mp of maps) if (mp) for (let x = 0; x < W; x++) if (mp[y][x] !== '.') row[x] = mp[y][x]; return row.join(''); });
-const re = (mp, from, to) => mp.map(r => r.replaceAll(from, to)); // 글자 바꾸기 (같은 윤곽을 다른 색 글자로)
+export const W = 32, H = 48;
+const MID = W - 1; // 좌우 대칭: x → 31 − x
 
-const BODY = m(4, '....ssssssss....', '...ssssssssss...*8', '....ssssssss....', '......ssss......', '....ssssssss....', '...ssssssssss...*3', '...ss.ssss.ss...', '.....ssssss.....', '.....ss..ss.....*3', '....sss..sss....');
-const GROUND = m(25, '....gggggggg....');
+// ───── 그리는 도구 ─────
+function pen() {
+    const g = Array.from({ length: H }, () => Array(W).fill(''));
+    let sym = false;
+    const set = (x, y, ch) => { x = Math.round(x); y = Math.round(y); if (x >= 0 && x < W && y >= 0 && y < H) g[y][x] = ch; };
+    const d = {
+        g,
+        x(x, y, ch) { set(x, y, ch); if (sym) set(MID - x, y, ch); },
+        r(x, y, w, h, ch) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) d.x(x + i, y + j, ch); },
+        // 타원 (y0~y1 줄만)
+        e(cx, cy, rx, ry, ch, y0 = -99, y1 = 99) { for (let y = Math.max(0, Math.ceil(cy - ry)); y <= Math.min(H - 1, Math.floor(cy + ry)); y++) { if (y < y0 || y > y1) continue; for (let x = Math.ceil(cx - rx); x <= Math.floor(cx + rx); x++) if (((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1.0001) d.x(x, y, ch); } },
+        // 고리 (바깥 타원 − 안쪽 타원)
+        o(cx, cy, rx, ry, irx, iry, ch, y0 = -99, y1 = 99) { for (let y = Math.max(0, Math.ceil(cy - ry)); y <= Math.min(H - 1, Math.floor(cy + ry)); y++) { if (y < y0 || y > y1) continue; for (let x = Math.ceil(cx - rx); x <= Math.floor(cx + rx); x++) { const out = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1.0001, inn = ((x - cx) / irx) ** 2 + ((y - cy) / iry) ** 2 <= 1.0001; if (out && !inn) d.x(x, y, ch); } } },
+        l(x0, y0, x1, y1, ch, t = 1) { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1); for (let i = 0; i <= n; i++) { const x = x0 + (x1 - x0) * i / n, y = y0 + (y1 - y0) * i / n; for (let a = 0; a < t; a++) for (let b = 0; b < t; b++) d.x(x + a, y + b, ch); } },
+        // 다각형 채우기
+        p(pts, ch) { const ys = pts.map(q => q[1]); for (let y = Math.max(0, Math.floor(Math.min(...ys))); y <= Math.min(H - 1, Math.ceil(Math.max(...ys))); y++) { const xs = []; for (let i = 0; i < pts.length; i++) { const [x1, y1] = pts[i], [x2, y2] = pts[(i + 1) % pts.length]; if ((y1 <= y && y2 > y) || (y2 <= y && y1 > y)) xs.push(x1 + (y - y1) * (x2 - x1) / (y2 - y1)); } xs.sort((a, b) => a - b); for (let k = 0; k + 1 < xs.length; k += 2) for (let x = Math.round(xs[k]); x <= Math.round(xs[k + 1]); x++) d.x(x, y, ch); } },
+        // 지우기
+        c(x, y, w, h) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) d.x(x + i, y + j, ''); },
+        // 왼쪽만 그리면 오른쪽에도 똑같이
+        S(fn) { sym = true; fn(d); sym = false; },
+    };
+    return d;
+}
+const draw = (fn) => { if (!fn) return null; const d = pen(); fn(d); return d.g; };
+
+// ───── 몸 ─────
+const BODY = (d) => {
+    d.e(15.5, 14, 8.5, 8, 's'); d.S(() => d.r(6, 13, 1, 3, 's'));
+    d.r(14, 21, 4, 3, 's'); d.r(11, 23, 10, 1, 's'); d.r(10, 24, 12, 11, 's');
+    d.S(() => { d.r(7, 24, 3, 11, 's'); d.r(7, 35, 3, 2, 's'); });
+    d.r(10, 35, 12, 3, 's');
+    d.S(() => { d.r(11, 38, 4, 6, 's'); d.r(10, 44, 5, 2, 's'); });
+};
 
 // ───── 머리 모양 ─────
-const cap = m(3, '....hhhhhhhh....', '...hhhhhhhhhh...', '..hhhhhhhhhhhh..*2');
-const capBig = m(2, '....hhhhhhhh....', '...hhhhhhhhhh...', '..hhhhhhhhhhhh..', '.hhhhhhhhhhhhhh.*2');
-const capFlat = m(4, '....hhhhhhhh....', '...hhhhhhhhhh...', '...h........h...');
-const fFull = m(7, '..hhhhhhhhhhhh..', '..hh........hh..'), fPart = m(7, '..hhhh....hhhh..', '..hh........hh..'), fSide = m(7, '..hhhhhhhh..hh..', '..hhhh......hh..');
-const fZig = m(7, '..hhh.hh.hh.hh..', '..hh........hh..'), fWisp = m(7, '..hhh.h..h.hhh..', '..hh........hh..'), fNone = m(7, '..hh........hh..');
-const sEar = m(8, '..hh........hh..*2'), sChin = m(8, '..hh........hh..*4'), sBob = m(8, '..hh........hh..*5', '..hhh......hhh..'), sHime = m(8, '..hhh......hhh..*4');
-const bLong = m(8, '..hhhhhhhhhhhh..*11', '...hhhhhhhhhh...'), bMid = m(8, '..hhhhhhhhhhhh..*8', '...hhhhhhhhhh...');
-const bWavy = m(8, '..hhhhhhhhhhhh..*3', '.hhhhhhhhhhhhhh.*2', '..hhhhhhhhhhhh..*2', '.hhhhhhhhhhhhhh.*2', '..hhhhhhhhhhhh..*2', '...hh.hhhh.hh...');
-const tails = m(6, 'hh............hh*2', 'hhh..........hhh', 'hh............hh*6', '.h............h.');
-const braids = m(10, '.hh..........hh.*3', '.aa..........aa.', '.hh..........hh.*3', '..h..........h..');
-const pony = m(5, '..............hh', '.............hhh*2', '..............hh*5', '..............h.');
-const ponyHigh = U(m(1, '.........hhh....', '..........hhh...', '...........hhh..'), m(4, '............hhh.', '.............hh.*4', '.............h..'));
-const bun = m(1, '......hhhh......', '.....hhhhhh.....'), buns2 = m(2, '.hhh........hhh.*2');
-const spikes = m(1, '...h..h..h..h...', '..hhh.hhhhh.hhh.'), mohawk = m(0, '.......hh.......*4'), ahoge = m(1, '.......h........', '........h.......');
-const afro = m(1, '....hhhhhhhh....', '..hhhhhhhhhhhh..', '.hhhhhhhhhhhhhh.', 'hhhhhhhhhhhhhhhh*4', 'hhh..........hhh*2', '.hh..........hh.');
-const curls = m(8, '.hhh........hhh.', '..hh........hh..', '.hhh........hhh.', '..hh........hh..', '.hhh........hhh.');
-export const HAIRS = {
-    short: { n: '짧은 머리', f: U(cap, fZig, sEar) }, sidepart: { n: '가르마', f: U(cap, fSide, sEar) }, bowl: { n: '바가지', f: U(cap, fFull, sEar) },
-    bob: { n: '단발', f: U(cap, fFull, sBob) }, bobpart: { n: '가르마 단발', f: U(cap, fPart, sBob) }, midi: { n: '중단발', f: U(cap, fWisp, sChin), b: bMid },
-    long: { n: '긴 생머리', f: U(cap, fFull, sChin), b: bLong }, longpart: { n: '긴 가르마', f: U(cap, fPart, sChin), b: bLong }, hime: { n: '공주 컷', f: U(cap, fFull, sHime), b: bLong },
-    wavy: { n: '웨이브', f: U(capBig, fSide, sChin), b: bWavy }, curly: { n: '곱슬', f: U(capBig, fWisp, curls) }, afro: { n: '아프로', f: U(afro, fNone) },
-    tails: { n: '양갈래', f: U(cap, fFull, sEar, tails) }, braids: { n: '땋은 머리', f: U(cap, fPart, sEar, braids) }, pony: { n: '옆 포니테일', f: U(cap, fSide, sEar, pony) },
-    ponyhigh: { n: '높은 포니테일', f: U(cap, fWisp, sEar, ponyHigh) }, bun: { n: '올림머리', f: U(cap, fPart, sEar, bun) }, buns: { n: '당고머리', f: U(cap, fFull, sEar, buns2) },
-    spiky: { n: '삐죽 머리', f: U(cap, fZig, sEar, spikes) }, ahoge: { n: '바보털', f: U(cap, fZig, sEar, ahoge) }, slick: { n: '올백', f: U(cap, fNone, sEar) },
-    mohawk: { n: '모히칸', f: U(capFlat, mohawk) }, buzz: { n: '스포츠', f: capFlat }, none: { n: '없음', f: m(0) },
+const capN = (d) => d.e(15.5, 12.5, 9.5, 8.5, 'h', 3, 12), capBig = (d) => d.e(15.5, 12.5, 11, 10.5, 'h', 1, 12), capFlat = (d) => d.e(15.5, 13, 8.9, 7.8, 'h', 5, 9);
+const fFull = (d) => d.r(7, 13, 18, 2, 'h'), fZig = (d) => { d.r(7, 13, 18, 1, 'h'); for (let x = 7; x <= 24; x++) if (x % 3) d.x(x, 14, 'h'); for (let x = 8; x <= 24; x += 3) d.x(x, 15, 'h'); };
+const fPart = (d) => d.S(() => d.p([[6, 13], [14, 13], [9, 16], [6, 17]], 'h')), fSide = (d) => { d.p([[6, 13], [22, 13], [13, 16], [6, 18]], 'h'); d.r(22, 13, 3, 2, 'h'); };
+const fWisp = (d) => { d.r(7, 13, 18, 1, 'h'); d.S(() => d.r(8, 14, 3, 2, 'h')); d.r(15, 14, 2, 1, 'h'); }, fNone = (d) => d.S(() => d.r(6, 13, 2, 2, 'h'));
+const sEar = (d) => d.S(() => d.r(5, 13, 2, 5, 'h')), sChin = (d) => d.S(() => d.r(4, 13, 3, 10, 'h')), sBob = (d) => d.S(() => { d.r(4, 13, 4, 11, 'h'); d.r(5, 24, 3, 1, 'h'); }), sHime = (d) => d.S(() => d.r(4, 13, 5, 9, 'h'));
+const bLong = (d) => { d.r(5, 10, 22, 26, 'h'); d.r(6, 36, 20, 1, 'h'); }, bMid = (d) => { d.r(5, 10, 22, 17, 'h'); d.r(6, 27, 20, 1, 'h'); };
+const bWavy = (d) => { for (let y = 10; y <= 37; y++) { const w = Math.floor(y / 3) % 2 ? 2 : 0; d.r(5 - w / 2 - (y > 24 ? 1 : 0), y, 22 + w + (y > 24 ? 2 : 0), 1, 'h'); } };
+const tails = (d) => d.S(() => { d.e(3.5, 17, 2.6, 8, 'h'); d.r(4, 9, 3, 3, 'h'); d.r(4, 10, 3, 1, 'a'); });
+const lowTails = (d) => d.S(() => { d.e(5.5, 28, 2.6, 8, 'h'); d.r(4, 21, 3, 1, 'a'); });
+const braids = (d) => d.S(() => { d.r(4, 19, 3, 15, 'h'); d.x(5, 34, 'h'); for (const y of [22, 26, 30]) d.r(4, y, 3, 1, 'D'); d.r(4, 32, 3, 1, 'a'); });
+const ponySide = (d) => { d.e(27.5, 19, 3, 9, 'h'); d.r(24, 10, 3, 3, 'h'); d.r(25, 11, 2, 2, 'a'); }, ponyHigh = (d) => { d.e(26, 7, 3.5, 4, 'h'); d.e(28, 16, 2.6, 8, 'h'); d.r(23, 8, 2, 2, 'a'); };
+const bun = (d) => d.e(15.5, 3.5, 4.5, 3.6, 'h'), buns2 = (d) => d.S(() => d.e(7.5, 4.5, 3.6, 3.6, 'h'));
+const spikes = (d) => { for (let k = 0; k < 4; k++) d.p([[6 + 5 * k, 8], [8.5 + 5 * k, 0], [11 + 5 * k, 8]], 'h'); }, mohawk = (d) => { d.r(14, 1, 4, 10, 'h'); d.e(15.5, 2, 2.6, 2, 'h'); };
+const ahoge = (d) => { d.l(15, 5, 13, 1, 'h', 2); d.l(13, 1, 17, 2, 'h'); }, afro = (d) => { d.e(15.5, 10, 13, 10.5, 'h', 0, 16); d.S(() => d.r(3, 16, 4, 4, 'h')); };
+const curls = (d) => d.S(() => { for (let i = 0; i < 4; i++) d.e(4.5, 14.5 + i * 3.6, 2.6, 2.3, 'h'); });
+const drills = (d) => d.S(() => { for (let i = 0; i < 5; i++) d.e(4 + (i % 2), 16 + i * 4, 2.4, 2.2, 'h'); });
+const H_ = (n, f, b) => [n, (d) => f.forEach(fn => fn(d)), b ? (d) => b.forEach(fn => fn(d)) : null];
+const HAIR_DEF = {
+    short: H_('짧은 머리', [capN, fZig, sEar]), sidepart: H_('가르마', [capN, fSide, sEar]), bowl: H_('바가지', [capN, fFull, sEar]),
+    bob: H_('단발', [capN, fFull, sBob]), bobpart: H_('가르마 단발', [capN, fPart, sBob]), midi: H_('중단발', [capN, fWisp, sChin], [bMid]),
+    long: H_('긴 생머리', [capN, fFull, sChin], [bLong]), longpart: H_('긴 가르마', [capN, fPart, sChin], [bLong]), hime: H_('공주 컷', [capN, fFull, sHime], [bLong]),
+    wavy: H_('웨이브', [capBig, fSide, sChin], [bWavy]), curly: H_('곱슬', [capBig, fWisp, curls]), afro: H_('아프로', [afro, fNone]),
+    tails: H_('양갈래', [capN, fFull, sEar, tails]), lowtails: H_('낮은 양갈래', [capN, fPart, sEar, lowTails]), braids: H_('땋은 머리', [capN, fPart, sEar, braids]),
+    drills: H_('롤 머리', [capN, fFull, sEar, drills]), pony: H_('옆 포니테일', [capN, fSide, sEar, ponySide]), ponyhigh: H_('높은 포니테일', [capN, fWisp, sEar, ponyHigh]),
+    bun: H_('올림머리', [capN, fPart, sEar, bun]), buns: H_('당고머리', [capN, fFull, sEar, buns2]), spiky: H_('삐죽 머리', [capN, fZig, sEar, spikes]),
+    ahoge: H_('바보털', [capN, fZig, sEar, ahoge]), slick: H_('올백', [capN, fNone, sEar]), mohawk: H_('모히칸', [capFlat, mohawk]), buzz: H_('스포츠', [capFlat]), none: H_('없음', []),
 };
 
 // ───── 표정 ─────
-const P = (...pts) => { const g = Array.from({ length: H }, () => E.split('')); for (const [y, x, ch] of pts) g[y][x] = ch; return g.map(r => r.join('')); };
-const eyes = [[8, 5, 'e'], [9, 5, 'e'], [8, 10, 'e'], [9, 10, 'e']], blush = [[10, 4, 'b'], [10, 11, 'b']], shut = [[9, 4, 'e'], [9, 5, 'e'], [9, 6, 'e'], [9, 9, 'e'], [9, 10, 'e'], [9, 11, 'e']];
-const arc = [[8, 5, 'e'], [9, 4, 'e'], [9, 6, 'e'], [8, 10, 'e'], [9, 9, 'e'], [9, 11, 'e']];
-const mSmile = [[11, 6, 'm'], [12, 7, 'm'], [12, 8, 'm'], [11, 9, 'm']], mFlat = [[11, 7, 'm'], [11, 8, 'm']], mFrown = [[12, 6, 'm'], [11, 7, 'm'], [11, 8, 'm'], [12, 9, 'm']], mOpen = [[11, 7, 'm'], [11, 8, 'm'], [12, 7, 'm'], [12, 8, 'p']];
-const FACE = {
-    smile: P(...eyes, ...blush, ...mSmile), happy: P(...arc, ...blush, ...mOpen), neutral: P(...eyes, ...mFlat),
-    sad: P(...eyes, [7, 4, 'e'], [6, 5, 'e'], [6, 10, 'e'], [7, 11, 'e'], ...mFrown), angry: P(...eyes, [6, 4, 'e'], [7, 5, 'e'], [7, 10, 'e'], [6, 11, 'e'], [11, 6, 'm'], [11, 7, 'm'], [11, 8, 'm'], [11, 9, 'm']),
-    surprised: P(...eyes, [7, 5, 'e'], [7, 10, 'e'], [11, 7, 'm'], [11, 8, 'm'], [12, 7, 'm'], [12, 8, 'm']), sleepy: P(...shut, [11, 7, 'm'], [6, 12, 't'], [5, 13, 't']),
-    wink: P([8, 5, 'e'], [9, 5, 'e'], [9, 9, 'e'], [9, 10, 'e'], [9, 11, 'e'], ...blush, ...mSmile), cry: P(...shut, [10, 5, 't'], [11, 5, 't'], [10, 10, 't'], [11, 10, 't'], ...mFrown),
-    dizzy: P([8, 4, 'e'], [8, 6, 'e'], [9, 5, 'e'], [10, 4, 'e'], [10, 6, 'e'], [8, 9, 'e'], [8, 11, 'e'], [9, 10, 'e'], [10, 9, 'e'], [10, 11, 'e'], [11, 6, 'm'], [12, 7, 'm'], [11, 8, 'm'], [12, 9, 'm'], [6, 12, 't'], [7, 12, 't']),
-    love: P([8, 4, 'p'], [8, 6, 'p'], [9, 4, 'p'], [9, 5, 'p'], [9, 6, 'p'], [10, 5, 'p'], [8, 9, 'p'], [8, 11, 'p'], [9, 9, 'p'], [9, 10, 'p'], [9, 11, 'p'], [10, 10, 'p'], ...mSmile),
-    smirk: P(...eyes, [11, 7, 'm'], [11, 8, 'm'], [10, 9, 'm']), shy: P([9, 5, 'e'], [9, 10, 'e'], [10, 3, 'b'], [10, 4, 'b'], [10, 5, 'b'], [10, 10, 'b'], [10, 11, 'b'], [10, 12, 'b'], [11, 7, 'm']),
-    tongue: P(...arc, ...blush, [11, 7, 'm'], [11, 8, 'm'], [12, 8, 'p']),
+const eOpen = (d) => { d.S(() => d.r(11, 14, 2, 3, 'e')); d.x(11, 14, 'W'); d.x(19, 14, 'W'); }, eArc = (d) => d.S(() => { d.x(10, 16, 'e'); d.x(11, 15, 'e'); d.x(12, 15, 'e'); d.x(13, 16, 'e'); });
+const eShut = (d) => d.S(() => d.r(10, 16, 4, 1, 'e')), eWide = (d) => { d.S(() => d.r(10, 13, 3, 4, 'e')); d.x(10, 13, 'W'); d.x(19, 13, 'W'); }, eDown = (d) => d.S(() => d.r(11, 16, 2, 1, 'e'));
+const eX = (d) => d.S(() => { d.l(10, 13, 13, 16, 'e'); d.l(13, 13, 10, 16, 'e'); }), eHeart = (d) => d.S(() => { d.x(10, 13, 'p'); d.x(12, 13, 'p'); d.r(9, 14, 5, 1, 'p'); d.r(10, 15, 3, 1, 'p'); d.x(11, 16, 'p'); });
+const blush = (d) => d.S(() => d.r(8, 18, 3, 1, 'b')), blushBig = (d) => d.S(() => d.r(8, 17, 4, 2, 'b'));
+const brSad = (d) => d.S(() => d.l(9, 12, 12, 11, 'e')), brMad = (d) => d.S(() => d.l(9, 10, 12, 12, 'e'));
+const mSmile = (d) => { d.x(13, 19, 'm'); d.x(18, 19, 'm'); d.r(14, 20, 4, 1, 'm'); }, mFlat = (d) => d.r(14, 20, 4, 1, 'm'), mFrown = (d) => { d.r(14, 19, 4, 1, 'm'); d.x(13, 20, 'm'); d.x(18, 20, 'm'); };
+const mOpen = (d) => { d.r(14, 19, 4, 2, 'm'); d.r(15, 20, 2, 1, 'p'); }, mO = (d) => d.r(15, 19, 2, 2, 'm'), mSmirk = (d) => { d.r(14, 20, 3, 1, 'm'); d.x(17, 19, 'm'); d.x(18, 18, 'm'); };
+const mTongue = (d) => { d.r(14, 19, 4, 1, 'm'); d.r(15, 20, 2, 2, 'p'); }, mWavy = (d) => { for (let i = 0; i < 6; i++) d.x(13 + i, 20 - (i % 2), 'm'); }, mCat = (d) => { d.x(13, 19, 'm'); d.x(14, 20, 'm'); d.x(15, 19, 'm'); d.x(16, 19, 'm'); d.x(17, 20, 'm'); d.x(18, 19, 'm'); };
+const tears = (d) => d.S(() => d.r(11, 17, 1, 4, 't')), sweat = (d) => { d.r(24, 9, 1, 3, 't'); d.x(25, 11, 't'); };
+const F_ = (...fs) => (d) => fs.forEach(fn => fn(d));
+const FACE_DEF = {
+    smile: F_(eOpen, blush, mSmile), happy: F_(eArc, blush, mOpen), neutral: F_(eOpen, mFlat), sad: F_(eOpen, brSad, mFrown), angry: F_(eOpen, brMad, mFlat),
+    surprised: F_(eWide, mO), sleepy: F_(eShut, mFlat), wink: F_((d) => { d.r(11, 14, 2, 3, 'e'); d.x(11, 14, 'W'); d.r(18, 16, 4, 1, 'e'); }, blush, mSmile), cry: F_(eShut, tears, mFrown),
+    dizzy: F_(eX, mWavy, sweat), love: F_(eHeart, blush, mSmile), smirk: F_(eOpen, mSmirk), shy: F_(eDown, blushBig, mFlat), tongue: F_(eArc, blush, mTongue), cat: F_(eOpen, blush, mCat),
+    worried: F_(eOpen, brSad, mWavy, sweat),
 };
-export const FACES = { auto: '기분 따라', smile: '미소', happy: '활짝', neutral: '무표정', sad: '슬픔', angry: '화남', surprised: '놀람', sleepy: '졸림', wink: '윙크', cry: '눈물', dizzy: '어질', love: '하트', smirk: '씨익', shy: '수줍', tongue: '메롱' };
+export const FACES = { auto: '기분 따라', smile: '미소', happy: '활짝', neutral: '무표정', sad: '슬픔', angry: '화남', surprised: '놀람', sleepy: '졸림', wink: '윙크', cry: '눈물', dizzy: '어질', love: '하트', smirk: '씨익', shy: '수줍', tongue: '메롱', cat: '고양이 입', worried: '걱정' };
 const MOOD_FACE = ['dizzy', 'sad', 'neutral', 'smile', 'happy'];
 
-// ───── 옷 ─────
-const tee = m(15, '....cccccccc....', '...cccccccccc...', '.....cccccc.....*3'), long = m(15, '....cccccccc....', '...cccccccccc...*3', '.....cccccc.....');
-const tank = m(15, '.....cccccc.....*5'), crop = m(15, '....cccccccc....', '...cccccccccc...', '.....cccccc.....');
-const stripes = m(17, '.....aaaaaa.....', E, '.....aaaaaa.....'), collar = m(15, '.....ww..ww.....'), buttons = m(16, '.......k........*4'), pocket = m(18, '......LLLL......');
-const hem = m(19, '.....aaaaaa.....'), cuffs = m(18, '...aa......aa...'), belt = m(19, '.....kkakkk.....'), tie = m(15, '.......aa.......*3', '.......a........');
-const vee = m(15, '.......ss.......'), heart = m(17, '......a.a.......', '......aaa.......', '.......a........'), star = m(17, '.......a........', '......aaa.......', '.......a........');
-const skirtPart = m(20, '....cccccccc....', '...cccccccccc...*2'), skirtLong = m(20, '....cccccccc....', '...cccccccccc...*3', '..cccccccccccc..');
+// ───── 옷: 조각 ─────
+const torso = (d, y1 = 35) => { d.r(11, 23, 10, 1, 'c'); d.r(10, 24, 12, y1 - 23, 'c'); };
+const slS = (d) => d.S(() => d.r(7, 24, 3, 4, 'c')), slL = (d) => d.S(() => { d.r(7, 24, 3, 11, 'c'); d.r(7, 34, 3, 1, 'D'); }), slPuff = (d) => d.S(() => d.e(8, 26, 2.6, 3, 'c'));
+const neckV = (d) => d.p([[13, 23], [18, 23], [15.5, 27]], 's'), collarW = (d) => d.S(() => d.p([[12, 23], [15, 23], [13, 26]], 'w'));
+const btn3 = (d) => { for (const y of [27, 30, 33]) d.x(15, y, 'k'); }, stripesT = (d) => { d.r(10, 27, 12, 2, 'a'); d.r(10, 31, 12, 2, 'a'); };
+const flare = (d, y1, w) => d.p([[10, 35], [21, 35], [21 + w, y1], [10 - w, y1]], 'c');
+const heartAt = (d, x, y, ch) => { d.x(x, y, ch); d.x(x + 2, y, ch); d.r(x - 1, y + 1, 5, 1, ch); d.r(x, y + 2, 3, 1, ch); d.x(x + 1, y + 3, ch); };
 const TOPS = {
-    tee: ['반팔', tee], long: ['긴팔', long], tank: ['민소매', tank], crop: ['크롭', crop], stripe: ['줄무늬 반팔', U(tee, stripes)], stripelong: ['줄무늬 긴팔', U(long, stripes)],
-    shirt: ['셔츠', U(long, collar, buttons)], polo: ['폴로', U(tee, collar)], hoodie: ['후드티', U(long, pocket, m(15, '......k..k......*2'))], sweater: ['스웨터', U(long, hem, cuffs)],
-    turtle: ['목폴라', U(long, m(14, '......cccc......'))], vneck: ['브이넥', U(tee, vee)], hearttee: ['하트 티', U(tee, heart)], startee: ['별 티', U(long, star)],
-    overalls: ['멜빵', U(re(tee, 'c', 'w'), m(15, '.....c....c.....*2', '.....cccccc.....*3'))], apron: ['앞치마', U(tee, m(16, '......wwww......', '.....wwwwww.....*3'))],
-    sailor: ['세일러', U(tee, m(15, '....wwwwwwww....', '.....ww..ww.....'), m(16, '.......aa.......', '.......a........'))], suit: ['정장', U(long, m(15, '.....kwwwwk.....', '......kwwk......'), tie)],
-    kimono: ['기모노 · 한복', U(long, m(15, '.....a....a.....', '......a..a......', '.......aa.......'), m(19, '.....aaaaaa.....'))], armor: ['갑옷', U(tee, m(16, '.....LLLLLL.....'), m(18, '.....kkkkkk.....'))],
-    chain: ['사슬 갑옷', U(tee, m(16, '.....k.k.k......', '......k.k.k.....', '.....k.k.k......', '......k.k.k.....'))], tunic: ['튜닉', U(tee, belt)],
-    dress: ['원피스', U(tee, skirtPart)], longdress: ['긴 드레스', U(long, skirtLong)], sundress: ['끈 원피스', U(tank, skirtPart, hem)], offshoulder: ['오프숄더', m(16, '...cccccccccc...*3', '.....cccccc.....')],
+    tee: ['반팔', (d) => { torso(d); slS(d); }], long: ['긴팔', (d) => { torso(d); slL(d); }], tank: ['민소매', (d) => { d.r(11, 25, 10, 11, 'c'); d.S(() => d.r(11, 23, 2, 2, 'c')); }],
+    crop: ['크롭', (d) => { torso(d, 30); slS(d); }], stripe: ['줄무늬 반팔', (d) => { torso(d); slS(d); stripesT(d); }], stripelong: ['줄무늬 긴팔', (d) => { torso(d); slL(d); stripesT(d); d.S(() => { d.r(7, 27, 3, 2, 'a'); d.r(7, 31, 3, 2, 'a'); }); }],
+    shirt: ['셔츠', (d) => { torso(d); slL(d); collarW(d); btn3(d); }], polo: ['폴로', (d) => { torso(d); slS(d); collarW(d); d.x(15, 26, 'k'); d.x(15, 28, 'k'); }],
+    hoodie: ['후드티', (d) => { torso(d); slL(d); d.p([[12, 30], [19, 30], [20, 34], [11, 34]], 'D'); d.r(14, 24, 1, 4, 'w'); d.r(17, 24, 1, 4, 'w'); d.S(() => d.p([[11, 23], [14, 23], [12, 25]], 'D')); }, (d) => d.e(15.5, 22, 8, 4, 'c')],
+    sweater: ['스웨터', (d) => { torso(d); slL(d); d.r(10, 34, 12, 2, 'D'); d.r(13, 22, 6, 2, 'D'); for (let x = 11; x <= 20; x += 3) d.r(x, 26, 1, 7, 'L'); }], turtle: ['목폴라', (d) => { torso(d); slL(d); d.r(13, 20, 6, 4, 'c'); d.r(13, 21, 6, 1, 'D'); }],
+    vneck: ['브이넥', (d) => { torso(d); slS(d); neckV(d); }], hearttee: ['하트 티', (d) => { torso(d); slS(d); heartAt(d, 14, 27, 'a'); }], startee: ['별 티', (d) => { torso(d); slL(d); d.r(15, 26, 2, 5, 'a'); d.r(13, 28, 6, 1, 'a'); d.x(14, 30, 'a'); d.x(17, 30, 'a'); }],
+    overalls: ['멜빵', (d) => { d.r(11, 23, 10, 1, 'w'); d.r(10, 24, 12, 12, 'w'); d.S(() => d.r(7, 24, 3, 4, 'w')); d.r(12, 28, 8, 8, 'c'); d.S(() => { d.r(12, 23, 2, 5, 'c'); d.x(12, 28, 'a'); }); d.r(14, 31, 4, 3, 'D'); }],
+    apron: ['앞치마', (d) => { torso(d); slS(d); d.r(12, 26, 8, 10, 'w'); d.S(() => d.l(12, 26, 14, 23, 'w')); d.r(14, 30, 4, 3, 'L'); }],
+    sailor: ['세일러', (d) => { d.r(11, 23, 10, 1, 'w'); d.r(10, 24, 12, 12, 'w'); d.S(() => { d.r(7, 24, 3, 4, 'w'); d.r(7, 27, 3, 1, 'c'); }); d.p([[10, 23], [21, 23], [15.5, 30]], 'c'); d.p([[13, 23], [18, 23], [15.5, 27]], 's'); d.p([[15.5, 28], [18, 32], [13, 32]], 'a'); }],
+    suit: ['정장', (d) => { torso(d); slL(d); d.p([[13, 23], [18, 23], [15.5, 31]], 'w'); d.r(15, 24, 2, 6, 'a'); d.S(() => d.l(13, 23, 15, 31, 'D')); d.x(15, 33, 'k'); }],
+    kimono: ['기모노 · 한복', (d) => { torso(d); d.S(() => d.r(5, 24, 5, 9, 'c')); d.l(12, 23, 18, 29, 'a', 2); d.l(19, 23, 16, 26, 'a', 2); d.r(10, 31, 12, 4, 'a'); d.r(14, 32, 4, 2, 'D'); }],
+    armor: ['갑옷', (d) => { torso(d); d.S(() => { d.e(8, 25, 3.2, 2.6, 'c'); d.r(7, 28, 3, 5, 'k'); }); d.r(12, 25, 8, 3, 'L'); d.r(10, 30, 12, 1, 'D'); d.r(15, 24, 1, 12, 'D'); d.r(10, 34, 12, 1, 'D'); }],
+    chain: ['사슬 갑옷', (d) => { torso(d); slS(d); for (let y = 24; y <= 35; y++) for (let x = 10 + (y % 2); x <= 21; x += 2) d.x(x, y, 'L'); d.r(10, 33, 12, 2, 'k'); }],
+    tunic: ['튜닉', (d) => { torso(d, 38); slS(d); neckV(d); d.r(10, 33, 12, 2, 'k'); d.r(15, 33, 2, 2, 'a'); }],
+    dress: ['원피스', (d) => { torso(d); slS(d); flare(d, 41, 3); d.r(10, 33, 12, 1, 'D'); }], longdress: ['긴 드레스', (d) => { torso(d); slL(d); flare(d, 45, 5); d.r(5, 44, 22, 1, 'a'); d.r(10, 33, 12, 1, 'a'); }],
+    sundress: ['끈 원피스', (d) => { d.r(11, 25, 10, 11, 'c'); d.S(() => d.r(12, 23, 1, 2, 'c')); flare(d, 41, 4); d.r(6, 40, 20, 1, 'a'); }], offshoulder: ['오프숄더', (d) => { d.r(10, 27, 12, 9, 'c'); d.r(7, 26, 18, 3, 'c'); d.r(7, 28, 18, 1, 'D'); }],
+    blouse: ['퍼프 블라우스', (d) => { torso(d); slPuff(d); d.S(() => d.p([[15, 24], [12, 22], [12, 27]], 'a')); d.r(15, 24, 2, 2, 'D'); }], jersey: ['운동복 상의', (d) => { torso(d); slS(d); d.S(() => d.r(10, 24, 1, 12, 'a')); d.r(14, 27, 1, 5, 'w'); d.r(16, 27, 2, 1, 'w'); d.r(17, 28, 1, 2, 'w'); d.r(16, 29, 2, 1, 'w'); d.r(16, 30, 1, 2, 'w'); d.r(16, 31, 2, 1, 'w'); }],
+    raglan: ['래글런', (d) => { torso(d); d.S(() => { d.r(7, 24, 3, 11, 'a'); d.l(10, 24, 12, 23, 'a'); }); }], plaidshirt: ['체크 셔츠', (d) => { torso(d); slL(d); collarW(d); for (const y of [26, 30, 34]) d.r(10, y, 12, 1, 'a'); for (const x of [12, 15, 19]) d.r(x, 24, 1, 12, 'a'); }],
+    maid: ['메이드복', (d) => { torso(d); slPuff(d); flare(d, 41, 3); d.r(12, 26, 8, 13, 'w'); collarW(d); d.r(8, 41, 16, 1, 'w'); }], waistcoat: ['조끼 + 셔츠', (d) => { d.r(11, 23, 10, 1, 'w'); d.r(10, 24, 12, 12, 'w'); d.S(() => d.r(7, 24, 3, 11, 'w')); d.S(() => d.p([[10, 24], [14, 24], [15, 36], [10, 36]], 'c')); d.x(15, 29, 'k'); d.x(15, 32, 'k'); }],
 };
-const pants = m(20, '.....cccccc.....', '.....cc..cc.....*3'), shorts = m(20, '.....cccccc.....', '.....cc..cc.....'), wide = m(20, '.....cccccc.....', '....ccc..ccc....*3');
-const skirt = m(20, '....cccccccc....', '...cccccccccc...'), longskirt = m(20, '....cccccccc....', '...cccccccccc...*3'), mini = m(20, '....cccccccc....');
-const beltB = m(20, '.....kkakkk.....');
+const hips = (d) => d.r(10, 35, 12, 3, 'c'), legs = (d, y1 = 43) => d.S(() => d.r(11, 38, 4, y1 - 37, 'c')), beltK = (d) => { d.r(10, 35, 12, 1, 'k'); d.r(15, 35, 2, 1, 'a'); };
+const skirtP = (d, y1, w) => d.p([[10, 35], [21, 35], [21 + w, y1], [10 - w, y1]], 'c');
 const BOTTOMS = {
-    pants: ['바지', pants], jeans: ['청바지', U(pants, m(23, '.....LL..LL.....'))], slacks: ['슬랙스', U(pants, beltB)], cargo: ['카고 바지', U(pants, m(21, '.....L....L.....'))],
-    sweat: ['트레이닝 바지', U(pants, m(21, '.....a....a.....*3'))], patched: ['기운 바지', U(pants, m(22, '.....aa.........'))], greaves: ['다리 갑옷', U(pants, m(22, '.....LL..LL.....'), beltB)],
-    shorts: ['반바지', shorts], shortscuff: ['접은 반바지', U(shorts, m(21, '.....LL..LL.....'))], swim: ['수영복', U(shorts, m(20, '.....aaaaaa.....'))],
-    wide: ['통바지', wide], hakama: ['하카마', U(wide, m(20, '.....aaaaaa.....'))], skirt: ['치마', skirt], pleated: ['주름치마', U(skirt, m(21, '....L..LL..L....'))],
-    plaid: ['체크 치마', U(skirt, m(21, '...a..a..a..a...'))], frill: ['프릴 치마', U(skirt, m(22, '...wwwwwwwwww...'))], mini: ['미니스커트', mini], tights: ['치마 + 스타킹', U(skirt, m(22, '.....kk..kk.....*2'))],
-    longskirt: ['긴 치마', longskirt], tiered: ['티어드 치마', U(longskirt, m(21, '...aaaaaaaaaa...'), m(23, '...aaaaaaaaaa...'))],
+    pants: ['바지', (d) => { hips(d); legs(d); }], jeans: ['청바지', (d) => { hips(d); legs(d); d.S(() => { d.r(11, 43, 4, 1, 'L'); d.r(11, 36, 2, 1, 'L'); }); d.r(15, 36, 1, 2, 'D'); }], slacks: ['슬랙스', (d) => { hips(d); legs(d); beltK(d); d.S(() => d.r(13, 38, 1, 6, 'D')); }],
+    cargo: ['카고 바지', (d) => { hips(d); legs(d); d.S(() => { d.r(10, 39, 3, 3, 'D'); d.r(10, 39, 3, 1, 'L'); }); }], sweat: ['트레이닝 바지', (d) => { hips(d); legs(d); d.S(() => { d.r(11, 35, 1, 9, 'w'); d.r(11, 43, 4, 1, 'D'); }); }],
+    patched: ['기운 바지', (d) => { hips(d); legs(d); d.r(11, 40, 3, 3, 'a'); d.r(18, 38, 2, 2, 'a'); }], greaves: ['다리 갑옷', (d) => { hips(d); legs(d); beltK(d); d.S(() => { d.r(11, 39, 4, 3, 'L'); d.r(11, 42, 4, 1, 'D'); }); }],
+    shorts: ['반바지', (d) => { hips(d); legs(d, 39); }], shortscuff: ['접은 반바지', (d) => { hips(d); legs(d, 40); d.S(() => d.r(11, 40, 4, 1, 'L')); }], swim: ['수영복', (d) => { hips(d); legs(d, 39); d.r(10, 35, 12, 1, 'a'); d.r(15, 36, 2, 2, 'w'); }],
+    capri: ['7부 바지', (d) => { hips(d); legs(d, 41); d.S(() => d.r(11, 41, 4, 1, 'D')); }], wide: ['통바지', (d) => { hips(d); d.S(() => d.p([[10, 38], [15, 38], [15, 44], [8, 44]], 'c')); }],
+    hakama: ['하카마', (d) => { d.r(10, 34, 12, 2, 'a'); hips(d); d.S(() => { d.p([[10, 38], [15, 38], [15, 44], [7, 44]], 'c'); d.l(12, 38, 10, 44, 'D'); }); }], bloomers: ['호박 바지', (d) => { hips(d); d.S(() => { d.e(12.5, 39.5, 3.4, 2.6, 'c'); d.r(11, 42, 4, 1, 'w'); }); }],
+    skirt: ['치마', (d) => skirtP(d, 40, 3)], pleated: ['주름치마', (d) => { skirtP(d, 40, 3); for (let x = 9; x <= 22; x += 3) d.l(x < 16 ? x + 2 : x - 1, 36, x, 40, 'D'); }], plaid: ['체크 치마', (d) => { skirtP(d, 40, 3); d.r(8, 38, 16, 1, 'a'); for (const x of [11, 15, 19]) d.r(x, 35, 1, 6, 'a'); }],
+    frill: ['프릴 치마', (d) => { skirtP(d, 39, 3); for (let x = 6; x <= 25; x++) d.x(x, 40 + (x % 2), 'w'); d.r(7, 40, 18, 1, 'w'); }], mini: ['미니스커트', (d) => skirtP(d, 38, 2)], tights: ['치마 + 스타킹', (d) => { d.S(() => d.r(11, 38, 4, 6, 'k')); skirtP(d, 40, 3); }],
+    longskirt: ['긴 치마', (d) => skirtP(d, 44, 4)], tiered: ['티어드 치마', (d) => { skirtP(d, 44, 5); d.r(8, 38, 16, 1, 'a'); d.r(7, 41, 18, 1, 'a'); d.r(5, 44, 22, 1, 'a'); }],
 };
-const jacket = m(15, '...ccc....ccc...', '..cccc....cccc..*4'), coatLow = m(20, '....cc....cc....*2'), coatLong = m(20, '....cc....cc....*4');
-const robe = m(15, '...cccccccccc...', '..cccccccccccc..*4', '....cccccccc....*4'), capeB = m(14, '...cccccccccc...', '..cccccccccccc..*8', '...cccccccccc...');
-const hoodRing = m(2, '....cccccccc....', '...cc......cc...', '..cc........cc..*9', '...c........c...'), clasp = m(14, '......cccc......');
+const sides = (d, y1 = 35) => d.S(() => d.r(10, 23, 4, y1 - 22, 'c')), slO = (d) => d.S(() => { d.r(6, 24, 4, 11, 'c'); d.r(6, 34, 4, 1, 'D'); }), lapel = (d) => d.S(() => d.l(13, 23, 12, 29, 'D'));
+const capeB = (d) => d.p([[8, 22], [23, 22], [27, 44], [4, 44]], 'c'), hoodF = (d) => d.o(15.5, 13, 11, 10.5, 8.8, 8.4, 'c', 2, 22), hoodB = (d) => d.e(15.5, 13, 11, 10.5, 'c', 2, 24);
 const OUTERS = {
-    coat: ['코트', U(jacket, coatLow)], longcoat: ['롱코트', U(jacket, coatLong)], trench: ['트렌치코트', U(jacket, coatLong, m(19, '..kkkk....kkkk..'))], labcoat: ['가운', U(jacket, coatLong, m(17, '..cL........Lc..'))],
-    jacket: ['재킷', jacket], blazer: ['블레이저', U(jacket, m(16, '.....k....k.....*2'))], denim: ['청재킷', U(jacket, m(19, '..aa........aa..'), m(16, '....L......L....'))], cardigan: ['가디건', U(jacket, m(16, '.....k....k.....*4'))],
-    parka: ['파카', U(jacket, coatLow, m(15, '...www....www...'))], puffer: ['패딩', U(m(15, '..cccc....cccc..', '.ccccc....ccccc.*3', '..cccc....cccc..'), m(17, '.LLLLL....LLLLL.'))], vest: ['조끼', m(15, '.....cc..cc.....*5')],
-    haori: ['하오리', U(jacket, coatLow, m(15, '.....a....a.....*7'))], robe: ['로브', U(robe, m(19, '..kkkkkaakkkkk..'))], poncho: ['판초 · 우비', m(14, '.....cccccc.....', '...cccccccccc...', '..cccccccccccc..*2', '...cccccccccc...', '....cccccccc....')],
-    shawl: ['숄', m(14, '....cccccccc....', '...cccccccccc...', '...ccc....ccc...')], cape: ['망토', clasp, capeB], cloak: ['후드 망토', U(hoodRing, clasp, m(15, '...ccc....ccc...', '..ccc......ccc..*5')), capeB],
-    raincoat: ['후드 우비', U(hoodRing, jacket, coatLow)], pauldron: ['견갑', U(m(15, '..cccc....cccc..', '..ccL......Lcc..'))], scarfcoat: ['목도리 코트', U(jacket, coatLow, m(13, '....aaaaaaaa....*2', '.........aa.....*3'))],
+    jacket: ['재킷', (d) => { sides(d); slO(d); lapel(d); }], blazer: ['블레이저', (d) => { sides(d); slO(d); d.S(() => d.p([[13, 23], [14, 23], [14, 30], [11, 26]], 'D')); d.x(13, 32, 'a'); }],
+    denim: ['청재킷', (d) => { sides(d); slO(d); d.S(() => { d.r(6, 33, 4, 2, 'a'); d.r(10, 23, 3, 2, 'a'); d.r(11, 28, 2, 2, 'L'); }); }], cardigan: ['가디건', (d) => { sides(d, 37); slO(d); d.S(() => { for (const y of [26, 30, 34]) d.x(13, y, 'k'); d.r(10, 36, 4, 2, 'D'); }); }],
+    coat: ['코트', (d) => { sides(d, 40); slO(d); lapel(d); }], longcoat: ['롱코트', (d) => { sides(d, 44); slO(d); lapel(d); }], trench: ['트렌치코트', (d) => { sides(d, 44); slO(d); lapel(d); d.S(() => { d.r(10, 31, 4, 2, 'k'); d.x(12, 27, 'k'); }); }],
+    labcoat: ['가운', (d) => { sides(d, 43); slO(d); lapel(d); d.S(() => d.r(11, 36, 2, 3, 'D')); }], parka: ['파카', (d) => { sides(d, 40); slO(d); d.S(() => { d.e(11.5, 23.5, 3, 1.6, 'w'); d.r(6, 34, 4, 1, 'w'); }); }, hoodB],
+    puffer: ['패딩', (d) => { d.S(() => { d.r(9, 23, 5, 14, 'c'); d.r(5, 24, 5, 11, 'c'); for (const y of [27, 31, 35]) d.r(5, y, 9, 1, 'D'); }); }], vest: ['조끼', (d) => { sides(d, 36); d.S(() => d.x(13, 29, 'k')); }],
+    haori: ['하오리', (d) => { sides(d, 41); d.S(() => { d.r(4, 24, 6, 10, 'c'); d.r(13, 23, 1, 19, 'a'); d.r(4, 33, 6, 1, 'D'); }); }], robe: ['로브', (d) => { d.r(11, 23, 10, 1, 'c'); d.r(9, 24, 14, 21, 'c'); slO(d); d.r(15, 24, 1, 21, 'D'); d.r(9, 32, 14, 2, 'k'); d.r(15, 32, 2, 2, 'a'); }],
+    poncho: ['판초', (d) => { d.p([[15.5, 21], [26, 35], [5, 35]], 'c'); d.r(6, 33, 20, 1, 'a'); d.p([[13, 22], [18, 22], [15.5, 25]], 's'); }], shawl: ['숄', (d) => { d.p([[15.5, 22], [24, 29], [7, 29]], 'c'); d.p([[13, 22], [18, 22], [15.5, 25]], 's'); for (let x = 8; x <= 23; x += 2) d.x(x, 30, 'a'); }],
+    cape: ['망토', (d) => { d.S(() => d.r(8, 23, 4, 3, 'c')); d.r(14, 23, 4, 2, 'a'); }, capeB], cloak: ['후드 망토', (d) => { hoodF(d); d.S(() => d.r(8, 23, 4, 12, 'c')); d.r(14, 23, 4, 2, 'a'); }, (d) => { hoodB(d); capeB(d); }],
+    raincoat: ['후드 우비', (d) => { hoodF(d); d.r(11, 23, 10, 1, 'c'); d.r(9, 24, 14, 17, 'c'); slO(d); d.r(15, 24, 1, 17, 'D'); for (const y of [27, 31, 35]) d.x(16, y, 'a'); }, hoodB],
+    pauldron: ['견갑', (d) => d.S(() => { d.e(8, 25, 3.6, 3, 'c'); d.r(6, 25, 5, 1, 'L'); d.r(7, 27, 4, 1, 'D'); })], scarfcoat: ['목도리 코트', (d) => { sides(d, 40); slO(d); d.r(11, 21, 10, 3, 'a'); d.r(18, 24, 3, 9, 'a'); d.r(18, 32, 3, 1, 'D'); }],
+    bomber: ['야구 점퍼', (d) => { sides(d); d.S(() => { d.r(6, 24, 4, 11, 'a'); d.r(6, 34, 4, 1, 'D'); d.r(10, 34, 4, 2, 'D'); d.r(10, 23, 3, 1, 'D'); }); }], kappa: ['어깨 망토', (d) => { d.p([[15.5, 21], [24, 30], [7, 30]], 'c'); d.p([[13, 22], [18, 22], [15.5, 24]], 's'); d.r(15, 24, 2, 2, 'a'); d.r(7, 30, 18, 1, 'D'); }],
 };
+const shoeB = (d) => d.S(() => { d.r(10, 43, 5, 3, 'c'); }), sole = (d, ch) => d.S(() => d.r(10, 45, 5, 1, ch)), shaft = (d, y0) => d.S(() => d.r(11, y0, 4, 43 - y0, 'c'));
 const SHOESET = {
-    shoes: ['신발', m(23, '.....cc..cc.....', '....ccc..ccc....')], sneakers: ['운동화', m(23, '.....cc..cc.....', '....www..www....')], hightop: ['하이탑', m(22, '.....cc..cc.....*2', '....www..www....')],
-    boots: ['부츠', m(22, '.....cc..cc.....*2', '....ccc..ccc....')], tall: ['롱부츠', m(21, '.....cc..cc.....*3', '....ccc..ccc....')], rain: ['장화', U(m(22, '.....cc..cc.....*2', '....ccc..ccc....'), m(22, '.....LL..LL.....'))],
-    fur: ['털 부츠', U(m(22, '.....cc..cc.....*2', '....ccc..ccc....'), m(22, '.....ww..ww.....'))], work: ['작업화', U(m(22, '.....cc..cc.....*2', '....kkk..kkk....'), m(23, '.....aa..aa.....'))],
-    sandals: ['샌들', m(23, '.....a....a.....', '....ccc..ccc....')], slippers: ['슬리퍼', m(24, '....ccc..ccc....')], loafers: ['로퍼', U(m(23, '.....cc..cc.....', '....ccc..ccc....'), m(23, '.....a....a.....'))],
-    heels: ['구두', m(23, '.....cc..cc.....', '....cc.kk.cc....')], geta: ['게다', m(23, '.....a....a.....', '....kkk..kkk....')], socks: ['양말', m(22, '.....cc..cc.....*2', '....ccc..ccc....')],
-    kneesocks: ['긴 양말 + 신발', U(m(21, '.....ww..ww.....*2'), m(23, '.....cc..cc.....', '....ccc..ccc....'))], sabatons: ['철 장화', U(m(21, '.....cc..cc.....*3', '....ccc..ccc....'), m(22, '.....LL..LL.....'))],
+    shoes: ['신발', (d) => { shoeB(d); sole(d, 'k'); }], sneakers: ['운동화', (d) => { shoeB(d); sole(d, 'w'); d.S(() => { d.r(10, 44, 2, 1, 'w'); d.x(13, 43, 'w'); }); }], hightop: ['하이탑', (d) => { shaft(d, 41); shoeB(d); sole(d, 'w'); d.S(() => { d.x(12, 42, 'w'); d.x(13, 43, 'w'); d.r(10, 44, 2, 1, 'w'); }); }],
+    boots: ['부츠', (d) => { shaft(d, 40); shoeB(d); sole(d, 'k'); }], tall: ['롱부츠', (d) => { shaft(d, 37); shoeB(d); sole(d, 'k'); d.S(() => d.r(11, 37, 4, 1, 'D')); }], rain: ['장화', (d) => { shaft(d, 39); shoeB(d); sole(d, 'D'); d.S(() => d.r(11, 39, 4, 1, 'L')); }],
+    fur: ['털 부츠', (d) => { shaft(d, 40); shoeB(d); sole(d, 'k'); d.S(() => d.r(10, 39, 6, 2, 'w')); }], work: ['작업화', (d) => { shaft(d, 41); shoeB(d); d.S(() => { d.r(9, 45, 6, 1, 'k'); d.x(12, 42, 'a'); d.x(13, 43, 'a'); d.r(10, 43, 2, 2, 'D'); }); }],
+    sandals: ['샌들', (d) => { sole(d, 'c'); d.S(() => { d.r(11, 43, 3, 1, 'c'); d.x(12, 44, 'c'); }); }], slippers: ['슬리퍼', (d) => d.S(() => { d.r(10, 44, 5, 2, 'c'); d.r(13, 44, 2, 1, 'D'); })],
+    loafers: ['로퍼', (d) => { d.S(() => { d.r(10, 44, 5, 2, 'c'); d.r(11, 44, 3, 1, 'a'); }); sole(d, 'k'); }], heels: ['구두', (d) => d.S(() => { d.r(10, 44, 4, 1, 'c'); d.r(10, 45, 2, 1, 'c'); d.r(13, 43, 2, 2, 'c'); d.x(14, 45, 'k'); })],
+    geta: ['게다', (d) => d.S(() => { d.r(9, 44, 6, 1, 'k'); d.x(10, 45, 'k'); d.x(13, 45, 'k'); d.l(12, 44, 11, 42, 'a'); d.l(12, 44, 14, 42, 'a'); })], socks: ['양말', (d) => { shaft(d, 41); d.S(() => { d.r(10, 43, 5, 3, 'c'); d.r(11, 41, 4, 1, 'a'); }); }],
+    kneesocks: ['긴 양말 + 신발', (d) => { d.S(() => { d.r(11, 38, 4, 5, 'w'); d.r(11, 38, 4, 1, 'a'); }); shoeB(d); sole(d, 'k'); }], sabatons: ['철 장화', (d) => { shaft(d, 38); shoeB(d); sole(d, 'k'); d.S(() => { d.r(11, 38, 4, 1, 'L'); d.r(11, 41, 4, 1, 'D'); d.r(10, 43, 5, 1, 'L'); }); }],
+    mary: ['메리제인', (d) => { d.S(() => { d.r(10, 44, 5, 2, 'c'); d.r(11, 43, 4, 1, 'c'); d.r(11, 43, 3, 1, 'w'); }); }], skates: ['스케이트', (d) => { shaft(d, 41); shoeB(d); d.S(() => { d.r(9, 46, 7, 1, 'L'); d.x(12, 42, 'w'); }); }],
 };
 const ACCS = {
-    cap: ['야구 모자', m(2, '....cccccccc....', '...cccccccccc...', '..cccccccccccc..', '..cccccccccccccc')], beanie: ['비니', U(m(2, '....cccccccc....', '...cccccccccc...', '..cccccccccccc..*2', '..aaaaaaaaaaaa..'), m(1, '.......ww.......'))],
-    straw: ['챙 넓은 모자', m(2, '.....cccccc.....', '....cccccccc....', '....aaaaaaaa....', 'cccccccccccccccc', '.cccccccccccccc.')], tophat: ['실크햇', m(0, '.....cccccc.....*4', '.....aaaaaa.....', '...cccccccccc...')],
-    witch: ['마녀 모자', m(0, '.......cc.......', '......ccc.......', '.....cccc.......', '....cccccc......', '...ccaaaaaacc...', '.cccccccccccccc.')], beret: ['베레모', m(2, '......ccccccc...', '....ccccccccccc.', '...ccccccccccc..')],
-    helmet: ['투구 · 헬멧', U(m(2, '....cccccccc....', '...cccccccccc...', '..cccccccccccc..*3', '..cc........cc..*2'), m(3, '.......LL.......*3'))], bandana: ['두건', m(4, '...cccccccccc...', '..cccccccccccc..', '.............cc.')],
-    crown: ['왕관', m(1, '....c..cc..c....', '....cccccccc....', '....caccacca....')], tiara: ['티아라', m(4, '.....ccaacc.....')], headband: ['머리띠', m(5, '..cccccccccccc..')],
-    ribbon: ['리본', m(2, '..........cc.cc.', '...........ccc..', '..........cc.cc.')], flower: ['꽃', m(4, '...........cac..', '..........caaac.', '...........cac..')],
-    catears: ['고양이 귀', m(1, '...c........c...', '..ccc......ccc..', '..caac....caac..')], bunny: ['토끼 귀', m(0, '....cc....cc....*2', '....ca....ac....', '....cc....cc....')], horns: ['뿔', m(2, '..c..........c..', '..cc........cc..', '...c........c...')],
-    halo: ['천사 고리', m(0, '.....cccccc.....', '....c......c....', '.....cccccc.....')], glasses: ['안경', m(7, '...cccc..cccc...', '...c..cccc..c...', '...c..c..c..c...', '...cccc..cccc...')],
-    shades: ['선글라스', m(8, '...cccccccccc...', '...cccc..cccc...')], eyepatch: ['안대', U(m(6, '...cccccccccc...'), m(7, '.........ccc....*3'))], mask: ['마스크', m(10, '...cccccccccc...*2', '....cccccccc....')],
-    scarf: ['목도리', m(13, '....cccccccc....*2', '.........cc.....*3')], necklace: ['목걸이', m(15, '......c..c......', '.......aa.......')], bowtie: ['나비넥타이', m(15, '.....cc.acc.....')],
-    earrings: ['귀걸이', m(10, '..c..........c..*2')], wings: ['날개', null, m(13, 'cc............cc', 'ccc..........ccc*2', '.cc..........cc.')], backpack: ['배낭', m(15, '....a......a....*3'), m(14, '..cccccccccccc..*5')],
+    cap: ['야구 모자', (d) => { d.e(15.5, 9, 9.6, 6.6, 'c', 2, 9); d.r(15, 9, 14, 2, 'c'); d.r(15, 10, 14, 1, 'D'); d.r(15, 2, 2, 1, 'a'); }], beanie: ['비니', (d) => { d.e(15.5, 10, 9.6, 8, 'c', 2, 9); d.r(6, 9, 20, 3, 'a'); d.e(15.5, 1.5, 2.2, 1.6, 'w'); }],
+    straw: ['챙 넓은 모자', (d) => { d.e(15.5, 11, 15.4, 2.6, 'c'); d.e(15.5, 8, 7.2, 6, 'c', 2, 8); d.r(8, 7, 16, 2, 'a'); }], tophat: ['실크햇', (d) => { d.r(9, 0, 14, 9, 'c'); d.r(9, 6, 14, 2, 'a'); d.r(5, 9, 22, 2, 'c'); }],
+    witch: ['마녀 모자', (d) => { d.p([[15, 0], [17, 0], [23, 9], [8, 9]], 'c'); d.r(9, 7, 14, 2, 'a'); d.e(15.5, 10.5, 14, 2.2, 'c'); d.r(15, 7, 2, 2, 'w'); }], beret: ['베레모', (d) => { d.e(17, 6.5, 10, 4.5, 'c'); d.r(15, 1, 1, 2, 'c'); }],
+    helmet: ['투구', (d) => { d.e(15.5, 11, 10, 9, 'c', 2, 12); d.r(15, 1, 2, 11, 'L'); d.S(() => d.r(5, 12, 3, 7, 'c')); d.r(6, 11, 20, 1, 'D'); }], bandana: ['두건', (d) => { d.e(15.5, 10, 9.7, 7, 'c', 3, 10); d.r(24, 9, 4, 2, 'c'); d.r(26, 11, 2, 4, 'c'); for (const [x, y] of [[9, 7], [13, 5], [18, 6], [22, 8]]) d.x(x, y, 'w'); }],
+    crown: ['왕관', (d) => { d.r(9, 5, 14, 4, 'c'); for (let k = 0; k < 4; k++) d.p([[9 + k * 4, 5], [10.5 + k * 4, 1], [12 + k * 4, 5]], 'c'); for (const x of [11, 15, 19]) d.r(x, 6, 2, 2, 'a'); }], tiara: ['티아라', (d) => { d.r(10, 9, 12, 1, 'c'); d.p([[13, 9], [15.5, 5], [18, 9]], 'c'); d.r(15, 7, 2, 2, 'a'); }],
+    headband: ['머리띠', (d) => { d.r(6, 8, 20, 2, 'c'); d.r(6, 9, 20, 1, 'D'); }], ribbon: ['리본', (d) => { d.p([[23, 5], [18, 1], [18, 8]], 'c'); d.p([[24, 5], [29, 1], [29, 8]], 'c'); d.r(22, 3, 3, 3, 'a'); }],
+    flower: ['꽃', (d) => { for (const [x, y] of [[23, 4], [26, 6], [25, 9], [21, 9], [20, 6]]) d.e(x, y, 1.6, 1.6, 'c'); d.e(23, 7, 1.5, 1.5, 'a'); }], catears: ['고양이 귀', (d) => d.S(() => { d.p([[5, 8], [7, 0], [12, 5]], 'c'); d.p([[7, 6], [8, 3], [10, 5]], 'a'); })],
+    bunny: ['토끼 귀', (d) => d.S(() => { d.e(11, 3, 2.2, 5.5, 'c'); d.e(11, 3.5, 1, 3.5, 'a'); })], horns: ['뿔', (d) => d.S(() => { d.p([[6, 9], [4, 1], [10, 6]], 'c'); d.l(5, 3, 8, 6, 'D'); })],
+    halo: ['천사 고리', (d) => d.o(15.5, 2, 7.5, 2.2, 5, 0.9, 'c')], glasses: ['안경', (d) => { d.S(() => { d.r(9, 13, 6, 1, 'c'); d.r(9, 17, 6, 1, 'c'); d.r(9, 13, 1, 5, 'c'); d.r(14, 13, 1, 5, 'c'); d.r(6, 14, 3, 1, 'c'); }); d.r(15, 14, 2, 1, 'c'); }],
+    shades: ['선글라스', (d) => { d.S(() => { d.r(9, 13, 6, 4, 'c'); d.r(6, 14, 3, 1, 'c'); d.x(10, 14, 'L'); }); d.r(15, 14, 2, 1, 'c'); }], eyepatch: ['안대', (d) => { d.l(6, 10, 25, 13, 'c'); d.r(18, 13, 5, 5, 'c'); }],
+    mask: ['마스크', (d) => { d.e(15.5, 19, 7, 3.6, 'c'); d.S(() => d.r(6, 17, 3, 1, 'c')); d.r(11, 19, 10, 1, 'D'); }], scarf: ['목도리', (d) => { d.r(10, 21, 12, 3, 'c'); d.r(10, 23, 12, 1, 'D'); d.r(18, 24, 4, 9, 'c'); d.r(18, 32, 4, 1, 'a'); }],
+    necklace: ['목걸이', (d) => { d.l(12, 23, 15, 26, 'c'); d.l(19, 23, 16, 26, 'c'); d.r(15, 26, 2, 2, 'a'); }], bowtie: ['나비넥타이', (d) => { d.S(() => d.p([[15, 24], [11, 22], [11, 27]], 'c')); d.r(15, 24, 2, 2, 'a'); }],
+    necktie: ['넥타이', (d) => { d.r(15, 23, 2, 8, 'c'); d.p([[14, 31], [17, 31], [15.5, 34]], 'c'); d.r(15, 23, 2, 2, 'D'); }], earrings: ['귀걸이', (d) => d.S(() => { d.x(6, 16, 'c'); d.r(5, 17, 2, 2, 'c'); })],
+    headphones: ['헤드폰', (d) => { d.o(15.5, 12, 11, 10.5, 9.6, 9.2, 'c', 1, 10); d.S(() => { d.r(3, 11, 4, 7, 'c'); d.r(3, 13, 2, 3, 'a'); }); }], wings: ['날개', null, (d) => d.S(() => { d.p([[10, 24], [0, 16], [1, 33], [9, 35]], 'c'); d.l(2, 20, 8, 27, 'D'); d.l(2, 26, 8, 31, 'D'); })],
+    backpack: ['배낭', (d) => d.S(() => d.r(11, 23, 2, 11, 'a')), (d) => { d.r(7, 22, 18, 15, 'c'); d.r(9, 20, 14, 2, 'c'); }], tail: ['꼬리', null, (d) => { d.l(21, 36, 28, 32, 'c', 3); d.l(28, 32, 29, 24, 'c', 3); d.e(29.5, 23, 2, 2, 'a'); }],
 };
+const hK = (d, y0, y1) => d.r(26, y0, 2, y1 - y0 + 1, 'k');
 const WEAPONS = {
-    sword: ['검', m(7, '..............c.*9', '.............aaa', '..............k.*3')], dagger: ['단검', m(13, '..............c.*3', '.............aaa', '..............k.*2')], axe: ['도끼', m(9, '.............ccc', '............cccc', '.............ccc', '..............k.*8')],
-    hammer: ['망치', m(9, '............cccc*2', '..............k.*9')], staff: ['지팡이', m(4, '.............aaa', '.............aca', '.............aaa', '..............k.*15')], wand: ['요술봉', m(12, '..............a.', '.............aaa', '..............a.', '..............c.*5')],
-    spear: ['창', m(3, '..............c.', '.............ccc', '..............c.', '..............k.*17')], bow: ['활', m(9, '............cc..', '..............c.', '..............cw*6', '..............c.', '............cc..')], gun: ['권총', m(17, '............cccc', '............k...')],
-    rifle: ['소총', m(11, '..............c.*6', '.............ck.', '.............k..*2')], shield: ['방패', m(14, '............cccc', '...........ccacc', '...........caaac', '...........ccacc', '............ccc.')], pickaxe: ['곡괭이', m(9, '...........ccccc', '..........c...k.', '..............k.*9')],
-    hoe: ['괭이 · 삽', m(9, '.............ccc', '..............k.*10')], trowel: ['모종삽 · 도구', m(14, '..............c.', '.............ccc', '..............c.', '..............k.*3')], rod: ['낚싯대', m(5, '............k...', '.............k..', '..............k.*13')],
-    can: ['물뿌리개', m(16, '............c...', '.............ccc', '............cccc', '.............ccc')], basket: ['바구니', m(15, '.............kk.', '............k..k', '............cccc*2', '............aaaa')], bag: ['가방', m(13, '.............k..*3', '............cccc*3')],
-    book: ['책', m(16, '............cccc', '............cwwc', '............cccc')], lantern: ['등불', m(14, '..............k.', '.............ccc', '.............cac', '.............ccc')], umbrella: ['우산', m(3, '............cccc', '..........cccccc', '.........ccccccc', '..............k.*16')],
-    torch: ['횃불', m(10, '..............a.', '.............aaa', '..............k.*8')], bouquet: ['꽃다발', m(13, '............aca.', '.............a..', '..............k.*5')], broom: ['빗자루', m(6, '..............k.*10', '.............ccc*3')],
+    sword: ['검', (d) => { d.r(26, 12, 2, 20, 'c'); d.r(26, 12, 1, 20, 'L'); d.p([[26, 12], [27.5, 12], [26.5, 8]], 'c'); d.r(23, 32, 8, 2, 'a'); hK(d, 34, 37); d.r(26, 38, 2, 1, 'a'); }], dagger: ['단검', (d) => { d.r(26, 25, 2, 7, 'c'); d.x(26, 24, 'c'); d.r(26, 25, 1, 7, 'L'); d.r(24, 32, 6, 1, 'a'); hK(d, 33, 36); }],
+    axe: ['도끼', (d) => { hK(d, 14, 38); d.p([[28, 14], [31, 11], [31, 23], [28, 20]], 'c'); d.p([[25, 15], [23, 14], [23, 20], [25, 19]], 'c'); d.r(31, 12, 1, 10, 'L'); }], hammer: ['망치', (d) => { hK(d, 16, 38); d.r(22, 10, 10, 6, 'c'); d.r(22, 10, 10, 1, 'L'); d.r(22, 15, 10, 1, 'D'); }],
+    staff: ['지팡이', (d) => { hK(d, 8, 44); d.e(26.5, 4.5, 3.4, 3.4, 'a'); d.x(25, 3, 'w'); d.o(26.5, 4.5, 4.6, 4.6, 3.6, 3.6, 'c', 5, 10); }], wand: ['요술봉', (d) => { d.r(26, 24, 1, 14, 'c'); d.r(25, 18, 3, 5, 'a'); d.r(23, 20, 7, 1, 'a'); d.x(24, 22, 'a'); d.x(28, 22, 'a'); d.x(26, 17, 'a'); }],
+    spear: ['창', (d) => { hK(d, 8, 45); d.p([[26.5, 0], [30, 8], [23, 8]], 'c'); d.r(26, 2, 1, 6, 'L'); d.r(25, 9, 4, 1, 'a'); }], bow: ['활', (d) => { d.l(25, 12, 29, 20, 'c', 2); d.r(29, 20, 2, 12, 'c'); d.l(29, 32, 25, 40, 'c', 2); d.r(25, 12, 1, 29, 'w'); d.r(29, 25, 2, 3, 'k'); }],
+    gun: ['권총', (d) => { d.r(24, 33, 8, 2, 'c'); d.r(24, 33, 8, 1, 'L'); d.r(24, 35, 3, 4, 'k'); d.x(27, 35, 'c'); }], rifle: ['소총', (d) => { d.l(22, 40, 30, 20, 'c', 2); d.l(22, 40, 24, 36, 'k', 3); d.x(31, 19, 'L'); }],
+    shield: ['방패', (d) => { d.e(26.5, 31, 5, 7.5, 'c'); d.o(26.5, 31, 5, 7.5, 3.8, 6.2, 'L'); d.r(26, 26, 2, 10, 'a'); d.r(23, 30, 8, 2, 'a'); }], pickaxe: ['곡괭이', (d) => { hK(d, 14, 38); d.p([[20, 16], [26.5, 11], [32, 16], [31, 17], [26.5, 14], [21, 17]], 'c'); }],
+    hoe: ['괭이 · 삽', (d) => { hK(d, 12, 40); d.r(27, 10, 5, 3, 'c'); d.r(26, 10, 2, 2, 'c'); d.r(27, 12, 5, 1, 'D'); }], trowel: ['모종삽 · 도구', (d) => { hK(d, 31, 37); d.p([[26.5, 20], [30, 30], [23, 30]], 'c'); d.r(26, 23, 1, 6, 'L'); }],
+    rod: ['낚싯대', (d) => { d.l(25, 40, 31, 6, 'k'); d.r(31, 6, 1, 18, 'w'); d.r(30, 24, 2, 2, 'a'); d.r(24, 36, 3, 3, 'c'); }], can: ['물뿌리개', (d) => { d.r(24, 31, 6, 7, 'c'); d.l(30, 33, 31, 29, 'c', 1); d.r(30, 28, 2, 2, 'c'); d.o(24, 34, 3, 3, 1.8, 1.8, 'c'); d.r(24, 31, 6, 1, 'L'); }],
+    basket: ['바구니', (d) => { d.o(27, 31, 4.5, 5, 3.4, 4, 'k', 26, 31); d.p([[23, 32], [31, 32], [30, 39], [24, 39]], 'c'); for (const y of [34, 37]) d.r(24, y, 7, 1, 'D'); d.e(25.5, 31.5, 1.5, 1.2, 'a'); d.e(28.5, 31.5, 1.5, 1.2, 'a'); }],
+    bag: ['가방', (d) => { d.l(23, 24, 26, 33, 'k'); d.r(24, 33, 8, 8, 'c'); d.r(24, 33, 8, 3, 'D'); d.r(27, 35, 2, 2, 'a'); }], book: ['책', (d) => { d.r(24, 30, 8, 10, 'c'); d.r(31, 31, 1, 8, 'w'); d.r(24, 30, 1, 10, 'D'); d.r(26, 33, 4, 1, 'a'); d.r(26, 35, 4, 1, 'a'); }],
+    lantern: ['등불', (d) => { d.l(26, 24, 26, 28, 'k'); d.r(24, 28, 6, 2, 'c'); d.r(24, 30, 6, 7, 'c'); d.r(25, 31, 4, 5, 'a'); d.r(26, 32, 2, 3, 'w'); d.r(24, 37, 6, 1, 'D'); }], umbrella: ['우산', (d) => { d.r(26, 10, 1, 28, 'k'); d.e(26, 10, 9, 7, 'c', 3, 10); for (let x = 18; x <= 34; x += 4) d.x(x, 11, 'c'); d.r(26, 2, 1, 2, 'k'); d.l(22, 4, 20, 10, 'D'); d.l(30, 4, 32, 10, 'D'); }],
+    torch: ['횃불', (d) => { hK(d, 24, 38); d.r(25, 22, 4, 2, 'D'); d.p([[26.5, 12], [30, 22], [23, 22]], 'a'); d.p([[26.5, 16], [28.5, 22], [24.5, 22]], 'w'); }], bouquet: ['꽃다발', (d) => { d.p([[23, 30], [31, 30], [27, 39]], 'w'); for (const [x, y] of [[24.5, 27], [29.5, 27], [27, 24.5]]) { d.e(x, y, 2.4, 2.4, 'c'); d.x(x, y, 'a'); } d.r(26, 29, 2, 2, 'D'); }],
+    broom: ['빗자루', (d) => { hK(d, 16, 40); d.p([[24, 16], [29, 16], [32, 4], [21, 4]], 'c'); d.r(24, 14, 6, 2, 'a'); for (const x of [23, 26, 29]) d.l(x, 5, x, 12, 'D'); }], fan: ['부채', (d) => { d.p([[26, 36], [20, 24], [32, 24]], 'c'); d.o(26, 36, 13, 13, 11, 11, 'a', 23, 26); for (const x of [22, 26, 30]) d.l(26, 36, x, 24, 'D'); hK(d, 36, 38); }],
+    mug: ['컵 · 병', (d) => { d.r(24, 31, 6, 7, 'c'); d.o(30, 34, 2.4, 2.6, 1.2, 1.4, 'c'); d.r(25, 32, 4, 1, 'a'); d.l(26, 28, 27, 26, 'w'); d.l(28, 29, 29, 27, 'w'); }], flag: ['깃발', (d) => { hK(d, 4, 44); d.p([[28, 5], [32, 8], [28, 12]], 'c'); d.r(28, 5, 4, 7, 'c'); d.r(28, 8, 4, 1, 'a'); }],
 };
-const pack = (o) => Object.fromEntries(Object.entries(o).map(([id, [n, f, b]]) => [id, { n, f: f ?? m(0), b }]));
+const pack = (o) => Object.fromEntries(Object.entries(o).map(([id, [n, f, b]]) => [id, { n, f, b }]));
+export const HAIRS = pack(HAIR_DEF);
 export const SHAPES = { top: pack(TOPS), bottom: pack(BOTTOMS), outer: pack(OUTERS), shoes: pack(SHOESET), acc: pack(ACCS), weapon: pack(WEAPONS) };
 export const KIND_NAMES = { top: '상의', bottom: '하의', outer: '겉옷', shoes: '신발', acc: '장신구', weapon: '손에 든 것' };
 export const shapeName = (kind, id) => SHAPES[kind]?.[id]?.n ?? id;
+// 그려 둔 칸 그림은 기억해 둔다
+const LAYERS = new Map();
+function layerOf(key, def) { if (!def) return null; let v = LAYERS.get(key); if (!v) { v = { f: draw(def.f), b: draw(def.b) }; LAYERS.set(key, v); } return v; }
 
 // 칸 이름 → 종류
 export function slotKind(slot) {
@@ -147,20 +212,20 @@ export function slotKind(slot) {
 }
 // 물건 이름 → 모양 (위에서부터 먼저 맞는 것)
 const GUESS = {
-    outer: [['cloak', /후드 ?망토|hooded cloak|cloak|hooded cape/i], ['raincoat', /우비|raincoat/i], ['cape', /망토|케이프|cape|mantle/i], ['robe', /로브|robe|gown/i], ['poncho', /판초|poncho/i], ['trench', /트렌치|trench/i], ['labcoat', /가운|lab ?coat/i], ['longcoat', /롱코트|long coat|overcoat|duster/i],
+    outer: [['bomber', /야구 ?점퍼|바시티|bomber|varsity/i], ['kappa', /어깨 ?망토|capelet/i], ['cloak', /후드 ?망토|hooded cloak|cloak|hooded cape/i], ['raincoat', /우비|raincoat/i], ['cape', /망토|케이프|cape|mantle/i], ['robe', /로브|robe|gown/i], ['poncho', /판초|poncho/i], ['trench', /트렌치|trench/i], ['labcoat', /가운|lab ?coat/i], ['longcoat', /롱코트|long coat|overcoat|duster/i],
         ['parka', /파카|parka|anorak/i], ['puffer', /패딩|puffer|down jacket/i], ['blazer', /블레이저|blazer|suit jacket/i], ['denim', /청자켓|청재킷|denim/i], ['cardigan', /가디건|cardigan/i], ['vest', /조끼|vest|waistcoat/i], ['haori', /하오리|haori|두루마기/i], ['shawl', /숄|shawl|stole/i], ['pauldron', /견갑|pauldron|shoulder/i], ['jacket', /자켓|재킷|점퍼|jacket|jumper|bomber|windbreaker/i]],
-    top: [['longdress', /드레스|gown|ball/i], ['sundress', /끈 ?원피스|sundress/i], ['dress', /원피스|dress/i], ['chain', /사슬|chain ?mail/i], ['armor', /갑옷|흉갑|armor|armour|plate|cuirass/i], ['kimono', /기모노|한복|유카타|저고리|kimono|hanbok|yukata/i], ['apron', /앞치마|apron/i], ['suit', /정장|수트|suit|tuxedo/i],
+    top: [['maid', /메이드|maid/i], ['blouse', /블라우스|blouse/i], ['plaidshirt', /체크 ?셔츠|flannel|plaid shirt/i], ['jersey', /유니폼|저지|jersey/i], ['waistcoat', /조끼 ?셔츠|waistcoat/i], ['raglan', /래글런|raglan|baseball tee/i], ['longdress', /드레스|gown|ball/i], ['sundress', /끈 ?원피스|sundress/i], ['dress', /원피스|dress/i], ['chain', /사슬|chain ?mail/i], ['armor', /갑옷|흉갑|armor|armour|plate|cuirass/i], ['kimono', /기모노|한복|유카타|저고리|kimono|hanbok|yukata/i], ['apron', /앞치마|apron/i], ['suit', /정장|수트|suit|tuxedo/i],
         ['sailor', /세일러|교복|sailor|uniform/i], ['overalls', /멜빵|overall|dungaree/i], ['hoodie', /후드티|후디|hoodie/i], ['turtle', /목폴라|터틀|turtleneck/i], ['sweater', /스웨터|니트|sweater|knit|pullover/i], ['shirt', /셔츠|블라우스|shirt|blouse/i], ['polo', /폴로|카라|polo/i], ['tunic', /튜닉|tunic/i],
         ['tank', /민소매|나시|탱크|tank|sleeveless|camisole/i], ['crop', /크롭|crop/i], ['stripe', /줄무늬|stripe/i], ['long', /긴팔|long ?sleeve/i]],
-    bottom: [['tiered', /티어드|tiered/i], ['longskirt', /긴 ?치마|롱스커트|long skirt|maxi/i], ['pleated', /주름|플리츠|pleat/i], ['plaid', /체크|plaid|tartan|kilt/i], ['frill', /프릴|frill|ruffle/i], ['mini', /미니|mini/i], ['tights', /스타킹|타이츠|tights|stocking/i], ['skirt', /치마|스커트|skirt/i],
+    bottom: [['capri', /7부|칠부|capri/i], ['bloomers', /호박 ?바지|블루머|bloomer/i], ['tiered', /티어드|tiered/i], ['longskirt', /긴 ?치마|롱스커트|long skirt|maxi/i], ['pleated', /주름|플리츠|pleat/i], ['plaid', /체크|plaid|tartan|kilt/i], ['frill', /프릴|frill|ruffle/i], ['mini', /미니|mini/i], ['tights', /스타킹|타이츠|tights|stocking/i], ['skirt', /치마|스커트|skirt/i],
         ['swim', /수영|swim|trunks/i], ['shorts', /반바지|shorts/i], ['hakama', /하카마|hakama/i], ['wide', /통바지|와이드|wide|baggy/i], ['jeans', /청바지|jeans|denim/i], ['cargo', /카고|cargo/i], ['sweat', /트레이닝|츄리닝|sweat|track|jogger/i], ['slacks', /슬랙스|정장 ?바지|slacks|trousers/i], ['greaves', /각반|greaves|leg armor/i]],
-    shoes: [['sabatons', /철 ?장화|sabaton/i], ['rain', /장화|rain ?boot|wellies/i], ['fur', /털|fur|ugg/i], ['work', /작업화|안전화|work ?boot/i], ['tall', /롱부츠|long boot|knee|thigh/i], ['boots', /부츠|boot/i], ['hightop', /하이탑|high ?top/i], ['sneakers', /운동화|스니커|sneaker|trainer|running/i],
+    shoes: [['mary', /메리 ?제인|mary ?jane/i], ['skates', /스케이트|skate/i], ['sabatons', /철 ?장화|sabaton/i], ['rain', /장화|rain ?boot|wellies/i], ['fur', /털|fur|ugg/i], ['work', /작업화|안전화|work ?boot/i], ['tall', /롱부츠|long boot|knee|thigh/i], ['boots', /부츠|boot/i], ['hightop', /하이탑|high ?top/i], ['sneakers', /운동화|스니커|sneaker|trainer|running/i],
         ['sandals', /샌들|sandal/i], ['slippers', /슬리퍼|slipper|flip/i], ['loafers', /로퍼|loafer/i], ['heels', /구두|하이힐|heel|pump|dress shoe/i], ['geta', /게다|나막신|geta|clog/i], ['kneesocks', /긴 ?양말|knee ?sock/i], ['socks', /양말|sock/i]],
-    acc: [['straw', /밀짚|챙|straw|sun ?hat|brim/i], ['witch', /마녀|wizard hat|witch/i], ['tophat', /실크햇|top ?hat/i], ['beret', /베레|beret/i], ['beanie', /비니|beanie|knit cap/i], ['helmet', /투구|헬멧|helmet|helm/i], ['bandana', /두건|반다나|bandana|kerchief/i], ['cap', /모자|hat|cap/i],
+    acc: [['headphones', /헤드폰|헤드셋|headphone|headset/i], ['necktie', /넥타이|necktie/i], ['tail', /꼬리|tail/i], ['straw', /밀짚|챙|straw|sun ?hat|brim/i], ['witch', /마녀|wizard hat|witch/i], ['tophat', /실크햇|top ?hat/i], ['beret', /베레|beret/i], ['beanie', /비니|beanie|knit cap/i], ['helmet', /투구|헬멧|helmet|helm/i], ['bandana', /두건|반다나|bandana|kerchief/i], ['cap', /모자|hat|cap/i],
         ['crown', /왕관|crown/i], ['tiara', /티아라|tiara/i], ['headband', /머리띠|headband/i], ['ribbon', /리본|ribbon|bow\b/i], ['flower', /꽃|flower/i], ['catears', /고양이 ?귀|cat ?ear/i], ['bunny', /토끼 ?귀|bunny|rabbit/i], ['horns', /뿔|horn/i], ['halo', /고리|halo/i],
         ['shades', /선글라스|sunglass|shades/i], ['glasses', /안경|glasses|spectacle/i], ['eyepatch', /안대|eyepatch/i], ['mask', /마스크|복면|가면|mask/i], ['scarf', /목도리|스카프|머플러|scarf|muffler/i], ['bowtie', /나비넥타이|bow ?tie/i], ['necklace', /목걸이|펜던트|necklace|pendant|amulet|charm/i],
         ['wings', /날개|wing/i], ['backpack', /배낭|백팩|backpack|rucksack/i], ['earrings', /귀걸이|earring/i]],
-    weapon: [['dagger', /단검|단도|나이프|dagger|knife/i], ['axe', /도끼|axe/i], ['hammer', /망치|해머|hammer|mace/i], ['wand', /요술봉|완드|wand/i], ['staff', /지팡이|스태프|staff|cane/i], ['spear', /창|spear|lance|halberd/i], ['bow', /활|bow/i], ['rifle', /소총|라이플|rifle|shotgun|musket/i], ['gun', /총|gun|pistol|revolver/i],
+    weapon: [['fan', /부채|\bfan\b/i], ['mug', /컵|잔|물병|술병|mug|cup|bottle|flask/i], ['flag', /깃발|flag|banner/i], ['dagger', /단검|단도|나이프|dagger|knife/i], ['axe', /도끼|axe/i], ['hammer', /망치|해머|hammer|mace/i], ['wand', /요술봉|완드|wand/i], ['staff', /지팡이|스태프|staff|cane/i], ['spear', /창|spear|lance|halberd/i], ['bow', /활|bow/i], ['rifle', /소총|라이플|rifle|shotgun|musket/i], ['gun', /총|gun|pistol|revolver/i],
         ['shield', /방패|shield/i], ['pickaxe', /곡괭이|pickaxe/i], ['hoe', /괭이|삽|hoe|shovel|spade/i], ['trowel', /모종삽|trowel|도구|tool|wrench|screwdriver/i], ['rod', /낚싯대|fishing|rod/i], ['can', /물뿌리개|watering/i], ['basket', /바구니|basket/i], ['book', /책|book|tome|grimoire/i], ['lantern', /등불|랜턴|lantern|lamp/i],
         ['umbrella', /우산|umbrella|parasol/i], ['torch', /횃불|torch/i], ['bouquet', /꽃다발|bouquet/i], ['broom', /빗자루|broom/i], ['bag', /가방|주머니|소포|bag|pouch|parcel|sack|satchel/i], ['sword', /검|칼|sword|blade|katana|saber/i]],
 };
@@ -184,50 +249,68 @@ const rgb = (hex) => { const n = parseInt(String(hex).slice(1), 16); return [n >
 const hexOf = (a) => `#${a.map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('')}`;
 const shade = (hex, k) => hexOf(rgb(hex).map(v => v * k));
 const tint = (hex, k) => hexOf(rgb(hex).map(v => v + (255 - v) * k));
-// 한 장을 칠한다: 아래 · 오른쪽 가장자리는 어둡게, 위 · 왼쪽 가장자리는 조금 어둡게 (flat = 명암 없이)
-function paint(grid, map, pal, flat = false) {
-    if (!map) return;
-    const has = (y, x) => y >= 0 && y < H && x >= 0 && x < W && map[y][x] !== '.';
+const MAIN = new Set(['c', 's', 'h']);
+// 한 장을 칠한다. 바탕 글자(c · s · h)는 4단계: 테두리(가장자리) · 그늘(아래 · 오른쪽에서 한 칸 안) · 밝은 띠(위 · 왼쪽에서 한 칸 안) · 바탕
+function paint(img, g, pal, flat = false) {
+    if (!g) return;
+    const has = (y, x) => y >= 0 && y < H && x >= 0 && x < W && g[y][x] !== '';
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-        const base = pal[map[y][x]]; if (!base) continue;
-        let k = 1; if (!flat) { if (!has(y + 1, x) || !has(y, x + 1)) k = 0.72; else if (!has(y - 1, x) || !has(y, x - 1)) k = 0.9; }
-        grid[y][x] = k === 1 ? base : shade(base, k);
+        const ch = g[y][x]; if (!ch) continue;
+        const base = pal[ch]; if (!base) continue;
+        let col = base;
+        if (!flat) {
+            const edge = !has(y - 1, x) || !has(y + 1, x) || !has(y, x - 1) || !has(y, x + 1);
+            if (MAIN.has(ch)) { if (edge) col = shade(base, 0.62); else if (!has(y + 2, x) || !has(y, x + 2)) col = shade(base, 0.85); else if (!has(y - 2, x) || !has(y, x - 2)) col = tint(base, 0.18); }
+            else if (edge) col = shade(base, 0.72);
+        }
+        img[y][x] = col;
     }
 }
-const clothPal = (c) => ({ c, a: tint(c, 0.55), L: tint(c, 0.3), w: '#f4f1ea', k: '#5a4636', s: null });
+const clothPal = (c, skin) => ({ c, a: tint(c, 0.55), L: tint(c, 0.32), D: shade(c, 0.74), w: '#f7f4ee', k: '#5a4636', s: skin });
 export const HURT_PARTS = { head: '머리', torso: '몸통', arms: '팔', legs: '다리' };
-const inPart = (part, y, x) => (part === 'head' ? y >= 4 && y <= 13 : part === 'torso' ? y >= 15 && y <= 20 && x >= 5 && x <= 10 : part === 'arms' ? y >= 15 && y <= 19 && (x <= 4 || x >= 11) : part === 'legs' ? y >= 21 && y <= 24 : false);
-// look = { skin, hair, hairColor, eye, face } · wear = [{ kind, shape, color }] · mood 0~4 · hurt = ['head' …]
-export function dollSVG(look = {}, wear = [], mood = 3, cls = '', hurt = []) {
-    const grid = Array.from({ length: H }, () => Array(W).fill(''));
-    const skin = look.skin || SKINS[0], hc = look.hairColor || HAIR_COLORS[1], hair = HAIRS[look.hair] ?? HAIRS.short;
-    const of = (kind) => { const x = wear.find(v => v.kind === kind); return x && SHAPES[kind]?.[x.shape] ? { s: SHAPES[kind][x.shape], pal: { ...clothPal(x.color), s: skin } } : null; };
-    const top = of('top'), bottom = of('bottom'), outer = of('outer'), shoes = of('shoes'), acc = of('acc'), weapon = of('weapon');
-    const hairPal = { h: hc, a: tint(hc, 0.5) };
-    paint(grid, hair.b, hairPal); if (outer?.s.b) paint(grid, outer.s.b, outer.pal); if (acc?.s.b) paint(grid, acc.s.b, acc.pal);
-    paint(grid, BODY, { s: skin });
-    if (bottom) paint(grid, bottom.s.f, bottom.pal); else if (!top || !/dress/.test(wear.find(v => v.kind === 'top')?.shape ?? '')) paint(grid, shorts, clothPal('#8a8f98'));
-    if (shoes) paint(grid, shoes.s.f, shoes.pal);
-    if (top) paint(grid, top.s.f, top.pal); else paint(grid, tee, clothPal('#f4f1ea'));
-    paint(grid, hair.f, hairPal);
-    if (outer) paint(grid, outer.s.f, outer.pal);
-    const face = FACE[look.face] ?? FACE[MOOD_FACE[Math.max(0, Math.min(4, Math.round(mood)))]];
-    paint(grid, face, { e: look.eye || '#2f2a2a', m: '#8a4a44', b: '#f7a8a8', t: '#6ab7f0', p: '#f06a9a' }, true);
-    if (acc) paint(grid, acc.s.f, acc.pal);
-    if (weapon) paint(grid, weapon.s.f, weapon.pal);
-    let out = '<rect x="4" y="25" width="8" height="1" fill="#000" opacity=".16"/>', red = '';
+const inPart = (part, y, x) => (part === 'head' ? y <= 22 : part === 'torso' ? y >= 23 && y <= 37 && x >= 10 && x <= 21 : part === 'arms' ? y >= 23 && y <= 36 && (x < 10 || x > 21) : part === 'legs' ? y >= 38 : false);
+const BODY_G = draw(BODY);
+function toUrl(img, only) {
+    if (typeof document === 'undefined') return '';
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d'); if (!c) return '';
+    if (!only) { c.fillStyle = 'rgba(0,0,0,.16)'; c.fillRect(9, 46, 14, 1); c.fillRect(7, 45, 18, 1); }
+    let any = false;
     for (let y = 0; y < H; y++) for (let x = 0; x < W;) {
-        const c = grid[y][x]; if (!c) { x++; continue; }
-        let n = 1; while (x + n < W && grid[y][x + n] === c) n++;
-        out += `<rect x="${x}" y="${y}" width="${n}" height="1" fill="${c}"/>`; x += n;
+        const col = img[y][x]; if (!col || (only && !only(y, x))) { x++; continue; }
+        let n = 1; while (x + n < W && img[y][x + n] === col && (!only || only(y, x + n))) n++;
+        c.fillStyle = only ? '#e02a2a' : col; c.fillRect(x, y, n, 1); x += n; any = true;
     }
-    for (const part of hurt) for (let y = 0; y < H; y++) for (let x = 0; x < W;) {
-        if (!grid[y][x] || !inPart(part, y, x)) { x++; continue; }
-        let n = 1; while (x + n < W && grid[y][x + n] && inPart(part, y, x + n)) n++;
-        red += `<rect x="${x}" y="${y}" width="${n}" height="1"/>`; x += n;
-    }
-    return `<svg class="ss-px ${cls}" viewBox="0 0 ${W} ${H}" shape-rendering="crispEdges" aria-hidden="true">${out}${red ? `<g class="ss-px-hurt" fill="#e02a2a">${red}</g>` : ''}</svg>`;
+    return any ? cv.toDataURL('image/png') : '';
 }
+function render(look, wear, mood, hurt) {
+    const img = Array.from({ length: H }, () => Array(W).fill(''));
+    const skin = look.skin || SKINS[0], hc = look.hairColor || HAIR_COLORS[1];
+    const hairId = HAIRS[look.hair] ? look.hair : 'short', hair = layerOf(`hair:${hairId}`, HAIRS[hairId]);
+    const of = (kind) => { const x = wear.find(v => v.kind === kind); return x && SHAPES[kind]?.[x.shape] ? { g: layerOf(`${kind}:${x.shape}`, SHAPES[kind][x.shape]), pal: clothPal(x.color, skin) } : null; };
+    const top = of('top') ?? { g: layerOf('top:tee', SHAPES.top.tee), pal: clothPal('#f7f4ee', skin) }, bottom = of('bottom') ?? { g: layerOf('bottom:shorts', SHAPES.bottom.shorts), pal: clothPal('#8a8f98', skin) };
+    const outer = of('outer'), shoes = of('shoes'), acc = of('acc'), weapon = of('weapon');
+    const hairPal = { h: hc, a: '#e2557b', D: shade(hc, 0.72) };
+    paint(img, hair.b, hairPal); if (top.g.b) paint(img, top.g.b, top.pal); if (outer?.g.b) paint(img, outer.g.b, outer.pal); if (acc?.g.b) paint(img, acc.g.b, acc.pal);
+    paint(img, BODY_G, { s: skin });
+    paint(img, bottom.g.f, bottom.pal); if (shoes) paint(img, shoes.g.f, shoes.pal);
+    paint(img, top.g.f, top.pal);
+    paint(img, hair.f, hairPal);
+    if (outer) paint(img, outer.g.f, outer.pal);
+    const faceId = FACE_DEF[look.face] ? look.face : MOOD_FACE[Math.max(0, Math.min(4, Math.round(mood)))];
+    paint(img, layerOf(`face:${faceId}`, { f: FACE_DEF[faceId] }).f, { e: look.eye || '#2f2a2a', W: '#ffffff', m: '#8a4a44', b: '#f7a8a8', t: '#6ab7f0', p: '#f06a9a' }, true);
+    if (acc?.g.f) paint(img, acc.g.f, acc.pal);
+    if (weapon?.g.f) paint(img, weapon.g.f, weapon.pal, true);
+    return [toUrl(img), hurt.length ? toUrl(img, (y, x) => hurt.some(p => inPart(p, y, x))) : ''];
+}
+const CACHE = new Map();
+// look = { skin, hair, hairColor, eye, face } · wear = [{ kind, shape, color }] · mood 0~4 · hurt = ['head' …] → 그림 한 장(+ 다친 곳 한 장)
+export function dollSVG(look = {}, wear = [], mood = 3, cls = '', hurt = []) {
+    const key = JSON.stringify([look.skin, look.hair, look.hairColor, look.eye, look.face, wear.map(w => [w.kind, w.shape, w.color]), look.face ? 0 : Math.round(mood), hurt]);
+    let u = CACHE.get(key);
+    if (!u) { u = render(look, wear, mood, hurt); CACHE.set(key, u); if (CACHE.size > 160) CACHE.delete(CACHE.keys().next().value); }
+    return `<span class="ss-px ${cls}"><img alt="" src="${u[0]}">${u[1] ? `<img class="ss-px-hurt" alt="" src="${u[1]}">` : ''}</span>`;
+}
+
 // 상태 이름에서 다친 곳 찾기 (부상 · 상처 · 골절 … + 부위)
 export function hurtParts(names = []) {
     const out = new Set();
