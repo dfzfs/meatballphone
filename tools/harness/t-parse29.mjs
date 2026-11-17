@@ -2,7 +2,7 @@
 import { open, makeStatus, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open();
 try {
-    await makeStatus(page, ['profile', 'stats', 'wallet', 'rel', 'map', 'calendar', 'quest', 'contact']);
+    await makeStatus(page, ['profile', 'stats', 'wallet', 'rel', 'map', 'calendar', 'quest', 'contact', 'memo']);
     const r = await page.evaluate(async () => {
         const core = await import('/ext/src/core.js');
         Object.assign(core.settings(), { mindMode: 'thought', mindFreq: 'always' }); core.saveSettings();
@@ -39,6 +39,15 @@ try {
         await say('msg: Leon: 내일 보자'); out.msgColon = (st().data.contact.threads.Leon ?? []).some(m => m.text === '내일 보자');
         await say('msg: Leon'); out.msgNoTextMiss = /msg: Leon/.test(missOf());
         await say('mind: Leon: 설렌다'); out.mindColon = /설렌다/.test(st().data.rel.user.find(x => x.name === 'Leon')?.mind?.text ?? '');
+        // 📌 고정 메모 최대 0 = 안 보냄 (예전엔 0이 8로 바뀌고 · slice(-0)이 전부를 돌려줬다)
+        const eng = await import('/ext/src/engine.js');
+        await eng.addAdjust({ ops: [['_memo', 'add|핀메모비밀']], label: 'm' }); await wait(200);
+        const id = st().data.memo.list.find(m => m.text === '핀메모비밀').id;
+        await eng.addAdjust({ ops: [['_memo', `tog|${id}|pin`]], label: 'p' }); await wait(200);
+        const inj = () => { const i = eng.buildInjection(app.current); return `${i.main}\n${i.people ?? ''}`; };
+        core.settings().deltaMode = false; // 짧은 꼴(변화 위주)엔 메모가 원래 안 들어가서 전체 꼴로 본다
+        core.settings().pinCap = 8; core.saveSettings(); out.pinSent = /핀메모비밀/.test(inj());
+        core.settings().pinCap = 0; core.saveSettings(); out.pinCapZero = !/핀메모비밀/.test(inj());
         return out;
     });
     for (const [k, v] of Object.entries(r)) check(v === true, k);

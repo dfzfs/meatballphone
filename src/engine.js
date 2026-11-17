@@ -1058,6 +1058,9 @@ function relKeyHint() {
 }
 const noLoveNote = (rl) => { const n = (rl?.user ?? []).filter(x => x.noLove).map(x => x.name); return n.length ? ` · platonic only, never raise aff: ${n.slice(0, 8).join(', ')}` : ''; };
 const relKeyShort = (rl) => { const A = relAxes(rl, viewTr()); return (A.love ? ` (aff = ${A.aff}: romantic interest, raise it on any romantic/flustered moment · trust = ${A.trust}${noLoveNote(rl)})` : noLoveNote(rl) ? ` (${noLoveNote(rl).slice(3)})` : ''); };
+// 📌 고정 메모를 몇 개까지 보낼지 (검수): 0 = 안 보냄 — 예전엔 0이 기본 8로 바뀌었고, 진짜 0이어도 slice(-0)이 전부를 돌려줬다
+const pinCapOf = (set) => { const n = parseInt(set.pinCap, 10); return clamp(Number.isFinite(n) ? n : 8, 0, 30); };
+const lastN = (a, n) => (n > 0 ? a.slice(-n) : []);
 export function tagKeysFor(meta) {
     const K = [];
     const on = (id) => modOnRaw(id, meta); // 가린 칸도 변화 기록은 계속 (AI가 값은 못 보지만 ±N으로 적으면 반영)
@@ -1365,7 +1368,7 @@ function buildUltra(r, opt = {}) {
     }
     if (on('memo')) {
         const ms = d.memo.list.filter(m => m.inject);
-        const pins = ms.filter(m => m.pin).slice(-clamp(parseInt(set.pinCap, 10) || 8, 0, 30));
+        const pins = lastN(ms.filter(m => m.pin), pinCapOf(set));
         const pick = [...pins, ...ms.filter(m => !m.pin).slice(-3)];
         if (pick.length) L.push(`※${pick.map(m => short(m.text, 60)).join(' / ')}`);
     }
@@ -1667,7 +1670,7 @@ function buildInjection0(r, opt = {}) {
     }
     if (on('memo')) {
         const ms = d.memo.list.filter(m => m.inject);
-        const pick = [...ms.filter(m => m.pin).slice(-clamp(parseInt(set.pinCap, 10) || 8, 0, 30)), ...ms.filter(m => !m.pin).slice(-6)];
+        const pick = [...lastN(ms.filter(m => m.pin), pinCapOf(set)), ...ms.filter(m => !m.pin).slice(-6)];
         if (pick.length) L.push(`Notes: ${pick.map(m => `${m.by === 'user' ? '(user) ' : ''}${short(m.text, 120)}`).join(' / ')}`);
     }
     if (on('contact')) {
