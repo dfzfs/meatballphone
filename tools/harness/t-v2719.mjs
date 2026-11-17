@@ -24,6 +24,7 @@ try {
         for (const t of [...new Set(GROUPS.flatMap(g => g.tabs))]) {
             if (NO_PARTS.has(t)) continue;
             go(t, t === 'quest' ? { qf: 'active' } : {});
+            if (el._ss.tab !== t) continue; // 이 채팅에서 꺼져 있는 탭 (욕구 · 옷차림처럼 켠 채팅에만 있는 것)은 다른 탭으로 넘어간다
             const bar = el.querySelector('.ss-body > .ss-partbar');
             if (!bar) { out.noBar.push(t); continue; }
             out.tabs++;

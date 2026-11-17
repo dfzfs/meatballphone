@@ -12,7 +12,7 @@ export async function editArt({ DL, id = '', kind = 'over', ghost = '' }) {
     const lib = (settings().dollArt ??= {}), old = lib[id] ?? null;
     const W = DL.W, H = DL.H;
     let g = old ? DL.decodeArt(old) : Array.from({ length: H }, () => Array(W).fill(''));
-    let color = '#e2524a', tool = 'pen', mirror = false, down = false; const undo = [];
+    let color = '#e2524a', tool = 'pen', mirror = false, down = false, last = null; const undo = [];
     const box = document.createElement('div'); box.className = 'ss-root ss-scope ss-de';
     box.innerHTML = `<div class="ss-wz-head"><i class="fa-solid fa-paintbrush"></i><div><b>${esc(DL.ART_KINDS[old?.kind ?? kind] ?? '그림')} 직접 그리기</b><small>칸을 눌러 찍어요 · 흐린 인형은 자리 맞추기용</small></div></div>
         <label class="ss-de-name"><span>이름</span><input class="text_pole" type="text" maxlength="24" value="${esc(old?.n ?? '')}" placeholder="예: 내 후드티"></label>
@@ -49,12 +49,17 @@ export async function editArt({ DL, id = '', kind = 'over', ghost = '' }) {
     const act = (e) => {
         const [x, y] = cell(e); if (x < 0 || y < 0 || x >= W || y >= H) return;
         if (tool === 'pick') { if (g[y][x]) { setColor(g[y][x]); setTool('pen'); } return; }
-        if (tool === 'fill') fill(x, y, color); else put(x, y, tool === 'erase' ? '' : color);
+        if (tool === 'fill') fill(x, y, color);
+        else { // 빨리 그어도 칸이 안 끊기게 지난 칸에서 이번 칸까지 이어서 찍는다
+            const v = tool === 'erase' ? '' : color, [px, py] = last ?? [x, y], n = Math.max(Math.abs(x - px), Math.abs(y - py), 1);
+            for (let i = 0; i <= n; i++) put(Math.round(px + (x - px) * i / n), Math.round(py + (y - py) * i / n), v);
+            last = [x, y];
+        }
         draw();
     };
-    cv.addEventListener('pointerdown', (e) => { e.preventDefault(); down = true; try { cv.setPointerCapture(e.pointerId); } catch { /* 없어도 됨 */ } if (tool !== 'pick') snap(); act(e); });
+    cv.addEventListener('pointerdown', (e) => { e.preventDefault(); down = true; last = null; try { cv.setPointerCapture(e.pointerId); } catch { /* 없어도 됨 */ } if (tool !== 'pick') snap(); act(e); });
     cv.addEventListener('pointermove', (e) => { if (down && (tool === 'pen' || tool === 'erase')) act(e); });
-    ['pointerup', 'pointercancel'].forEach(t => cv.addEventListener(t, () => { down = false; }));
+    ['pointerup', 'pointercancel'].forEach(t => cv.addEventListener(t, () => { down = false; last = null; }));
     any.addEventListener('input', () => setColor(any.value));
     box.querySelector('input[type=file]').addEventListener('change', (e) => {
         const f = e.target.files?.[0]; if (!f) return;

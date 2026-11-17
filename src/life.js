@@ -343,6 +343,8 @@ export function moodLv(d) {
 // 직접 찍은 그림 (설정에 모아 둔 것) → 칸 그림. 한 번 푼 것은 기억해 둔다
 const ARTS = new Map();
 function artOf(id) { const a = id && settings().dollArt?.[id]; if (!a || !DL) return undefined; const k = `${id}:${a.rev ?? 0}`; let g = ARTS.get(k); if (!g) { g = DL.decodeArt(a); ARTS.set(k, g); if (ARTS.size > 60) ARTS.delete(ARTS.keys().next().value); } return { k, g }; }
+const THUMBS = new Map();
+function thumbOf(id) { const a = artOf(id); if (!a) return ''; let u = THUMBS.get(a.k); if (!u) { u = DL.artUrl(a.g); THUMBS.set(a.k, u); if (THUMBS.size > 60) THUMBS.delete(THUMBS.keys().next().value); } return u; }
 function wearNow(s, D) {
     const wear = [];
     if (settings().gearOn === true && DL) {
@@ -389,13 +391,13 @@ export function wearTab(s, _d, ui = {}) {
     if (!s?.data?.wallet) return '<p class="ss-hint">재산 칸을 켜면 소지품을 입힐 수 있어요.</p>';
     if (!DL) { loadDL().then(() => app.rerenderPanels?.(true)).catch(e => ssWarn(LOG, 'doll art', e)); return '<p class="ss-hint">불러오는 중…</p>'; }
     const meta = getMeta(), D = meta?.doll ?? {}, hurt = Array.isArray(D.hurt) ? D.hurt : [];
-    const any = (arg) => `<button class="ss-sw ss-sw-any" data-act="dollcolor" data-arg="${esc(arg)}" style="--c:conic-gradient(#e2524a,#e8b93a,#5aa85a,#3aa3a3,#4a8fe2,#9a6ad6,#e26aa8,#e2524a)" title="아무 색이나 고르기" aria-label="아무 색이나 고르기"></button>`;
-    const sws = (key, list, cur) => `<div class="ss-sws">${[...list, ...(cur && !list.includes(cur) ? [cur] : [])].map(c => sw('dolllook', key, c, cur)).join('')}${any(`look:${key}`)}</div>`;
+    const any = (arg, cur) => `<label class="ss-sw ss-sw-any" style="--c:conic-gradient(#e2524a,#e8b93a,#5aa85a,#3aa3a3,#4a8fe2,#9a6ad6,#e26aa8,#e2524a)" title="아무 색이나 고르기"><input type="color" data-dollcolor="${esc(arg)}" value="${/^#[0-9a-f]{6}$/i.test(cur ?? '') ? cur : '#e2524a'}" aria-label="아무 색이나 고르기"></label>`;
+    const sws = (key, list, cur) => `<div class="ss-sws">${[...list, ...(cur && !list.includes(cur) ? [cur] : [])].map(c => sw('dolllook', key, c, cur)).join('')}${any(`look:${key}`, cur)}</div>`;
     const opt = (key, map, cur) => `<div class="ss-pills">${Object.entries(map).map(([k, n]) => `<button class="ss-pill ${cur === k ? 'on' : ''}" data-act="dolllook" data-arg="${key}:${k}">${esc(n)}</button>`).join('')}</div>`;
     const make = sec('🧸 캐릭터 만들기', `
         <div class="ss-f wide"><span>피부</span>${sws('skin', DL.SKINS, D.skin ?? DL.SKINS[0])}</div>
         <div class="ss-f wide"><span>얼굴형</span>${opt('shape', DL.HEADS, D.shape ?? 'sq')}</div>
-        <div class="ss-f wide"><span>눈 모양</span>${opt('eyes', DL.EYES, D.eyes ?? 'n')}</div>
+        <div class="ss-f wide"><span>눈 모양 <small>눈을 뜬 표정에서 보여요</small></span>${opt('eyes', DL.EYES, D.eyes ?? 'n')}</div>
         <div class="ss-f wide"><span>몸 길이</span>${opt('body', DL.BODIES, D.body ?? 'n')}</div>
         <div class="ss-f wide"><span>테두리</span>${opt('line', DL.LINES, D.line ?? 'n')}</div>
         <div class="ss-f wide"><span>머리 모양 <small>${Object.keys(DL.HAIRS).length}가지</small></span><button class="ss-btn sm" data-act="dollpick" data-arg="hair"><i class="fa-solid fa-scissors"></i> ${esc(DL.HAIRS[D.hair]?.n ?? DL.HAIRS.short.n)} — 바꾸기</button></div>
@@ -406,10 +408,10 @@ export function wearTab(s, _d, ui = {}) {
         <p class="ss-hint">상태 이상에 「왼팔 부상」 · 「다리 골절」처럼 다친 곳이 적히면 그 부위가 저절로 빨개져요. 체력이 4분의 1 아래로 떨어져도요. 표정을 「기분 따라」로 두면 욕구 상태에 맞춰 바뀌어요.</p>`);
     const lib = settings().dollArt ?? {}, A = D.art ?? {};
     const mine = sec(`🖌 직접 그리기 · 내 그림 <small>${Object.keys(lib).length}개</small>`, `
-        ${Object.keys(lib).length ? `<div class="ss-stack">${Object.entries(lib).map(([id, a]) => `<div class="ss-card ss-art"><img class="ss-art-th" alt="" src="${DL.artUrl(artOf(id)?.g ?? [])}"><div><b>${esc(a.n)} <small>${esc(DL.ART_KINDS[a.kind] ?? '')}</small></b>
+        ${Object.keys(lib).length ? `<div class="ss-stack">${Object.entries(lib).map(([id, a]) => `<div class="ss-card ss-art"><img class="ss-art-th" alt="" src="${thumbOf(id)}"><div><b>${esc(a.n)} <small>${esc(DL.ART_KINDS[a.kind] ?? '')}</small></b>
             <div class="ss-row-btns"><button class="ss-btn sm ${A[a.kind] === id ? 'pri' : ''}" data-act="dollart" data-arg="use:${esc(id)}">${A[a.kind] === id ? '<i class="fa-solid fa-check"></i> 쓰는 중 — 빼기' : '쓰기'}</button><button class="ss-btn sm" data-act="dollart" data-arg="edit:${esc(id)}"><i class="fa-solid fa-pen"></i> 고치기</button><button class="ss-btn sm ghost" data-act="dollart" data-arg="del:${esc(id)}"><i class="fa-solid fa-trash"></i></button></div></div></div>`).join('')}</div>` : ''}
         <div class="ss-f wide"><span>새로 그리기 <small>칸 단위로 찍거나 그림 파일을 옮겨요</small></span><div class="ss-pills">${Object.entries(DL.ART_KINDS).map(([k, n]) => `<button class="ss-pill" data-act="dollart" data-arg="new:${k}"><i class="fa-solid fa-plus"></i> ${esc(n)}</button>`).join('')}</div></div>
-        <div class="ss-f wide"><span>인형 통째로 내 그림으로 <small>이 채팅만</small></span><div class="ss-row-btns"><button class="ss-btn sm" data-act="dollimg" data-arg="pick"><i class="fa-solid fa-image"></i> ${D.img ? '다른 그림으로' : '그림 올리기'}</button>${D.img ? '<button class="ss-btn sm ghost" data-act="dollimg" data-arg="off">도트 인형으로 돌아가기</button>' : ''}</div></div>
+        <div class="ss-f wide"><span>인형 통째로 내 그림으로 <small>이 채팅만</small></span><div class="ss-row-btns"><label class="ss-btn sm"><i class="fa-solid fa-image"></i> ${D.img ? '다른 그림으로' : '그림 올리기'}<input type="file" accept="image/*" data-dollimg hidden></label>${D.img ? '<button class="ss-btn sm ghost" data-act="dollimg" data-arg="off">도트 인형으로 돌아가기</button>' : ''}</div></div>
         <p class="ss-hint">직접 그린 것은 어느 채팅에서나 꺼내 쓸 수 있고, 편집 창의 「코드로 주고받기」로 다른 사람에게 줄 수 있어요. 직접 그린 칸에는 자동 명암 · 테두리가 안 붙어요. 통째로 올린 그림에는 옷 갈아입히기 · 표정 · 다친 곳 표시가 안 보여요. 몸 길이를 바꾸면 직접 그린 옷의 자리가 어긋날 수 있어요.</p>`);
     const stage = `<div class="ss-doll-stage">${dollNow(s, 'big')}</div>`;
     if (settings().gearOn !== true) return `<div class="ss-wear-top">${stage}</div>${sec('👕 옷 입히기', '<p class="ss-hint">소지품을 칸마다 하나씩 입히면 인형 위에 그 옷이 그려져요. AI에게는 「지금 입은 것」 한 줄이 가요.</p><div class="ss-row-btns"><button class="ss-btn pri" data-act="gearon"><i class="fa-solid fa-shirt"></i> 옷 입히기 켜기</button></div>')}${make}${mine}`;
@@ -417,8 +419,8 @@ export function wearTab(s, _d, ui = {}) {
     const eq = AD.equipped(s), by = Object.fromEntries(eq.map(e => [e.slot, e])), wear = wearNow(s, D);
     const looks = wear.filter(x => x.name).map(x => `<div class="ss-card ss-look"><b>${esc(x.name)} <small>${esc(x.slot)}</small></b>
             <div class="ss-row-btns"><button class="ss-btn sm" data-act="dollpick" data-arg="shape|${esc(x.name)}"><i class="fa-solid fa-shapes"></i> ${esc(DL.shapeName(x.kind, x.shape))} — 모양 바꾸기 <small>${Object.keys(DL.SHAPES[x.kind]).length}가지</small></button></div>
-            <div class="ss-sws">${DL.COLORS.map(c => `<button class="ss-sw ${x.color === c ? 'on' : ''}" data-act="dollitem" data-arg="${esc(x.name)}|color:${c}" style="--c:${c}" aria-label="${c}"></button>`).join('')}${any(`item:${x.name}|color`)}</div>
-            <div class="ss-f wide"><span>포인트 색 <small>줄무늬 · 단추 · 리본 같은 곳</small></span><div class="ss-sws">${DL.COLORS.slice(0, 10).map(c => `<button class="ss-sw sm ${x.accent === c ? 'on' : ''}" data-act="dollitem" data-arg="${esc(x.name)}|accent:${c}" style="--c:${c}" aria-label="${c}"></button>`).join('')}${any(`item:${x.name}|accent`)}${x.accent ? `<button class="ss-pill" data-act="dollitem" data-arg="${esc(x.name)}|accent:">기본으로</button>` : ''}</div></div>${x.art ? '<p class="ss-hint">지금은 직접 그린 그림이 대신 보여요.</p>' : ''}</div>`).join('');
+            <div class="ss-sws">${DL.COLORS.map(c => `<button class="ss-sw ${x.color === c ? 'on' : ''}" data-act="dollitem" data-arg="${esc(x.name)}|color:${c}" style="--c:${c}" aria-label="${c}"></button>`).join('')}${any(`item:${x.name}|color`, x.color)}</div>
+            <div class="ss-f wide"><span>포인트 색 <small>줄무늬 · 단추 · 리본 같은 곳</small></span><div class="ss-sws">${DL.COLORS.slice(0, 10).map(c => `<button class="ss-sw sm ${x.accent === c ? 'on' : ''}" data-act="dollitem" data-arg="${esc(x.name)}|accent:${c}" style="--c:${c}" aria-label="${c}"></button>`).join('')}${any(`item:${x.name}|accent`, x.accent)}${x.accent ? `<button class="ss-pill" data-act="dollitem" data-arg="${esc(x.name)}|accent:">기본으로</button>` : ''}</div></div>${x.art ? '<p class="ss-hint">지금은 직접 그린 그림이 대신 보여요.</p>' : ''}</div>`).join('');
     return `${sec(`👕 옷 입히기 <small>${eq.length}/${AD.gearSlots().length} · 칸을 눌러 소지품에서 골라요</small>`, dollHTML(AD.gearSlots(), by, stage))}
         ${looks ? sec('🎨 입은 옷의 모양 · 색 <small>이름을 보고 골라 둔 것 — 틀리면 바꿔요</small>', `<div class="ss-stack">${looks}</div>`) : ''}
         ${make}
@@ -429,18 +431,33 @@ export function wearTab(s, _d, ui = {}) {
 LIFE_ACTIONS.dolllook = async (el, arg) => { const i = String(arg).indexOf(':'), k = arg.slice(0, i), v = arg.slice(i + 1); if (!['skin', 'hair', 'hairColor', 'eye', 'face', 'shape', 'eyes', 'body', 'line'].includes(k)) return; const meta = getMeta(true); (meta.doll ??= {})[k] = v; await saveMeta(); app.rerenderPanels?.(true); };
 LIFE_ACTIONS.dollitem = async (el, arg) => { const j = String(arg).lastIndexOf('|'), name = arg.slice(0, j), kv = arg.slice(j + 1), i = kv.indexOf(':'), k = kv.slice(0, i), v = kv.slice(i + 1); if (!['shape', 'color', 'accent'].includes(k)) return; const meta = getMeta(true); const L = ((meta.doll ??= {}).looks ??= {}); if (v) (L[norm(name)] ??= {})[k] = v; else delete L[norm(name)]?.[k]; await saveMeta(); app.rerenderPanels?.(true); };
 LIFE_ACTIONS.dollhurt = async (el, arg) => { await loadDL(); if (!DL.HURT_PARTS[arg]) return; const meta = getMeta(true), D = (meta.doll ??= {}); const h = new Set(Array.isArray(D.hurt) ? D.hurt : []); if (h.has(arg)) h.delete(arg); else h.add(arg); D.hurt = [...h]; await saveMeta(); app.rerenderPanels?.(true); };
-// 🎨 아무 색이나 고르기: 기기의 색 고르는 창을 띄운다 (누른 그 순간에 열어야 해서 기다림 없이 바로)
-LIFE_ACTIONS.dollcolor = (el, arg) => {
-    document.querySelectorAll('.ss-anycolor').forEach(n => n.remove());
+// 🎨 아무 색이나 고르기 · 🖼 그림 올리기: 진짜 입력칸(색 · 파일)을 눌러야 폰에서도 창이 확실히 뜬다 → 값이 바뀌면 여기서 받는다
+async function anyColor(arg, v) {
     const meta = getMeta(true), D = (meta.doll ??= {}), isLook = String(arg).startsWith('look:'), rest = String(arg).slice(5), j = rest.lastIndexOf('|');
     const key = isLook ? rest : rest.slice(j + 1), name = isLook ? '' : rest.slice(0, j);
-    if (isLook ? !['skin', 'hairColor', 'eye'].includes(key) : !['color', 'accent'].includes(key)) return;
-    const cur = isLook ? D[key] : D.looks?.[norm(name)]?.[key];
-    const inp = document.createElement('input'); inp.type = 'color'; inp.className = 'ss-anycolor'; inp.value = /^#[0-9a-f]{6}$/i.test(cur ?? '') ? cur : '#e2524a';
-    inp.style.cssText = 'position:fixed;left:50%;top:40%;width:1px;height:1px;opacity:0;pointer-events:none';
-    inp.addEventListener('change', async () => { const v = inp.value.toLowerCase(); inp.remove(); if (isLook) D[key] = v; else ((D.looks ??= {})[norm(name)] ??= {})[key] = v; await saveMeta(); app.rerenderPanels?.(true); });
-    document.body.appendChild(inp); inp.click();
-};
+    if (!/^#[0-9a-f]{6}$/i.test(v) || (isLook ? !['skin', 'hairColor', 'eye'].includes(key) : !['color', 'accent'].includes(key) || !name)) return;
+    if (isLook) D[key] = v.toLowerCase(); else ((D.looks ??= {})[norm(name)] ??= {})[key] = v.toLowerCase();
+    await saveMeta(); app.rerenderPanels?.(true);
+}
+function ownImage(f) {
+    const im = new Image(), url = URL.createObjectURL(f);
+    im.onload = async () => {
+        const k = Math.min(1, 240 / Math.max(im.width, im.height)), cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(im.width * k)); cv.height = Math.max(1, Math.round(im.height * k));
+        const c = cv.getContext('2d'); c.imageSmoothingEnabled = k < 1; c.drawImage(im, 0, 0, cv.width, cv.height); URL.revokeObjectURL(url);
+        let out = cv.toDataURL('image/png'); if (out.length > 160000) out = cv.toDataURL('image/webp', 0.85);
+        (getMeta(true).doll ??= {}).img = out; await saveMeta(); app.rerenderPanels?.(true);
+    };
+    im.onerror = () => URL.revokeObjectURL(url);
+    im.src = url;
+}
+if (typeof document !== 'undefined' && !app._dollInputs) {
+    app._dollInputs = true;
+    document.addEventListener('change', (e) => {
+        const t = e.target; if (!t?.closest?.('.ss-scope')) return;
+        if (t.dataset?.dollcolor) anyColor(t.dataset.dollcolor, t.value).catch(err => ssWarn(LOG, 'doll color', err));
+        else if (t.matches?.('input[data-dollimg]')) { const f = t.files?.[0]; t.value = ''; if (f) ownImage(f); }
+    }, true);
+}
 // 🖌 직접 그리기: 새로 · 고치기 · 쓰기/빼기 · 지우기
 LIFE_ACTIONS.dollart = async (el, arg, btn, s) => {
     await loadDL();
@@ -458,24 +475,7 @@ LIFE_ACTIONS.dollart = async (el, arg, btn, s) => {
     else return;
     await saveMeta(); app.rerenderPanels?.(true);
 };
-// 🖼 인형 통째로 내 그림: 작게 줄여서 이 채팅에 넣어 둔다
-LIFE_ACTIONS.dollimg = (el, arg) => {
-    const meta = getMeta(true), D = (meta.doll ??= {});
-    if (arg === 'off') { delete D.img; saveMeta().then(() => app.rerenderPanels?.(true)); return; }
-    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
-    inp.addEventListener('change', () => {
-        const f = inp.files?.[0]; if (!f) return; const im = new Image(), url = URL.createObjectURL(f);
-        im.onload = async () => {
-            const k = Math.min(1, 240 / Math.max(im.width, im.height)), cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(im.width * k)); cv.height = Math.max(1, Math.round(im.height * k));
-            const c = cv.getContext('2d'); c.imageSmoothingEnabled = k < 1; c.drawImage(im, 0, 0, cv.width, cv.height); URL.revokeObjectURL(url);
-            let out = cv.toDataURL('image/png'); if (out.length > 160000) out = cv.toDataURL('image/webp', 0.85);
-            D.img = out; await saveMeta(); app.rerenderPanels?.(true);
-        };
-        im.onerror = () => URL.revokeObjectURL(url);
-        im.src = url;
-    });
-    inp.click();
-};
+LIFE_ACTIONS.dollimg = async (el, arg) => { if (arg !== 'off') return; const meta = getMeta(true); delete (meta.doll ??= {}).img; await saveMeta(); app.rerenderPanels?.(true); };
 // 머리 모양 · 표정 · 옷 모양 고르기: 미리보기 인형이 깔린 창 (누를 때만 그린다)
 LIFE_ACTIONS.dollpick = async (el, arg, btn, s) => {
     await loadDL();

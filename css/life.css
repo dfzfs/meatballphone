@@ -178,3 +178,8 @@
 .ss-de .ss-de-any input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .ss-de .ss-de-code { margin: 8px 0; }
 .ss-de .ss-de-code textarea { width: 100%; margin: 6px 0; font-size: 11px; }
+/* 만들기 창 「어떻게 쓸까요」: 설명이 길어도 잘리지 않게 줄을 바꾼다 */
+.ss-scope .ss-seg.stack[data-w="start"] > button { flex: 1 1 100%; box-sizing: border-box; min-width: 0; max-width: 100%; white-space: normal; height: auto; padding: 8px 10px; }
+.ss-scope .ss-seg.stack[data-w="start"] > button small { display: block; white-space: normal; line-height: 1.35; overflow-wrap: anywhere; }
+.ss-scope label.ss-sw-any { position: relative; display: inline-block; overflow: hidden; }
+.ss-scope label.ss-sw-any input { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; opacity: 0; cursor: pointer; }
