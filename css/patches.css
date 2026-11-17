@@ -531,3 +531,55 @@ dialog.popup.ss-dlg.ss-full .popup-content { max-height: none; }
 .ss-loc-go small { color: var(--ss-dim); white-space: nowrap; }
 .ss-loc-go.poor { opacity: .55; }
 @media (hover: none) and (pointer: coarse) { .ss-loc-go { min-height: 30px; padding: 4px 10px; } .ss-pl { min-height: 44px; } }
+
+/* ───── 🧊 입체 그림 (v2.9): 지도 · 건물 층 · 집 안 구조 — 면 색은 --c 하나에서 섞어 만든다 ───── */
+.ss-iso .f-t { fill: color-mix(in srgb, var(--c, #d6cdbd) 62%, #fff); }
+.ss-iso .f-l { fill: var(--c, #d6cdbd); }
+.ss-iso .f-r { fill: color-mix(in srgb, var(--c, #d6cdbd) 76%, #1c1a22); }
+.ss-iso :is(.f-t, .f-l, .f-r, .w-l, .w-r) { stroke: color-mix(in srgb, var(--c, #d6cdbd) 55%, #1c1a22); stroke-width: .18; stroke-linejoin: round; }
+.ss-iso .w-l { fill: color-mix(in srgb, var(--c, #ece4d4) 88%, #1c1a22); }
+.ss-iso .w-r { fill: color-mix(in srgb, var(--c, #ece4d4) 72%, #1c1a22); }
+.ss-iso .ln { fill: none; stroke: color-mix(in srgb, var(--c, #d6cdbd) 45%, #1c1a22); stroke-width: .22; opacity: .7; }
+.ss-iso .wv { fill: none; stroke: #fff; stroke-width: .3; stroke-linecap: round; opacity: .8; }
+.ss-iso .hole { fill: #2b2926; }
+.ss-mapwrap.iso { background: linear-gradient(color-mix(in srgb, #8ec5ff 14%, var(--ss-surface)), color-mix(in srgb, #9ad08a 16%, var(--ss-surface))); }
+.ss-mapwrap.iso.night { background: linear-gradient(#1a2140, #24304f); }
+.ss-map.iso { max-height: 60vh; }
+.ss-map.iso .edges line { stroke: color-mix(in srgb, #c9b48a 70%, var(--ss-surface)); stroke-width: 1.7; stroke-linecap: round; opacity: 1; }
+.ss-map.iso .edges line.unk { stroke-dasharray: .2 2.6; opacity: .8; }
+.ss-map.iso .edges line.route { stroke: var(--ss-hi); stroke-width: 1.3; stroke-dasharray: .2 2.4; }
+.ss-map.iso .node .gnd { fill: color-mix(in srgb, #a9d58f 55%, var(--ss-surface)); stroke: color-mix(in srgb, #5c8f48 45%, transparent); stroke-width: .2; }
+.ss-map.iso .node.unk .gnd { fill: color-mix(in srgb, var(--ss-dim) 22%, var(--ss-surface)); stroke: var(--ss-dim); stroke-dasharray: .7 .7; }
+.ss-map.iso .node.here .gnd { fill: color-mix(in srgb, var(--ss-hi) 35%, var(--ss-surface)); stroke: var(--ss-hi); stroke-width: .35; }
+.ss-map.iso .node.sel .gnd { stroke: var(--ss-hi); stroke-width: .6; }
+.ss-map.iso .node:hover .gnd { stroke: var(--ss-hi); }
+.ss-map.iso .node text.q { font-size: 3px; fill: #fff; stroke: none; }
+.ss-map.iso .node .pin line { stroke: var(--ss-hi); stroke-width: .5; stroke-linecap: round; }
+.ss-map.iso .node .pin circle { fill: var(--ss-hi); stroke: #fff; stroke-width: .45; }
+.ss-map.iso .node .pin { animation: ss-iso-bob 1.6s ease-in-out infinite; }
+@keyframes ss-iso-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.1px); } }
+@media (prefers-reduced-motion: reduce) { .ss-map.iso .node .pin { animation: none; } }
+.ss-mapwrap.iso.night .ss-map .node text:not(.ico):not(.q) { fill: #eef1ff; stroke: #1a2140; }
+.ss-mapwrap.iso.night .ss-map :is(.f-t, .f-l, .f-r, .gnd) { filter: brightness(.78) saturate(.85); }
+.ss-mapwrap.iso.night .ss-map .ln { stroke: #ffd36b; opacity: .9; }
+/* 건물 안 · 층 */
+.ss-floorbox { display: flex; flex-direction: column; gap: 4px; }
+.ss-floorbox > small { color: var(--ss-dim); }
+.ss-floors { display: block; width: 100%; max-width: 420px; height: auto; }
+.ss-floors text { font-size: 4.2px; font-weight: 600; fill: var(--ss-ink); }
+.ss-floors .lead { stroke: var(--ss-dim); stroke-width: .25; stroke-dasharray: .8 .8; }
+.ss-floors .fl.can { cursor: pointer; }
+.ss-floors .fl.on text { fill: var(--ss-hi); font-weight: 800; }
+.ss-floors .fl.can:hover :is(.f-t, .f-l, .f-r) { stroke: var(--ss-hi); stroke-width: .4; }
+/* 집 안 구조 */
+.ss-homewrap { margin: 8px 0 4px; border-radius: var(--ss-r); border: 1px solid var(--ss-line); background: color-mix(in srgb, var(--ss-ink) 3%, var(--ss-surface)); overflow: hidden; }
+.ss-homeiso { display: block; width: 100%; height: auto; max-height: 56vh; user-select: none; -webkit-user-select: none; }
+.ss-homeiso .rm { cursor: pointer; }
+.ss-homeiso .rm text { text-anchor: middle; pointer-events: none; }
+.ss-homeiso .rm .nm { font-size: 3px; font-weight: 700; fill: #3a3128; paint-order: stroke; stroke: rgba(255,255,255,.75); stroke-width: .7px; stroke-linejoin: round; }
+.ss-homeiso .rm .fu { font-size: 4.6px; }
+.ss-homeiso .rm .more { font-size: 2.6px; fill: #3a3128; font-weight: 700; }
+.ss-homeiso .rm:hover .f-t, .ss-homeiso .rm.on .f-t { stroke: var(--ss-hi); stroke-width: .5; }
+.ss-homeiso .rm.on .f-t { fill: color-mix(in srgb, var(--ss-hi) 22%, color-mix(in srgb, var(--c) 62%, #fff)); }
+.ss-homeiso .lv { font-size: 3.4px; font-weight: 800; fill: var(--ss-dim); text-anchor: end; }
+.ss-scope .ss-room.sel { border-color: var(--ss-hi); box-shadow: 0 0 0 1px var(--ss-hi) inset; }

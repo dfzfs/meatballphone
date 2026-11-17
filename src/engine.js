@@ -788,7 +788,7 @@ export async function purgeTrash(names) {
 export const PRIV_MOD = {
     _qask: 'quest', _needmod: 'stats', _achtog: 'ach', _bond: 'rel', _love: 'rel', _nolove: 'rel', _leave: 'rel', _unbond: 'rel', _peekday: 'rel', _merge: 'rel',
     _draw: 'fate', _effect: 'fate', _loan: 'wallet', _repay: 'wallet', _sellused: 'wallet', _tobag: 'wallet', _memo: 'memo', _questpay: 'quest',
-    _read: 'contact', _nread: 'news', _roll: 'dice', _trash: 'home', _purge: 'home', _restore: 'home', _tostore: 'home', _unplace: 'home', _travel: 'map',
+    _read: 'contact', _nread: 'news', _roll: 'dice', _trash: 'home', _purge: 'home', _restore: 'home', _tostore: 'home', _unplace: 'home', _travel: 'map', _spot: 'map',
 };
 export const opMod = (s, k) => opInfo(s, k).mod ?? PRIV_MOD[k] ?? null;
 // 편집 기록에서 조건에 맞는 변화만 빼기 (빈 기록은 통째로) → 뺀 개수
@@ -1596,7 +1596,7 @@ function buildInjection0(r, opt = {}) {
     if (on('map')) {
         const m = d.map, p = findBy(m.places, m.here);
         const ppl = modOn('profile', meta) ? peopleAt(s, m.here).now : [];
-        if (m.here) L.push(`Location: ${m.here}${p?.desc ? ` — ${short(p.desc, 120)}` : ''}${p?.links?.length ? ` · nearby: ${p.links.join(', ')}` : ''}${ppl.length ? ` · usually here now: ${ppl.join(', ')}` : ''}`);
+        if (m.here) L.push(`Location: ${m.here}${m.spot ? ` (inside: ${m.spot})` : ''}${p?.desc ? ` — ${short(p.desc, 120)}` : ''}${p?.links?.length ? ` · nearby: ${p.links.join(', ')}` : ''}${ppl.length ? ` · usually here now: ${ppl.join(', ')}` : ''}`);
     }
     if (on('stats')) {
         const st = d.stats;

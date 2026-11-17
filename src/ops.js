@@ -565,6 +565,7 @@ function opCurse(s, val, info, L, T, key, rawKey) {
 }
 function opXEffect(s, val, info, L, T, key, rawKey) { applyLines(s, val, info); return; }
 function opWeather(s, val, info, L, T, key, rawKey) { const cal = ensure(s, 'calendar'); if (val !== cal.weather) { cal.weather = val; L(`날씨: ${val}`); } return; }
+function opXSpot(s, val) { const mp = s.data.map; if (!mp) return; if (String(val ?? '').trim()) mp.spot = String(val).trim(); else delete mp.spot; return; } // 🏢 건물 안 어디 (층 · 방) — 지도 탭에서 층을 눌렀을 때
 function opXTravel(s, val, info, L, T, key, rawKey) {
     // 지도에서 이동: 위치 + 칸 수만큼 시간대가 흐름(하루를 넘기면 날짜도) + 요금
     const mp = s.data.map; if (!mp) return;
@@ -787,7 +788,7 @@ function opLoc(s, val, info, L, T, key, rawKey) {
     }
     p.known = true;
     if (!T.places.some(x => norm(x) === norm(p.name))) T.places.push(p.name);
-    if (norm(mp.here) !== norm(p.name)) { mp.here = p.name; L(`📍 ${p.name}`); }
+    if (norm(mp.here) !== norm(p.name)) { mp.here = p.name; delete mp.spot; L(`📍 ${p.name}`); } // 다른 곳으로 가면 「건물 안 어디」는 지운다
     return;
 }
 function opPlace(s, val, info, L, T, key, rawKey) {
@@ -1112,6 +1113,7 @@ const OPS = {
     '_effect': opXEffect,
     'weather': opWeather,
     '_travel': opXTravel,
+    '_spot': opXSpot,
     '_trash': opXTrash,
     '_sellused': opXTrash,
     '_purge': opXPurge,

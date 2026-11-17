@@ -21,6 +21,7 @@ import { needLine, LIFE_ACTIONS, inNeedPanel, goodIcon, isMeatShop, needsTab, we
 import { DEVICES as STORY_DEVICES, KEY as STORY_KEY } from './story.js';
 import { busyBtn, confirmPopup, mascot } from './kit.js';
 import { freshDot, usedPrice, placeIcon, miniWidgets, pathTo, tripInfo } from './tiles.js';
+import { isoPt, isoNodes, floorsSVG, homeSVG } from './iso.js'; // 🧊 입체 지도 · 건물 층 · 집 안 구조 (v2.9)
 export * from './tiles.js'; // 떼어 낸 것 — 다른 파일은 예전처럼 여기서 받아도 된다
 
 const roleName = { user: '유저', main: '주요', npc: 'NPC' };
@@ -85,10 +86,14 @@ export const VIEW = {
     map: (s, d, ui) => {
         const areas = [...new Set(d.places.map(p => p.area).filter(Boolean))];
         const shown = ui.mapArea ? d.places.filter(p => p.area === ui.mapArea) : d.places;
-        const pos = layoutPlaces(d.places);
+        // 🧊 보기 방식 (v2.9): 입체(기본) · 평면 · 목록 — 고른 것은 모든 채팅에 기억
+        const mode = ['iso', 'flat', 'list'].includes(ui.mapMode ?? settings().mapMode) ? (ui.mapMode ?? settings().mapMode) : 'iso';
+        const iso = mode === 'iso';
+        const flatPos = layoutPlaces(d.places);
+        const pos = iso ? new Map([...flatPos].map(([k, o]) => [k, isoPt(o)])) : flatPos;
         const sel = findBy(d.places, ui.place ?? d.here);
         const shownSet = new Set(shown.map(p => p.name));
-        const list = ui.mapList ?? isSimple(); // 📋 목록 보기 (v2.9) — 🍙 심플 모드는 목록부터 (좁은 화면에서 글씨가 안 잘림)
+        const list = mode === 'list'; // 📋 목록 보기 (v2.9) — 가까운 순 · 바로 이동
         // 🧭 가는 길: 고른 곳이 지금 위치가 아니면 이어진 길을 지도에 굵게
         const route = sel && norm(sel.name) !== norm(d.here) ? pathTo(d, sel.name) : null;
         const onRoute = new Set();
@@ -101,7 +106,7 @@ export const VIEW = {
             (onRoute.has(key) ? routeEdges : edges).push(`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" class="${onRoute.has(key) ? 'route' : p.known && q.known ? '' : 'unk'}"/>`);
         }
         const people = modOn('profile') && s.data.profile;
-        const nodes = shown.map(p => {
+        const nodes = iso ? isoNodes(shown, { pos, here: d.here, sel, label: (p) => (p.known ? (viewTr() ? trString(p.name) : p.name) : '???'), count: (p) => (people ? peopleAt(s, p.name).now.length : 0) }) : shown.map(p => {
             const ic = p.known ? placeIcon(p) : '❔';
             const o = pos.get(p.name); const here = norm(p.name) === norm(d.here); const isSel = sel && sel.name === p.name;
             const n = people ? peopleAt(s, p.name).now.length : 0;
@@ -109,7 +114,8 @@ export const VIEW = {
                 ${here ? `<circle cx="${o.x}" cy="${o.y}" r="4.6" class="ring"/>` : ''}<circle cx="${o.x}" cy="${o.y}" r="${here ? 3.2 : 2.8}" class="dot"/><text class="ico" x="${o.x}" y="${o.y + 1.15}">${esc(ic)}</text>
                 <text x="${o.x}" y="${o.y - 4.4}">${esc(p.known ? short(viewTr() ? trString(p.name) : p.name, 8) : '???')}</text>${n ? `<text class="ppl" x="${o.x + 2.6}" y="${o.y + 1.2}">👥${n}</text>` : ''}</g>`;
         }).join('');
-        const vb = ui.mapVB ?? fitBox(shown.map(p => pos.get(p.name)));
+        const vb = ui.mapVB ?? (() => { const f = fitBox(shown.map(p => pos.get(p.name))); return iso ? [f[0], f[1] - 5, f[2], f[3] + 5] : f; })(); // 입체: 높은 건물 · 핀이 위로 잘리지 않게
+        const night = iso && modOn('calendar') && /밤|새벽|심야|자정|night|midnight|dawn/i.test(s.data.calendar?.time ?? '');
         let card = '';
         if (sel) {
             const here = norm(sel.name) === norm(d.here);
@@ -121,11 +127,13 @@ export const VIEW = {
             card = `<div class="ss-card ss-place"><div class="ss-place-h"><b>${esc(sel.known ? sel.name : '알 수 없는 곳')}</b>${sel.kind ? chip(esc(sel.kind)) : ''}${sel.area ? chip(esc(sel.area)) : ''}${here ? chip('현재 위치', 'hi') : ''}</div>
                 <p class="ss-pre ss-dim">${esc(sel.known ? sel.desc : '아직 가 보지 않았다.')}</p>
                 ${pa.now.length || pa.live.length ? `<div class="ss-ppl">${pa.now.length ? `<div><small>지금 여기${cal ? ` (${esc(s.data.calendar.time)})` : ''}</small>${pa.now.map(n => `<button class="ss-chip btn" data-act="talk" data-arg="${esc(n)}">${esc(n)}</button>`).join('')}</div>` : ''}${pa.live.length ? `<div><small>사는 사람</small>${pa.live.map(n => chip(esc(n))).join('')}</div>` : ''}</div>` : ''}
+                ${sel.known && sel.floors?.length ? `<div class="ss-floorbox"><small>건물 안 · ${sel.floors.length}곳${here ? ' — 층을 누르면 「지금 여기」로 표시해요 (AI에게도 알려요)' : ''}</small>${floorsSVG(sel, here ? d.spot : '', here)}</div>` : ''}
+                ${sel.known && modOn('home') && s.data.home?.rooms?.length && (norm(sel.name) === norm(s.data.home.name) || /집|home|자택|본거지|저택|숙소/i.test(`${sel.name} ${sel.kind}`)) ? `<div class="ss-row-btns"><button class="ss-btn sm" data-act="tab" data-arg="base"><i class="fa-solid fa-house-chimney-window"></i> 집 안 보기</button></div>` : ''}
                 ${sel.links.length ? `<div class="ss-chips">${sel.links.map(l => `<button class="ss-chip btn" data-act="selplace" data-arg="${esc(l)}">${esc(l)}</button>`).join('')}</div>` : ''}
                 ${!here ? `<p class="ss-hint">${trip.path ? `${hops}칸 거리` : '길이 이어져 있지 않아요 · 한 칸으로 쳐요'}${cal && trip.arrive ? ` · 도착 <b>${esc(trip.arrive)}</b>` : ''}${sel.fare ? ` · 요금 ${fmtNum(sel.fare)} ${esc(cur)}${trip.poor ? ' <b class="neg">(모자라요)</b>' : ''}` : ''}${trip.path && trip.path.length > 2 ? `<br><i class="fa-solid fa-route"></i> ${trip.path.map(n => esc(short(nm(n), 12))).join(' → ')}` : ''}</p>
                 <div class="ss-row-btns"><button class="ss-btn pri sm" data-act="travel" data-arg="${esc(sel.name)}"><i class="fa-solid fa-person-walking"></i> 이동</button><button class="ss-btn sm ghost" data-act="goto" data-arg="${esc(sel.name)}">입력창에 쓰기</button><button class="ss-btn sm ghost" data-act="setloc" data-arg="${esc(sel.name)}">위치만 바꾸기</button></div>` : ''}</div>`;
         }
-        const modeSeg = `<div class="ss-seg ss-mapmode"><button class="${list ? '' : 'on'}" data-act="maplist" data-arg="0"><i class="fa-solid fa-map"></i> 지도</button><button class="${list ? 'on' : ''}" data-act="maplist" data-arg="1"><i class="fa-solid fa-list-ul"></i> 목록</button></div>`;
+        const modeSeg = `<div class="ss-seg ss-mapmode">${[['iso', 'fa-cube', '입체'], ['flat', 'fa-map', '평면'], ['list', 'fa-list-ul', '목록']].map(([v, ic, nm2]) => `<button class="${mode === v ? 'on' : ''}" data-act="mapmode" data-arg="${v}"><i class="fa-solid ${ic}"></i> ${nm2}</button>`).join('')}</div>`;
         const headHTML = `<div class="ss-maphead"><div class="ss-hint"><b>${esc(d.name || '지도')}</b> · 지금 <b>${esc(d.here || '-')}</b>${freshDot('map', 'here')}</div>${modeSeg}</div>`;
         const areasHTML = areas.length ? `<div class="ss-seg wrap ss-areas">${[['', '전체'], ...areas.map(a => [a, a])].map(([v, t]) => `<button class="${(ui.mapArea ?? '') === v ? 'on' : ''}" data-act="maparea" data-arg="${esc(v)}">${esc(t)}</button>`).join('')}</div>` : '';
         if (list) {
@@ -143,9 +151,9 @@ export const VIEW = {
         }
         return `${headHTML}
             ${areas.length ? `<div class="ss-seg wrap ss-areas">${[['', '전체'], ...areas.map(a => [a, a])].map(([v, t]) => `<button class="${(ui.mapArea ?? '') === v ? 'on' : ''}" data-act="maparea" data-arg="${esc(v)}">${esc(t)}</button>`).join('')}</div>` : ''}
-            <div class="ss-mapwrap"><svg class="ss-map" viewBox="${vb.join(' ')}" preserveAspectRatio="xMidYMid meet"><g class="edges">${edges.join('')}${routeEdges.join('')}</g>${nodes}</svg>
+            <div class="ss-mapwrap${iso ? ' iso' : ''}${night ? ' night' : ''}"><svg class="ss-map${iso ? ' ss-iso iso' : ''}" viewBox="${vb.join(' ')}" preserveAspectRatio="xMidYMid meet"><g class="edges">${edges.join('')}${routeEdges.join('')}</g>${nodes}</svg>
                 <div class="ss-mapctl"><button class="ss-ib" data-act="mapzoom" data-arg="in" title="확대">＋</button><button class="ss-ib" data-act="mapzoom" data-arg="out" title="축소">－</button><button class="ss-ib" data-act="mapzoom" data-arg="here" title="현재 위치로"><i class="fa-solid fa-location-crosshairs"></i></button><button class="ss-ib" data-act="mapzoom" data-arg="fit" title="전체 보기"><i class="fa-solid fa-expand"></i></button></div></div>
-            <p class="ss-hint">끌어서 옮기고, 두 손가락·휠·버튼으로 확대해요.</p>
+            <p class="ss-hint">끌어서 옮기고, 두 손가락·휠·버튼으로 확대해요.${iso ? ' 장소 「고치기」에서 안쪽 · 층을 적으면 건물에 층이 생겨요.' : ''}</p>
             ${card}`;
     },
     calendar: (s, d, ui) => {
@@ -213,8 +221,9 @@ export const VIEW = {
     },
 };
 // 본거지 (탭 id 'home'은 대시보드와 겹치지 않게 'base'로 보여 준다)
-VIEW.base = (s, d) => `<div class="ss-hero sm"><div class="ss-hero-t"><small>본거지</small><b>${esc(d.name || '본거지')}</b></div>${d.desc ? `<p class="ss-pre ss-dim">${esc(d.desc)}</p>` : ''}</div>
-    <div class="ss-rooms">${d.rooms.map(r => `<div class="ss-room"><b>${esc(r.name)}</b><small class="ss-pre">${esc(r.desc)}</small>
+VIEW.base = (s, d, ui = {}) => `<div class="ss-hero sm"><div class="ss-hero-t"><small>본거지</small><b>${esc(d.name || '본거지')}</b></div>${d.desc ? `<p class="ss-pre ss-dim">${esc(d.desc)}</p>` : ''}</div>
+    ${d.rooms.length ? `<div class="ss-homewrap">${homeSVG(d, ui.room)}</div><p class="ss-hint">방을 누르면 아래에서 그 방이 표시돼요. 방 「고치기」에서 층(숫자)을 적으면 층별로 나뉘어요.</p>` : ''}
+    <div class="ss-rooms">${d.rooms.map(r => `<div class="ss-room${ui.room && norm(ui.room) === norm(r.name) ? ' sel' : ''}"><b>${esc(r.name)}</b><small class="ss-pre">${esc(r.desc)}</small>
         <div class="ss-chips">${r.decor.map(x => `<span class="ss-chip">${esc(x)}<button class="ss-x" data-act="unplace" data-arg="${esc(x)}" title="창고로">↓</button></span>`).join('') || '<small class="ss-hint">비어 있음</small>'}</div></div>`).join('') || emptyBox('방·구역이 없어요', 'fa-house')}</div>
     ${sec(`창고 <small>${d.storage.length}</small>`, d.storage.length ? `<div class="ss-stack">${d.storage.map((x, i) => `<div class="ss-item"><div class="ss-item-b"><b>${esc(x)}</b></div><select class="ss-in sm" data-chg="place" data-arg="${i}"><option value="">배치할 곳…</option>${d.rooms.map(r => `<option>${esc(r.name)}</option>`).join('')}</select>
         <div class="ss-item-a">${s.data.wallet && modOn('wallet') ? `<button class="ss-ib" data-act="tobag" data-arg="${esc(x)}" title="소지품으로 옮기기">🎒</button>` : ''}${s.data.wallet && modOn('wallet') ? `<button class="ss-btn sm ghost" data-act="sellused" data-arg="${esc(x)}" title="중고장터에 팔기 (헐값)">♻ 팔기</button>` : ''}<button class="ss-ib" data-act="trashit" data-arg="${esc(x)}" title="쓰레기통에 버리기"><i class="fa-solid fa-trash-can"></i></button></div></div>`).join('')}</div>` : emptyBox('상점에서 가구를 사면 여기에 들어와요', 'fa-couch'))}
@@ -456,7 +465,7 @@ export function manageHTML(s, ui = {}, extra = '') {
 }
 
 // 편집 기록 이름: 라벨이 없는 조용한 기록(주사위 · 좋아요 · 읽음 같은 것)도 무엇인지 알 수 있게 (v2.7.18)
-const OP_NAME = { _merge: '🔗 인물 합치기', _roll: '🎲 주사위 굴림', _read: '💬 읽음 표시', _nread: '📰 기사 읽음', _peekday: '💗 속마음 엿보기 (예전)', _memo: '📝 메모', _achtog: '🏆 업적', _travel: '🗺 이동', _trash: '🗑 버림', _purge: '🗑 완전 삭제', _restore: '↩ 되살림', _tostore: '📦 보관', _tobag: '🎒 꺼냄', _unplace: '🪑 치움', _sellused: '💸 중고 판매', _loan: '🏦 대출', _repay: '🏦 상환', _questpay: '📜 보상', _draw: '🃏 카드', _effect: '✨ 효과', _bond: '💍 연인 확정', _unbond: '💔 확정 취소', _nolove: '💗 애정 끔', _love: '💗 애정 켬', _leave: '🕊 빠짐' };
+const OP_NAME = { _merge: '🔗 인물 합치기', _roll: '🎲 주사위 굴림', _read: '💬 읽음 표시', _nread: '📰 기사 읽음', _peekday: '💗 속마음 엿보기 (예전)', _memo: '📝 메모', _achtog: '🏆 업적', _travel: '🗺 이동', _spot: '🏢 층 이동', _trash: '🗑 버림', _purge: '🗑 완전 삭제', _restore: '↩ 되살림', _tostore: '📦 보관', _tobag: '🎒 꺼냄', _unplace: '🪑 치움', _sellused: '💸 중고 판매', _loan: '🏦 대출', _repay: '🏦 상환', _questpay: '📜 보상', _draw: '🃏 카드', _effect: '✨ 효과', _bond: '💍 연인 확정', _unbond: '💔 확정 취소', _nolove: '💗 애정 끔', _love: '💗 애정 켬', _leave: '🕊 빠짐' };
 function adjName(a) {
     if (a.label) return a.label;
     if (a.set) return `${MOD[a.set.mod]?.name ?? a.set.mod} 칸 바뀜`;
@@ -537,7 +546,10 @@ export const VIEW_ACTIONS = {
         return addAdjust({ ops: [['weather', v.trim() || '☀️ 맑음']], label: `날씨 → ${v.trim()}` });
     },
     selplace: (el, arg) => { el._ss.ui.place = arg; app.renderPanel(el); },
-    maplist: (el, arg) => { el._ss.ui.mapList = arg === '1'; app.renderPanel(el); },
+    mapmode: (el, arg) => { el._ss.ui.mapMode = arg; el._ss.ui.mapVB = null; settings().mapMode = arg; saveSettings(); app.renderPanel(el); },
+    // 🏢 건물 안에서 층 옮기기 (지금 그 건물에 있을 때만 · 같은 층을 다시 누르면 지움)
+    spot: (el, arg, btn, s) => { const mp = s.data.map; if (!mp) return; const off = norm(mp.spot ?? '') === norm(arg); return addAdjust({ ops: [['_spot', off ? '' : arg]], label: off ? `${mp.here} — 층 표시 지움` : `${mp.here} · ${arg}(으)로 갔다` }); },
+    selroom: (el, arg) => { el._ss.ui.room = el._ss.ui.room === arg ? null : arg; app.renderPanel(el); },
     maparea: (el, arg) => { el._ss.ui.mapArea = arg || null; el._ss.ui.mapVB = null; app.renderPanel(el); },
     mapzoom: (el, arg, btn, s) => {
         const ui = el._ss.ui, svg = el.querySelector('svg.ss-map'); if (!svg) return;

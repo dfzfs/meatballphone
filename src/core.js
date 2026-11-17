@@ -837,7 +837,7 @@ export const NORM = {
     }),
     home: (d) => ({
         name: str(d.name), desc: str(d.desc),
-        rooms: arr(d.rooms).filter(r => r?.name).map(r => ({ name: str(r.name), desc: str(r.desc), decor: arr(r.decor).map(String).filter(Boolean) })),
+        rooms: arr(d.rooms).filter(r => r?.name).map(r => ({ name: str(r.name), desc: str(r.desc), decor: arr(r.decor).map(String).filter(Boolean), ...(r.floor !== '' && r.floor != null && Number.isFinite(Number(r.floor)) ? { floor: clamp(Math.round(Number(r.floor)), -5, 30) } : {}) })), // floor = 몇 층 (선택 · 집 안 그림에서 층별로 나눔)
         storage: arr(d.storage).map(String).filter(Boolean),
         trash: arr(d.trash).filter(t => t?.name).map(t => ({ name: str(t.name), date: str(t.date) })).slice(-20),
     }),
@@ -854,8 +854,8 @@ export const NORM = {
         };
     },
     map: (d) => ({
-        name: str(d.name), here: str(d.here),
-        places: arr(d.places).filter(p => p?.name).map(p => ({ name: str(p.name), desc: str(p.desc), kind: str(p.kind), x: clamp(num(p.x, NaN), 0, 100), y: clamp(num(p.y, NaN), 0, 100), links: arr(p.links).map(String).filter(Boolean), known: p.known !== false, area: str(p.area), fare: Math.max(0, num(p.fare, 0)), icon: [...str(p.icon).trim()].slice(0, 2).join('') })),
+        name: str(d.name), here: str(d.here), ...(str(d.spot) ? { spot: str(d.spot) } : {}), // spot = 건물 안 어디 (층 · 방 · 선택)
+        places: arr(d.places).filter(p => p?.name).map(p => ({ name: str(p.name), desc: str(p.desc), kind: str(p.kind), x: clamp(num(p.x, NaN), 0, 100), y: clamp(num(p.y, NaN), 0, 100), links: arr(p.links).map(String).filter(Boolean), known: p.known !== false, area: str(p.area), fare: Math.max(0, num(p.fare, 0)), icon: [...str(p.icon).trim()].slice(0, 2).join(''), ...(arr(p.floors).map(String).filter(Boolean).length ? { floors: arr(p.floors).map(x => String(x).trim()).filter(Boolean).slice(0, 12) } : {}) })), // floors = 건물 안 · 층 (아래층부터 · 선택)
     }),
     calendar: (d) => {
         const months = arr(d.months).filter(m => m?.name).map(m => ({ name: str(m.name), days: clamp(Math.round(num(m.days, 30)), 1, 99) }));
@@ -1059,7 +1059,7 @@ export const EDIT = {
     ],
     home: [
         { k: 'name', label: '이름', type: 'text' }, { k: 'desc', label: '설명', type: 'area' },
-        { k: 'rooms', label: '방 · 구역', type: 'list', title: 'name', fields: [{ k: 'name', label: '이름', type: 'text' }, { k: 'desc', label: '모습', type: 'area' }, { k: 'decor', label: '배치된 가구 (쉼표)', type: 'tags' }] },
+        { k: 'rooms', label: '방 · 구역', type: 'list', title: 'name', fields: [{ k: 'name', label: '이름', type: 'text' }, { k: 'floor', label: '층 (숫자 · 선택)', type: 'num' }, { k: 'desc', label: '모습', type: 'area' }, { k: 'decor', label: '배치된 가구 (쉼표)', type: 'tags' }] },
         { k: 'storage', label: '창고 (미배치, 쉼표)', type: 'tags' },
         { k: 'trash', label: '쓰레기통', type: 'list', title: 'name', fields: [{ k: 'name', label: '이름', type: 'text' }, { k: 'date', label: '버린 날', type: 'text' }] },
     ],
@@ -1072,7 +1072,7 @@ export const EDIT = {
     ],
     map: [
         { k: 'name', label: '지도 이름', type: 'text' }, { k: 'here', label: '현재 위치', type: 'text' },
-        { k: 'places', label: '장소', type: 'list', title: 'name', fields: [{ k: 'name', label: '이름', type: 'text' }, { k: 'kind', label: '종류', type: 'text' }, { k: 'x', label: 'x (0~100)', type: 'num' }, { k: 'y', label: 'y (0~100)', type: 'num' }, { k: 'links', label: '이어진 곳 (쉼표)', type: 'tags' }, { k: 'area', label: '구역', type: 'text' }, { k: 'fare', label: '가는 요금', type: 'num' }, { k: 'known', label: '알려짐', type: 'bool' }, { k: 'desc', label: '설명', type: 'area' }] },
+        { k: 'places', label: '장소', type: 'list', title: 'name', fields: [{ k: 'name', label: '이름', type: 'text' }, { k: 'kind', label: '종류', type: 'text' }, { k: 'x', label: 'x (0~100)', type: 'num' }, { k: 'y', label: 'y (0~100)', type: 'num' }, { k: 'links', label: '이어진 곳 (쉼표)', type: 'tags' }, { k: 'floors', label: '안쪽 · 층 (아래층부터 · 쉼표)', type: 'tags' }, { k: 'area', label: '구역', type: 'text' }, { k: 'fare', label: '가는 요금', type: 'num' }, { k: 'known', label: '알려짐', type: 'bool' }, { k: 'desc', label: '설명', type: 'area' }] },
     ],
     calendar: [
         { k: 'weather', label: '오늘 날씨', type: 'text' }, { k: 'autoWeather', label: '날씨 자동으로 바뀜 (계절따라)', type: 'bool' },
