@@ -122,6 +122,8 @@ export function emojiOf(name) {
     return AVA_EMOJI[h % AVA_EMOJI.length];
 }
 export function avatar(name, size = '') {
+    const df = app.dollFace?.(String(name)); // 🎨 꾸미기에서 「인형 얼굴 쓰기」를 켠 인물 (v2.9 · life.js)
+    if (df) return `<span class="ss-ava doll ${size}" title="${esc(String(name))}"><img alt="" src="${esc(df)}"></span>`;
     const e = emojiOf(name);
     if (e) return `<span class="ss-ava emo ${size}" title="${esc(String(name))}">${esc(e)}</span>`;
     let h = 0; for (const ch of String(name)) h = (h * 31 + ch.codePointAt(0)) % 360;

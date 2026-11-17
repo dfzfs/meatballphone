@@ -75,7 +75,7 @@ try {
 
     // 👕 옷차림: 「허기 -50%」를 입으면 덜 준다
     await panel('wallet'); await page.click('dialog [data-act="lifetab"][data-arg="wear"]'); await sleep(900); await panel('wear'); await sleep(300);
-    check(await ev(() => [...document.querySelectorAll('dialog .ss-tabs button')].some(b => /옷차림/.test(b.textContent)) && !!document.querySelector('dialog .ss-px') && window.__st.extensionSettings.statussim.gearOn === true), '옷차림 탭을 켜면 탭이 생기고 옷 입히기도 같이 켜진다');
+    check(await ev(() => [...document.querySelectorAll('dialog .ss-tabs button')].some(b => /꾸미기/.test(b.textContent)) && !!document.querySelector('dialog .ss-px') && window.__st.extensionSettings.statussim.gearOn === true), '옷차림 탭을 켜면 탭이 생기고 옷 입히기도 같이 켜진다');
     check(await ev(() => document.querySelectorAll('dialog .ss-doll .ss-slot').length === 6 && !!document.querySelector('dialog .ss-doll .ss-px img')), '도트 인형 양옆에 칸 6개 (무기 · 겉옷 · 상의 · 하의 · 신발 · 장신구)');
     await ev(async (hn) => { const E = await import('/ext/src/engine.js'); await E.addAdjust({ ops: [['item', `+Lucky Apron 1| test | ${hn} -50%`], ['stat', `${hn} =100`]], silent: true, label: '' }); const A = await import('/ext/src/addons.js'); A.equip('상의', 'Lucky Apron'); await A.syncNeedMods(); }, hn); await sleep(400);
     check(Object.values((await stats()).mods ?? {})[0] === -50, '갈아입으면 욕구 보정이 상태에 적힌다', JSON.stringify((await stats()).mods));

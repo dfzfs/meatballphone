@@ -40,6 +40,7 @@ function faceSrc(autoCon) {
     if (f.startsWith('con:') && CONS.includes(f.slice(4))) return conUrl(f.slice(4));
     if (f.startsWith('my:')) { const src = settings().hpFaces?.[Number(f.slice(3))]; if (src) return src; }
     if (f.startsWith('pack:')) return packOn() && packHas(f.slice(5)) ? packUrl(f.slice(5)) : '';
+    if (f === 'doll') return app.dollUrl?.() ?? ''; // 🎨 꾸미기의 내 도트 인형 (v2.9 · 이 채팅의 인형 — 그림을 아직 안 불러왔으면 잠깐 빈칸)
     const own = settings().hpMoodFaces?.[autoCon]; if (own) return own; // 기분별 내 그림
     return conUrl(autoCon);
 }
@@ -48,7 +49,7 @@ async function pickFace(redraw) {
     const box = document.createElement('div'); box.className = 'ss-root ss-scope ss-hp-pick';
     const cell = (v, inner, title = '') => `<button class="ss-hp-face ${cur === v ? 'on' : ''}" data-choice="${v}" title="${esc(title)}">${inner}</button>`;
     box.innerHTML = `<h3>프로필 그림 고르기</h3><p class="ss-hint">기본은 비어 있어요 — 내 그림을 올리거나 미트볼을 골라요. 「기분 따라 미트볼」은 지금 상태에 맞춰 표정이 바뀌어요. 내 그림은 12장까지 올릴 수 있고 모든 채팅에서 같이 써요.</p>
-        <div class="ss-hp-faces">${cell('none', '<span>비워<br>두기</span>', '그림 없이')}${cell('auto', '<span>기분 따라<br>미트볼</span>', '상태에 따라 미트볼 표정이 바뀌어요')}${CONS.map(n => cell(`con:${n}`, `<img src="${conUrl(n)}" alt="">`)).join('')}</div>
+        <div class="ss-hp-faces">${cell('none', '<span>비워<br>두기</span>', '그림 없이')}${cell('auto', '<span>기분 따라<br>미트볼</span>', '상태에 따라 미트볼 표정이 바뀌어요')}${cell('doll', app.dollUrl?.() ? `<img class="px" src="${esc(app.dollUrl())}" alt="">` : '<span>🎨 도트<br>인형</span>', '꾸미기 탭에서 만든 내 도트 인형 (채팅마다 그 채팅의 인형)')}${CONS.map(n => cell(`con:${n}`, `<img src="${conUrl(n)}" alt="">`)).join('')}</div>
         <h4>콘팩 <small>선택 · 60개 · 약 4.7MB</small></h4>${packOn()
             ? `<div class="ss-hp-faces pack">${PACK.map(([id, n]) => cell(`pack:${id}`, `<img src="${packUrl(id)}" alt="${esc(n)}" loading="lazy">`, n)).join('')}</div><p class="ss-hint">${cell('packoff', '<span>콘팩<br>빼기</span>', '콘팩 그림을 목록에서 빼요 (다시 받을 수 있어요)')}</p>`
             : `<p class="ss-hint">기본 그림 14개는 이미 들어 있어요. 더 많은 미트볼콘은 원할 때만 받아요 — 받을 때 한 번 인터넷(깃허브)에 접속해요.</p><div class="ss-hp-faces">${cell('packget', '<span><i class="fa-solid fa-download"></i><br>콘팩 받기</span>', '미트볼콘 60개를 받아요 (선택)')}</div>`}
@@ -672,7 +673,7 @@ export function hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, 
     const home = !!homeGroup, photo = photoHTML(meta), hasPhoto = !!meta.hpPhoto?.src; // 홈 묶음에서는 사진이 가운데 창에 크게 → 옆의 사진 창은 안 띄움
     // 창 내용 (없으면 빈 글 → 창이 안 뜸)
     const BODY = {
-        profile: () => ((x) => (x ? x + (app.hpToday?.() ?? '') : x))((PF.face === false && PF.name === false && PF.mood === false && PF.badges === false ? '' : `${PF.face === false && PF.name === false && PF.mood === false ? '' : `<div class="ss-hp-prof ${PF.face === false ? 'noface' : ''}">${PF.face === false ? '' : `<div class="ss-hp-photo ${mine ? 'mine' : ''} ${faceSrc(con) ? '' : 'empty'}" data-hp="face" role="button" title="${faceSrc(con) ? '눌러서 프로필 그림 바꾸기' : '눌러서 프로필 그림 넣기'}">${faceSrc(con) ? `<img src="${esc(faceSrc(con))}" alt="">` : '<i class="fa-solid fa-plus"></i>'}</div>`}
+        profile: () => ((x) => (x ? x + (app.hpToday?.() ?? '') : x))((PF.face === false && PF.name === false && PF.mood === false && PF.badges === false ? '' : `${PF.face === false && PF.name === false && PF.mood === false ? '' : `<div class="ss-hp-prof ${PF.face === false ? 'noface' : ''}">${PF.face === false ? '' : `<div class="ss-hp-photo ${mine ? 'mine' : ''} ${faceSrc(con) ? '' : 'empty'} ${String(D().hpFace) === 'doll' ? 'doll' : ''}" data-hp="face" role="button" title="${faceSrc(con) ? '눌러서 프로필 그림 바꾸기' : '눌러서 프로필 그림 넣기'}">${faceSrc(con) ? `<img src="${esc(faceSrc(con))}" alt="">` : '<i class="fa-solid fa-plus"></i>'}</div>`}
             <div class="ss-hp-prof-t">${PF.name === false ? '' : `<b class="ss-hp-name">${esc(c.title || TITLE)}</b>`}${PF.mood === false ? '' : `<span class="ss-hp-today"><i></i>${esc(feel)}</span>`}</div></div>`}
             ${PF.badges === false ? '' : `<div class="ss-hp-badges"><span><b>${fmtNum(s.turn ?? 0)}</b>턴</span><span><b>${fmtNum(total)}</b>메시지</span>${(s.days ?? []).length ? `<span><b>${(s.days ?? []).length + 1}</b>일째</span>` : ''}</div>`}`)), // 👣 TODAY · TOTAL (선택 · minihome_ui.js — 꺼져 있으면 빈 글)
         intro: () => (c.summary ? `<p class="ss-hp-intro">${esc(c.summary)}</p>` : ''),

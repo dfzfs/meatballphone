@@ -27,7 +27,7 @@ try {
     const afterShop = await onMods();
     check(['shop', 'wallet'].every(id => onModsHas(afterShop, id)), '상점을 켜면 꼭 필요한 재산도 같이 켜짐');
     // 달력 밑에 시간 적는 법 · 지도 밑에 보기 방식
-    check(await Q(() => !!document.querySelector('dialog .ss-pk[data-pk="calendar"] .ss-pk-sub [data-act="clockstyle"][data-arg="24"]') && !!document.querySelector('dialog .ss-pk[data-pk="map"] .ss-pk-sub [data-act="mapmode"][data-arg="flat"]')), '달력 밑에 「시간 적는 법」 · 지도 밑에 「지도 보기」');
+    check(await Q(() => !!document.querySelector('dialog .ss-pk[data-pk="calendar"] .ss-pk-sub [data-act="clockstyle"][data-arg="24"]') && !!document.querySelector('dialog .ss-pk[data-pk="map"] .ss-pk-sub [data-act="mapmotion"][data-arg="off"]')), '달력 밑에 「시간 적는 법」 · 지도 밑에 「이동 모션」');
     await Q(() => document.querySelector('dialog .ss-pk[data-pk="calendar"] .ss-pk-sub [data-act="clockstyle"][data-arg="24"]').click()); await sleep(500);
     check(await Q(() => window.__SS_TEST__.api.app.current.state.data.calendar.clock) === '24', '여기서 고른 시간 적는 법이 달력에 반영');
     const errs = logs.filter(l => /pageerror|TypeError|ReferenceError/.test(l)); check(!errs.length, 'no console errors', errs.slice(0, 3).join('\n').slice(0, 500));

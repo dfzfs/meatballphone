@@ -2,6 +2,7 @@
 //   · SVG만 쓴다 · AI 0회 · 토큰 0 — 그리기만 (핀으로 고른 인물만 채팅 메타 mapPins에 적는다 · views.js)
 //   · 노선도: 장소 = 역, 길 = 노선. 좌표를 격자에 맞추고 길은 가로 · 세로 · 45°로만 꺾는다
 //   · 정면도: 건물을 앞에서 자른 그림 — 모든 층이 한 장에 (위층이 위 · 지하는 땅 밑)
+//   · 🎨 꾸미기: 채팅 메타 mapStyle = { e: { 'A|B': { c, w, bend } }, s: { 이름: { shape, c } }, pos: { 이름: { x, y } } } — 화면만 (AI에게 안 감)
 import { esc, short, norm } from './core.js';
 import { placeIcon } from './tiles.js';
 import { furnIcon, ROOM_COLOR } from './iso.js';
@@ -10,10 +11,12 @@ const R = (v) => Math.round(v * 100) / 100;
 export const LINE_COLORS = ['#e5484d', '#2f7de1', '#2fa56b', '#f08c2e', '#8b5bd6', '#16a3a8', '#d6409f', '#8d6e4f', '#6c7a89', '#c2a000'];
 
 // ───── 좌표: 지도 좌표(0~100)를 격자에 맞춘다 (겹치면 가장 가까운 빈 칸) ─────
-const STEP = 12;
-export function linePos(flatPos) {
+export const STEP = 12, HALF = STEP / 2;
+export function linePos(flatPos, over = {}) {
     const used = new Set(), out = new Map();
+    for (const [k] of flatPos) { const o = over?.[k]; if (o && Number.isFinite(o.x) && Number.isFinite(o.y)) { out.set(k, { x: o.x, y: o.y }); used.add(`${o.x / STEP},${o.y / STEP}`); } } // 끌어서 옮겨 둔 역이 먼저 자리를 잡는다
     for (const [k, o] of flatPos) {
+        if (out.has(k)) continue;
         const fx = o.x / STEP, fy = o.y / STEP;
         let best = null;
         for (let r = 0; r < 6 && !best; r++) {
@@ -31,18 +34,33 @@ export function linePos(flatPos) {
 }
 
 // ───── 길 한 줄: 곧게 가다가 45°로 꺾는다 (모서리는 둥글게) ─────
-function octSeg(a, b) {
+export const BENDS = { auto: '자동', flip: '반대로 꺾기', straight: '직선', curve: '곡선' };
+function octSeg(a, b, bend = 'auto') {
     const dx = b.x - a.x, dy = b.y - a.y, ax = Math.abs(dx), ay = Math.abs(dy), sx = Math.sign(dx), sy = Math.sign(dy);
-    if (!ax || !ay || Math.abs(ax - ay) < 0.01) return { d: `M${R(a.x)} ${R(a.y)}L${R(b.x)} ${R(b.y)}`, da: Math.atan2(dy, dx), db: Math.atan2(-dy, -dx) };
+    const str = () => ({ d: `M${R(a.x)} ${R(a.y)}L${R(b.x)} ${R(b.y)}`, da: Math.atan2(dy, dx), db: Math.atan2(-dy, -dx) });
+    if (bend === 'curve') { // 한쪽으로 살짝 휜 곡선
+        const len = Math.hypot(dx, dy) || 1, k = Math.min(9, len * 0.28), m = { x: (a.x + b.x) / 2 - (dy / len) * k, y: (a.y + b.y) / 2 + (dx / len) * k };
+        return { d: `M${R(a.x)} ${R(a.y)}Q${R(m.x)} ${R(m.y)} ${R(b.x)} ${R(b.y)}`, da: Math.atan2(m.y - a.y, m.x - a.x), db: Math.atan2(m.y - b.y, m.x - b.x) };
+    }
+    if (bend === 'straight' || !ax || !ay || Math.abs(ax - ay) < 0.01) return str();
+    if (bend === 'flip') { const r = octSeg(b, a); const pts = r.d.slice(1).split(/[LQ]/); return { d: revPath(r.d, pts), da: r.db, db: r.da }; } // 비스듬히 먼저 → 곧게
     const dg = Math.min(ax, ay), m = ax > ay ? { x: b.x - sx * dg, y: a.y } : { x: a.x, y: b.y - sy * dg };
     const l1 = Math.hypot(m.x - a.x, m.y - a.y), l2 = Math.hypot(b.x - m.x, b.y - m.y), r = Math.min(3, l1 * 0.6, l2 * 0.6);
     const p1 = { x: m.x - ((m.x - a.x) / l1) * r, y: m.y - ((m.y - a.y) / l1) * r }, p2 = { x: m.x + ((b.x - m.x) / l2) * r, y: m.y + ((b.y - m.y) / l2) * r };
     return { d: `M${R(a.x)} ${R(a.y)}L${R(p1.x)} ${R(p1.y)}Q${R(m.x)} ${R(m.y)} ${R(p2.x)} ${R(p2.y)}L${R(b.x)} ${R(b.y)}`, da: Math.atan2(m.y - a.y, m.x - a.x), db: Math.atan2(m.y - b.y, m.x - b.x) };
 }
+// 「M p0 L p1 Q m p2 L p3」를 거꾸로 (p3에서 p0으로)
+function revPath(d, pts) {
+    if (pts.length !== 4) return d;
+    const [p0, p1, q, p3] = pts.map(x => x.trim()), [m, p2] = [q.split(' ').slice(0, 2).join(' '), q.split(' ').slice(2).join(' ')];
+    return `M${p3}L${p2}Q${m} ${p1}L${p0}`;
+}
 
 // ───── 길들을 노선으로 묶는다: 끝역(길이 하나뿐인 곳)에서 출발해 되도록 곧게 이어 간다 → 노선마다 색 ─────
-// pairs = [{ a, b, key, route, unk }] (a · b는 장소 이름) → { svg, dirs (이름 → 길이 나가는 방향들), lines (이름 → 지나는 노선 번호들) }
-export function lineEdges(pairs, pos) {
+// pairs = [{ a, b, key, route, unk }] (a · b는 장소 이름) · st = mapStyle · o = { edit (꾸미기 중 — 길을 누를 수 있게), sel (고른 길의 key) }
+//   → { svg, dirs (이름 → 길이 나가는 방향들), lines (이름 → 지나는 노선 번호들), lineOf (key → 노선 번호), colorOf (key → 색) }
+export const EDGE_W = { thin: 1.2, n: 1.9, thick: 2.8 };
+export function lineEdges(pairs, pos, st = {}, o = {}) {
     const adj = new Map(), unused = new Map(pairs.map(e => [e.key, e]));
     const add = (n, to, e) => { if (!adj.has(n)) adj.set(n, []); adj.get(n).push({ to, e }); };
     for (const e of pairs) { add(e.a, e.b, e); add(e.b, e.a, e); }
@@ -61,15 +79,18 @@ export function lineEdges(pairs, pos) {
         }
         li++;
     }
-    const dirs = new Map(), lines = new Map(); let base = '', top = '';
+    const dirs = new Map(), lines = new Map(), colorOf = new Map(); let base = '', top = '', hits = '';
     const note = (m, k, v) => { if (!m.has(k)) m.set(k, []); m.get(k).push(v); };
     for (const e of pairs) {
-        const s = octSeg(pos.get(e.a), pos.get(e.b)), n = lineOf.get(e.key), c = LINE_COLORS[n % LINE_COLORS.length];
+        const es = st?.e?.[e.key] ?? {}, s = octSeg(pos.get(e.a), pos.get(e.b), BENDS[es.bend] ? es.bend : 'auto'), n = lineOf.get(e.key);
+        const c = /^#[0-9a-f]{6}$/i.test(es.c ?? '') ? es.c : LINE_COLORS[n % LINE_COLORS.length], w = EDGE_W[es.w] ?? EDGE_W.n;
+        colorOf.set(e.key, c);
         note(dirs, e.a, s.da); note(dirs, e.b, s.db); note(lines, e.a, n); note(lines, e.b, n);
-        base += `<path class="ln ${e.unk ? 'unk' : ''}" style="--c:${c}" d="${s.d}"/>`;
+        base += `<path class="ln ${e.unk ? 'unk' : ''} ${o.sel === e.key ? 'sel' : ''}" data-k="${esc(e.key)}" style="--c:${c};--w:${w}" d="${s.d}"/>`;
         if (e.route) top += `<path class="ln route" d="${s.d}"/>`;
+        if (o.edit) hits += `<path class="ln hit" data-act="mapedsel" data-arg="e:${esc(e.key)}" d="${s.d}"><title>${esc(e.a)} ↔ ${esc(e.b)}</title></path>`;
     }
-    return { svg: base + top, dirs, lines };
+    return { svg: base + top + hits, dirs, lines, lineOf, colorOf };
 }
 
 // ───── 📍 인물 핀: 역 위에 뜨는 말풍선 (이모지 넷까지 · 더 있으면 +n) — list = [{ e, name }] · (cx, tipY) = 꼬리 끝 ─────
@@ -82,7 +103,14 @@ export function pinBubble(cx, tipY, list) {
 }
 
 // ───── 역 (장소) ─────
-// o = { pos, here, sel, label(p), count(p), pins(p) → [{ e, name }], net (lineEdges의 결과) } → { svg, ext: 이름표 · 핀까지 감싸는 상자 [x0, y0, x1, y1] }
+// o = { pos, here, sel, label(p), count(p), pins(p) → [{ e, name }], net (lineEdges의 결과), st (mapStyle), act (누르면 부를 동작 · 기본 selplace), arg(p) } → { svg, ext: 이름표 · 핀까지 감싸는 상자 [x0, y0, x1, y1] }
+export const STN_SHAPES = { circle: '동그라미', square: '네모', diamond: '마름모', tri: '세모' };
+function stn(shape, cx, cy, r) {
+    if (shape === 'square') return `<rect class="stn" x="${R(cx - r * 0.92)}" y="${R(cy - r * 0.92)}" width="${R(r * 1.84)}" height="${R(r * 1.84)}" rx=".7"/>`;
+    if (shape === 'diamond') return `<polygon class="stn" points="${R(cx)},${R(cy - r * 1.2)} ${R(cx + r * 1.2)},${R(cy)} ${R(cx)},${R(cy + r * 1.2)} ${R(cx - r * 1.2)},${R(cy)}"/>`;
+    if (shape === 'tri') return `<polygon class="stn" points="${R(cx)},${R(cy - r * 1.25)} ${R(cx + r * 1.2)},${R(cy + r * 0.85)} ${R(cx - r * 1.2)},${R(cy + r * 0.85)}"/>`;
+    return `<circle class="stn" cx="${cx}" cy="${cy}" r="${r}"/>`;
+}
 const textW = (t) => { let w = 0; for (const ch of String(t)) w += ch.codePointAt(0) > 0x2000 ? 3.4 : 2; return w; };
 const hit = (a, b) => a[0] < b[0] + b[2] && b[0] < a[0] + a[2] && a[1] < b[1] + b[3] && b[1] < a[1] + a[3];
 export function lineNodes(places, o) {
@@ -93,7 +121,8 @@ export function lineNodes(places, o) {
         const here = norm(p.name) === norm(o.here), isSel = o.sel && o.sel.name === p.name;
         const ls = [...new Set(o.net.lines.get(p.name) ?? [])], xfer = ls.length > 1;
         const pins = o.pins?.(p) ?? [], n = o.count?.(p) ?? 0;
-        const txt = `${p.known ? placeIcon(p) : '❔'} ${short(o.label(p), 9)}`, w = textW(txt) + (n ? 6.5 : 0) + 1;
+        const ico = p.known ? placeIcon(p) : '❔', nm = short(o.label(p), 9), txt = `${ico} ${nm}`, w = textW(txt) + (n ? 6.5 : 0) + 1;
+        const ss = o.st?.s?.[p.name] ?? {}, shape = STN_SHAPES[ss.shape] ? ss.shape : 'circle';
         // 이름표 자리: 아래 → 위 → 오른쪽 → 왼쪽 중에서, 길이 안 지나가고 다른 이름표 · 역과 안 겹치는 곳
         const dirs = o.net.dirs.get(p.name) ?? [];
         const cands = [['b', 0, 6.6, 'middle', Math.PI / 2], ['t', 0, -4.4, 'middle', -Math.PI / 2], ['r', 4.4, 1.15, 'start', 0], ['l', -4.4, 1.15, 'end', Math.PI]]
@@ -105,11 +134,11 @@ export function lineNodes(places, o) {
             });
         const lb = cands.reduce((m, c) => (c.score > m.score ? c : m), cands[0]);
         taken.push(lb.box); grow(lb.box); grow([cx - 6, cy - (pins.length ? 12 : 6), 12, pins.length ? 18 : 12]);
-        const c = ls.length ? LINE_COLORS[ls[0] % LINE_COLORS.length] : 'var(--ss-dim)';
-        return `<g class="node ln-n ${here ? 'here' : ''} ${isSel ? 'sel' : ''} ${p.known ? '' : 'unk'} ${xfer ? 'xfer' : ''}" style="--c:${c}" data-act="selplace" data-arg="${esc(p.name)}">
+        const c = /^#[0-9a-f]{6}$/i.test(ss.c ?? '') ? ss.c : ls.length ? LINE_COLORS[ls[0] % LINE_COLORS.length] : 'var(--ss-dim)';
+        return `<g class="node ln-n ${here ? 'here' : ''} ${isSel ? 'sel' : ''} ${p.known ? '' : 'unk'} ${xfer && !ss.c ? 'xfer' : ''}" style="--c:${c}" data-act="${o.act ?? 'selplace'}" data-arg="${esc(o.arg ? o.arg(p) : p.name)}" data-name="${esc(p.name)}" data-x="${cx}" data-y="${cy}">
             <circle class="hitbox" cx="${cx}" cy="${cy}" r="5"/>${here ? `<circle class="ring" cx="${cx}" cy="${cy}" r="5.2"/>` : ''}${isSel ? `<circle class="halo" cx="${cx}" cy="${cy}" r="${xfer ? 4.3 : 3.8}"/>` : ''}
-            <circle class="stn" cx="${cx}" cy="${cy}" r="${xfer ? 2.9 : 2.3}"/>${here ? `<circle class="me" cx="${cx}" cy="${cy}" r="1.25"/>` : ''}
-            <text class="lb" x="${R(cx + lb.dx)}" y="${R(cy + lb.dy)}" style="text-anchor:${lb.anchor}">${esc(txt)}${n ? `<tspan class="ppl"> 👥${n}</tspan>` : ''}</text>${pinBubble(cx, cy - (xfer ? 3.6 : 3), pins)}</g>`;
+            ${stn(shape, cx, cy, xfer ? 2.9 : 2.3)}${here ? `<circle class="me" cx="${cx}" cy="${cy}" r="1.25"/>` : ''}
+            <text class="lb" x="${R(cx + lb.dx)}" y="${R(cy + lb.dy)}" style="text-anchor:${lb.anchor}"><tspan class="pi">${esc(ico)} </tspan><tspan class="pn">${esc(nm)}</tspan>${n ? `<tspan class="ppl"> 👥${n}</tspan>` : ''}</text>${pinBubble(cx, cy - (xfer ? 3.6 : 3), pins)}</g>`;
     }).join('');
     return { svg, ext };
 }

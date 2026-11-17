@@ -36,7 +36,7 @@ try {
     const inj0 = await q(async () => { const x = (await import('/ext/src/engine.js')).buildInjection(window.__SS_TEST__.api.app.current, { full: true }); return [x.main, x.people, x.romance].join('\n'); });
 
     // 🚇 처음엔 노선도
-    check(!(await render({})) && await q(() => !!document.querySelector('dialog .ss-panel svg.ss-map.line') && document.querySelector('dialog .ss-panel .ss-mapmode button.on')?.textContent.trim() === '노선도'), '보기를 안 골랐으면 노선도');
+    check(!(await render({ mapMode: 'iso' })) && await q(() => !!document.querySelector('dialog .ss-panel svg.ss-map.line') && !document.querySelector('dialog .ss-panel .ss-mapmode')), '예전에 입체를 골라 뒀어도 노선도 하나');
     check(await q(() => document.querySelectorAll('dialog .ss-panel svg.ss-map.line g.ln-n').length) === 6, '역 여섯');
     check(await q(() => document.querySelectorAll('dialog .ss-panel svg.ss-map.line .edges path.ln:not(.route)').length) === 7, '길 일곱 줄');
     check(await q(() => new Set([...document.querySelectorAll('dialog .ss-panel svg.ss-map.line .edges path.ln:not(.route)')].map(p => p.style.getPropertyValue('--c'))).size) >= 2, '노선이 둘 이상의 색으로 나뉨');
@@ -73,18 +73,63 @@ try {
     check(await q(async () => { const { getMeta } = await import('/ext/src/core.js'); return getMeta().mapPins['사보']; }) === '', '✏️ 창을 그대로 닫으면 얼굴 이모지 그대로');
     await q(async () => { const { getMeta } = await import('/ext/src/core.js'); getMeta().mapPins['사보'] = '⭐'; }); await render({});
     pins = await pinsOn(); check(pins['본부'] === '⭐', '따로 정한 이모지가 지도에 뜸');
-    for (const m of ['iso', 'flat']) { await render({ mapMode: m }); check(Object.keys(await pinsOn()).length === 3, `${m} 보기에도 핀`); }
-    await render({ mapMode: 'list' });
-    check(await q(() => /🐯/.test(document.querySelector('dialog .ss-panel .ss-pl[data-arg="오두막"]')?.textContent ?? '')), '목록 보기에도 핀 이모지');
-    await render({ mapMode: 'line' });
+    await render({});
     await click('.ss-mappins [data-act="mappin"][data-arg="로우"]');
     check(!('오두막' in (await pinsOn())), '다시 누르면 핀이 꺼짐');
     const inj1 = await q(async () => { const x = (await import('/ext/src/engine.js')).buildInjection(window.__SS_TEST__.api.app.current, { full: true }); return [x.main, x.people, x.romance].join('\n'); });
     check(inj0 === inj1, '핀을 켜도 AI에게 가는 글은 글자 하나 안 바뀜');
 
+    // 🎨 꾸미기: 역 모양 · 색 · 길 색(노선 전체) · 굵기 · 꺾는 모양 · 길 잇기/끊기 · 숨기기 · 역 끌어 옮기기 — 화면만 바뀌고 AI 글은 그대로 (길 잇기만 실제 지도에)
+    await render({});
+    await click('[data-act="mapedit"]');
+    check(await q(() => !!document.querySelector('dialog .ss-panel svg.ss-map.line.edit') && !!document.querySelector('dialog .ss-panel .ss-maped')), '꾸미기 켜면 편집 칸');
+    await click('svg.ss-map.line g.ln-n[data-name="시장"] .stn');
+    check(await q(() => /시장/.test(document.querySelector('dialog .ss-panel .ss-maped b')?.textContent ?? '')), '역을 누르면 그 역 고침 칸');
+    await click('.ss-maped [data-act="mapsty"][data-arg="shape:diamond"]');
+    await click('.ss-maped [data-act="mapsty"][data-arg="c:#8b5bd6"]');
+    check(await q(() => { const g = document.querySelector('dialog .ss-panel svg.ss-map g.ln-n[data-name="시장"]'); return g?.querySelector('polygon.stn') && g.style.getPropertyValue('--c') === '#8b5bd6'; }), '역 모양 → 마름모 · 색 바뀜');
+    await q(() => { document.querySelector('dialog .ss-panel').querySelector('svg.ss-map .edges path.hit[data-arg="e:병원|산길"]').dispatchEvent(new MouseEvent('click', { bubbles: true })); }); await sleep(400);
+    const lineN = await q(() => document.querySelector('dialog .ss-panel .ss-maped [data-act="mapscope"][data-arg="line"] small')?.textContent);
+    await click('.ss-maped [data-act="mapsty"][data-arg="c:#16a3a8"]');
+    await click('.ss-maped [data-act="mapsty"][data-arg="w:thick"]');
+    check(await q(() => [...document.querySelectorAll('dialog .ss-panel svg.ss-map .edges path.ln[data-k]')].filter(p => p.style.getPropertyValue('--c') === '#16a3a8' && p.style.getPropertyValue('--w') === '2.8').length) === parseInt(lineN), `길 색 · 굵기가 노선 전체(${lineN})에`);
+    await click('.ss-maped [data-act="mapsty"][data-arg="bend:curve"]');
+    check(await q(() => /Q/.test(document.querySelector('dialog .ss-panel svg.ss-map .edges path.ln[data-k="병원|산길"]').getAttribute('d'))), '꺾는 모양 → 곡선');
+    await click('.ss-maped [data-act="mapcut"]');
+    check(await q(() => !window.__SS_TEST__.api.app.current.state.data.map.places.find(p => p.name === '병원').links.includes('산길')), '길 끊기 → 실제 지도에서 끊김');
+    await click('svg.ss-map.line g.ln-n[data-name="병원"] .stn');
+    await click('.ss-maped [data-act="maplink"][data-arg="산길"]');
+    check(await q(() => { const P = window.__SS_TEST__.api.app.current.state.data.map.places; return P.find(p => p.name === '병원').links.includes('산길') && P.find(p => p.name === '산길').links.includes('병원'); }), '길 잇기 → 양쪽에 이어짐');
+    const injL = await q(async () => { const x = (await import('/ext/src/engine.js')).buildInjection(window.__SS_TEST__.api.app.current, { full: true }); return [x.main, x.people, x.romance].join('\n'); });
+    // 역 끌어 옮기기 (오두막)
+    const mv = await q(() => { const g = document.querySelector('dialog .ss-panel svg.ss-map g.ln-n[data-name="오두막"] .stn'), r = g.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+    await page.mouse.move(mv.x, mv.y); await page.mouse.down(); await page.mouse.move(mv.x + 40, mv.y + 60, { steps: 6 }); await page.mouse.up(); await sleep(400);
+    check(await q(async () => { const { getMeta } = await import('/ext/src/core.js'); const p = getMeta().mapStyle?.pos?.['오두막']; return !!p && p.x % 6 === 0 && p.y % 6 === 0; }), '역을 끌면 반 칸 격자에 맞춰 자리가 저장됨');
+    await click('[data-act="mapedsel"][data-arg=""]');
+    await click('.ss-maped [data-act="maphide"][data-arg="항구"]');
+    check(await q(() => !document.querySelector('dialog .ss-panel svg.ss-map g.ln-n[data-name="항구"]')), '보일 장소에서 끄면 지도에서 숨김');
+    await click('.ss-maped [data-act="maphide"][data-arg="병원"]');
+    check(await q(() => !!document.querySelector('dialog .ss-panel svg.ss-map g.ln-n[data-name="병원"]')), '지금 있는 곳은 숨겨도 보임');
+    await click('.ss-maped [data-act="maphide"][data-arg="병원"]');
+    const inj2 = await q(async () => { const x = (await import('/ext/src/engine.js')).buildInjection(window.__SS_TEST__.api.app.current, { full: true }); return [x.main, x.people, x.romance].join('\n'); });
+    check(inj2 === injL, '역 옮기기 · 숨기기는 AI에게 가는 글을 안 바꿈');
+    await click('[data-act="mapedit"]');
+    // 🚶 이동 모션: 노선을 따라 말이 움직이고, 끝나면 도착
+    await render({ place: '오두막' });
+    await q(() => { document.querySelector('dialog .ss-panel [data-act="travel"][data-arg="오두막"]').dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    await sleep(300);
+    check(await q(() => !!document.querySelector('dialog .ss-panel svg.ss-map .mover') && window.__SS_TEST__.api.app.current.state.data.map.here === '병원'), '움직이는 동안 말이 보이고 아직 도착 전');
+    await sleep(3200);
+    check(await q(() => window.__SS_TEST__.api.app.current.state.data.map.here === '오두막' && !document.querySelector('dialog .ss-panel svg.ss-map .mover')), '다 움직이면 도착');
+    await q(async () => { const core = await import('/ext/src/core.js'); core.settings().mapMotion = false; const { addAdjust } = await import('/ext/src/engine.js'); await addAdjust({ ops: [['loc', '병원']], label: 'back' }); });
+    await render({ place: '산길' });
+    await click('[data-act="travel"][data-arg="산길"]');
+    check(await q(() => window.__SS_TEST__.api.app.current.state.data.map.here === '산길'), '「바로 이동」이면 곧장 도착');
+    await q(async () => { const core = await import('/ext/src/core.js'); core.settings().mapMotion = true; const { addAdjust } = await import('/ext/src/engine.js'); await addAdjust({ ops: [['loc', '병원']], label: 'back' }); });
+
     // 🏢 건물을 누르면 정면도 — 모든 층이 한 장에
-    await render({ mapMode: 'line' });
-    await click('svg.ss-map.line g.ln-n[data-arg="본부"] .stn');
+    await render({});
+    await click('svg.ss-map.line g.ln-n[data-name="본부"] .stn');
     await sleep(300);
     check(await q(() => { const el = document.querySelector('dialog .ss-panel'); return !!el.querySelector('svg.ss-elev') && !el.querySelector('.ss-floorseg') && el.querySelectorAll('svg.ss-elev .lv').length === 4 && el.querySelectorAll('svg.ss-elev .rm').length === 8; }), '층 있는 역을 누르면 정면도 · 층 넷 · 방 여덟 (층 고르는 단추 없음)');
     check(await q(() => [...document.querySelectorAll('dialog .ss-panel svg.ss-elev .lv')].map(g => g.querySelector('text').textContent).join()) === '옥상,2층,1층,지하', '위층이 위 · 지하가 맨 아래');
@@ -93,11 +138,11 @@ try {
     await click('[data-act="mapout"]');
     check(await q(() => !!document.querySelector('dialog .ss-panel svg.ss-map.line')), '「지도로」로 돌아옴');
     // 방 없이 「2층 병원」처럼 적은 층: 층 이름표 + 칸 안 글
-    await render({ mapMode: 'line', place: '병원', inside: '병원' });
+    await render({ place: '병원', inside: '병원' });
     check(await q(() => { const el = document.querySelector('dialog .ss-panel'); return [...el.querySelectorAll('svg.ss-elev .lv text')].map(t => t.textContent).join() === '2층,1층' && [...el.querySelectorAll('svg.ss-elev .rm .nm')].map(t => t.textContent).join() === '병원,식당'; }), '「2층 병원」 → 이름표 2층 · 칸 병원');
     await click('svg.ss-elev .rm[data-arg="2층 병원"]');
     check(await q(() => window.__SS_TEST__.api.app.current.state.data.map.spot) === '2층 병원', '층을 누르면 spot = 「2층 병원」');
-    await render({ mapMode: 'line', place: '병원', inside: '병원' });
+    await render({ place: '병원', inside: '병원' });
     check(await q(() => { const el = document.querySelector('dialog .ss-panel'); return el.querySelector('svg.ss-elev .lv.on text')?.textContent === '2층' && /지금 여기/.test(el.querySelector('svg.ss-elev .rm.on .here')?.textContent ?? ''); }), '지금 있는 층에 불 · 「지금 여기」');
     // 방이 많은 층 (일곱 넘으면 두 줄) · 층 하나짜리
     check(await q(async () => { const { elevSVG } = await import('/ext/src/metro.js'); const d = document.createElement('div'); d.innerHTML = elevSVG([{ name: '1층', rooms: 'abcdefghi'.split('').map(n => ({ name: n })) }]) + elevSVG([]); return d.querySelectorAll('.rm').length === 9 && !d.querySelector('.shaft') && !/NaN|undefined/.test(d.innerHTML); }), '방 아홉 · 층 하나 · 빈 목록도 안 깨짐');

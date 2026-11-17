@@ -1,7 +1,7 @@
 // 칸별 화면 · 대시보드 · 관리 (미니 위젯 · 타일 판은 tiles.js)
 import {
     app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, MODS, MOD, MOD_IDS, DIFFS, diffOf, esc, short, clamp, norm, findBy,
-    fmtNum, clone, splitBar, parseNum, dateStr, dayIndex, eventsOn, nextTime, nextTimeWraps, CLOCK_STYLES, timeWords, upcoming, userName, TITLE, VERSION, EMPTY, CONTACT_MODES, stamp, weekday, viewTr, GLOBAL_OFF,
+    fmtNum, clone, splitBar, ssNote, parseNum, dateStr, dayIndex, eventsOn, nextTime, nextTimeWraps, CLOCK_STYLES, timeWords, upcoming, userName, TITLE, VERSION, EMPTY, CONTACT_MODES, stamp, weekday, viewTr, GLOBAL_OFF,
 } from './core.js';
 import { tagKeysFor, buildInjection } from './engine.js';
 import { autoOf, fillTodo, fillChosen, fillWorld, fillCalls, goMods } from './autostart.js';
@@ -19,12 +19,12 @@ import { presetHTML } from './extra.js';
 import { detectPlay, instructModule } from './ai.js';
 import { PLAY_MODES, normPlay, playOf, REC_MODS, isSimple } from './core.js';
 import { mindBar, mindPeek, mindBlock, MIND_ACTIONS } from './mind.js'; // 💭 속마음: 프로필 탭에서 인물마다 프로필 밑에 (v2.9)
-import { needLine, LIFE_ACTIONS, inNeedPanel, goodIcon, isMeatShop, needsTab, wearTab, shopExtra, walletExtra, lifeBox, needsTabOn, wearTabOn, dollNow } from './life.js';
+import { needLine, LIFE_ACTIONS, inNeedPanel, goodIcon, isMeatShop, needsTab, wearTab, shopExtra, walletExtra, lifeBox, needsTabOn, wearTabOn, dollNow, dollFor } from './life.js';
 import { DEVICES as STORY_DEVICES, KEY as STORY_KEY } from './story.js';
 import { busyBtn, confirmPopup, mascot } from './kit.js';
 import { freshDot, usedPrice, placeIcon, miniWidgets, pathTo, tripInfo } from './tiles.js';
-import { isoPt, isoNodes, floorsSVG, parseFloors, homeFloors, homeSVG, spotFloor } from './iso.js'; // 🧊 입체 지도 · 건물 층 · 집 안 구조 (v2.9)
-import { linePos, lineEdges, lineNodes, pinBubble, elevSVG } from './metro.js'; // 🚇 노선도 지도 · 🏢 건물 정면도 · 📍 인물 핀 (v2.9)
+import { parseFloors, homeFloors, homeSVG, spotFloor } from './iso.js'; // 🏠 건물 층 · 집 안 구조 (v2.9)
+import { linePos, lineEdges, lineNodes, elevSVG, LINE_COLORS, STN_SHAPES, BENDS, EDGE_W, HALF } from './metro.js'; // 🚇 노선도 지도 · 🏢 건물 정면도 · 📍 인물 핀 (v2.9)
 export * from './tiles.js'; // 떼어 낸 것 — 다른 파일은 예전처럼 여기서 받아도 된다
 
 const roleName = { user: '유저', main: '주요', npc: 'NPC' };
@@ -62,10 +62,10 @@ export const VIEW = {
     profile: (s, d, ui) => `${mindBar(s, ui)}<div class="ss-hint">프로필 모드: <b>${d.mode === 'detailed' ? '상세' : '최소'}</b> — ${d.mode === 'detailed' ? '이 시트가 AI에게 전달돼요' : '카드·로어북을 쓰고, 새 NPC만 전달돼요'}</div>
         <div class="ss-stack">${d.list.map((p, i) => `<details class="ss-prof" ${ui.open === i || d.list.length === 1 ? 'open' : ''}>
             <summary><button class="ss-ava-btn" data-act="relemoji" data-arg="${esc(p.name)}" title="얼굴 이모지 바꾸기">${avatar(p.name)}</button><div class="ss-ct-b"><b>${freshDot('profile', 'list', p.name)}${esc(p.name)} <span class="ss-role ${p.role}">${roleName[p.role]}</span></b><small>${esc(short(p.summary, 60))}</small>${mindPeek(s, p.name)}</div><i class="fa-solid fa-chevron-down ss-chev"></i></summary>
-            <div class="ss-prof-b">${p.role === 'user' && wearTabOn() ? `<div class="ss-prof-doll">${dollNow(s, 'big')}</div>` : ''}<p class="ss-pre">${esc(p.summary)}</p>
+            <div class="ss-prof-b">${wearTabOn() && (p.role === 'user' || getMeta()?.dolls?.[p.name]) ? `<div class="ss-prof-doll">${dollFor(s, p.role === 'user' ? '' : p.name, 'big')}</div>` : ''}<p class="ss-pre">${esc(p.summary)}</p>
             ${p.home || p.sched ? `<p class="ss-dim ss-where">${p.home ? `🏠 ${esc(p.home)}` : ''}${p.sched ? ` · 🕐 ${esc(p.sched)}` : ''}${s.data.calendar && whereNow(p, s.data.calendar) ? ` · <b>지금: ${esc(whereNow(p, s.data.calendar))}</b>` : ''}</p>` : ''}
             ${p.fields.length ? `<dl class="ss-dl">${p.fields.map(f => `<dt>${esc(f.k)}</dt><dd class="ss-pre">${esc(f.v)}</dd>`).join('')}</dl>` : ''}
-            ${modOn('contact') && p.role !== 'user' ? `<button class="ss-btn sm ghost" data-act="talk" data-arg="${esc(p.name)}"><i class="fa-solid fa-envelope"></i> 연락하기</button>` : ''}${mindBlock(s, p.name)}</div>
+            <div class="ss-row-btns">${modOn('contact') && p.role !== 'user' ? `<button class="ss-btn sm ghost" data-act="talk" data-arg="${esc(p.name)}"><i class="fa-solid fa-envelope"></i> 연락하기</button>` : ''}<button class="ss-btn sm ghost" data-act="dollgo" data-arg="${esc(p.name)}" title="도트 인형 만들기 · 이 인형 얼굴을 ${esc(p.name)}의 공용 프로필로"><i class="fa-solid fa-palette"></i> 꾸미기</button></div>${mindBlock(s, p.name)}</div>
         </details>`).join('') || emptyBox('인물이 없어요', 'fa-id-card')}</div>`,
     stats: (s, d, ui) => `${sec('게이지', `<div class="ss-stack">${d.bars.filter(b => !inNeedPanel(b, d)).map(b => `<div class="ss-card ss-gcard">${gauge(b, false, freshDot('stats', 'bars', b.name))}
             <div class="ss-gbtns"><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|-10">−10</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|-1">−1</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|+1">+1</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|+10">+10</button>${b.desc ? `<small class="ss-dim">${esc(b.desc)}</small>` : ''}</div>${needLine(b, d)}</div>`).join('') || (d.bars.length ? '<p class="ss-hint">욕구 게이지는 「욕구」 탭에 있어요.</p>' : emptyBox('게이지가 없어요'))}</div>`)}
@@ -75,7 +75,7 @@ export const VIEW = {
     needs: needsTab,
     wear: wearTab,
     dice: diceView,
-    wallet: (s, d, ui) => `${walletView(s, d, ui)}${walletExtra(s)}${wearTabOn() ? '' : '<div class="ss-row-btns ss-life-x"><button class="ss-btn sm ghost" data-act="lifetab" data-arg="wear" title="도트 인형에 소지품을 입혀요 (이 채팅만)">👕 옷차림 탭 켜기</button></div>'}`,
+    wallet: (s, d, ui) => `${walletView(s, d, ui)}${walletExtra(s)}${wearTabOn() ? '' : '<div class="ss-row-btns ss-life-x"><button class="ss-btn sm ghost" data-act="lifetab" data-arg="wear" title="인물마다 도트 인형 · 내 소지품 입히기 (이 채팅만)">🎨 꾸미기 탭 켜기</button></div>'}`,
     fate: fateView,
     shop: (s, d, ui) => {
         const w = s.data.wallet;
@@ -90,50 +90,26 @@ export const VIEW = {
     rel: relView,
     map: (s, d, ui) => {
         const areas = [...new Set(d.places.map(p => p.area).filter(Boolean))];
-        const shown = ui.mapArea ? d.places.filter(p => p.area === ui.mapArea) : d.places;
-        // 🧊 보기 방식 (v2.9): 입체(기본) · 평면 · 목록 — 고른 것은 모든 채팅에 기억
-        const mode = mapModeOf(ui.mapMode ?? settings().mapMode);
-        const iso = mode === 'iso', line = mode === 'line', rich = iso || line; // rich = 건물을 누르면 안(정면도)으로 들어가는 보기
-        const pos = mapPos(mode, d.places);
+        // 🚇 노선도 (v2.9): 지도는 이 한 가지 보기 — 장소 = 역 · 길 = 노선. 🎨 꾸미기를 켜면 역 · 길을 눌러 고친다
+        const edit = !!ui.mapEdit, edSel = edit ? String(ui.edSel ?? '') : '';
         const sel = findBy(d.places, ui.place ?? d.here);
-        const shownSet = new Set(shown.map(p => p.name));
-        const list = mode === 'list'; // 📋 목록 보기 (v2.9) — 가까운 순 · 바로 이동
-        // 🧭 가는 길: 고른 곳이 지금 위치가 아니면 이어진 길을 지도에 굵게
-        const route = sel && norm(sel.name) !== norm(d.here) ? pathTo(d, sel.name) : null;
-        const onRoute = new Set();
-        if (route) for (let i = 0; i + 1 < route.length; i++) onRoute.add([route[i], route[i + 1]].sort().join('|'));
-        const edges = []; const routeEdges = []; const seen = new Set(); const pairs = [];
-        for (const p of shown) for (const l of p.links) {
-            const q = findBy(d.places, l); if (!q || !shownSet.has(q.name)) continue;
-            const key = [p.name, q.name].sort().join('|'); if (seen.has(key)) continue; seen.add(key);
-            const a = pos.get(p.name), b = pos.get(q.name);
-            pairs.push({ a: p.name, b: q.name, key, route: onRoute.has(key), unk: !(p.known && q.known) });
-            (onRoute.has(key) ? routeEdges : edges).push(`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" class="${onRoute.has(key) ? 'route' : p.known && q.known ? '' : 'unk'}"/>`);
-        }
+        const M = mapModel(d, ui, edit ? '' : sel?.name);
+        const { shown, pos, pairs, st } = M;
         const people = modOn('profile') && s.data.profile;
         // 📍 인물 핀 (v2.9): 고른 인물이 지금 있는 곳에 이모지로 — 나는 현재 위치 · 다른 사람은 프로필의 사는 곳 · 일과로 (이 채팅만 기억 · AI에게 안 감)
         const pinCfg = getMeta()?.mapPins ?? {};
         const roster = people ? (s.data.profile.list ?? []) : [];
-        const hereName = findBy(d.places, d.here)?.name ?? d.here ?? '';
-        const pinned = roster.filter(pf => Object.hasOwn(pinCfg, pf.name)).map(pf => ({ name: pf.name, e: pinEmoji(pinCfg, pf.name), at: pf.role === 'user' ? hereName : (findBy(d.places, whereNow(pf, s.data.calendar))?.name ?? '') }));
+        const pinned = roster.filter(pf => Object.hasOwn(pinCfg, pf.name)).map(pf => ({ name: pf.name, e: pinEmoji(pinCfg, pf.name), at: pf.role === 'user' ? M.hereName : (findBy(d.places, whereNow(pf, s.data.calendar))?.name ?? '') }));
         const pinsAt = (p) => pinned.filter(x => x.at && norm(x.at) === norm(p.name));
-        const nodeOpt = { pos, here: d.here, sel, label: (p) => (p.known ? (viewTr() ? trString(p.name) : p.name) : '???'), count: (p) => (people ? peopleAt(s, p.name).now.length : 0) };
-        const net = line ? lineEdges(pairs, pos) : null; // 🚇 길을 노선으로 묶은 것 (색 · 이름표 자리에 씀)
-        const lineOut = line ? lineNodes(shown, { ...nodeOpt, pins: pinsAt, net }) : null;
-        const nodes = line ? lineOut.svg : iso ? isoNodes(shown, { ...nodeOpt, bubble: (cx, tipY, p) => pinBubble(cx, tipY, pinsAt(p)) }) : shown.map(p => {
-            const ic = p.known ? placeIcon(p) : '❔';
-            const o = pos.get(p.name); const here = norm(p.name) === norm(d.here); const isSel = sel && sel.name === p.name;
-            const n = people ? peopleAt(s, p.name).now.length : 0;
-            return `<g class="node ${here ? 'here' : ''} ${isSel ? 'sel' : ''} ${p.known ? '' : 'unk'}" data-act="selplace" data-arg="${esc(p.name)}">
-                ${here ? `<circle cx="${o.x}" cy="${o.y}" r="4.6" class="ring"/>` : ''}<circle cx="${o.x}" cy="${o.y}" r="${here ? 3.2 : 2.8}" class="dot"/><text class="ico" x="${o.x}" y="${o.y + 1.15}">${esc(ic)}</text>
-                <text x="${o.x}" y="${o.y - 4.4}">${esc(p.known ? short(viewTr() ? trString(p.name) : p.name, 8) : '???')}</text>${n ? `<text class="ppl" x="${o.x + 2.6}" y="${o.y + 1.2}">👥${n}</text>` : ''}${pinBubble(o.x, o.y + 11.6, pinsAt(p)).replace('class="pins"', 'class="pins dn"')}</g>`;
-        }).join('');
-        const vb = ui.mapVB ?? (() => { const f = fitBox(shown.map(p => pos.get(p.name))); return iso ? [f[0], f[1] - 5, f[2], f[3] + 5] : line && shown.length ? (() => { const e = lineOut.ext, w = e[2] - e[0] + 8, h = e[3] - e[1] + 8, side = Math.max(w, h, 40); return [e[0] - 4 - (side - w) / 2, e[1] - 4 - (side - h) / 2, side, side].map(v => Math.round(v * 10) / 10); })() : f; })(); // 입체: 높은 건물 · 핀이 위로 잘리지 않게
-        const night = iso && modOn('calendar') && /밤|새벽|심야|자정|night|midnight|dawn/i.test(timeWords(s.data.calendar));
-        const inKind = rich && ui.inside && sel && norm(ui.inside) === norm(sel.name) ? insideKind(s, sel) : '';
+        const net = lineEdges(pairs, pos, st, { edit, sel: edSel.startsWith('e:') ? edSel.slice(2) : '' }); // 길을 노선으로 묶은 것 (색 · 이름표 자리에 씀)
+        const lineOut = lineNodes(shown, { pos, here: d.here, sel: edit ? (edSel.startsWith('s:') ? findBy(d.places, edSel.slice(2)) : null) : sel, st, net, pins: pinsAt,
+            label: (p) => (p.known ? (viewTr() ? trString(p.name) : p.name) : '???'), count: (p) => (people ? peopleAt(s, p.name).now.length : 0),
+            ...(edit ? { act: 'mapedsel', arg: (p) => `s:${p.name}` } : {}) });
+        const vb = ui.mapVB ?? (shown.length ? (() => { const e = lineOut.ext, w = e[2] - e[0] + 8, h = e[3] - e[1] + 8, side = Math.max(w, h, 40); return [e[0] - 4 - (side - w) / 2, e[1] - 4 - (side - h) / 2, side, side].map(v => Math.round(v * 10) / 10); })() : [-6, -8, 112, 114]);
+        const inKind = !edit && ui.inside && sel && norm(ui.inside) === norm(sel.name) ? insideKind(s, sel) : '';
         const inside = !!inKind; // 🔍 건물 안으로 들어가 있는 중
         let card = '';
-        if (sel) {
+        if (sel && !edit) {
             const here = norm(sel.name) === norm(d.here);
             const pa = people ? peopleAt(s, sel.name) : { live: [], now: [] };
             const trip = here ? null : tripInfo(s, sel.name), hops = trip?.hops ?? 0;
@@ -143,31 +119,15 @@ export const VIEW = {
             card = `<div class="ss-card ss-place"><div class="ss-place-h"><b>${esc(sel.known ? sel.name : '알 수 없는 곳')}</b>${sel.kind ? chip(esc(sel.kind)) : ''}${sel.area ? chip(esc(sel.area)) : ''}${here ? chip('현재 위치', 'hi') : ''}</div>
                 <p class="ss-pre ss-dim">${esc(sel.known ? sel.desc : '아직 가 보지 않았다.')}</p>
                 ${pa.now.length || pa.live.length ? `<div class="ss-ppl">${pa.now.length ? `<div><small>지금 여기${cal ? ` (${esc(s.data.calendar.time)})` : ''}</small>${pa.now.map(n => `<button class="ss-chip btn" data-act="talk" data-arg="${esc(n)}">${esc(n)}</button>`).join('')}</div>` : ''}${pa.live.length ? `<div><small>사는 사람</small>${pa.live.map(n => chip(esc(n))).join('')}</div>` : ''}</div>` : ''}
-                ${rich && insideKind(s, sel) && !inside ? `<div class="ss-row-btns"><button class="ss-btn sm" data-act="mapin" data-arg="${esc(sel.name)}"><i class="fa-solid fa-magnifying-glass-plus"></i> 건물 안 보기</button></div>` : ''}
-                ${!rich && sel.known && sel.floors?.length ? `<div class="ss-floorbox"><small>건물 안 · ${sel.floors.length}곳${here ? ' — 층을 누르면 「지금 여기」로 표시해요 (AI에게도 알려요)' : ''}</small>${floorsSVG(sel, here ? d.spot : '', here)}</div>` : ''}
+                ${insideKind(s, sel) && !inside ? `<div class="ss-row-btns"><button class="ss-btn sm" data-act="mapin" data-arg="${esc(sel.name)}"><i class="fa-solid fa-magnifying-glass-plus"></i> 건물 안 보기</button></div>` : ''}
                 ${sel.known && isHomePlace(s, sel) ? `<div class="ss-row-btns"><button class="ss-btn sm" data-act="tab" data-arg="base"><i class="fa-solid fa-house-chimney-window"></i> 집 안 보기</button></div>` : ''}
                 ${sel.links.length ? `<div class="ss-chips">${sel.links.map(l => `<button class="ss-chip btn" data-act="selplace" data-arg="${esc(l)}">${esc(l)}</button>`).join('')}</div>` : ''}
                 ${!here ? `<p class="ss-hint">${trip.path ? `${hops}칸 거리` : '길이 이어져 있지 않아요 · 한 칸으로 쳐요'}${cal && trip.arrive ? ` · 도착 <b>${esc(trip.arrive)}</b>` : ''}${sel.fare ? ` · 요금 ${fmtNum(sel.fare)} ${esc(cur)}${trip.poor ? ' <b class="neg">(모자라요)</b>' : ''}` : ''}${trip.path && trip.path.length > 2 ? `<br><i class="fa-solid fa-route"></i> ${trip.path.map(n => esc(short(nm(n), 12))).join(' → ')}` : ''}</p>
                 <div class="ss-row-btns"><button class="ss-btn pri sm" data-act="travel" data-arg="${esc(sel.name)}"><i class="fa-solid fa-person-walking"></i> 이동</button><button class="ss-btn sm ghost" data-act="goto" data-arg="${esc(sel.name)}">입력창에 쓰기</button><button class="ss-btn sm ghost" data-act="setloc" data-arg="${esc(sel.name)}">위치만 바꾸기</button></div>` : ''}</div>`;
         }
-        const modeSeg = `<div class="ss-seg ss-mapmode">${[['line', 'fa-route', '노선도'], ['iso', 'fa-cube', '입체'], ['flat', 'fa-map', '평면'], ['list', 'fa-list-ul', '목록']].map(([v, ic, nm2]) => `<button class="${mode === v ? 'on' : ''}" data-act="mapmode" data-arg="${v}"><i class="fa-solid ${ic}"></i> ${nm2}</button>`).join('')}</div>`;
-        const headHTML = `<div class="ss-maphead"><div class="ss-hint"><b>${esc(d.name || '지도')}</b> · 지금 <b>${esc(d.here || '-')}</b>${freshDot('map', 'here')}</div>${modeSeg}</div>${roster.length ? `<details class="ss-mappins" ${ui.pinOpen ? 'open' : ''}><summary data-act="mappinopen">📍 인물 표시${pinned.length ? ` · <span class="e">${pinned.map(x => esc(x.e)).join(' ')}</span>` : ' <small>— 고른 인물이 지금 있는 곳에 이모지로 떠요</small>'}</summary>
+        const headHTML = `<div class="ss-maphead"><div class="ss-hint"><b>${esc(d.name || '지도')}</b> · 지금 <b>${esc(d.here || '-')}</b>${freshDot('map', 'here')}</div><button class="ss-btn sm ${edit ? 'pri' : ''} ss-mapeditbtn" data-act="mapedit" title="노선 색 · 굵기 · 역 모양 · 자리 · 길 잇기/끊기 · 보일 장소 고르기"><i class="fa-solid fa-palette"></i> ${edit ? '꾸미기 끝' : '꾸미기'}</button></div>${roster.length && !edit ? `<details class="ss-mappins" ${ui.pinOpen ? 'open' : ''}><summary data-act="mappinopen">📍 인물 표시${pinned.length ? ` · <span class="e">${pinned.map(x => esc(x.e)).join(' ')}</span>` : ' <small>— 고른 인물이 지금 있는 곳에 이모지로 떠요</small>'}</summary>
             <div class="ss-pinlist">${roster.map(pf => { const on = Object.hasOwn(pinCfg, pf.name), at = pinned.find(x => x.name === pf.name)?.at; return `<span class="ss-pinchip ${on ? 'on' : ''}"><button class="ss-chip btn ${on ? 'hi' : ''}" data-act="mappin" data-arg="${esc(pf.name)}" aria-pressed="${on}">${esc(pinEmoji(pinCfg, pf.name))} ${esc(pf.name)}${on && !at ? ' <small>위치 모름</small>' : ''}</button>${on ? `<button class="ss-chip btn" data-act="mappinemo" data-arg="${esc(pf.name)}" title="지도에 뜰 이모지 바꾸기"><i class="fa-solid fa-pen"></i></button>` : ''}</span>`; }).join('')}</div>
             <p class="ss-hint">누르면 켜고 꺼요 · ✏️로 지도에 뜰 이모지를 정해요. 나는 현재 위치에, 다른 인물은 프로필의 「사는 곳 · 일과」와 지금 시간에 맞는 곳에 떠요.</p></details>` : ''}`;
-        const areasHTML = areas.length ? `<div class="ss-seg wrap ss-areas">${[['', '전체'], ...areas.map(a => [a, a])].map(([v, t]) => `<button class="${(ui.mapArea ?? '') === v ? 'on' : ''}" data-act="maparea" data-arg="${esc(v)}">${esc(t)}</button>`).join('')}</div>` : '';
-        if (list) {
-            // 가까운 순 (지금 위치 → 이어진 곳 → 먼 곳 → 길 없는 곳) · 줄을 누르면 위에 장소 카드 · 「이동」은 바로
-            const rows = shown.map(p => ({ p, here: norm(p.name) === norm(d.here), t: tripInfo(s, p.name) }))
-                .sort((a, b) => (b.here - a.here) || ((a.t.path ? a.t.hops : 99) - (b.t.path ? b.t.hops : 99)))
-                .map(({ p, here, t }) => {
-                    const n = people ? peopleAt(s, p.name).now.length : 0;
-                    const info = [pinsAt(p).map(x => esc(x.e)).join(''), p.known && p.kind ? esc(p.kind) : '', n ? `👥 ${n}` : '', here ? '' : t.path ? `${t.hops}칸${t.arrive ? ` · ${esc(t.arrive)} 도착` : ''}` : '길 없음', !here && t.fare ? `${fmtNum(t.fare)} ${esc(t.cur)}` : ''].filter(Boolean).join(' · ');
-                    return `<div class="ss-pl ${here ? 'here' : ''} ${sel && sel.name === p.name ? 'sel' : ''} ${p.known ? '' : 'unk'}" role="button" tabindex="0" data-act="selplace" data-arg="${esc(p.name)}"><span class="e">${esc(p.known ? placeIcon(p) : '❔')}</span>
-                        <div class="ss-pl-b"><b>${esc(p.known ? (viewTr() ? trString(p.name) : p.name) : '???')}</b>${info ? `<small>${info}</small>` : ''}</div>
-                        ${here ? chip('현재 위치', 'hi') : `<button class="ss-btn sm ${t.poor ? 'ghost' : 'pri'}" data-act="travel" data-arg="${esc(p.name)}" title="${t.poor ? '요금이 모자라요' : '여기로 이동'}"><i class="fa-solid fa-person-walking"></i> 이동</button>`}</div>`;
-                }).join('');
-            return `${headHTML}${areasHTML}${card}<div class="ss-pls">${rows || emptyBox('장소가 없어요', 'fa-map-location-dot')}</div>`;
-        }
         if (inside) {
             const hereIn = norm(sel.name) === norm(d.here);
             // 🏢 정면도 (v2.9): 건물을 앞에서 자른 그림 — 모든 층 · 방이 한 장에 (본거지는 방 · 가구)
@@ -187,10 +147,10 @@ export const VIEW = {
         }
         return `${headHTML}
             ${areas.length ? `<div class="ss-seg wrap ss-areas">${[['', '전체'], ...areas.map(a => [a, a])].map(([v, t]) => `<button class="${(ui.mapArea ?? '') === v ? 'on' : ''}" data-act="maparea" data-arg="${esc(v)}">${esc(t)}</button>`).join('')}</div>` : ''}
-            <div class="ss-mapwrap${iso ? ' iso' : ''}${line ? ' line' : ''}${night ? ' night' : ''}"><svg class="ss-map${iso ? ' ss-iso iso' : ''}${line ? ' line' : ''}" viewBox="${vb.join(' ')}" preserveAspectRatio="xMidYMid meet"><g class="edges">${line ? net.svg : edges.join('') + routeEdges.join('')}</g>${nodes}</svg>
+            <div class="ss-mapwrap line${edit ? ' edit' : ''}"><svg class="ss-map line${edit ? ' edit' : ''}" viewBox="${vb.join(' ')}" preserveAspectRatio="xMidYMid meet"><g class="edges">${net.svg}</g>${lineOut.svg}</svg>
                 <div class="ss-mapctl"><button class="ss-ib" data-act="mapzoom" data-arg="in" title="확대">＋</button><button class="ss-ib" data-act="mapzoom" data-arg="out" title="축소">－</button><button class="ss-ib" data-act="mapzoom" data-arg="here" title="현재 위치로"><i class="fa-solid fa-location-crosshairs"></i></button><button class="ss-ib" data-act="mapzoom" data-arg="fit" title="전체 보기"><i class="fa-solid fa-expand"></i></button></div></div>
-            <p class="ss-hint">끌어서 옮기고, 두 손가락·휠·버튼으로 확대해요.${rich ? ' 장소 「고치기」에서 안쪽 · 층을 적어 두면, 그 건물을 눌렀을 때 모든 층이 보이는 정면도가 열려요.' : ''}</p>
-            ${card}`;
+            <p class="ss-hint">${edit ? '역이나 길을 눌러 고르고, 역은 끌어서 옮겨요. 빈 곳을 끌면 지도가 움직여요.' : '끌어서 옮기고, 두 손가락·휠·버튼으로 확대해요. 장소 「고치기」에서 안쪽 · 층을 적어 두면, 그 건물을 눌렀을 때 모든 층이 보이는 정면도가 열려요.'}</p>
+            ${edit ? mapEditPanel(d, ui, M, net) : card}`;
     },
     calendar: (s, d, ui) => {
         ui.cal ??= { y: d.y, m: d.m };
@@ -267,12 +227,119 @@ VIEW.base = (s, d, ui = {}) => `<div class="ss-hero sm"><div class="ss-hero-t"><
         <div class="ss-item-a">${s.data.wallet && modOn('wallet') ? `<button class="ss-ib" data-act="tobag" data-arg="${esc(x)}" title="소지품으로 옮기기">🎒</button>` : ''}${s.data.wallet && modOn('wallet') ? `<button class="ss-btn sm ghost" data-act="sellused" data-arg="${esc(x)}" title="중고장터에 팔기 (헐값)">♻ 팔기</button>` : ''}<button class="ss-ib" data-act="trashit" data-arg="${esc(x)}" title="쓰레기통에 버리기"><i class="fa-solid fa-trash-can"></i></button></div></div>`).join('')}</div>` : emptyBox('상점에서 가구를 사면 여기에 들어와요', 'fa-couch'))}
     ${d.trash?.length ? `<details class="ss-arc"><summary><i class="fa-solid fa-trash-can"></i> 쓰레기통 ${d.trash.length}개</summary><ul>${[...d.trash].reverse().map(t => `<li><b>${esc(t.name)}</b> <small>${esc(t.date)}</small> <button class="ss-btn sm ghost" data-act="restore" data-arg="${esc(t.name)}">되살리기</button> <button class="ss-btn sm ghost danger" data-act="purge" data-arg="${esc(t.name)}" title="완전 삭제 — 되살릴 수 없어요"><i class="fa-solid fa-xmark"></i> 완전 삭제</button></li>`).join('')}</ul><div class="ss-row-btns"><button class="ss-btn sm ghost danger" data-act="purgeall"><i class="fa-solid fa-broom"></i> 쓰레기통 비우기 (완전 삭제)</button></div></details>` : ''}`;
 
-// 🗺 지도 보기 방식 (v2.9): 노선도(기본) · 입체 · 평면 · 목록 — 보기마다 장소 좌표가 다르다
-const MAP_MODES = ['line', 'iso', 'flat', 'list'];
-const mapModeOf = (v) => (MAP_MODES.includes(v) ? v : 'line');
-function mapPos(mode, places) {
-    const flat = layoutPlaces(places);
-    return mode === 'line' ? linePos(flat) : mode === 'iso' ? new Map([...flat].map(([k, o]) => [k, isoPt(o)])) : flat;
+// 🚇 지도 = 노선도 (v2.9): 보일 장소 · 좌표 · 길 목록을 한곳에서 — 화면과 동작(꾸미기 · 이동 모션)이 같은 것을 본다
+//   route = 가는 길을 굵게 할 장소 이름 ('' = 강조 없음). 숨긴 장소(meta.mapHide)는 빼되 지금 있는 곳은 늘 보인다
+function mapModel(d, ui = {}, route = '') {
+    const meta = getMeta(), st = meta?.mapStyle ?? {}, hide = new Set((meta?.mapHide ?? []).map(norm));
+    const hereName = findBy(d.places, d.here)?.name ?? d.here ?? '';
+    const inArea = ui.mapArea ? d.places.filter(p => p.area === ui.mapArea) : d.places;
+    const shown = inArea.filter(p => !hide.has(norm(p.name)) || norm(p.name) === norm(hereName));
+    const shownSet = new Set(shown.map(p => p.name));
+    const pos = linePos(layoutPlaces(d.places), st.pos);
+    const path = route && norm(route) !== norm(d.here) ? pathTo(d, route) : null, onRoute = new Set();
+    if (path) for (let i = 0; i + 1 < path.length; i++) onRoute.add(edgeKey(path[i], path[i + 1]));
+    const pairs = [], seen = new Set();
+    for (const p of shown) for (const l of p.links) {
+        const q = findBy(d.places, l); if (!q || !shownSet.has(q.name) || q.name === p.name) continue;
+        const key = edgeKey(p.name, q.name); if (seen.has(key)) continue; seen.add(key);
+        pairs.push({ a: p.name, b: q.name, key, route: onRoute.has(key), unk: !(p.known && q.known) });
+    }
+    return { st, hide, hereName, shown, pos, pairs };
+}
+const edgeKey = (a, b) => [a, b].sort().join('|');
+const isHex = (v) => /^#[0-9a-f]{6}$/i.test(v ?? '');
+// 🎨 꾸미기 칸 (지도 아래): 아무것도 안 골랐을 때 = 보일 장소 · 이동 모션 · 처음으로 / 역 = 모양 · 색 · 자리 · 길 잇기 · 숨기기 / 길 = 색 · 굵기 · 꺾는 모양 · 끊기
+function mapEditPanel(d, ui, M, net) {
+    const sel = String(ui.edSel ?? ''), st = M.st;
+    const sws = (prop, cur, list = LINE_COLORS) => `<div class="ss-sws">${list.map(c => `<button class="ss-sw sm ${cur === c ? 'on' : ''}" data-act="mapsty" data-arg="${prop}:${c}" style="--c:${c}" aria-label="${c}"></button>`).join('')}<label class="ss-sw sm ss-sw-any" style="--c:conic-gradient(#e2524a,#e8b93a,#5aa85a,#3aa3a3,#4a8fe2,#9a6ad6,#e26aa8,#e2524a)" title="아무 색이나 고르기"><input type="color" data-mapcolor="${prop}" value="${isHex(cur) ? cur : '#e5484d'}" aria-label="아무 색이나 고르기"></label>${cur ? `<button class="ss-pill" data-act="mapsty" data-arg="${prop}:">기본으로</button>` : ''}</div>`;
+    const pills = (prop, map, cur) => `<div class="ss-pills">${Object.entries(map).map(([k, n]) => `<button class="ss-pill ${cur === k ? 'on' : ''}" data-act="mapsty" data-arg="${prop}:${k}">${esc(n)}</button>`).join('')}</div>`;
+    if (sel.startsWith('s:')) {
+        const p = findBy(d.places, sel.slice(2)); if (p) {
+            const ss = st.s?.[p.name] ?? {}, linked = new Set(p.links.map(l => findBy(d.places, l)?.name).filter(Boolean)), moved = !!st.pos?.[p.name];
+            return `<div class="ss-card ss-maped"><div class="ss-place-h"><b>${esc(placeIcon(p))} ${esc(p.name)}</b>${chip('역')}<button class="ss-btn sm ghost" data-act="mapedsel" data-arg="">고르기 풀기</button></div>
+                <div class="ss-f wide"><span>모양</span>${pills('shape', STN_SHAPES, STN_SHAPES[ss.shape] ? ss.shape : 'circle')}</div>
+                <div class="ss-f wide"><span>색 <small>안 고르면 지나는 노선의 색</small></span>${sws('c', ss.c)}</div>
+                <div class="ss-f wide"><span>자리 <small>지도에서 끌어서 옮겨요</small></span><div class="ss-row-btns"><button class="ss-btn sm ghost" data-act="mapposreset" data-arg="${esc(p.name)}" ${moved ? '' : 'disabled'}>자리 처음으로</button></div></div>
+                <div class="ss-f wide"><span>길 잇기 · 끊기 <small>누르면 이 역과 이어지거나 끊겨요 — 이동 거리에도 반영돼요</small></span><div class="ss-pills">${d.places.filter(q => q.name !== p.name).map(q => `<button class="ss-pill ${linked.has(q.name) ? 'on' : ''}" data-act="maplink" data-arg="${esc(q.name)}">${linked.has(q.name) ? '<i class="fa-solid fa-link"></i> ' : ''}${esc(q.known ? q.name : '???')}</button>`).join('') || '<span class="ss-hint">다른 장소가 없어요.</span>'}</div></div>
+                <div class="ss-row-btns"><button class="ss-btn sm ghost" data-act="maphide" data-arg="${esc(p.name)}"><i class="fa-solid fa-eye-slash"></i> 이 장소 지도에서 숨기기</button></div></div>`;
+        }
+    }
+    if (sel.startsWith('e:')) {
+        const e = M.pairs.find(x => x.key === sel.slice(2)); if (e) {
+            const es = st.e?.[e.key] ?? {}, scope = ui.edScope === 'edge' ? 'edge' : 'line', n = [...net.lineOf.values()].filter(v => v === net.lineOf.get(e.key)).length;
+            return `<div class="ss-card ss-maped"><div class="ss-place-h"><b>${esc(e.a)} ↔ ${esc(e.b)}</b>${chip('길')}<button class="ss-btn sm ghost" data-act="mapedsel" data-arg="">고르기 풀기</button></div>
+                <div class="ss-f wide"><span>색 · 굵기를 바꿀 범위</span><div class="ss-pills"><button class="ss-pill ${scope === 'line' ? 'on' : ''}" data-act="mapscope" data-arg="line">이 노선 전체 <small>${n}칸</small></button><button class="ss-pill ${scope === 'edge' ? 'on' : ''}" data-act="mapscope" data-arg="edge">이 길만</button></div></div>
+                <div class="ss-f wide"><span>색</span>${sws('c', es.c ?? net.colorOf.get(e.key))}</div>
+                <div class="ss-f wide"><span>굵기</span>${pills('w', { thin: '가늘게', n: '보통', thick: '굵게' }, EDGE_W[es.w] ? es.w : 'n')}</div>
+                <div class="ss-f wide"><span>꺾는 모양 <small>이 길만</small></span>${pills('bend', BENDS, BENDS[es.bend] ? es.bend : 'auto')}</div>
+                <div class="ss-row-btns"><button class="ss-btn sm ghost" data-act="mapcut" data-arg="${esc(e.key)}"><i class="fa-solid fa-link-slash"></i> 이 길 끊기</button></div></div>`;
+        }
+    }
+    const hidden = d.places.filter(p => M.hide.has(norm(p.name)));
+    const styled = Object.keys(st.e ?? {}).length + Object.keys(st.s ?? {}).length + Object.keys(st.pos ?? {}).length;
+    return `<div class="ss-card ss-maped"><div class="ss-place-h"><b><i class="fa-solid fa-palette"></i> 지도 꾸미기</b></div>
+        <p class="ss-hint">지도에서 <b>역</b>을 누르면 모양 · 색 · 길 잇기, <b>길</b>을 누르면 노선 색 · 굵기 · 꺾는 모양을 고쳐요. 역은 끌어서 옮길 수 있어요. 꾸민 것은 이 채팅의 화면에만 적용되고 AI에게는 안 가요 (길 잇기 · 끊기만 실제 지도에 반영).</p>
+        <div class="ss-f wide"><span>보일 장소 <small>${d.places.length - hidden.length}/${d.places.length} · 누르면 숨기거나 다시 보여요 (지금 있는 곳은 늘 보여요)</small></span><div class="ss-pills">${d.places.map(p => `<button class="ss-pill ${M.hide.has(norm(p.name)) ? '' : 'on'}" data-act="maphide" data-arg="${esc(p.name)}">${M.hide.has(norm(p.name)) ? '' : '<i class="fa-solid fa-check"></i> '}${esc(p.known ? p.name : `??? (${p.name})`)}</button>`).join('')}</div></div>
+        <div class="ss-f wide"><span>이동 모션 <small>「이동」을 누르면 노선을 따라 움직여요 · 모든 채팅 공통</small></span><div class="ss-pills"><button class="ss-pill ${settings().mapMotion !== false ? 'on' : ''}" data-act="mapmotion" data-arg="on">노선 따라 움직이기</button><button class="ss-pill ${settings().mapMotion === false ? 'on' : ''}" data-act="mapmotion" data-arg="off">바로 이동</button></div></div>
+        <div class="ss-row-btns"><button class="ss-btn sm ghost" data-act="mapstyreset" ${styled ? '' : 'disabled'}><i class="fa-solid fa-rotate-left"></i> 꾸민 것 전부 처음으로</button></div>
+        <p class="ss-hint">이름 · 이모지 · 인물 핀 · 사람 수 같은 표시는 맨 위 「보일 것」에서 켜고 꺼요.</p></div>`;
+}
+// 🚶 이동 모션: 지금 그려진 노선을 따라 말이 움직인다 (끝나면 풀림) — 길이 안 그려진 칸은 역에서 역으로 곧게
+function runTrip(svg, names, emoji) {
+    if (!svg || !names || names.length < 2 || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return Promise.resolve(false);
+    const node = (n) => [...svg.querySelectorAll('g.node')].find(g => g.dataset.name === n), at = (n) => { const g = node(n); return g ? { x: Number(g.dataset.x), y: Number(g.dataset.y) } : null; };
+    const NS = 'http://www.w3.org/2000/svg', segs = [];
+    for (let i = 0; i + 1 < names.length; i++) {
+        const a = at(names[i]), b = at(names[i + 1]);
+        if (!a || !b) { if (a || b) continue; return Promise.resolve(false); }
+        let path = [...svg.querySelectorAll('.edges path.ln[data-k]')].find(p => p.dataset.k === edgeKey(names[i], names[i + 1])), rev = false, tmp = false;
+        if (path) { const p0 = path.getPointAtLength(0); rev = Math.hypot(p0.x - a.x, p0.y - a.y) > Math.hypot(p0.x - b.x, p0.y - b.y); }
+        else { path = document.createElementNS(NS, 'path'); path.setAttribute('d', `M${a.x} ${a.y}L${b.x} ${b.y}`); tmp = true; }
+        segs.push({ path, len: path.getTotalLength() || 0.01, rev, tmp });
+    }
+    if (!segs.length) return Promise.resolve(false);
+    const total = segs.reduce((n, x) => n + x.len, 0), dur = clamp(380 * segs.length + 320, 650, 2800);
+    const g = document.createElementNS(NS, 'g'); g.setAttribute('class', 'mover');
+    g.innerHTML = `<circle r="3.6"/><text y="1.3">${esc(emoji || '🚶')}</text>`;
+    svg.appendChild(g);
+    return new Promise((res) => {
+        const t0 = performance.now();
+        const step = (now) => {
+            if (!svg.isConnected) return res(false);
+            const k = Math.min(1, (now - t0) / dur), e = k < 0.5 ? 2 * k * k : 1 - ((-2 * k + 2) ** 2) / 2;
+            let left = e * total, sg = segs[segs.length - 1];
+            for (const x of segs) { if (left <= x.len) { sg = x; break; } left -= x.len; }
+            const pt = sg.path.getPointAtLength(sg.rev ? sg.len - Math.min(left, sg.len) : Math.min(left, sg.len));
+            g.setAttribute('transform', `translate(${Math.round(pt.x * 100) / 100} ${Math.round(pt.y * 100) / 100})`);
+            if (k < 1) requestAnimationFrame(step); else setTimeout(() => res(true), 120);
+        };
+        requestAnimationFrame(step);
+    });
+}
+// 고른 역 · 길(ui.edSel)의 꾸밈 값 하나를 바꾼다 (빈 값 = 기본으로) — 길의 색 · 굵기는 범위(ui.edScope)가 「노선 전체」면 그 노선의 모든 길에
+async function mapStyleSet(el, s, prop, val) {
+    const ui = el._ss.ui, sel = String(ui.edSel ?? ''), meta = getMeta(true); if (!meta || !sel) return;
+    const st = (meta.mapStyle ??= {});
+    const put = (bag, key) => { const o = (bag[key] ??= {}); if (val) o[prop] = val; else delete o[prop]; if (!Object.keys(o).length) delete bag[key]; };
+    if (sel.startsWith('s:')) {
+        if (!(prop === 'shape' ? STN_SHAPES[val] || !val : prop === 'c' && (isHex(val) || !val))) return;
+        put((st.s ??= {}), sel.slice(2));
+    } else if (sel.startsWith('e:')) {
+        if (!(prop === 'c' ? isHex(val) || !val : prop === 'w' ? EDGE_W[val] || !val : prop === 'bend' && (BENDS[val] || !val))) return;
+        const key = sel.slice(2), M = mapModel(s.data.map, ui), net = lineEdges(M.pairs, M.pos, st);
+        const keys = prop !== 'bend' && ui.edScope !== 'edge' ? M.pairs.filter(e => net.lineOf.get(e.key) === net.lineOf.get(key)).map(e => e.key) : [key];
+        for (const k of keys.length ? keys : [key]) put((st.e ??= {}), k);
+    } else return;
+    await saveMeta(); app.renderPanel(el);
+}
+// 두 장소 사이의 길을 잇거나 끊는다 (on을 안 주면 뒤집기) — 실제 지도 자료라 이동 거리 · AI에게 가는 글에도 반영된다
+function mapLinkSet(s, a, b, on) {
+    const nd = clone(s.data.map), A = findBy(nd.places, a), B = findBy(nd.places, b); if (!A || !B || A === B) return undefined;
+    const has = (P, Q) => P.links.some(l => norm(l) === norm(Q.name)), linked = has(A, B) || has(B, A), want = on ?? !linked;
+    if (want === linked) return undefined;
+    const drop = (P, Q) => { P.links = P.links.filter(l => norm(l) !== norm(Q.name)); };
+    if (want) { if (!has(A, B)) A.links.push(B.name); if (!has(B, A)) B.links.push(A.name); } else { drop(A, B); drop(B, A); }
+    return commit('map', nd, `🗺 ${A.name} ↔ ${B.name} 길 ${want ? '이음' : '끊음'}`);
 }
 // 📍 인물 핀에 뜰 이모지: 지도용으로 따로 정한 것 → 얼굴 이모지 → 이름 첫 글자
 const pinEmoji = (cfg, name) => cfg?.[name] || emojiOf(name) || String(name).slice(0, 1);
@@ -351,6 +418,10 @@ const pinchInfo = (d) => { const [a, b] = [...d.pts.values()]; return { dist: Ma
 document.addEventListener('pointerdown', (e) => {
     const svg = e.target.closest?.('svg.ss-map'); if (!svg) return;
     if (drag && drag.svg !== svg) drag = null;
+    // 🎨 꾸미기 중: 역을 잡으면 지도 대신 그 역이 움직인다
+    const stn = !drag && svg.classList.contains('edit') ? e.target.closest?.('g.node') : null;
+    if (stn) { drag = { svg, stn, id: e.pointerId, pts: new Map(), moved: false, sx: e.clientX, sy: e.clientY, x0: Number(stn.dataset.x), y0: Number(stn.dataset.y), dx: 0, dy: 0 }; return; }
+    if (drag?.stn) return;
     drag ??= { svg, pts: new Map(), moved: false };
     drag.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     // 손가락 수가 바뀔 때마다 기준을 새로 잡는다
@@ -358,6 +429,15 @@ document.addEventListener('pointerdown', (e) => {
     if (drag.pts.size === 2) drag.pinch = pinchInfo(drag);
 });
 document.addEventListener('pointermove', (e) => {
+    if (drag?.stn) {
+        if (e.pointerId !== drag.id) return;
+        const r = drag.svg.getBoundingClientRect(), vb = svgBox(drag.svg); if (!r.width || !r.height) return;
+        if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 5) return;
+        const k = Math.max(vb[2] / r.width, vb[3] / r.height); // 화면 1px = 지도 k칸 (가로세로 비율이 달라도 맞게)
+        drag.moved = true; drag.dx = (e.clientX - drag.sx) * k; drag.dy = (e.clientY - drag.sy) * k;
+        drag.stn.setAttribute('transform', `translate(${R10(drag.dx)} ${R10(drag.dy)})`); drag.stn.classList.add('drag');
+        return;
+    }
     if (!drag || !drag.pts.has(e.pointerId)) return;
     drag.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     const r = drag.svg.getBoundingClientRect(); if (!r.width || !r.height) return;
@@ -379,6 +459,19 @@ document.addEventListener('pointermove', (e) => {
 });
 const endPtr = (e) => {
     if (!drag) return;
+    if (drag.stn) {
+        if (e.pointerId !== drag.id) return;
+        const { svg, stn, moved, x0, y0, dx, dy } = drag; drag = null;
+        if (!moved) return;
+        svg._dragged = true; setTimeout(() => { svg._dragged = false; }, 50);
+        const el = svg.closest('.ss-panel'), meta = getMeta(true), name = stn.dataset.name;
+        if (e.type === 'pointercancel' || !el?._ss || !meta || !name) { stn.removeAttribute('transform'); return; }
+        const snap = (v) => Math.round(v / HALF) * HALF; // 반 칸 격자에 맞춘다 (길이 가로 · 세로 · 45°로 떨어지게)
+        ((meta.mapStyle ??= {}).pos ??= {})[name] = { x: snap(x0 + dx), y: snap(y0 + dy) };
+        el._ss.ui.edSel = `s:${name}`;
+        saveMeta(); app.renderPanel(el);
+        return;
+    }
     drag.pts.delete(e.pointerId);
     if (drag.pts.size) { drag.vb = svgBox(drag.svg); drag.start = new Map([...drag.pts].map(([k, v]) => [k, { ...v }])); drag.pinch = null; return; }
     if (drag.moved) { const svg = drag.svg; svg._dragged = true; setTimeout(() => { svg._dragged = false; }, 50); }
@@ -387,6 +480,8 @@ const endPtr = (e) => {
 document.addEventListener('pointerup', endPtr);
 document.addEventListener('pointercancel', endPtr);
 document.addEventListener('click', (e) => { const svg = e.target.closest?.('svg.ss-map'); if (svg?._dragged) { e.stopPropagation(); e.preventDefault(); } }, true);
+// 🎨 꾸미기의 「아무 색이나」: 진짜 색 입력칸을 눌러야 폰에서도 창이 뜬다 → 값이 바뀌면 여기서 받는다
+document.addEventListener('change', (e) => { const t = e.target; if (!t?.dataset?.mapcolor) return; const el = t.closest('.ss-panel'); if (el?._ss && app.current?.state) mapStyleSet(el, app.current.state, t.dataset.mapcolor, String(t.value).toLowerCase()).catch(err => ssNote('지도 색', err)); }, true);
 // 휠 확대: 문서 전체에 막는(passive:false) 휠 리스너를 걸면 브라우저가 채팅 스크롤마다 JS를 기다려 스크롤이 버벅인다 (v2.7.7)
 // → 지도 위에 마우스가 처음 올라올 때 그 지도에만 건다
 document.addEventListener('pointerover', (e) => {
@@ -422,7 +517,7 @@ export const GROUPS = [
 ];
 // 칸(데이터)이 아닌 탭 — 늘 켜져 있고 편집 도구가 없다
 export const PSEUDO = new Set(['home', 'manage', 'album', 'record', 'guide', 'extra', 'guest', 'needs', 'wear']); // needs · wear = 🍞 욕구 · 👕 옷차림 (v2.9 · 이 채팅에서 켠 것만 — life.js)
-const PSEUDO_INFO = { home: { name: '홈', icon: 'fa-house' }, manage: { name: '관리', icon: 'fa-sliders' }, album: { name: '추억 앨범', icon: 'fa-star' }, record: { name: '플레이 기록', icon: 'fa-chart-simple' }, guide: { name: '공략', icon: 'fa-key' }, extra: { name: '부가 기능', icon: 'fa-puzzle-piece' }, guest: { name: '방명록', icon: 'fa-pen-to-square' }, needs: { name: '욕구', icon: 'fa-bowl-food' }, wear: { name: '옷차림', icon: 'fa-shirt' } };
+const PSEUDO_INFO = { home: { name: '홈', icon: 'fa-house' }, manage: { name: '관리', icon: 'fa-sliders' }, album: { name: '추억 앨범', icon: 'fa-star' }, record: { name: '플레이 기록', icon: 'fa-chart-simple' }, guide: { name: '공략', icon: 'fa-key' }, extra: { name: '부가 기능', icon: 'fa-puzzle-piece' }, guest: { name: '방명록', icon: 'fa-pen-to-square' }, needs: { name: '욕구', icon: 'fa-bowl-food' }, wear: { name: '꾸미기', icon: 'fa-palette' } };
 export const TAB_MOD = (tab) => (tab === 'base' ? 'home' : tab === 'home' ? 'core' : tab);
 export const TAB_INFO = (tab) => (PSEUDO_INFO[tab] ?? (tab === 'base' ? MOD.home : MOD[tab]) ?? { name: tab, icon: 'fa-circle' });
 
@@ -563,7 +658,7 @@ const pkOpts = (keys) => keys.map(pkOpt).filter(Boolean);
 function pkSub(id, s, st) { // 켠 칸 밑의 딸린 옵션
     const parts = [];
     if (id === 'calendar' && s.data.calendar) parts.push(`<div class="ss-pk-opt"><small>시간 적는 법</small>${seg(CLOCK_STYLES.map(([v, name, ex]) => [v, `${name} <small>${ex}</small>`]), s.data.calendar.clock ?? '', 'clockstyle', 'class="ss-seg wrap"')}</div>`);
-    if (id === 'map') parts.push(`<div class="ss-pk-opt"><small>지도 보기</small>${seg([['line', '노선도'], ['iso', '입체'], ['flat', '평면'], ['list', '목록']], mapModeOf(st.mapMode), 'mapmode', 'class="ss-seg wrap"')}</div>`);
+    if (id === 'map') parts.push(`<div class="ss-pk-opt"><small>이동 모션</small>${seg([['on', '노선 따라 움직이기'], ['off', '바로 이동']], st.mapMotion === false ? 'off' : 'on', 'mapmotion', 'class="ss-seg wrap"')}</div>`);
     const flags = (PK_PARENT[id] ?? []).map(k => FLAG_BY[k]).filter(Boolean);
     if (flags.length) parts.push(`<div class="ss-pk-opt"><small>딸린 옵션 · 모든 채팅에 걸려요</small>${flagList(st, flags)}</div>`);
     const det = pkOpts(PK_DETAIL[id] ?? []);
@@ -743,11 +838,11 @@ export const VIEW_ACTIONS = {
     // 🔍 입체 지도에서 층 · 방이 있는 건물을 누르면 그 건물로 확대해 들어간다 (그 밖엔 고르기만)
     selplace: (el, arg, btn, s) => {
         const ui = el._ss.ui; ui.place = arg; ui.inside = null; ui.floor = null;
-        const svg = btn?.closest?.('svg.ss-map.iso, svg.ss-map.line'), p = svg ? findBy(s?.data.map?.places, arg) : null;
+        const svg = btn?.closest?.('svg.ss-map.line'), p = svg ? findBy(s?.data.map?.places, arg) : null;
         if (svg && p && insideKind(s, p)) return zoomInto(el, svg, p.name);
         app.renderPanel(el);
     },
-    mapin: (el, arg, btn, s) => { const ui = el._ss.ui, svg = el.querySelector('svg.ss-map.iso, svg.ss-map.line'); ui.place = arg; if (svg) return zoomInto(el, svg, arg); ui.inside = arg; app.renderPanel(el); },
+    mapin: (el, arg, btn, s) => { const ui = el._ss.ui, svg = el.querySelector('svg.ss-map.line'); ui.place = arg; if (svg) return zoomInto(el, svg, arg); ui.inside = arg; app.renderPanel(el); },
     mapout: (el) => { el._ss.ui.inside = null; el._ss.ui.floor = null; app.renderPanel(el); },
     mapfloor: (el, arg) => { el._ss.ui.floor = arg; app.renderPanel(el); },
     // 📍 인물 핀 (v2.9): 지도에 띄울 인물 고르기 · 이모지 정하기 — 이 채팅의 메타(mapPins)에만 적는다 (AI에게 안 감)
@@ -769,7 +864,23 @@ export const VIEW_ACTIONS = {
         meta.mapPins = { ...meta.mapPins, [arg]: String(v).trim().slice(0, 8) }; el._ss.ui.pinOpen = true;
         await saveMeta(); app.renderPanel(el);
     },
-    mapmode: (el, arg) => { el._ss.ui.mapMode = arg; el._ss.ui.mapVB = null; el._ss.ui.inside = null; settings().mapMode = arg; saveSettings(); app.renderPanel(el); },
+    // 🎨 지도 꾸미기 (v2.9): 노선 색 · 굵기 · 꺾는 모양 · 역 모양 · 색 · 자리 = 이 채팅의 메타(mapStyle · 화면만) / 길 잇기 · 끊기 = 실제 지도(map.places[].links) / 보일 장소 = 메타 mapHide
+    mapedit: (el) => { const ui = el._ss.ui; ui.mapEdit = !ui.mapEdit; ui.edSel = ''; ui.inside = null; app.renderPanel(el); },
+    mapedsel: (el, arg) => { const ui = el._ss.ui; ui.edSel = ui.edSel === arg ? '' : arg; app.renderPanel(el); },
+    mapscope: (el, arg) => { el._ss.ui.edScope = arg === 'edge' ? 'edge' : 'line'; app.renderPanel(el); },
+    mapsty: (el, arg, btn, s) => mapStyleSet(el, s, String(arg).slice(0, String(arg).indexOf(':')), String(arg).slice(String(arg).indexOf(':') + 1)),
+    mapposreset: async (el, arg) => { const meta = getMeta(true), st = meta?.mapStyle; if (!st?.pos?.[arg]) return; delete st.pos[arg]; el._ss.ui.mapVB = null; await saveMeta(); app.renderPanel(el); },
+    mapstyreset: async (el) => { const meta = getMeta(true); if (!meta?.mapStyle) return; if (!(await askConfirm('노선 색 · 굵기 · 꺾는 모양 · 역 모양 · 색 · 옮긴 자리를 전부 처음으로 돌릴까요?<br><small>이은 길 · 끊은 길 · 숨긴 장소는 그대로예요.</small>'))) return; delete meta.mapStyle; el._ss.ui.edSel = ''; el._ss.ui.mapVB = null; await saveMeta(); app.renderPanel(el); },
+    maphide: async (el, arg) => {
+        const meta = getMeta(true); if (!meta) return;
+        const cur = new Set(meta.mapHide ?? []); if (cur.has(arg)) cur.delete(arg); else cur.add(arg);
+        if (cur.size) meta.mapHide = [...cur]; else delete meta.mapHide;
+        const ui = el._ss.ui; if (ui.edSel === `s:${arg}`) ui.edSel = ''; ui.mapVB = null;
+        await saveMeta(); app.renderPanel(el);
+    },
+    maplink: (el, arg, btn, s) => { const a = String(el._ss.ui.edSel ?? ''); return a.startsWith('s:') ? mapLinkSet(s, a.slice(2), arg) : undefined; },
+    mapcut: (el, arg, btn, s) => { const e = mapModel(s.data.map, el._ss.ui).pairs.find(x => x.key === arg); if (!e) return; el._ss.ui.edSel = ''; return mapLinkSet(s, e.a, e.b, false); },
+    mapmotion: (el, arg) => { settings().mapMotion = arg !== 'off'; saveSettings(); app.renderPanel(el); },
     // 🏢 건물 안에서 층 옮기기 (지금 그 건물에 있을 때만 · 같은 층을 다시 누르면 지움)
     spot: (el, arg, btn, s) => { const mp = s.data.map; if (!mp) return; const off = norm(mp.spot ?? '') === norm(arg); return addAdjust({ ops: [['_spot', off ? '' : arg]], label: off ? `${mp.here} — 층 표시 지움` : `${mp.here} · ${arg}(으)로 갔다` }); },
     selroom: (el, arg) => { el._ss.ui.hroom = el._ss.ui.hroom === arg ? null : arg; app.renderPanel(el); },
@@ -778,7 +889,7 @@ export const VIEW_ACTIONS = {
         const ui = el._ss.ui, svg = el.querySelector('svg.ss-map'); if (!svg) return;
         const vb = svgBox(svg);
         if (arg === 'fit') ui.mapVB = null;
-        else if (arg === 'here') { const p = mapPos(svg.classList.contains('iso') ? 'iso' : svg.classList.contains('line') ? 'line' : 'flat', s.data.map.places).get(findBy(s.data.map.places, s.data.map.here)?.name); ui.mapVB = p ? [p.x - 25, p.y - 25, 50, 50] : null; ui.place = s.data.map.here; }
+        else if (arg === 'here') { const p = mapModel(s.data.map, ui).pos.get(findBy(s.data.map.places, s.data.map.here)?.name); ui.mapVB = p ? [p.x - 25, p.y - 25, 50, 50] : null; ui.place = s.data.map.here; }
         else ui.mapVB = zoomBox(vb, arg === 'in' ? 1 / 1.4 : 1.4);
         app.renderPanel(el);
     },
@@ -831,11 +942,18 @@ export const VIEW_ACTIONS = {
     },
     mgtab: (el, arg) => { if (!MG_TABS.some(t => t[0] === arg)) return; settings().mgTab = arg; saveSettings(); app.renderPanel(el); }, // 🗂 관리 탭 안의 탭 고르기
     mgfold: (el, arg) => { const set = settings(), cur = { ...(set.mgOpen ?? MG_DEF) }; cur[arg] = !cur[arg]; set.mgOpen = cur; saveSettings(); app.renderPanel(el); }, // 🗂 관리 탭 묶음 접고 펴기
-    travel: (el, arg, btn, s) => {
+    travel: async (el, arg, btn, s) => {
         const p = findBy(s.data.map.places, arg); if (!p) return;
-        const w = s.data.wallet;
+        const w = s.data.wallet, ui = el._ss.ui;
         if (p.fare && w && w.cash < p.fare) { toastr.warning('요금이 모자라요.', TITLE); return; }
-        el._ss.ui.place = p.name;
+        if (ui.moving) return; // 움직이는 중에 또 누른 것
+        ui.place = p.name;
+        // 🚶 이동 모션 (v2.9 · 설정 mapMotion · 기본 켬): 지도 탭에서 누르면 노선을 따라 움직인 뒤 도착 — 건물 안을 보던 중이면 지도로 나와서
+        if (settings().mapMotion !== false && el._ss.tab === 'map' && norm(p.name) !== norm(s.data.map.here)) {
+            if (ui.inside || ui.mapEdit) { ui.inside = null; ui.mapEdit = false; app.renderPanel(el); }
+            const svg = el.querySelector('svg.ss-map.line');
+            if (svg) { ui.moving = true; try { const me = (s.data.profile?.list ?? []).find(x => x.role === 'user')?.name; await runTrip(svg, pathTo(s.data.map, p.name) ?? [findBy(s.data.map.places, s.data.map.here)?.name, p.name], me ? pinEmoji(getMeta()?.mapPins, me) : '🚶'); } catch (e) { ssNote('이동 모션', e); } finally { ui.moving = false; } }
+        }
         return addAdjust({ ops: [['_travel', p.name]], label: `${p.name}(으)로 이동했다${p.fare ? ` (−${fmtNum(p.fare)} ${w?.currency ?? ''})` : ''}` });
     },
     goto: (el, arg) => { insertInput(`(${arg}(으)로 이동한다)`); closeIfPopup(el); },

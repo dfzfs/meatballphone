@@ -183,3 +183,15 @@
 .ss-scope .ss-seg.stack[data-w="start"] > button small { display: block; white-space: normal; line-height: 1.35; overflow-wrap: anywhere; }
 .ss-scope label.ss-sw-any { position: relative; display: inline-block; overflow: hidden; }
 .ss-scope label.ss-sw-any input { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; opacity: 0; cursor: pointer; }
+
+/* 🎨 꾸미기 (v2.9): 꾸밀 사람 고르기 · 인물 인형 얼굴(공용 프로필) · 전체화면 프로필 그림의 도트 인형 */
+.ss-scope .ss-dollwho { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 8px; margin-bottom: 4px; scrollbar-width: thin; }
+.ss-scope .ss-dollwho-b { all: unset; box-sizing: border-box; cursor: pointer; flex: none; width: 64px; display: grid; justify-items: center; gap: 2px; padding: 6px 4px 4px; border-radius: 12px; border: 2px solid var(--ss-line); background: var(--ss-bg); }
+.ss-scope .ss-dollwho-b .ss-px, .ss-scope .ss-dollwho-b .ss-px-wait { width: 40px; }
+.ss-scope .ss-dollwho-b small { font-size: .75em; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ss-scope .ss-dollwho-b.on { border-color: var(--ss-hi); background: color-mix(in srgb, var(--ss-hi) 9%, var(--ss-bg)); }
+.ss-scope .ss-dollwho-b:focus-visible { outline: 2px solid var(--ss-hi); outline-offset: 2px; }
+/* 인형 얼굴 = 32×42 그림에서 머리 부분(가로 5~27 · 세로 3~25)만 보이게 */
+.ss-ava.doll { position: relative; overflow: hidden; background: color-mix(in srgb, var(--ss-hi, #2f62e9) 10%, var(--ss-bg, #fff)) !important; }
+.ss-ava.doll img { position: absolute; width: 145.5%; left: -22.7%; top: -13.6%; height: auto; max-width: none; image-rendering: pixelated; image-rendering: crisp-edges; }
+.ss-hp-photo.doll img, .ss-hp-face img.px { image-rendering: pixelated; image-rendering: crisp-edges; object-fit: contain; }

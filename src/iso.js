@@ -1,98 +1,16 @@
-// 🧊 입체 그림 (v2.9) — 지도 · 건물 층 · 집 안 구조를 비스듬히 내려다본 미니어처로 그린다
+// 🧊 입체 그림 (v2.9) — 본거지 집 안 구조를 비스듬히 내려다본 미니어처로 그린다 · 건물 층 읽기 (지도는 노선도 하나 — metro.js)
 //   · SVG만 쓴다 (3D 엔진 · 외부 라이브러리 없음) · AI 0회 · 토큰 0 · 저장하는 것 없음 (그리기만)
 //   · 색: 면마다 --c 하나에서 윗면(밝게) · 왼면 · 오른면(어둡게)을 CSS가 섞어 만든다 (css/patches.css의 .ss-iso)
-import { esc, short, norm, clamp } from './core.js';
-import { placeIcon } from './tiles.js';
+import { esc, short, norm } from './core.js';
 
 const K = 0.58; // 마름모 세로/가로 비율
 const R = (v) => Math.round(v * 100) / 100;
 const P = (pts) => pts.map(([x, y]) => `${R(x)},${R(y)}`).join(' ');
 const poly = (cls, pts) => `<polygon class="${cls}" points="${P(pts)}"/>`;
-const G = (c, inner) => `<g style="--c:${c}">${inner}</g>`;
-
-// 지도 좌표(0~100) → 비스듬한 화면 좌표
-export const isoPt = (o) => ({ x: R((o.x - o.y) * 0.72 + 50), y: R((o.x + o.y) * 0.42) });
 
 // ───── 기본 모양 ─────
 const flat = (cx, cy, a, cls = 'f-t') => poly(cls, [[cx, cy - a * K], [cx + a, cy], [cx, cy + a * K], [cx - a, cy]]);
-function box(cx, cy, a, h) {
-    const b = a * K;
-    return poly('f-l', [[cx - a, cy - h], [cx, cy - h + b], [cx, cy + b], [cx - a, cy]])
-        + poly('f-r', [[cx + a, cy - h], [cx, cy - h + b], [cx, cy + b], [cx + a, cy]])
-        + poly('f-t', [[cx, cy - h - b], [cx + a, cy - h], [cx, cy - h + b], [cx - a, cy - h]]);
-}
-function pyr(cx, cy, a, h) {
-    const b = a * K;
-    return poly('f-l', [[cx - a, cy], [cx, cy + b], [cx, cy - h]]) + poly('f-r', [[cx + a, cy], [cx, cy + b], [cx, cy - h]]);
-}
-// 층 줄 (상자 앞 두 면에 가로줄)
-function stories(cx, cy, a, h, n) {
-    const b = a * K; let out = '';
-    for (let i = 1; i < n; i++) { const o = (h * i) / n; out += `<polyline class="ln" points="${P([[cx - a, cy - o], [cx, cy + b - o], [cx + a, cy - o]])}"/>`; }
-    return out;
-}
-
-// ───── 장소 종류 → 모양 (이름 · 종류로 짐작 — 못 맞히면 기본 상자 + 이모지) ─────
-const KINDS = [
-    [/등대|lighthouse|탑$|tower|첨탑/i, 'tower'], [/성당|교회|신전|사원|절$|church|temple|shrine|cathedral|chapel/i, 'church'],
-    [/성$|성채|궁|왕궁|castle|palace|fort|fortress|요새|citadel/i, 'castle'],
-    [/항구|선착장|부두|port|harbor|harbour|dock|pier/i, 'harbor'], [/바다|해변|해안|beach|sea|ocean|coast|섬$|island|강$|강변|강가|호수|river|lake|폭포|waterfall|연못|pond/i, 'water'],
-    [/숲|forest|woods|정글|jungle/i, 'forest'], [/산$|산맥|mountain|봉우리|peak|절벽|cliff|화산|volcano/i, 'mountain'],
-    [/동굴|던전|cave|dungeon|지하(?!철)|ruin|폐허|유적|광산|mine/i, 'cave'], [/공원|정원|garden|park|농장|밭|farm|ranch|목장|초원|들판|field|meadow/i, 'park'],
-    [/광장|square|plaza|거리|street|road|골목|alley|다리|bridge|길$|교차로/i, 'plaza'],
-    [/시장|market|bazaar|장터|저잣거리|상점|가게|shop|store|잡화|편의점|매점|마트|mart/i, 'shop'],
-    [/술집|선술집|주점|여관|객잔|tavern|inn|bar$|pub|카페|찻집|cafe|café|coffee|식당|레스토랑|restaurant|diner|빵집|bakery/i, 'inn'],
-    [/마을|village|town|어귀|촌$/i, 'village'],
-    [/학교|학원|아카데미|school|academy|대학|university|college|병원|의원|clinic|hospital|도서관|library|회사|사무실|office|본부|headquarters|연구소|실험실|lab|laboratory|역$|정거장|station|터미널|경찰|police|길드|guild|도시|city|번화가|downtown|빌딩|building|아파트|apartment|호텔|hotel|백화점|기지|base|격납고|hangar|체육관|gym|극장|theater/i, 'big'],
-    [/집|home|house|자택|숙소|기숙사|dorm|하숙|오두막|cottage|cabin|방$|침실|bedroom|room|저택|mansion|별장/i, 'house'],
-];
-// 영어 낱말은 낱말 첫머리에서만 맞춘다 (짧은 낱말은 끝도) — airport가 항구(port), research가 바다(sea), public library가 술집(pub)이 되지 않게
-for (const k of KINDS) k[0] = new RegExp(k[0].source.split('|').map(t => (/^[a-zé]+$/i.test(t) ? (t.length <= 4 ? `\\b${t}s?\\b` : `\\b${t}`) : t)).join('|'), 'i');
-export const isoKind = (p) => KINDS.find(([re]) => re.test(String(p?.name ?? '').trim()) || (p?.kind && re.test(String(p.kind).trim())))?.[1] ?? 'box';
-const BIG_COLOR = [[/병원|의원|clinic|hospital/i, '#e9eef2'], [/학교|학원|school|academy|대학|univ/i, '#e8c9a0'], [/도서관|library/i, '#c9b39a'], [/경찰|police|기지|base/i, '#9fb0c9'], [/길드|guild/i, '#c9a27e']];
-
-// 모양 하나 → { svg, top (바닥에서 꼭대기까지 높이), emoji (위에 이모지를 띄울지) }
-function shape(kind, cx, cy, p) {
-    const fl = p?.floors?.length ?? 0;
-    switch (kind) {
-        case 'house': return { svg: G('#f0e3c8', box(cx, cy, 2.6, 2.4) + (fl > 1 ? stories(cx, cy, 2.6, 2.4, fl) : '')) + G('#d9694c', pyr(cx, cy - 2.4, 2.95, 2.4)), top: 4.8 };
-        case 'shop': return { svg: G('#f3ead8', box(cx, cy, 2.8, 2.1)) + G('#e9a23b', box(cx, cy - 2.1, 3.1, 0.7)), top: 4.6, emoji: true };
-        case 'inn': return { svg: G('#eadcc4', box(cx, cy, 2.7, 2.6)) + G('#a8603a', pyr(cx, cy - 2.6, 3.0, 1.8)), top: 4.4, emoji: true };
-        case 'castle': return { svg: G('#c3bfd0', box(cx, cy, 3.1, 4)) + G('#c3bfd0', box(cx, cy - 4, 1.6, 2.2)) + G('#7a6fd0', pyr(cx, cy - 6.2, 1.9, 2.2)), top: 8.4 };
-        case 'tower': return { svg: G('#e9e1d4', box(cx, cy, 1.5, 6.6)) + G('#d9694c', pyr(cx, cy - 6.6, 1.85, 2)), top: 8.6 };
-        case 'church': return { svg: G('#f1ece2', box(cx, cy, 2.4, 3)) + G('#6f86b8', pyr(cx, cy - 3, 2.7, 3.8)), top: 6.8 };
-        case 'big': { const n = fl || 3, h = clamp(n * 1.5, 3, 9); return { svg: G(BIG_COLOR.find(([re]) => re.test(`${p?.name ?? ''} ${p?.kind ?? ''}`))?.[1] ?? '#b9c6d8', box(cx, cy, 2.9, h) + stories(cx, cy, 2.9, h, Math.min(n, 8))), top: h + 1.7, emoji: true }; }
-        case 'forest': return { svg: G('#5fa052', pyr(cx - 1.8, cy - 0.5, 1.5, 4) + pyr(cx + 1.7, cy, 1.4, 3.4) + pyr(cx - 0.1, cy + 0.9, 1.7, 4.6)), top: 4.6 };
-        case 'park': return { svg: G('#9fd086', flat(cx, cy, 3.5)) + G('#5fa052', pyr(cx - 0.9, cy - 0.2, 1.3, 3.4)), top: 3.6, emoji: true };
-        case 'mountain': return { svg: G('#a39a90', pyr(cx, cy, 3.9, 6.6)) + G('#f6f6f4', pyr(cx, cy - 4.4, 1.3, 2.2)), top: 6.6 };
-        case 'water': return { svg: G('#6ab2e6', flat(cx, cy, 4)) + `<path class="wv" d="M${R(cx - 1.8)} ${R(cy - 0.3)} q.6 -.5 1.2 0 t1.2 0 M${R(cx - 0.6)} ${R(cy + 0.9)} q.6 -.5 1.2 0 t1.2 0"/>`, top: 0.6, emoji: true };
-        case 'harbor': return { svg: G('#6ab2e6', flat(cx, cy, 4)) + G('#b98b5e', box(cx - 1.1, cy - 0.5, 1.7, 0.7)) + G('#fafafa', pyr(cx + 1.5, cy + 0.9, 0.9, 2.4)), top: 2.6, emoji: true };
-        case 'cave': return { svg: G('#8f8a80', pyr(cx, cy, 3.3, 3.4)) + `<ellipse class="hole" cx="${R(cx + 1)}" cy="${R(cy + 0.5)}" rx=".75" ry="1"/>`, top: 3.4 };
-        case 'plaza': return { svg: G('#ddd5c4', flat(cx, cy, 3.5)) + G('#7fb6e6', box(cx, cy, 0.9, 0.5)), top: 1.2, emoji: true };
-        case 'village': return { svg: G('#f0e3c8', box(cx - 1.5, cy - 0.5, 1.5, 1.6)) + G('#d9694c', pyr(cx - 1.5, cy - 2.1, 1.75, 1.5)) + G('#f0e3c8', box(cx + 1.4, cy + 0.5, 1.5, 1.6)) + G('#c98a3e', pyr(cx + 1.4, cy - 1.1, 1.75, 1.5)), top: 3.8 };
-        default: return { svg: G('#d6cdbd', box(cx, cy, 2.6, 2.8) + (fl > 1 ? stories(cx, cy, 2.6, 2.8, fl) : '')), top: 4.3, emoji: true };
-    }
-}
-
-// ───── 지도의 장소들 (뒤에서 앞으로 그린다) ─────
-// o = { pos (이름 → 화면 좌표), here, sel, label(p), count(p) → 지금 거기 있는 사람 수, bubble(cx, tipY, p) → 📍 인물 핀 말풍선 (없으면 '') }
-export function isoNodes(places, o) {
-    return [...places].sort((a, b) => o.pos.get(a.name).y - o.pos.get(b.name).y).map(p => {
-        const { x: cx, y: cy } = o.pos.get(p.name);
-        const here = norm(p.name) === norm(o.here), isSel = o.sel && o.sel.name === p.name;
-        const sh = p.known ? shape(isoKind(p), cx, cy, p) : { svg: G('#b8b6b0', box(cx, cy, 2.4, 2.4)) + `<text class="q" x="${cx}" y="${R(cy - 3.1)}">?</text>`, top: 3.8 };
-        const n = o.count?.(p) ?? 0, top = cy - sh.top;
-        const bub = o.bubble?.(cx, R(top - (sh.emoji || p.icon ? 4.4 : 0.8)), p) ?? ''; // 📍 고른 인물이 여기 있으면 「현재 위치」 핀 자리에 말풍선
-        return `<g class="node iso-n ${here ? 'here' : ''} ${isSel ? 'sel' : ''} ${p.known ? '' : 'unk'}" data-act="selplace" data-arg="${esc(p.name)}">
-            ${flat(cx, cy, 4.4, 'gnd')}${sh.svg}
-            ${p.known && (sh.emoji || p.icon) ? `<text class="ico" x="${cx}" y="${R(top - 0.4)}">${esc(placeIcon(p))}</text>` : ''}
-            ${bub || (here ? `<g class="pin"><line x1="${cx}" y1="${R(top - (sh.emoji || p.icon ? 4.6 : 1))}" x2="${cx}" y2="${R(top - (sh.emoji || p.icon ? 6.4 : 2.8))}"/><circle cx="${cx}" cy="${R(top - (sh.emoji || p.icon ? 7.6 : 4))}" r="1.5"/></g>` : '')}
-            <text x="${cx}" y="${R(cy + 5.9)}">${esc(short(o.label(p), 8))}</text>${n ? `<text class="ppl" x="${R(cx + 4.4)}" y="${R(cy + 1)}">👥${n}</text>` : ''}</g>`;
-    }).join('');
-}
-
 // 층 한 줄 「2층: 교실/복도/화장실」 → 이름 「2층」 · 방 [교실, 복도, 화장실] (방은 / · | 로 나눔 · 안 적으면 통째로 한 칸)
-const floorName = (x) => String(x).split(/[:：]/)[0].trim() || String(x).trim();
 export function parseFloors(floors) {
     return (floors ?? []).slice(0, 12).map(x => {
         const str = String(x), k = str.search(/[:：]/);
@@ -111,51 +29,6 @@ export function homeFloors(home) {
     const rooms = home?.rooms ?? [];
     return [...new Set(rooms.map(lvOf))].sort((x, y) => x - y).map(lv => ({ name: lv < 0 ? `지하 ${-lv}층` : lv === 0 ? '지하' : `${lv}층`, rooms: rooms.filter(r => lvOf(r) === lv).map(r => ({ name: r.name, items: r.decor })) }));
 }
-// ───── 📐 층 도면 (v2.9): 한 층을 위에서 내려다본 평면도 — 바깥벽 굵게 · 방마다 칸 · 문 · 복도가 있으면 가운데 띠 ─────
-// o = { act ('spot' | 'selroom' | ''), on(room) → 강조할 방인가, arg(room) → 눌렀을 때 넘길 값 }
-const HALL = /복도|통로|corridor|hallway|홀$|^hall$/i;
-export function planSVG(floor, o = {}) {
-    const W = 120, X0 = 5, IW = W - 2 * X0, RH = 34, HH = 13;
-    const all = floor.rooms.length ? floor.rooms : [{ name: floor.name, whole: true }];
-    const hall = all.length >= 3 ? all.find(r => HALL.test(r.name)) : null, rest = hall ? all.filter(r => r !== hall) : all;
-    // 줄 나누기: 복도가 있으면 위 줄 · 복도 · 아래 줄 / 없으면 한 줄에 셋까지
-    const bands = [];
-    if (hall) { const k = Math.ceil(rest.length / 2); bands.push({ rooms: rest.slice(0, k), h: RH, door: 'b' }, { rooms: [hall], h: HH, hall: true }); if (rest.length > k) bands.push({ rooms: rest.slice(k), h: RH, door: 't' }); }
-    else { const per = rest.length <= 3 ? rest.length : rest.length === 4 ? 2 : 3; for (let i = 0; i < rest.length; i += per) bands.push({ rooms: rest.slice(i, i + per), h: rest.length === 1 ? 46 : RH, door: 'b' }); }
-    let y = 5, out = '', doors = '';
-    bands.forEach((bd, bi) => {
-        const w = IW / bd.rooms.length, last = bi === bands.length - 1;
-        bd.rooms.forEach((r, i) => {
-            const x = X0 + i * w, on = !!o.on?.(r), col = bd.hall ? '#e9e4da' : ROOM_COLOR.find(([re]) => re.test(r.name))?.[1] ?? '#f4eee2';
-            const items = (r.items ?? []).slice(0, 7);
-            out += `<g class="rm ${on ? 'on' : ''} ${o.act ? 'can' : ''}" ${o.act ? `data-act="${o.act}" data-arg="${esc(o.arg ? o.arg(r) : r.name)}" role="button"` : ''}><title>${esc(r.name)}${r.items?.length ? ` — ${esc(r.items.join(', '))}` : ''}</title>
-                <rect x="${R(x)}" y="${R(y)}" width="${R(w)}" height="${bd.h}" style="--c:${col}"/>
-                <text class="nm" x="${R(x + w / 2)}" y="${R(y + bd.h / 2 + (items.length ? -1.5 : 1.4))}">${esc(short(r.name, Math.max(4, Math.floor(w / 4.2))))}</text>
-                ${items.length ? `<text class="fu" x="${R(x + w / 2)}" y="${R(y + bd.h / 2 + 5.5)}">${items.slice(0, Math.max(2, Math.floor(w / 6))).map(furnIcon).join('')}${r.items.length > Math.max(2, Math.floor(w / 6)) ? '…' : ''}</text>` : ''}
-                ${on && o.act === 'spot' ? `<text class="here" x="${R(x + w / 2)}" y="${R(y + bd.h - 3)}">● 지금 여기</text>` : ''}</g>`;
-            // 문: 복도 쪽 벽에 (복도가 없으면 아래 벽 — 맨 아랫줄은 바깥으로 나가는 문)
-            if (!bd.hall && !r.whole) { const dy = bd.door === 't' ? y : y + bd.h, dx = x + w / 2 - 3, dir = bd.door === 't' ? 1 : -1;
-                doors += `<line class="gap" x1="${R(dx)}" y1="${R(dy)}" x2="${R(dx + 6)}" y2="${R(dy)}"/><path class="door" d="M${R(dx)} ${R(dy)} v${6 * dir} a6 6 0 0 ${dir > 0 ? 0 : 1} 6 ${-6 * dir}"/>`; }
-            if (r.whole || (last && bd.hall && i === 0)) doors += `<line class="gap" x1="${R(x + w / 2 - 4)}" y1="${R(y + bd.h)}" x2="${R(x + w / 2 + 4)}" y2="${R(y + bd.h)}"/>`;
-        });
-        y += bd.h;
-    });
-    return `<svg class="ss-plan" viewBox="0 0 ${W} ${R(y + 5)}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${esc(floor.name)} 도면">${out}<rect class="outer" x="${X0}" y="5" width="${IW}" height="${R(y - 5)}"/>${doors}</svg>`;
-}
-
-// ───── 건물 안 · 층 (아래층부터 쌓는다) — 지금 그 건물에 있으면 층을 눌러 「여기 있어요」 ─────
-export function floorsSVG(p, spot, canSet) {
-    const fl = (p.floors ?? []).slice(0, 12).map(x => floorName(x)), n = fl.length; if (!n) return '';
-    const a = 20, b = a * K, h = 3.4, gap = 11.5, H = (n - 1) * gap + 2 * b + h + 5, base = H - b - 2.5;
-    const at = spotFloor(fl.map(name => ({ name })), spot)?.name; // 입체 보기에서 방까지 고른 「2층 교실」도 평면 보기에서 2층에 불이 들어오게
-    const rows = fl.map((name, i) => {
-        const cy = base - i * gap, on = at === name;
-        return `<g class="fl ${on ? 'on' : ''} ${canSet ? 'can' : ''}" ${canSet ? `data-act="spot" data-arg="${esc(name)}" role="button"` : ''}>${G(on ? 'var(--ss-hi)' : '#e6dfd0', box(26, cy, a, h))}
-            <line class="lead" x1="46" y1="${R(cy - h / 2)}" x2="52" y2="${R(cy - h / 2)}"/><text x="54" y="${R(cy - h / 2 + 1.5)}">${esc(short(name, 16))}${on ? ' · 지금 여기' : ''}</text></g>`;
-    }).join('');
-    return `<svg class="ss-iso ss-floors" viewBox="0 0 110 ${R(H)}" preserveAspectRatio="xMinYMid meet" role="img" aria-label="${esc(p.name)} 안">${rows}</svg>`;
-}
-
 // ───── 집 안 구조 (본거지): 지붕을 걷어낸 인형의 집 — 방마다 바닥 한 칸 + 뒤쪽 벽 두 장 · 가구는 이모지 ─────
 const FURN = [
     [/침대|bed|요$|이불|매트리스/i, '🛏️'], [/소파|sofa|couch|안락의자/i, '🛋️'], [/의자|chair|stool|스툴|벤치|bench/i, '🪑'], [/책상|desk|탁자|테이블|table|식탁/i, '🪵'],

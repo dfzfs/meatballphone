@@ -47,7 +47,7 @@ const INSTRUCT_HINT = {
 // ───── 탭 ─────
 // v2.7.3: 앨범 · 플레이 기록은 확장 설정에서 모든 채팅에 끌 수 있어요
 const PSEUDO_ON = { album: 'albumOn', record: 'recordOn', guide: 'guideOn', guest: () => settings().hpWave === true && settings().guestbook === true,
-    needs: () => getMeta()?.life?.needs === true && modOn('stats'), wear: () => getMeta()?.life?.wear === true && modOn('wallet') }; // 🍞 욕구 · 👕 옷차림 탭은 이 채팅에서 켰을 때만 (v2.9) // 글 = 그 설정이 꺼져 있지 않을 때 · 함수 = 참일 때만
+    needs: () => getMeta()?.life?.needs === true && modOn('stats'), wear: () => getMeta()?.life?.wear === true }; // 🍞 욕구 · 🎨 꾸미기 탭은 이 채팅에서 켰을 때만 (v2.9) // 글 = 그 설정이 꺼져 있지 않을 때 · 함수 = 참일 때만
 VIEW.guide = (s, d, ui) => guideView(ui); // 🗝 공략 탭 (story_ui.js)
 VIEW.guest = () => app.hpGuestTab?.() ?? '<p class="ss-hint">방명록을 불러오는 중이에요.</p>'; // 📝 방명록 탭 (사람 묶음 · minihome_ui.js)
 // 🧩 부가 기능 탭 (관리 옆): 켠 선택 기능의 화면을 묶음별로 모은다 — 공략 · 사람/관계 · 장부 · 이야기 흐름 · 연락 (켜고 끄기는 관리 › 쓸 기능 › 부가 기능)

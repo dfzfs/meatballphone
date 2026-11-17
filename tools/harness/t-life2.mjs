@@ -169,7 +169,7 @@ try {
     const tabs1 = await ev(() => [...document.querySelectorAll('dialog .ss-tabs button')].map(b => b.textContent.trim()).join('|'));
     await ev(async () => { const L = await import('/ext/src/life.js'); await L.LIFE_ACTIONS.lifetab(document.querySelector('dialog .ss-panel'), 'wear'); }); await sleep(600); await tab('profile'); await sleep(300);
     const tabs2 = await ev(() => [...document.querySelectorAll('dialog .ss-tabs button')].map(b => b.textContent.trim()).join('|'));
-    check(/옷차림/.test(tabs1) && !/옷차림/.test(tabs2) && /욕구/.test(tabs2), '옷차림 탭만 끄기: 탭이 사라지고 욕구 탭은 남는다', `${tabs1} → ${tabs2}`);
+    check(/꾸미기/.test(tabs1) && !/꾸미기/.test(tabs2) && /욕구/.test(tabs2), '꾸미기 탭만 끄기: 탭이 사라지고 욕구 탭은 남는다', `${tabs1} → ${tabs2}`);
     await closeDialogs();
 
     const errs = logs.filter(l => /error/i.test(l) && !/favicon|404|Failed to load resource/.test(l));
