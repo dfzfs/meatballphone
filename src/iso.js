@@ -100,6 +100,21 @@ export function floorsSVG(p, spot, canSet) {
     return `<svg class="ss-iso ss-floors" viewBox="0 0 110 ${R(H)}" preserveAspectRatio="xMinYMid meet" role="img" aria-label="${esc(p.name)} 안">${rows}</svg>`;
 }
 
+// ───── 건물 안으로 (지도에서 건물을 눌러 확대했을 때): 층마다 바닥 + 뒤쪽 벽 두 장을 띄워 쌓는다 · 이름은 바닥 위에 ─────
+export function buildingSVG(p, spot, canSet) {
+    const fl = (p.floors ?? []).slice(0, 12), n = fl.length; if (!n) return '';
+    const a = 24, b = a * K, wall = 5.5, gap = n > 6 ? 22 : 27, top = -(n - 1) * gap - b - wall - 9, bot = b + 4;
+    const pillars = n > 1 ? [-a, a].map(x => `<line class="pil" x1="${x}" y1="0" x2="${x}" y2="${R(-(n - 1) * gap)}"/>`).join('') : '';
+    const rows = fl.map((name, i) => {
+        const cy = -i * gap, on = !!spot && norm(spot) === norm(name);
+        return `<g class="fl ${on ? 'on' : ''} ${canSet ? 'can' : ''}" ${canSet ? `data-act="spot" data-arg="${esc(name)}" role="button"` : ''}><title>${esc(name)}${canSet ? (on ? ' — 지금 여기 (다시 누르면 지움)' : ' — 눌러서 「지금 여기」로') : ''}</title>
+            <g style="--c:${on ? 'var(--ss-hi)' : /지하|basement|cellar|b\d/i.test(name) ? '#cfc9bd' : /옥상|roof|다락|attic/i.test(name) ? '#d5e6c8' : '#efe6d4'}">${poly('w-l', [[-a, cy], [0, cy - b], [0, cy - b - wall], [-a, cy - wall]])}${poly('w-r', [[a, cy], [0, cy - b], [0, cy - b - wall], [a, cy - wall]])}${flat(0, cy, a)}</g>
+            <text class="nm" x="0" y="${R(cy + b * 0.42)}">${esc(short(name, 14))}</text>
+            ${on ? `<g class="pin"><line x1="0" y1="${R(cy - 1.5)}" x2="0" y2="${R(cy - 5.5)}"/><circle cx="0" cy="${R(cy - 7)}" r="1.9"/></g>` : ''}</g>`;
+    }).join('');
+    return `<svg class="ss-iso ss-bldg" viewBox="${R(-a - 6)} ${R(top)} ${R(2 * a + 12)} ${R(bot - top)}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${esc(p.name)} 안">${pillars}${rows}</svg>`;
+}
+
 // ───── 집 안 구조 (본거지): 지붕을 걷어낸 인형의 집 — 방마다 바닥 한 칸 + 뒤쪽 벽 두 장 · 가구는 이모지 ─────
 const FURN = [
     [/침대|bed|요$|이불|매트리스/i, '🛏️'], [/소파|sofa|couch|안락의자/i, '🛋️'], [/의자|chair|stool|스툴|벤치|bench/i, '🪑'], [/책상|desk|탁자|테이블|table|식탁/i, '🪵'],

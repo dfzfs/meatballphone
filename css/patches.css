@@ -583,3 +583,22 @@ dialog.popup.ss-dlg.ss-full .popup-content { max-height: none; }
 .ss-homeiso .rm.on .f-t { fill: color-mix(in srgb, var(--ss-hi) 22%, color-mix(in srgb, var(--c) 62%, #fff)); }
 .ss-homeiso .lv { font-size: 3.4px; font-weight: 800; fill: var(--ss-dim); text-anchor: end; }
 .ss-scope .ss-room.sel { border-color: var(--ss-hi); box-shadow: 0 0 0 1px var(--ss-hi) inset; }
+
+/* 🔍 건물 안으로 (지도에서 눌러 확대) */
+.ss-mapwrap.inside { display: flex; flex-direction: column; }
+.ss-inbar { display: flex; align-items: center; gap: 8px; padding: 8px; flex-wrap: wrap; }
+.ss-inbar b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ss-mapwrap.night .ss-inbar b { color: #eef1ff; }
+.ss-inpic { animation: ss-iso-in .28s ease-out both; transform-origin: 50% 60%; }
+@keyframes ss-iso-in { from { opacity: 0; transform: scale(.72); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ss-inpic { animation: none; } }
+.ss-inpic > svg { display: block; width: 100%; height: auto; max-height: 62vh; user-select: none; -webkit-user-select: none; }
+.ss-bldg .pil { stroke: color-mix(in srgb, var(--ss-ink) 35%, transparent); stroke-width: .3; stroke-dasharray: 1 1; }
+.ss-bldg .fl text { text-anchor: middle; pointer-events: none; }
+.ss-bldg .fl .nm { font-size: 3.6px; font-weight: 700; fill: #3a3128; paint-order: stroke; stroke: rgba(255,255,255,.8); stroke-width: .8px; stroke-linejoin: round; }
+.ss-bldg .fl.can { cursor: pointer; }
+.ss-bldg .fl.can:hover .f-t { stroke: var(--ss-hi); stroke-width: .5; }
+.ss-bldg .fl.on .f-t { stroke: var(--ss-hi); stroke-width: .6; }
+.ss-bldg .pin line { stroke: var(--ss-hi); stroke-width: .6; stroke-linecap: round; }
+.ss-bldg .pin circle { fill: var(--ss-hi); stroke: #fff; stroke-width: .5; }
+.ss-bldg .pin { animation: ss-iso-bob 1.6s ease-in-out infinite; }
