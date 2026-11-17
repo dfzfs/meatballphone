@@ -27,6 +27,9 @@ try {
     const afterShop = await onMods();
     check(['shop', 'wallet'].every(id => onModsHas(afterShop, id)), '상점을 켜면 꼭 필요한 재산도 같이 켜짐');
     // 달력 밑에 시간 적는 법 · 지도 밑에 보기 방식
+    // (「추천만」은 선택 기능 스위치를 처음 값으로 돌리므로 v2.9 「새 지도」도 꺼진다 → 이동 모션은 새 지도를 켰을 때만 보여서 다시 켠다)
+    check(await Q(async () => (await import('/ext/src/core.js')).settings().mapMetro === false), '「추천만」을 누르면 새 지도도 처음 값(끔)으로');
+    await Q(() => { const i = document.querySelector('dialog .ss-pk[data-pk="map"] input[data-chg="setflag"][data-arg="mapMetro"]'); i.checked = true; i.dispatchEvent(new Event('change', { bubbles: true })); }); await sleep(500);
     check(await Q(() => !!document.querySelector('dialog .ss-pk[data-pk="calendar"] .ss-pk-sub [data-act="clockstyle"][data-arg="24"]') && !!document.querySelector('dialog .ss-pk[data-pk="map"] .ss-pk-sub [data-act="mapmotion"][data-arg="off"]')), '달력 밑에 「시간 적는 법」 · 지도 밑에 「이동 모션」');
     await Q(() => document.querySelector('dialog .ss-pk[data-pk="calendar"] .ss-pk-sub [data-act="clockstyle"][data-arg="24"]').click()); await sleep(500);
     check(await Q(() => window.__SS_TEST__.api.app.current.state.data.calendar.clock) === '24', '여기서 고른 시간 적는 법이 달력에 반영');
