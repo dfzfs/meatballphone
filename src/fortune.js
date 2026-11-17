@@ -1,8 +1,10 @@
 // 🔮 점집 (v2.8.1): 타로 · 수정구슬 · 무당(사주 · 신점) · 굿 — 어떤 인물이든, 복채를 내고
 // 카드 · 오방기는 여기서 진짜로 뽑고(난수), AI는 그것을 풀이만 한다. 본 점괘는 기록(_fortune)에 통째로 남아 다시 볼 수 있다.
-import { app, modOn, esc, short, findBy, norm, num, fmtNum, uid, splitBar, dateStr, userName, TITLE, FORTUNE_PERSON_KEYS, fortunePerson } from './core.js';
+// 창을 새로 띄우지 않는다: 점괘 · 생년월일 · 복채 · 풀 저주 고르기는 모두 이 칸 안에서 (창 위에 창이 겹치면 실리에서 창이 꺼지던 것)
+// 기다리는 동안 창을 닫아도 점괘는 끝까지 받아서 기록하고 알림으로 알려 준다
+import { app, modOn, esc, short, findBy, norm, num, fmtNum, uid, dateStr, userName, TITLE, FORTUNE_PERSON_KEYS, fortunePerson } from './core.js';
 import { addAdjust, chatCharacters, priceMul } from './engine.js';
-import { sec, chip, seg, askInput, busyBtn, choosePopup, ai1 } from './kit.js';
+import { sec, chip, seg, ai1 } from './kit.js';
 import { fortuneRead, gutRite } from './ai.js';
 
 export const FT_METHODS = { tarot: { name: '타로', icon: '🃏', mul: 1 }, orb: { name: '수정구슬', icon: '🔮', mul: 1.5 }, shaman: { name: '무당', icon: '🪭', mul: 3 } };
@@ -63,8 +65,10 @@ function keepForm(el) {
     if (v('.ss-ft-name') !== undefined) F.name = v('.ss-ft-name');
     if (v('.ss-ft-q') !== undefined) F.q = v('.ss-ft-q');
     if (v('.ss-ft-wish') !== undefined) F.wish = v('.ss-ft-wish');
+    if (v('.ss-ft-lift') !== undefined) F.lift = v('.ss-ft-lift');
     return F;
 }
+const BIRTH_LABEL = { birth: '생년월일', hour: '태어난 시', age: '나이', zodiac: '띠', star: '별자리', element: '타고난 기운', place: '태어난 곳', nature: '기질' };
 const personChips = (p) => [['birth', '🎂'], ['hour', '🕰'], ['age', '나이'], ['zodiac', '띠'], ['star', '별자리'], ['element', '기운'], ['place', '태어난 곳']].filter(([k]) => p?.[k]).map(([k, l]) => chip(`${l} ${esc(p[k])}`)).join('');
 
 export function fortuneView(s, d, ui) {
@@ -79,7 +83,18 @@ export function fortuneView(s, d, ui) {
     const price = (m) => (fees.free ? 0 : m === 'tarot' ? Math.max(1, Math.round(fees.tarot * sp.mul)) : fees[m]);
     const tag = (n) => (fees.free ? '' : ` <small>${fmtNum(n)}${cur}</small>`);
     const reads = [...(d.readings ?? [])].reverse();
+    const shown = ui.ftShow ? (d.readings ?? []).find(r => r.id === ui.ftShow) : null;
+    const mine = norm(who) === norm(userName());
+    const lifts = mine && F.gut === 'ward' ? (d.curses ?? []).filter(c => c.kind !== 'bless' && !c.auto) : [];
+    const editBirth = ui.ftEdit === 'birth' ? `<div class="ss-card ss-ft-edit"><small>${esc(who)}의 타고난 것 — 비운 칸은 첫 점에서 점쟁이가 채워요 · 전부 비우면 기록을 없애요</small>
+            <div class="ss-ft-row">${FORTUNE_PERSON_KEYS.map(k => `<label class="ss-f"><span>${BIRTH_LABEL[k]}</span>${k === 'nature' ? `<textarea class="ss-in" data-ftb="${k}" rows="2">${esc(saved?.[k] ?? '')}</textarea>` : `<input class="ss-in" type="text" maxlength="80" data-ftb="${k}" value="${esc(saved?.[k] ?? '')}">`}</label>`).join('')}</div>
+            <div class="ss-row-btns"><button class="ss-btn pri sm" data-act="ftbsave">저장</button><button class="ss-btn sm ghost" data-act="ftclose">취소</button></div></div>` : '';
+    const editFee = ui.ftEdit === 'fee' ? `<div class="ss-card ss-ft-edit"><small>복채 (${esc(w?.currency ?? '')}) — 0이나 빈칸 = 이 세계 물가에 맞춰 자동</small>
+            <div class="ss-ft-row">${[['feeTarot', '타로 (3장 기준)', fees.tarot], ['feeOrb', '수정구슬', fees.orb], ['feeShaman', '무당', fees.shaman], ['feeGut', '굿', fees.gut]].map(([k, l, now]) => `<label class="ss-f"><span>${l} <small>지금 ${fmtNum(now)}</small></span><input class="ss-in" type="number" min="0" data-ftf="${k}" value="${d[k] || ''}" placeholder="자동"></label>`).join('')}</div>
+            <div class="ss-row-btns"><button class="ss-btn pri sm" data-act="ftfsave">저장</button><button class="ss-btn sm ghost" data-act="ftclose">취소</button></div></div>` : '';
     return sec('🔮 점집 <small>타로 · 수정구슬 · 무당 · 굿</small>', `<div class="ss-ft">
+        ${ui.ftBusy ? `<div class="ss-card ss-ft-busy"><i class="fa-solid fa-spinner fa-spin"></i> ${esc(ui.ftBusy)} <small class="ss-dim">창을 닫아도 끝까지 받아서 알려 드려요</small></div>` : ''}
+        ${shown ? `<div class="ss-card ss-ft-pop">${readingHTML(shown)}<div class="ss-row-btns"><button class="ss-btn sm ghost" data-act="ftclose"><i class="fa-solid fa-xmark"></i> 점괘 접기</button></div></div>` : ''}
         <div class="ss-ft-clock"><span title="이야기 속 지금">📅 이야기 속 <b>${esc(sn || '달력 칸이 없어요')}</b></span><span title="현실의 지금">🕰 현실 <b>${esc(realNow())}</b></span></div>
         <div class="ss-ft-row">
             <label class="ss-f"><span>누구의 운세를 볼까요</span><select class="ss-in ss-ft-who" data-chg="ftwho">${people.map(n => `<option value="${esc(n)}" ${n === F.who ? 'selected' : ''}>${esc(n)}${norm(n) === norm(userName()) ? ' (나)' : ''}</option>`).join('')}</select></label>
@@ -87,7 +102,7 @@ export function fortuneView(s, d, ui) {
         </div>
         <div class="ss-card ss-ft-birth"><small>${esc(who)}의 타고난 것</small>
             ${saved ? `<div class="ss-chips">${personChips(saved) || chip('비어 있음')}</div>${saved.nature ? `<p class="ss-dim ss-pre">${esc(saved.nature)}</p>` : ''}` : '<p class="ss-hint">아직 몰라요. 첫 점을 볼 때 점쟁이가 생년월일 · 태어난 시 · 띠 · 별자리를 짚어 내고, 그 뒤로는 계속 같은 값을 써요.</p>'}
-            <div class="ss-row-btns"><button class="ss-btn sm ghost" data-act="ftbirth"><i class="fa-solid fa-pen"></i> 생년월일 직접 적기 · 고치기</button></div></div>
+            ${editBirth || '<div class="ss-row-btns"><button class="ss-btn sm ghost" data-act="ftbirth"><i class="fa-solid fa-pen"></i> 생년월일 직접 적기 · 고치기</button></div>'}</div>
         <div class="ss-f"><span>점 보는 법</span>${seg(Object.entries(FT_METHODS).map(([k, m]) => [k, `${m.icon} ${m.name}${tag(price(k))}`]), F.method, 'ftm')}</div>
         ${F.method === 'tarot' ? `<div class="ss-f"><span>카드 수</span>${seg(Object.entries(SPREADS).map(([k, x]) => [k, `${x.name} <small>${esc(x.pos.join(' · '))}</small>`]), F.spread, 'fts')}</div>` : ''}
         <div class="ss-f"><span>무엇이 궁금한가요</span>${seg(TOPICS.map(t => [t, esc(t)]), F.topic, 'ftt')}</div>
@@ -95,9 +110,11 @@ export function fortuneView(s, d, ui) {
         <div class="ss-f"><span>언제를 「지금」으로 볼까요</span>${seg([['story', '📅 이야기 속 시간'], ['real', '🕰 현실 시간']], F.basis, 'ftb')}</div>
         <div class="ss-row-btns"><button class="ss-btn pri" data-act="ftread">${ai1} ${FT_METHODS[F.method].icon} ${esc(who)}의 점 보기${fees.free ? '' : ` — 복채 ${fmtNum(price(F.method))}${cur}`}</button>
             ${fees.free ? '' : '<button class="ss-btn sm ghost" data-act="ftfee"><i class="fa-solid fa-coins"></i> 복채 정하기</button>'}</div>
+        ${editFee}
         <details class="ss-arc ss-ft-gut" ${ui.ftGutOpen ? 'open' : ''}><summary>🪘 굿 하기${fees.free ? '' : ` — ${fmtNum(fees.gut)}${cur}`}</summary>
             ${seg(Object.entries(GUTS).map(([k, g]) => [k, esc(g.name)]), F.gut, 'ftg')}
             <p class="ss-hint">${esc(GUTS[F.gut].desc)}${norm(who) === norm(userName()) ? '' : ` ${esc(who)}에게 하는 굿은 이야기에만 남아요 (수치는 내 것만 바뀌어요).`}</p>
+            ${lifts.length > 1 ? `<label class="ss-f"><span>풀 저주</span><select class="ss-in ss-ft-lift">${lifts.map(c => `<option value="${esc(c.name)}" ${c.name === F.lift ? 'selected' : ''}>☠ ${esc(c.name)}</option>`).join('')}</select></label>` : ''}
             ${F.gut === 'wish' || F.gut === 'soul' ? `<label class="ss-f"><span>${F.gut === 'wish' ? '빌 소원' : '달랠 넋 · 사연 (안 적어도 돼요)'}</span><input class="ss-in ss-ft-wish" type="text" maxlength="200" value="${esc(F.wish)}"></label>` : ''}
             <div class="ss-row-btns"><button class="ss-btn" data-act="ftgut">${ai1} 🪘 ${esc(who)}에게 ${esc(GUTS[F.gut].name)}${fees.free ? '' : ` — ${fmtNum(fees.gut)}${cur}`}</button></div></details>
         ${reads.length ? `<details class="ss-arc"><summary>지난 점괘 · 굿 ${reads.length}개</summary><ul class="ss-ft-log">${reads.map(r => `<li><button class="ss-btn sm ghost" data-act="ftview" data-arg="${esc(r.id)}">${r.method === 'gut' ? '🪘' : FT_METHODS[r.method]?.icon ?? '🔮'} <b>${esc(r.who)}</b> · ${esc(r.topic || '')} <small>${esc(r.when)}</small></button></li>`).join('')}</ul></details>` : ''}
@@ -121,12 +138,14 @@ function readingHTML(r) {
         ${r.advice ? `<p><b>🧭 조언</b> ${esc(r.advice)}</p>` : ''}
         ${r.lucky ? `<p><b>🍀 행운</b> ${esc(r.lucky)}</p>` : ''}`;
 }
-async function showReading(r) {
-    const box = document.createElement('div');
-    box.className = 'ss-root ss-scope ss-ft-pop';
-    box.innerHTML = readingHTML(r);
-    await app.popup(box);
+// 결과를 이 칸 안에 펼친다. 기다리는 동안 창을 닫았으면 알림만 (기록에는 이미 들어 있다)
+function showReading(el, r) {
+    const ui = el._ss?.ui;
+    if (ui) { ui.ftBusy = ''; ui.ftShow = r.id; ui.ftEdit = ''; }
+    if (el.isConnected) { app.renderPanel(el); el.querySelector('.ss-ft-pop')?.scrollIntoView({ block: 'nearest' }); }
+    else toastr.success(`${esc(r.who)}의 ${r.method === 'gut' ? esc(r.topic) : '점괘'}가 나왔어요. 운명 › 점집 › 지난 점괘에서 볼 수 있어요.`, TITLE);
 }
+function setBusy(el, text) { if (el._ss?.ui) el._ss.ui.ftBusy = text; if (el.isConnected) app.renderPanel(el); }
 const canPay = (s, fee) => { if (!fee) return true; if (fee > (s.data.wallet?.cash ?? 0)) { toastr.warning(`돈이 모자라요. (${fmtNum(fee)} ${esc(s.data.wallet?.currency ?? '')} 필요)`, TITLE); return false; } return true; };
 const stampOf = (s, F) => { const sn = storyNow(s), rn = realNow(); const basis = F.basis === 'real' || !sn ? 'real' : 'story'; return { sn, rn, basis, when: basis === 'real' ? rn : sn }; };
 function drawFor(F) {
@@ -150,33 +169,36 @@ export const FORTUNE_ACTIONS = {
         const fee = fees.free ? 0 : F.method === 'tarot' ? Math.max(1, Math.round(fees.tarot * sp.mul)) : fees[F.method];
         if (!canPay(s, fee)) return;
         const T = stampOf(s, F), draw = drawFor(F), saved = findBy(s.data.fate?.births ?? [], who) ?? null;
-        busyBtn(btn, true, '점괘를 보는 중…');
+        if (el._ss.ui.ftBusy) return; // 한 번에 하나
+        el._ss.ui.ftShow = '';
+        setBusy(el, `${FT_METHODS[F.method].name}(으)로 ${who}의 점괘를 보는 중…`);
         let res;
         try { res = await fortuneRead({ who, method: F.method, topic: F.topic, q: F.q.trim(), basis: T.basis, storyNow: T.sn, realNow: T.rn, draw, saved }, s); }
-        catch (e) { toastr.error(`점을 보지 못했어요 (복채는 안 나갔어요): ${esc(e.message)}`, TITLE); busyBtn(btn, false); return; }
-        busyBtn(btn, false);
+        catch (e) { toastr.error(`점을 보지 못했어요 (복채는 안 나갔어요): ${esc(e.message)}`, TITLE); setBusy(el, ''); return; }
+        el._ss.ui.ftBusy = '';
         const keep = Object.fromEntries(Object.entries(saved ?? {}).filter(([k, v]) => FORTUNE_PERSON_KEYS.includes(k) && v));
         const r = { id: uid(), who, method: F.method, topic: F.topic, q: F.q.trim(), when: T.when, basis: T.basis, fee, draw, ...res, person: fortunePerson({ ...(res.person ?? {}), ...keep }) };
         const cur = s.data.wallet?.currency ?? '';
         await addAdjust({ ops: [...(fee ? [['cash', `-${fee}`]] : []), ['_fortune', JSON.stringify(r)]], label: `🔮 점집 — ${FT_METHODS[F.method].name}(으)로 ${who}의 ${F.topic} 운을 봤다${fee ? ` (복채 ${fmtNum(fee)} ${cur})` : ''}: ${short(r.summary || r.omen, 90)}` });
-        await showReading(r);
+        showReading(el, r);
     },
-    ftview: async (el, arg, btn, s) => { const r = (s.data.fate?.readings ?? []).find(x => x.id === arg); if (r) await showReading(r); },
-    ftbirth: async (el, arg, btn, s) => {
+    ftview: (el, arg, btn, s) => { keepForm(el); const r = (s.data.fate?.readings ?? []).find(x => x.id === arg); if (r) showReading(el, r); },
+    ftclose: (el) => { keepForm(el); el._ss.ui.ftShow = ''; el._ss.ui.ftEdit = ''; app.renderPanel(el); },
+    ftbirth: (el) => { keepForm(el); el._ss.ui.ftEdit = 'birth'; el._ss.ui.ftShow = ''; app.renderPanel(el); },
+    ftbsave: async (el, arg, btn, s) => {
         const F = keepForm(el), who = whoOf(F).trim(); if (!who) return;
-        const b = findBy(s.data.fate?.births ?? [], who);
-        const v = await askInput(TITLE, `${esc(who)}의 타고난 것 — 순서대로 | 로 나눠 적어요 (비운 칸은 첫 점에서 점쟁이가 채워요 · 전부 지우면 기록을 없애요)<br><small>생년월일 | 태어난 시 | 나이 | 띠 | 별자리 | 타고난 기운 | 태어난 곳 | 기질</small>`, FORTUNE_PERSON_KEYS.map(k => b?.[k] ?? '').join(' | ').replace(/(\s\|\s*)+$/, ''));
-        if (v === null) return;
-        const parts = splitBar(v);
-        if (!parts.some(Boolean)) { if (b) await addAdjust({ ops: [['_birth', `-${who}`]], silent: true }); return; }
-        await addAdjust({ ops: [['_birth', JSON.stringify({ name: who, ...fortunePerson(Object.fromEntries(FORTUNE_PERSON_KEYS.map((k, i) => [k, parts[i] ?? '']))) })]], silent: true });
+        const vals = Object.fromEntries([...el.querySelectorAll('[data-ftb]')].map(x => [x.dataset.ftb, x.value.trim()]));
+        el._ss.ui.ftEdit = '';
+        const had = findBy(s.data.fate?.births ?? [], who);
+        if (!Object.values(vals).some(Boolean)) { if (had) await addAdjust({ ops: [['_birth', `-${who}`]], silent: true }); else app.renderPanel(el); return; }
+        await addAdjust({ ops: [['_birth', JSON.stringify({ name: who, ...fortunePerson(vals) })]], silent: true });
     },
-    ftfee: async (el, arg, btn, s) => {
+    ftfee: (el) => { keepForm(el); el._ss.ui.ftEdit = 'fee'; el._ss.ui.ftShow = ''; app.renderPanel(el); },
+    ftfsave: async (el) => {
         keepForm(el);
-        const f = s.data.fate ?? {}, fees = fortuneFees(s), cur = s.data.wallet?.currency ?? '';
-        const v = await askInput(TITLE, `복채 (${esc(cur)}) — 타로 | 수정구슬 | 무당 | 굿<br><small>0이나 빈칸 = 이 세계 물가에 맞춰 자동 (지금 ${fmtNum(fees.tarot)} | ${fmtNum(fees.orb)} | ${fmtNum(fees.shaman)} | ${fmtNum(fees.gut)})</small>`, [f.feeTarot, f.feeOrb, f.feeShaman, f.feeGut].map(x => x || 0).join(' | '));
-        if (v === null) return;
-        await addAdjust({ ops: [['_ftfee', splitBar(v).slice(0, 4).map(x => Math.max(0, Math.round(num(x, 0)))).join(' | ')]], silent: true });
+        const g = (k) => Math.max(0, Math.round(num(el.querySelector(`[data-ftf="${k}"]`)?.value, 0)));
+        el._ss.ui.ftEdit = '';
+        await addAdjust({ ops: [['_ftfee', ['feeTarot', 'feeOrb', 'feeShaman', 'feeGut'].map(g).join(' | ')]], silent: true });
     },
     ftgut: async (el, arg, btn, s) => {
         const F = keepForm(el), who = whoOf(F).trim(); if (!who) return;
@@ -189,25 +211,21 @@ export const FORTUNE_ACTIONS = {
         let lift = '', bless = null, outcome = `The rite is performed for ${who}. Nothing is guaranteed — whether and how it works on ${who} is left to the story.`;
         if (mine && F.gut === 'ward') {
             const cs = (s.data.fate?.curses ?? []).filter(c => c.kind !== 'bless' && !c.auto);
-            if (cs.length > 1) {
-                const box = document.createElement('div');
-                box.className = 'ss-root ss-scope';
-                box.innerHTML = `<div class="ss-wz-head"><i class="fa-solid fa-broom"></i><div><b>어느 저주를 풀까요</b><small>액막이굿 한 번에 하나</small></div></div><div class="ss-row-btns">${cs.map(c => `<button class="ss-btn" data-choice="${esc(c.name)}">☠ ${esc(c.name)}</button>`).join('')}</div>`;
-                lift = (await choosePopup(box)) ?? '';
-                if (!lift) return;
-            } else lift = cs[0]?.name ?? '';
+            lift = (cs.find(c => c.name === F.lift) ?? cs[0])?.name ?? ''; // 여럿이면 굿 상자 안의 「풀 저주」에서 고른 것
             if (lift) outcome = `The curse "${lift}" on {{user}} is lifted by this rite. It is gone.`;
             else { bless = { name: '액막이', desc: '굿으로 액을 막아 두었다.', effects: [], days: 7 }; outcome = '{{user}} has no curse to lift, so a protective ward is laid on them for 7 days (blessing "액막이").'; }
         } else if (mine && g.bless) { bless = g.bless; outcome = `{{user}} receives the blessing "${g.bless.name}" for ${g.bless.days} days (${g.bless.effects.join(', ')}).`; }
         const T = stampOf(s, F);
-        busyBtn(btn, true, '굿을 하는 중…');
+        if (el._ss.ui.ftBusy) return;
+        el._ss.ui.ftShow = '';
+        setBusy(el, `${who}에게 ${g.name}을(를) 하는 중…`);
         let res;
         try { res = await gutRite({ who, rite: g.name, wish: F.wish.trim(), outcome, storyNow: T.sn }, s); }
-        catch (e) { toastr.error(`굿을 하지 못했어요 (돈은 안 나갔어요): ${esc(e.message)}`, TITLE); busyBtn(btn, false); return; }
-        busyBtn(btn, false);
+        catch (e) { toastr.error(`굿을 하지 못했어요 (돈은 안 나갔어요): ${esc(e.message)}`, TITLE); setBusy(el, ''); return; }
+        el._ss.ui.ftBusy = '';
         const r = { id: uid(), who, method: 'gut', topic: g.name, q: F.wish.trim(), when: T.when, basis: T.basis, fee, draw: [], rite: res.rite, result: res.result || (lift ? `「${lift}」이(가) 풀렸다` : bless ? `「${bless.name}」을(를) 받았다` : ''), omen: res.omen, lift, bless };
         const cur = s.data.wallet?.currency ?? '';
         await addAdjust({ ops: [...(fee ? [['cash', `-${fee}`]] : []), ['_fortune', JSON.stringify(r)]], label: `🪘 점집 — ${who}에게 ${g.name}을(를) 했다${fee ? ` (${fmtNum(fee)} ${cur})` : ''}${r.result ? `: ${short(r.result, 80)}` : ''}` });
-        await showReading(r);
+        showReading(el, r);
     },
 };

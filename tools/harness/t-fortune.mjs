@@ -37,6 +37,7 @@ try {
     check(s1.cash < c0, `복채가 나갔다 (${c0} → ${s1.cash})`);
     check(r1?.who === 'Leon' && r1.method === 'tarot' && r1.draw.length === 3 && r1.fee === c0 - s1.cash, '타로 3장 점괘가 기록됐다 (복채 = 줄어든 돈)');
     check(r1.draw.every(x => body.includes(x)), '뽑은 카드 3장이 그대로 AI에게 갔다');
+    check((await page.$$('dialog')).length === 1 && !!(await page.$('dialog .ss-ft .ss-ft-pop')), '점괘가 새 창 없이 같은 창 안에 펼쳐진다');
     check(/STORY time/.test(body) && /Real-world time now/.test(body) && body.includes('이 사람을 믿어도 될까?'), '이야기 속 시간 기준 · 질문이 AI에게 갔다');
     check(/TAROT/.test(sys) && /Nothing is recorded yet/.test(sys), '타로 규칙 · 「생년월일을 정해라」가 갔다');
     check(s1.f.births.find(b => b.name === 'Leon')?.birth === READ.person.birth, 'Leon의 생년월일이 기억됐다');
@@ -82,6 +83,13 @@ try {
     const n = (await st()).f.readings.length;
     await page.click('dialog [data-act="ftread"]'); await sleep(400);
     check((await st()).f.readings.length === n, '돈이 모자라면 점을 못 본다');
+    // 생년월일 · 복채도 같은 창 안에서 고친다
+    await page.click('dialog [data-act="ftbirth"]'); await sleep(200);
+    await page.fill('dialog [data-ftb="birth"]', '1999년 1월 1일'); await page.click('dialog [data-act="ftbsave"]'); await sleep(300);
+    check((await page.$$('dialog')).length === 1 && (await st()).f.births.find(b => b.name === 'Me')?.birth === '1999년 1월 1일', '생년월일을 창 안에서 고쳤다 (새 창 없음)');
+    await page.click('dialog [data-act="ftfee"]'); await sleep(200);
+    await page.fill('dialog [data-ftf="feeTarot"]', '7'); await page.click('dialog [data-act="ftfsave"]'); await sleep(300);
+    check((await page.$$('dialog')).length === 1 && (await st()).f.feeTarot === 7, '복채를 창 안에서 정했다 (새 창 없음)');
     // 지난 점괘 다시 보기
     await page.evaluate(() => { window.__autoPopup = null; });
     await page.click('dialog .ss-ft details:has(.ss-ft-log) summary'); await sleep(150);

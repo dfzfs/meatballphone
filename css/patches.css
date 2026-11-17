@@ -718,6 +718,9 @@ dialog.popup.ss-dlg.ss-full .popup-content { max-height: none; }
 .ss-ft-gut > *:not(summary) { margin-top: 8px; }
 .ss-ft-log { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .ss-ft-log .ss-btn { width: 100%; justify-content: flex-start; text-align: left; white-space: normal; }
+.ss-ft-busy { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ss-ft-edit { display: flex; flex-direction: column; gap: 8px; }
+.ss-ft-edit > small:first-child { color: var(--ss-hi); font-weight: 700; }
 .ss-ft-pop { display: flex; flex-direction: column; gap: 10px; text-align: left; }
 .ss-ft-pop p, .ss-ft-pop blockquote { margin: 0; }
 .ss-ft-pop blockquote { padding: 8px 12px; border-left: 3px solid var(--ss-hi); font-style: italic; }
