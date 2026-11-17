@@ -85,6 +85,7 @@ export const CLOCK_STYLES = [['', '시간대', '아침 · 낮 · 저녁'], ['24'
 // 글에서 시각을 읽는다 → 0시부터 몇 분 (못 읽으면 null). 「14:30」 「오후 2:30」 「2:30 PM」 「밤 9시 반」 「14시 5분」
 export function parseClock(v) {
     const s = String(v ?? ''); let h, m = 0, colon = false;
+    if (!/\d/.test(s)) { if (/정오|noon|midday/i.test(s)) return 720; if (/자정|midnight/i.test(s)) return 0; } // (검수: noon이 「낮」 = 13시로 읽혔다)
     let x = s.match(/(\d{1,2})\s*[:：]\s*(\d{2})(?!\d)/);
     if (x) { h = +x[1]; m = +x[2]; colon = true; }
     else if ((x = s.match(/(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분|\s*(반))?/))) { h = +x[1]; m = x[3] ? 30 : +(x[2] ?? 0); }

@@ -1017,7 +1017,7 @@ function opTime(s, val, info, L, T, key, rawKey) {
     // 「time: +1」 「period: +2」 = 시간대(시각 달력이면 시간)를 그만큼 넘김 · 자정을 넘기면 날짜도 (검수: 예전엔 시간 칸에 「+1」이 글자 그대로 적혔다)
     const adv = String(val).match(/^\+\s*(\d{1,2})\s*(?:시간|칸|slots?|hours?|h)?$/i);
     if (adv) { let n = Math.min(24, parseInt(adv[1], 10)), wraps = 0; const t0 = cal.time; while (n-- > 0) { if (nextTimeWraps(cal)) wraps++; cal.time = nextTime(cal, viewTr()); } if (wraps) applyOp(s, 'date', `+${wraps}`, info); if (cal.time !== t0) L(`🕐 ${cal.time}`); return; }
-    if (cal.clock) val = toClockStyle(val, cal.clock, cal.times, viewTr());
+    if (cal.clock) { val = toClockStyle(val, cal.clock, cal.times, viewTr()); if (parseClock(val) === null) return miss(info, rawKey, val); } // 「25:00」처럼 못 읽는 시각은 ⚠ (검수: 글자 그대로 적혔다)
     if (val !== cal.time) { cal.time = val; L(`🕐 ${val}`); }
     return;
 }

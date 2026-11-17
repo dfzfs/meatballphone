@@ -10,6 +10,7 @@ try {
         const say = async (body) => { await window.__addUser('u'); await window.__addAI(`s\n<meatball>\n${body}\n</meatball>`); await wait(200); };
         const bar = (n) => st().data.stats.bars.find(b => b.name === n);
         const cash = () => st().data.wallet.cash, cal = () => st().data.calendar;
+        const eng0 = await import('/ext/src/engine.js');
         const missOf = () => { try { return app.pipDiag(app.current.lastAI)?.text ?? ''; } catch { return ''; } };
         const out = {};
         // 마크다운 줄
@@ -29,6 +30,11 @@ try {
         const times = cal().times, d0 = cal().d;
         await say(`time: ${times[0]}`); await say('time: +1'); out.timeAdv = cal().time === times[1];
         await say(`time: ${times.at(-1)}`); await say('time: +1'); out.timeWrap = cal().time === times[0] && cal().d === d0 + 1;
+        // 시각 달력: 못 읽는 시각은 ⚠ · noon = 12시
+        await eng0.addAdjust({ ops: [['_clock', '24']], label: 'c' }); await wait(200);
+        await say('time: 22:00'); await say('time: 25:00'); out.clockBad = cal().time === '22:00' && /25:00/.test(missOf());
+        await say('time: noon'); out.clockNoon = cal().time === '12:00';
+        await eng0.addAdjust({ ops: [['_clock', '']], label: 'c' }); await wait(200);
         await say('weather: 맑음 → 눈'); out.weatherArrow = cal().weather === '눈';
         await say('date: 14'); out.dateBareMiss = /date: 14/.test(missOf());
         // 따옴표 · 괄호
