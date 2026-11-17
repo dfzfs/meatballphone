@@ -274,6 +274,11 @@ export const DEFAULTS = Object.freeze({
     // ── 🛡 간섭 차단 (둘 다 기본 끔 — 끄면 예전과 글자 하나 안 다르다) ──
     guardData: false,        // 데이터 · 동작: 다른 확장이 상태창 자료 · 프롬프트 · 확인 창 · AI 요청에 끼어드는 것을 막는다
     guardLook: false,        // 화면: 다른 확장 · 테마가 미트볼의 색 · 글꼴 · 아이콘 · 단추를 덮는 것을 막는다
+    // ── v2.9 새 화면 (전부 기본 끔 — 관리 › 쓸 기능의 칸 밑 · 확장 설정에서 켬) ──
+    fortuneTarot: false,     // 🔮 점집: 타로 (운명 칸)
+    fortuneOrb: false,       // 🔮 점집: 수정구슬
+    fortuneShaman: false,    // 🔮 점집: 무당 · 굿
+    mapMetro: false,         // 🚇 새 지도: 노선도 · 인물 핀 · 건물 정면도/평면도 · 집 안 그림 · 지도 꾸미기 (끄면 2.8의 예전 지도)
 });
 // 전역 끄기 스위치가 있는 칸 (모든 채팅에서 꺼짐 — 채팅마다 켜고 끄는 「쓸 기능」보다 먼저)
 export const GLOBAL_OFF = { memo: 'memoOn' };

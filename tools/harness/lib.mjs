@@ -18,7 +18,8 @@ export async function open({ ext2 = false, width = 1300, height = 900, bind = fa
     // 🧆 시나리오는 「상태창 없음」에서 시작한다 — 바로 시작(autostart.js)은 auto: true 일 때만 (확장이 켜지고 1.5초 뒤에 도는 것보다 먼저 끈다)
     if (!auto) await page.evaluate(async () => { const core = await import('/ext/src/core.js'); core.settings().autoStart = false; core.saveSettings(); });
     // v2.8: 미니홈피 · HUD 같은 모양은 기본 끔으로 나간다 → 시나리오들은 켠 상태를 본다 (끈 상태 = 예전 화면은 defaults: true로)
-    if (!defaults) await page.evaluate(async () => { const core = await import('/ext/src/core.js'); Object.assign(core.settings(), { hompyFull: true, hpSkinHud: true }); core.saveSettings(); try { (await import('/ext/src/hompy.js')).applyRetro(); } catch { /* 옛 판 */ } });
+    // v2.9: 점집 셋 · 새 지도도 기본 끔 → 같은 방식 (끈 상태는 t-v29off)
+    if (!defaults) await page.evaluate(async () => { const core = await import('/ext/src/core.js'); Object.assign(core.settings(), { hompyFull: true, hpSkinHud: true, fortuneTarot: true, fortuneOrb: true, fortuneShaman: true, mapMetro: true }); core.saveSettings(); try { (await import('/ext/src/hompy.js')).applyRetro(); } catch { /* 옛 판 */ } });
     if (bind) await page.evaluate(async () => { const core = await import('/ext/src/core.js'); Object.assign(core.settings(), { bindContact: true, bindNews: true, bindGossip: true, bindBoard: true, bindSns: true }); core.saveSettings(); });
     const close = async () => { await browser.close(); srv.close(); };
     return { page, logs, close, port };

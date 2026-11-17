@@ -57,6 +57,51 @@ function homeView(s, ui) {
 // 🎲 흥정 결과 (오늘 · 이 상점 · 이 물건) — 1 = 흥정 안 함
 function haggleMul(s, i, j) { const day = s.data.calendar ? dayIndex(s.data.calendar) : s.turn; return getMeta()?.haggle?.[`${day}|${i}|${j}`] ?? 1; }
 // ───── 칸별 화면 ─────
+// 🗺 예전 지도 (2.8과 같음): 점과 선 · 구역 고르기 · 확대/축소 — 「새 지도」를 끈 사람이 보는 화면
+function mapOld(s, d, ui) {
+        const areas = [...new Set(d.places.map(p => p.area).filter(Boolean))];
+        const shown = ui.mapArea ? d.places.filter(p => p.area === ui.mapArea) : d.places;
+        const pos = layoutPlaces(d.places);
+        const sel = findBy(d.places, ui.place ?? d.here);
+        const shownSet = new Set(shown.map(p => p.name));
+        const edges = []; const seen = new Set();
+        for (const p of shown) for (const l of p.links) {
+            const q = findBy(d.places, l); if (!q || !shownSet.has(q.name)) continue;
+            const key = [p.name, q.name].sort().join('|'); if (seen.has(key)) continue; seen.add(key);
+            const a = pos.get(p.name), b = pos.get(q.name);
+            edges.push(`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" class="${p.known && q.known ? '' : 'unk'}"/>`);
+        }
+        const people = modOn('profile') && s.data.profile;
+        const nodes = shown.map(p => {
+            const ic = p.known ? placeIcon(p) : '❔';
+            const o = pos.get(p.name); const here = norm(p.name) === norm(d.here); const isSel = sel && sel.name === p.name;
+            const n = people ? peopleAt(s, p.name).now.length : 0;
+            return `<g class="node ${here ? 'here' : ''} ${isSel ? 'sel' : ''} ${p.known ? '' : 'unk'}" data-act="selplace" data-arg="${esc(p.name)}">
+                ${here ? `<circle cx="${o.x}" cy="${o.y}" r="4.6" class="ring"/>` : ''}<circle cx="${o.x}" cy="${o.y}" r="${here ? 3.2 : 2.8}" class="dot"/><text class="ico" x="${o.x}" y="${o.y + 1.15}">${esc(ic)}</text>
+                <text x="${o.x}" y="${o.y - 4.4}">${esc(p.known ? short(viewTr() ? trString(p.name) : p.name, 8) : '???')}</text>${n ? `<text class="ppl" x="${o.x + 2.6}" y="${o.y + 1.2}">👥${n}</text>` : ''}</g>`;
+        }).join('');
+        const vb = ui.mapVB ?? fitBox(shown.map(p => pos.get(p.name)));
+        let card = '';
+        if (sel) {
+            const here = norm(sel.name) === norm(d.here);
+            const pa = people ? peopleAt(s, sel.name) : { live: [], now: [] };
+            const hops = here ? 0 : hopsBetween(d, d.here, sel.name);
+            const cal = s.data.calendar && modOn('calendar');
+            const cur = s.data.wallet?.currency ?? '';
+            card = `<div class="ss-card ss-place"><div class="ss-place-h"><b>${esc(sel.known ? sel.name : '알 수 없는 곳')}</b>${sel.kind ? chip(esc(sel.kind)) : ''}${sel.area ? chip(esc(sel.area)) : ''}${here ? chip('현재 위치', 'hi') : ''}</div>
+                <p class="ss-pre ss-dim">${esc(sel.known ? sel.desc : '아직 가 보지 않았다.')}</p>
+                ${pa.now.length || pa.live.length ? `<div class="ss-ppl">${pa.now.length ? `<div><small>지금 여기${cal ? ` (${esc(s.data.calendar.time)})` : ''}</small>${pa.now.map(n => `<button class="ss-chip btn" data-act="talk" data-arg="${esc(n)}">${esc(n)}</button>`).join('')}</div>` : ''}${pa.live.length ? `<div><small>사는 사람</small>${pa.live.map(n => chip(esc(n))).join('')}</div>` : ''}</div>` : ''}
+                ${sel.links.length ? `<div class="ss-chips">${sel.links.map(l => `<button class="ss-chip btn" data-act="selplace" data-arg="${esc(l)}">${esc(l)}</button>`).join('')}</div>` : ''}
+                ${!here ? `<p class="ss-hint">${hops}칸 거리${cal && hops ? ` · 시간대 ${hops}개가 흘러요` : ''}${sel.fare ? ` · 요금 ${fmtNum(sel.fare)} ${esc(cur)}` : ''}</p>
+                <div class="ss-row-btns"><button class="ss-btn pri sm" data-act="travel" data-arg="${esc(sel.name)}"><i class="fa-solid fa-person-walking"></i> 이동</button><button class="ss-btn sm ghost" data-act="goto" data-arg="${esc(sel.name)}">입력창에 쓰기</button><button class="ss-btn sm ghost" data-act="setloc" data-arg="${esc(sel.name)}">위치만 바꾸기</button></div>` : ''}</div>`;
+        }
+        return `<div class="ss-hint"><b>${esc(d.name || '지도')}</b> · 지금 <b>${esc(d.here || '-')}</b>${freshDot('map', 'here')}</div>
+            ${areas.length ? `<div class="ss-seg wrap ss-areas">${[['', '전체'], ...areas.map(a => [a, a])].map(([v, t]) => `<button class="${(ui.mapArea ?? '') === v ? 'on' : ''}" data-act="maparea" data-arg="${esc(v)}">${esc(t)}</button>`).join('')}</div>` : ''}
+            <div class="ss-mapwrap"><svg class="ss-map" viewBox="${vb.join(' ')}" preserveAspectRatio="xMidYMid meet"><g class="edges">${edges.join('')}</g>${nodes}</svg>
+                <div class="ss-mapctl"><button class="ss-ib" data-act="mapzoom" data-arg="in" title="확대">＋</button><button class="ss-ib" data-act="mapzoom" data-arg="out" title="축소">－</button><button class="ss-ib" data-act="mapzoom" data-arg="here" title="현재 위치로"><i class="fa-solid fa-location-crosshairs"></i></button><button class="ss-ib" data-act="mapzoom" data-arg="fit" title="전체 보기"><i class="fa-solid fa-expand"></i></button></div></div>
+            <p class="ss-hint">끌어서 옮기고, 두 손가락·휠·버튼으로 확대해요.</p>
+            ${card}`;
+    }
 export const VIEW = {
     home: (s, d, ui) => homeView(s, ui),
     profile: (s, d, ui) => `${mindBar(s, ui)}<div class="ss-hint">프로필 모드: <b>${d.mode === 'detailed' ? '상세' : '최소'}</b> — ${d.mode === 'detailed' ? '이 시트가 AI에게 전달돼요' : '카드·로어북을 쓰고, 새 NPC만 전달돼요'}</div>
@@ -88,7 +133,9 @@ export const VIEW = {
             <div class="ss-good-a">${(() => { const hm = haggleMul(s, i0, j), p = pr(it, j); return `<b class="ss-price ${mul * hm > 1 ? 'up' : mul * hm < 1 ? 'down' : ''}">${hm !== 1 ? `<s class="ss-dim">${fmtNum(pr(it))}</s> ` : ''}${fmtNum(p)}${fxText(w, p) ? `<small class="ss-fx">${esc(fxText(w, p))}</small>` : ''}</b>${settings().extraJudge !== false && it.stock !== 0 ? `<button class="ss-btn sm ghost" data-act="haggle" data-arg="${i0}|${j}" title="🎲 흥정 — 매력 · 화술 같은 능력치로 d20 (하루에 물건마다 한 번 · AI 0회)" ${hm !== 1 || getMeta()?.haggle?.[`${s.data.calendar ? dayIndex(s.data.calendar) : s.turn}|${i0}|${j}`] ? 'disabled' : ''}>🎲</button>` : ''}<button class="ss-btn sm pri" data-act="buy" data-arg="${i0}|${j}" ${it.stock === 0 || (w && w.cash < p) ? 'disabled' : ''}>구매</button>`; })()}</div></div>`).join('') || emptyBox('상품이 없어요')}</div>` : emptyBox('상점이 없어요. ✨ AI로 수정에서 "○○ 상점 추가"라고 해 보세요.', 'fa-store')}`;
     },
     rel: relView,
-    map: (s, d, ui) => {
+    // 🚇 새 지도(노선도 · 건물 안 · 인물 핀 · 꾸미기)는 「새 지도」 스위치를 켰을 때만 (v2.9 · 기본 끔 — 끄면 2.8과 같은 예전 지도)
+    map: (s, d, ui) => (settings().mapMetro === true ? VIEW.mapNew(s, d, ui) : mapOld(s, d, ui)),
+    mapNew: (s, d, ui) => {
         const areas = [...new Set(d.places.map(p => p.area).filter(Boolean))];
         // 🚇 노선도 (v2.9): 지도는 이 한 가지 보기 — 장소 = 역 · 길 = 노선. 🎨 꾸미기를 켜면 역 · 길을 눌러 고친다
         const edit = !!ui.mapEdit, edSel = edit ? String(ui.edSel ?? '') : '';
@@ -236,7 +283,7 @@ export const VIEW = {
 };
 // 본거지 (탭 id 'home'은 대시보드와 겹치지 않게 'base'로 보여 준다)
 VIEW.base = (s, d, ui = {}) => `<div class="ss-hero sm"><div class="ss-hero-t"><small>본거지</small><b>${esc(d.name || '본거지')}</b></div>${d.desc ? `<p class="ss-pre ss-dim">${esc(d.desc)}</p>` : ''}</div>
-    ${d.rooms.length ? `<div class="ss-homewrap">${homeSVG(d, ui.hroom)}</div><p class="ss-hint">방을 누르면 아래에서 그 방이 표시돼요. 방 「고치기」에서 층(숫자)을 적으면 층별로 나뉘어요.</p>` : ''}
+    ${d.rooms.length && settings().mapMetro === true ? `<div class="ss-homewrap">${homeSVG(d, ui.hroom)}</div><p class="ss-hint">방을 누르면 아래에서 그 방이 표시돼요. 방 「고치기」에서 층(숫자)을 적으면 층별로 나뉘어요.</p>` : ''}
     <div class="ss-rooms">${d.rooms.map(r => `<div class="ss-room${ui.hroom && norm(ui.hroom) === norm(r.name) ? ' sel' : ''}"><b>${esc(r.name)}</b><small class="ss-pre">${esc(r.desc)}</small>
         <div class="ss-chips">${r.decor.map(x => `<span class="ss-chip">${esc(x)}<button class="ss-x" data-act="unplace" data-arg="${esc(x)}" title="창고로">↓</button></span>`).join('') || '<small class="ss-hint">비어 있음</small>'}</div></div>`).join('') || emptyBox('방·구역이 없어요', 'fa-house')}</div>
     ${sec(`창고 <small>${d.storage.length}</small>`, d.storage.length ? `<div class="ss-stack">${d.storage.map((x, i) => `<div class="ss-item"><div class="ss-item-b"><b>${esc(x)}</b></div><select class="ss-in sm" data-chg="place" data-arg="${i}"><option value="">배치할 곳…</option>${d.rooms.map(r => `<option>${esc(r.name)}</option>`).join('')}</select>
@@ -568,6 +615,12 @@ export const ADDON_FLAGS = [
     ['promiseClock', 'fa-hourglass-half', '약속 기한', '약속 장부의 기한이 지나면 자동으로 어김 · 토큰 0~1줄'],
     ['mergeContact', 'fa-link', '합칠 때 연락도 옮기기', '인물을 합칠 때 연락 대화도 옮길지 물어봐요 · 토큰 0'],
     ['trendMore', 'fa-chart-line', '그래프에 수치 더하기', '변화 그래프에 게이지 · 내 탭 숫자 그래프 · 토큰 0'],
+    // 🔮 점집 (v2.9 · 운명 칸 밑): 점쟁이마다 따로 — 하나라도 켜면 운명 탭 맨 아래에 점집이 생겨요
+    ['fortuneTarot', '🃏', '점집: 타로', '타로 언니 세라 · 78장에서 직접 골라 뒤집기 · 점 한 번에 AI 1회 · 복채'],
+    ['fortuneOrb', '🔮', '점집: 수정구슬', '마담 엘레오노라 · 구슬에 비친 장면 · 점 한 번에 AI 1회 · 복채'],
+    ['fortuneShaman', '🪭', '점집: 무당 · 굿', '박보살 할매 · 사주 · 신점 · 오방기, 굿으로 저주 풀기 · 소원 · 넋 달래기 · 한 번에 AI 1회 · 복채'],
+    // 🚇 새 지도 (v2.9 · 지도 칸 밑): 끄면 2.8과 같은 예전 지도
+    ['mapMetro', 'fa-train-subway', '새 지도', '노선도 지도 · 이동 모션 · 인물 이모지 핀 · 건물 정면도/층별 평면도 · 본거지 집 안 그림 · 지도 꾸미기 — 화면만 · 토큰 0'],
 ];
 // 🧭 이야기 장치 14개도 같은 모양으로 (story.js의 목록 그대로)
 const STORY_FLAGS = STORY_DEVICES.map(d => [STORY_KEY[d.id], d.icon, d.name, `${d.desc} · ${d.cost}`]);
@@ -607,6 +660,8 @@ const PK_PARENT = {
     rel: ['guideOn', 'relRace', 'pairAff', 'giftTaste', 'tasteBook', 'relScar', 'memoryDrift', 'meddleOn', 'realGap'],
     contact: ['groupChat', 'socialAff', 'mergeContact', 'crossMail'],
     calendar: ['ambientOn', 'ambientShop'],
+    map: ['mapMetro'],
+    fate: ['fortuneTarot', 'fortuneOrb', 'fortuneShaman'],
     memo: ['ledgerKnow', 'ledgerPromise', 'promiseClock'],
 };
 const PK_CHILD = new Set(Object.values(PK_PARENT).flat());
@@ -660,6 +715,8 @@ const PK_DETAIL = {
 const PK_COMMON = [
     ['send', 'AI에게 보내는 방식', ['injectMode', 'sceneFilter', 'sceneTurns', 'deltaMode', 'deltaEvery', 'injectDepth', 'injWorld', 'injScan', 'goneInject', 'oocDetect', 'skipQuiet']],
     ['look', '화면 · 알림 · 기록', ['msgCard', 'chipOutside', 'freshDot', 'toastMode', 'toastPos', 'toastSec', 'featureTips', 'actionTips', 'albumOn', 'recordOn', 'autoStart']],
+    ['make', '만들기 재료 · 숨긴 답 · 지우기 · 뒤로 가기', ['genRead', 'genReadCap', 'genNote', 'hideSkip', 'askDelete', 'backClose']],
+    ['guard', '다른 확장과 같이 쓰기 (간섭 차단)', ['guardData', 'guardLook']],
 ];
 const pkDrawer = (k) => document.querySelector(`#ss-settings [data-s="${k}"]`);
 function pkOpt(k) {
@@ -673,8 +730,13 @@ function pkOpt(k) {
 const pkOpts = (keys) => keys.map(pkOpt).filter(Boolean);
 function pkSub(id, s, st) { // 켠 칸 밑의 딸린 옵션
     const parts = [];
+    if (id === 'profile') { // 💭 속마음 (v2.9 · 기본 끔): 프로필 탭의 속마음 막대와 같은 단추 · 같은 값
+        const mm = { off: '끔', thought: '속마음', emoji: '이모티콘', kaomoji: '카모지' }, mf = { always: '매 턴', random: `가끔 (${st.mindPct ?? 35}%)`, tab: '볼 때만 (AI 1회)' };
+        const cur = mm[st.mindMode] ? st.mindMode : 'off', fq = mf[st.mindFreq] ? st.mindFreq : 'random';
+        parts.push(`<div class="ss-pk-opt"><small>💭 속마음 · 모든 채팅에 걸려요</small><div class="ss-seg wrap">${Object.entries(mm).map(([k, v]) => `<button class="${cur === k ? 'on' : ''}" data-act="mindset" data-arg="mode:${k}">${v}</button>`).join('')}</div>${cur !== 'off' ? `<small>뜨는 때</small><div class="ss-seg wrap">${Object.entries(mf).map(([k, v]) => `<button class="${fq === k ? 'on' : ''}" data-act="mindset" data-arg="freq:${k}">${v}</button>`).join('')}</div>` : ''}</div>`);
+    }
     if (id === 'calendar' && s.data.calendar) parts.push(`<div class="ss-pk-opt"><small>시간 적는 법</small>${seg(CLOCK_STYLES.map(([v, name, ex]) => [v, `${name} <small>${ex}</small>`]), s.data.calendar.clock ?? '', 'clockstyle', 'class="ss-seg wrap"')}</div>`);
-    if (id === 'map') parts.push(`<div class="ss-pk-opt"><small>이동 모션</small>${seg([['on', '노선 따라 움직이기'], ['off', '바로 이동']], st.mapMotion === false ? 'off' : 'on', 'mapmotion', 'class="ss-seg wrap"')}</div>`);
+    if (id === 'map' && st.mapMetro === true) parts.push(`<div class="ss-pk-opt"><small>이동 모션</small>${seg([['on', '노선 따라 움직이기'], ['off', '바로 이동']], st.mapMotion === false ? 'off' : 'on', 'mapmotion', 'class="ss-seg wrap"')}</div>`);
     const flags = (PK_PARENT[id] ?? []).map(k => FLAG_BY[k]).filter(Boolean);
     if (flags.length) parts.push(`<div class="ss-pk-opt"><small>딸린 옵션 · 모든 채팅에 걸려요</small>${flagList(st, flags)}</div>`);
     const det = pkOpts(PK_DETAIL[id] ?? []);
@@ -905,7 +967,7 @@ export const VIEW_ACTIONS = {
         const ui = el._ss.ui, svg = el.querySelector('svg.ss-map'); if (!svg) return;
         const vb = svgBox(svg);
         if (arg === 'fit') ui.mapVB = null;
-        else if (arg === 'here') { const p = mapModel(s.data.map, ui).pos.get(findBy(s.data.map.places, s.data.map.here)?.name); ui.mapVB = p ? [p.x - 25, p.y - 25, 50, 50] : null; ui.place = s.data.map.here; }
+        else if (arg === 'here') { const p = (settings().mapMetro === true ? mapModel(s.data.map, ui).pos : layoutPlaces(s.data.map.places)).get(findBy(s.data.map.places, s.data.map.here)?.name); ui.mapVB = p ? [p.x - 25, p.y - 25, 50, 50] : null; ui.place = s.data.map.here; }
         else ui.mapVB = zoomBox(vb, arg === 'in' ? 1 / 1.4 : 1.4);
         app.renderPanel(el);
     },

@@ -2,7 +2,7 @@
 // 카드 · 오방기는 여기서 진짜로 뽑고(난수), AI는 그것을 풀이만 한다. 본 점괘는 기록(_fortune)에 통째로 남아 다시 볼 수 있다.
 // 창을 새로 띄우지 않는다: 점괘 · 생년월일 · 복채 · 풀 저주 고르기는 모두 이 칸 안에서 (창 위에 창이 겹치면 실리에서 창이 꺼지던 것)
 // 기다리는 동안 창을 닫아도 점괘는 끝까지 받아서 기록하고 알림으로 알려 준다
-import { app, modOn, esc, short, findBy, norm, num, fmtNum, uid, dateStr, userName, TITLE, FORTUNE_PERSON_KEYS, fortunePerson } from './core.js';
+import { app, modOn, settings, esc, short, findBy, norm, num, fmtNum, uid, dateStr, userName, TITLE, FORTUNE_PERSON_KEYS, fortunePerson } from './core.js';
 import { addAdjust, chatCharacters, priceMul } from './engine.js';
 import { sec, chip, seg, ai1 } from './kit.js';
 import { fortuneRead, gutRite } from './ai.js';
@@ -128,6 +128,10 @@ function fanHTML(ui, sp) {
         <div class="ss-ft-spread pick">${sp.pos.map((pos, k) => (picked[k] !== undefined ? cardHTML(deck[picked[k]].name, deck[picked[k]].rev, pos, ui.ftJust === picked[k] ? 'just' : '') : `<div class="ss-tc empty"><div class="ss-tc-in"></div><small class="ss-tc-pos">${esc(pos)}</small></div>`)).join('')}</div>
         <div class="ss-row-btns"><small class="ss-dim">78장 중에서 ${full ? '다 골랐어요. 이 카드로 점을 볼게요!' : `마음 가는 카드를 ${n - picked.length}장 더 골라요 — 안 고르고 보면 세라가 대신 뽑아요`}</small><button class="ss-btn sm ghost" data-act="ftshuffle"><i class="fa-solid fa-shuffle"></i> 다시 섞기</button></div></div>`;
 }
+// 🎛 점쟁이마다 켜고 끄기 (v2.9 · 모든 채팅 공통 · 기본 끔): 관리 › 쓸 기능 › 운명 칸 밑 · 확장 설정의 같은 칸과 한 값. 굿은 무당을 켰을 때만
+export const FT_KEYS = { tarot: 'fortuneTarot', orb: 'fortuneOrb', shaman: 'fortuneShaman' };
+export const ftOn = (m) => settings()[FT_KEYS[m]] === true;
+export const ftMethods = () => Object.keys(FT_METHODS).filter(ftOn);
 const form = (ui) => (ui.ft ??= { who: '', name: '', method: 'tarot', spread: '3', topic: '종합', q: '', basis: 'story', gut: 'ward', wish: '' });
 const whoOf = (F) => (F.name.trim() || F.who || userName());
 function keepForm(el) {
@@ -145,6 +149,7 @@ const BIRTH_LABEL = { birth: '생년월일', hour: '태어난 시', age: '나이
 const personChips = (p) => [['birth', '🎂'], ['hour', '🕰'], ['age', '나이'], ['zodiac', '띠'], ['star', '별자리'], ['element', '기운'], ['place', '태어난 곳']].filter(([k]) => p?.[k]).map(([k, l]) => chip(`${l} ${esc(p[k])}`)).join('');
 
 export function fortuneView(s, d, ui) {
+    const ms = ftMethods(); if (!ms.length) return ''; // 점쟁이를 하나도 안 켰으면 점집이 없다
     const F = form(ui), fees = fortuneFees(s), w = s.data.wallet && modOn('wallet') ? s.data.wallet : null;
     const cur = w ? ` ${esc(w.currency)}` : '';
     const people = fortunePeople(s);
@@ -152,6 +157,8 @@ export function fortuneView(s, d, ui) {
     const who = whoOf(F), saved = findBy(d.births ?? [], who);
     const sn = storyNow(s);
     if (!sn) F.basis = 'real';
+    if (!ms.includes(F.method)) F.method = ms[0];
+    const shamanOn = ms.includes('shaman');
     const sp = SPREADS[F.spread] ?? SPREADS[3];
     const price = (m) => (fees.free ? 0 : m === 'tarot' ? Math.max(1, Math.round(fees.tarot * sp.mul)) : fees[m]);
     const tag = (n) => (fees.free ? '' : ` <small>${fmtNum(n)}${cur}</small>`);
@@ -163,9 +170,9 @@ export function fortuneView(s, d, ui) {
             <div class="ss-ft-row">${FORTUNE_PERSON_KEYS.map(k => `<label class="ss-f"><span>${BIRTH_LABEL[k]}</span>${k === 'nature' ? `<textarea class="ss-in" data-ftb="${k}" rows="2">${esc(saved?.[k] ?? '')}</textarea>` : `<input class="ss-in" type="text" maxlength="80" data-ftb="${k}" value="${esc(saved?.[k] ?? '')}">`}</label>`).join('')}</div>
             <div class="ss-row-btns"><button class="ss-btn pri sm" data-act="ftbsave">저장</button><button class="ss-btn sm ghost" data-act="ftclose">취소</button></div></div>` : '';
     const editFee = ui.ftEdit === 'fee' ? `<div class="ss-card ss-ft-edit"><small>복채 (${esc(w?.currency ?? '')}) — 0이나 빈칸 = 이 세계 물가에 맞춰 자동</small>
-            <div class="ss-ft-row">${[['feeTarot', '타로 (3장 기준)', fees.tarot], ['feeOrb', '수정구슬', fees.orb], ['feeShaman', '무당', fees.shaman], ['feeGut', '굿', fees.gut]].map(([k, l, now]) => `<label class="ss-f"><span>${l} <small>지금 ${fmtNum(now)}</small></span><input class="ss-in" type="number" min="0" data-ftf="${k}" value="${d[k] || ''}" placeholder="자동"></label>`).join('')}</div>
+            <div class="ss-ft-row">${[['feeTarot', '타로 (3장 기준)', fees.tarot, 'tarot'], ['feeOrb', '수정구슬', fees.orb, 'orb'], ['feeShaman', '무당', fees.shaman, 'shaman'], ['feeGut', '굿', fees.gut, 'shaman']].filter(x => ms.includes(x[3])).map(([k, l, now]) => `<label class="ss-f"><span>${l} <small>지금 ${fmtNum(now)}</small></span><input class="ss-in" type="number" min="0" data-ftf="${k}" value="${d[k] || ''}" placeholder="자동"></label>`).join('')}</div>
             <div class="ss-row-btns"><button class="ss-btn pri sm" data-act="ftfsave">저장</button><button class="ss-btn sm ghost" data-act="ftclose">취소</button></div></div>` : '';
-    return sec('🔮 점집 <small>타로 · 수정구슬 · 무당 · 굿</small>', `<div class="ss-ft">
+    return sec(`🔮 점집 <small>${ms.map(m => FT_METHODS[m].name).concat(shamanOn ? ['굿'] : []).join(' · ')}</small>`, `<div class="ss-ft">
         ${ui.ftBusy ? `<div class="ss-card ss-ft-busy ${esc(ui.ftBusyKind ?? '')}">${ui.ftBusyKind === 'orb' ? orbHTML(['…', '무언가 비친다', '…'], true, true) : ui.ftBusyKind === 'tarot' && ui.ftBusyDraw?.length ? `<div class="ss-ft-spread">${ui.ftBusyDraw.map(parseDraw).filter(Boolean).map(c => cardHTML(c.name, c.rev, c.pos, 'wait')).join('')}</div>` : ui.ftBusyKind === 'shaman' || ui.ftBusyKind === 'gut' ? '<div class="ss-ft-bells">🔔🪭🔔</div>' : ''}<div><i class="fa-solid fa-spinner fa-spin"></i> ${esc(ui.ftBusy)} <small class="ss-dim">창을 닫아도 끝까지 받아서 알려 드려요</small></div></div>` : ''}
         ${shown ? `<div class="ss-card ss-ft-pop">${readingHTML(shown)}<div class="ss-row-btns"><button class="ss-btn sm ghost" data-act="ftclose"><i class="fa-solid fa-xmark"></i> 점괘 접기</button></div></div>` : ''}
         <div class="ss-ft-clock"><span title="이야기 속 지금">📅 이야기 속 <b>${esc(sn || '달력 칸이 없어요')}</b></span><span title="현실의 지금">🕰 현실 <b>${esc(realNow())}</b></span></div>
@@ -176,7 +183,7 @@ export function fortuneView(s, d, ui) {
         <div class="ss-card ss-ft-birth"><small>${esc(who)}의 타고난 것</small>
             ${saved ? `<div class="ss-chips">${personChips(saved) || chip('비어 있음')}</div>${saved.nature ? `<p class="ss-dim ss-pre">${esc(saved.nature)}</p>` : ''}` : '<p class="ss-hint">아직 몰라요. 첫 점을 볼 때 점쟁이가 생년월일 · 태어난 시 · 띠 · 별자리를 짚어 내고, 그 뒤로는 계속 같은 값을 써요.</p>'}
             ${editBirth || `<div class="ss-row-btns"><button class="ss-btn sm ghost" data-act="ftbirth"><i class="fa-solid fa-pen"></i> 생년월일 직접 적기 · 고치기</button>${saved ? '<button class="ss-btn sm ghost danger" data-act="ftbdel"><i class="fa-solid fa-trash"></i> 생년월일 지우기</button>' : ''}</div>`}</div>
-        <div class="ss-f"><span>점 보는 법</span>${seg(Object.entries(FT_METHODS).map(([k, m]) => [k, `${m.icon} ${m.name}${tag(price(k))}`]), F.method, 'ftm')}</div>
+        <div class="ss-f"><span>점 보는 법</span>${seg(ms.map(k => [k, `${FT_METHODS[k].icon} ${FT_METHODS[k].name}${tag(price(k))}`]), F.method, 'ftm')}</div>
         <p class="ss-ft-teller">${FT_METHODS[F.method].icon} <b>${esc(FT_METHODS[F.method].teller)}</b> — ${esc(FT_METHODS[F.method].bio)}</p>
         ${F.method === 'tarot' ? `<div class="ss-f"><span>카드 수</span>${seg(Object.entries(SPREADS).map(([k, x]) => [k, `${x.name} <small>${esc(x.pos.join(' · '))}</small>`]), F.spread, 'fts')}</div>${ui.ftBusy ? '' : fanHTML(ui, sp)}` : ''}
         ${F.method === 'orb' && !ui.ftBusy && !shown ? `<div class="ss-ft-stage orb">${orbHTML()}<small class="ss-dim">구슬이 손님을 기다려요…</small></div>` : ''}
@@ -186,12 +193,12 @@ export function fortuneView(s, d, ui) {
         <div class="ss-row-btns"><button class="ss-btn pri" data-act="ftread">${ai1} ${FT_METHODS[F.method].icon} ${esc(who)}의 점 보기${fees.free ? '' : ` — 복채 ${fmtNum(price(F.method))}${cur}`}</button>
             ${fees.free ? '' : '<button class="ss-btn sm ghost" data-act="ftfee"><i class="fa-solid fa-coins"></i> 복채 정하기</button>'}</div>
         ${editFee}
-        <details class="ss-arc ss-ft-gut" ${ui.ftGutOpen ? 'open' : ''}><summary>🪘 굿 하기${fees.free ? '' : ` — ${fmtNum(fees.gut)}${cur}`}</summary>
+        ${shamanOn ? `<details class="ss-arc ss-ft-gut" ${ui.ftGutOpen ? 'open' : ''}><summary>🪘 굿 하기${fees.free ? '' : ` — ${fmtNum(fees.gut)}${cur}`}</summary>
             ${seg(Object.entries(GUTS).map(([k, g]) => [k, esc(g.name)]), F.gut, 'ftg')}
             <p class="ss-hint">${esc(GUTS[F.gut].desc)}${norm(who) === norm(userName()) ? '' : ` ${esc(who)}에게 하는 굿은 이야기에만 남아요 (수치는 내 것만 바뀌어요).`}</p>
             ${lifts.length > 1 ? `<label class="ss-f"><span>풀 저주</span><select class="ss-in ss-ft-lift">${lifts.map(c => `<option value="${esc(c.name)}" ${c.name === F.lift ? 'selected' : ''}>☠ ${esc(c.name)}</option>`).join('')}</select></label>` : ''}
             ${F.gut === 'wish' || F.gut === 'soul' ? `<label class="ss-f"><span>${F.gut === 'wish' ? '빌 소원' : '달랠 넋 · 사연 (안 적어도 돼요)'}</span><input class="ss-in ss-ft-wish" type="text" maxlength="200" value="${esc(F.wish)}"></label>` : ''}
-            <div class="ss-row-btns"><button class="ss-btn" data-act="ftgut">${ai1} 🪘 ${esc(who)}에게 ${esc(GUTS[F.gut].name)}${fees.free ? '' : ` — ${fmtNum(fees.gut)}${cur}`}</button></div></details>
+            <div class="ss-row-btns"><button class="ss-btn" data-act="ftgut">${ai1} 🪘 ${esc(who)}에게 ${esc(GUTS[F.gut].name)}${fees.free ? '' : ` — ${fmtNum(fees.gut)}${cur}`}</button></div></details>` : ''}
         ${reads.length ? `<details class="ss-arc" ${ui.ftLogOpen ? 'open' : ''}><summary>지난 점괘 · 굿 ${reads.length}개</summary><ul class="ss-ft-log">${reads.map(r => `<li><button class="ss-btn sm ghost" data-act="ftview" data-arg="${esc(r.id)}">${r.method === 'gut' ? '🪘' : FT_METHODS[r.method]?.icon ?? '🔮'} <b>${esc(r.who)}</b> · ${esc(r.topic || '')} <small>${esc(r.when)}</small></button><button class="ss-btn sm ghost danger" data-act="ftdel" data-arg="${esc(r.id)}" title="이 점괘 지우기"><i class="fa-solid fa-trash"></i></button></li>`).join('')}</ul>
             <div class="ss-row-btns">${ui.ftDelAll ? `<span class="ss-dim">점괘 · 굿 기록과 생년월일을 전부 지울까요? (낸 돈 · 굿 효과는 그대로)</span><button class="ss-btn sm danger" data-act="ftdelall" data-arg="yes">전부 지우기</button><button class="ss-btn sm ghost" data-act="ftdelall" data-arg="no">취소</button>` : '<button class="ss-btn sm ghost danger" data-act="ftdelall"><i class="fa-solid fa-broom"></i> 점집 기록 전부 지우기</button>'}</div></details>` : ''}
         <p class="ss-hint">${fees.free ? '재산 칸이 꺼져 있어서 복채 없이 봐요. ' : `가진 돈 ${fmtNum(w.cash)}${cur}. `}점 · 굿 한 번에 확장 AI를 1번 불러요. 오늘 본 점괘는 다음 답에서 AI도 알고 이야기에 은근히 엮어요.</p></div>`);
@@ -256,6 +263,7 @@ export const FORTUNE_ACTIONS = {
     ftt: pick('topic'), ftb: pick('basis'), ftg: pick('gut'),
     ftread: async (el, arg, btn, s) => {
         const F = keepForm(el), who = whoOf(F).trim();
+        if (!ftOn(F.method)) return; // 꺼 둔 점쟁이
         if (!who) { toastr.info('누구의 운세를 볼지 골라 주세요.', TITLE); return; }
         const fees = fortuneFees(s), sp = SPREADS[F.spread] ?? SPREADS[3];
         const fee = fees.free ? 0 : F.method === 'tarot' ? Math.max(1, Math.round(fees.tarot * sp.mul)) : fees[F.method];
@@ -305,6 +313,7 @@ export const FORTUNE_ACTIONS = {
     },
     ftgut: async (el, arg, btn, s) => {
         const F = keepForm(el), who = whoOf(F).trim(); if (!who) return;
+        if (!ftOn('shaman')) return; // 굿은 무당을 켰을 때만
         el._ss.ui.ftGutOpen = true;
         const g = GUTS[F.gut] ?? GUTS.ward, mine = norm(who) === norm(userName());
         if (F.gut === 'wish' && !F.wish.trim()) { toastr.info('빌 소원을 적어 주세요.', TITLE); return; }

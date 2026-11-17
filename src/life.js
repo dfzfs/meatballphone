@@ -316,7 +316,7 @@ export function lifeBox() {
         <div class="ss-seg wrap stack">${Object.entries(MODES).map(([k, m]) => `<button class="${mode === k ? 'on' : ''}" data-act="lifemode" data-arg="${k}">${m.icon} ${m.name}<small>${m.desc}</small></button>`).join('')}</div>
         <div class="ss-pills"><small>탭 하나씩</small>
             <button class="ss-pill ${L.needs ? 'on' : ''}" data-act="lifetab" data-arg="needs" title="다마고치 화면 · 욕구 타일 · 추천 세트">${L.needs ? '<i class="fa-solid fa-check"></i> ' : ''}🍞 욕구 탭</button>
-            <button class="ss-pill ${L.wear ? 'on' : ''}" data-act="lifetab" data-arg="wear" title="인물마다 도트 인형 만들기 · 옷 입히기 · 프로필 얼굴">${L.wear ? '<i class="fa-solid fa-check"></i> ' : ''}🎨 꾸미기 탭</button></div>
+            <button class="ss-pill ${L.wear ? 'on' : ''}" data-act="lifetab" data-arg="wear" title="인물마다 도트 인형 만들기 · 옷 입히기 · 프로필 얼굴">${L.wear ? '<i class="fa-solid fa-check"></i> ' : ''}🎨 꾸미기 탭</button>${L.needs ? `<button class="ss-pill ${settings().lifeFx !== false ? 'on' : ''}" data-act="lifefx" title="단계가 바뀔 때 딱지가 튀어나오고, 욕구가 바닥이면 화면 가장자리가 물들어요 · 모든 채팅에 걸려요">${settings().lifeFx !== false ? '<i class="fa-solid fa-check"></i> ' : ''}✨ 화면 연출</button>` : ''}</div>
         <p class="ss-hint">모드는 「무엇을 켤지」의 묶음이에요. 고르면 필요한 탭 · 게이지 · 가게가 한 번에 들어가고(AI 0회), 그 뒤에 하나씩 켜고 끌 수 있어요. 롤플로 돌려도 넣어 둔 게이지 · 가게는 지워지지 않아요 — 욕구가 저절로 줄어드는 것까지 멈추려면 욕구 탭의 「저절로 줄기 끄기」.</p>`);
 }
 LIFE_ACTIONS.lifemode = async (el, arg) => {

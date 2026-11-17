@@ -15,7 +15,7 @@ import { hintSetting } from './tips.js';
 
 // ───── 확장 설정 서랍 ─────
 // 바꾸면 화면을 바로 다시 그려야 하는 스위치 (v2.7.3)
-const VIEW_KEYS = new Set(['hompyFull', 'hpLite', 'hpSkinHud', 'loopMode', 'swipeGhost', 'fateDebt', 'tensionOn', 'realGap', 'glitchView', 'ledgerKnow', 'ledgerPromise', 'guideOn', 'peekCost', 'relScar', 'memoryDrift', 'meddleOn', 'tasteBook', 'crossMail', 'groupChat', 'extraJudge', 'questExpire', 'memoOn', 'albumOn', 'peekOn', 'recordOn', 'freshDot', 'pipCheck', 'questJudge', 'msgCard', 'chipOutside', 'contactSimple', 'contactSimpleReflect', 'relStagesOn', 'relShowMemo', 'relShowWants', 'relShowLife', 'relShowPairs', 'relShowBtns', 'relShowNext', 'relShowUnlock']);
+const VIEW_KEYS = new Set(['fortuneTarot', 'fortuneOrb', 'fortuneShaman', 'mapMetro', 'hompyFull', 'hpLite', 'hpSkinHud', 'loopMode', 'swipeGhost', 'fateDebt', 'tensionOn', 'realGap', 'glitchView', 'ledgerKnow', 'ledgerPromise', 'guideOn', 'peekCost', 'relScar', 'memoryDrift', 'meddleOn', 'tasteBook', 'crossMail', 'groupChat', 'extraJudge', 'questExpire', 'memoOn', 'albumOn', 'peekOn', 'recordOn', 'freshDot', 'pipCheck', 'questJudge', 'msgCard', 'chipOutside', 'contactSimple', 'contactSimpleReflect', 'relStagesOn', 'relShowMemo', 'relShowWants', 'relShowLife', 'relShowPairs', 'relShowBtns', 'relShowNext', 'relShowUnlock']);
 // 「부가 기능 한 번에 끄기」 — 상태 계산 · 본편 롤플에 꼭 필요하지 않은 것만
 const LIGHT_OFF = { memoOn: false, albumOn: false, mindMode: 'off', recordOn: false, daySummary: false, featureTips: false, showMascot: false, mascotBuddy: false, musicToast: false };
 const ADDON_SET = new Set(['gearOn', 'ambientOn', 'giftTaste', 'promiseClock', 'mergeContact', 'guestbook', 'hpWave', 'socialAff']); // index.js의 ADDON_KEYS와 같은 목록
@@ -220,6 +220,10 @@ export function renderSettings() {
             <label class="checkbox_label"><input type="checkbox" data-s="promiseClock" ${s.promiseClock === true ? 'checked' : ''}> <b>⌛ 약속 기한</b> <small>(약속 장부의 「3일 안에」 「3월 14일까지」를 달력으로 읽어, 지나면 자동으로 어김 · 약속 장부를 켰을 때만 · 토큰 0~1줄)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="mergeContact" ${s.mergeContact === true ? 'checked' : ''}> <b>🔗 합칠 때 연락도 옮기기</b> <small>(인물을 합칠 때 연락 대화도 옮길지 물어봐요 · 토큰 0)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="trendMore" ${s.trendMore === true ? 'checked' : ''}> <b>📊 그래프에 수치 더하기</b> <small>(변화 그래프에 게이지 · 내 탭 숫자 그래프가 하나 더 그려져요 · 토큰 0)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="fortuneTarot" ${s.fortuneTarot === true ? 'checked' : ''}> <b>🃏 점집: 타로</b> <small>(v2.9 · 기본 끔 — 운명 탭 맨 아래 점집에 타로 언니 · 점 한 번에 AI 1회 · 복채)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="fortuneOrb" ${s.fortuneOrb === true ? 'checked' : ''}> <b>🔮 점집: 수정구슬</b> <small>(v2.9 · 기본 끔 — 마담 엘레오노라 · 점 한 번에 AI 1회 · 복채)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="fortuneShaman" ${s.fortuneShaman === true ? 'checked' : ''}> <b>🪭 점집: 무당 · 굿</b> <small>(v2.9 · 기본 끔 — 박보살 할매의 사주 · 신점, 굿으로 저주 풀기 · 한 번에 AI 1회 · 복채)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="mapMetro" ${s.mapMetro === true ? 'checked' : ''}> <b>🚇 새 지도</b> <small>(v2.9 · 기본 끔 — 노선도 · 이동 모션 · 인물 이모지 핀 · 건물 정면도/층별 평면도 · 본거지 집 안 그림 · 지도 꾸미기. 끄면 예전 지도 · 화면만 · 토큰 0)</small></label>
             <b class="ss-set-h">데이터 · 화면</b>
             <label class="checkbox_label"><input type="checkbox" data-s="hompyFull" ${s.hompyFull !== false ? 'checked' : ''}> <b>📒 전체화면은 미니홈피 모양으로</b> <small>(v2.8 새 화면 · 기본 끔 — 켜면 상태창의 전체화면이 위에 메뉴, 옆에 프로필 · 상태 · 일촌 창, 가운데에 지금 탭이 있는 미니홈피로 열려요. 화면만 바뀌고 계산 · 토큰은 그대로예요)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="hpLite" ${s.hpLite === true ? 'checked' : ''}> 🪶 미니홈피 가볍게 <small>(옆 창 없이 가운데 창만 그려요 — 큰 상태창 · 폰에서 화면이 가벼워져요. 꾸미기 › 창에서도 바꿔요)</small></label>
