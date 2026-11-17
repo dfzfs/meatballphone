@@ -726,13 +726,14 @@ const unquote = (t) => { const x = String(t ?? '').trim(); const m = x.match(/^(
 // 「Leon: 안녕」 「Leon - 안녕」처럼 「|」 대신 쌍점 · 줄표로 이름과 글을 나눈 줄 (검수) — 아는 사람 이름일 때만 「이름 | 글」로 (예전엔 조용히 버려졌다)
 function nameSplit(s, val, any = false) { // any: 모르는 이름도 나눈다 (msg는 늘 「이름 | 글」이라)
     if (String(val).includes('|')) return val;
-    const m = String(val).match(/^([^:：\-—–]{1,24}?)\s*(?:[:：]|\s[-—–]\s)\s*(.+)$/); if (!m) return val;
-    const nm = m[1].trim(), known = [s.data.contact?.contacts, s.data.rel?.user, s.data.profile?.list].some(list => findBy(list ?? [], nm));
-    return known || any ? `${nm} | ${m[2].trim()}` : val;
+    const m = String(val).match(/^([^:：\-—–"“「]{1,24}?)\s*(?:[:：]|\s[-—–]\s|\s*(?:→|->|=>)\s*)\s*(.+)$/) || String(val).match(/^([^"“「]{1,24}?)\s+(?:"([^"]+)"|“([^”]+)”|「([^」]+)」)$/); if (!m) return val; // 「Leon → 글」 「Leon "글"」 (검수)
+    const nm = m[1].trim(), txt = (m[2] ?? m[3] ?? m[4] ?? '').trim(), known = [s.data.contact?.contacts, s.data.rel?.user, s.data.profile?.list].some(list => findBy(list ?? [], nm));
+    return known || any ? `${nm} | ${txt}` : val;
 }
 function numShape(val) {
     let v = String(val).replace(/([=+\-−])\s+(?=\d)/g, '$1'); // 「= 50」 「+ 5」
     const a = v.match(ARROW_RE); if (a) v = `${a[1]}=${a[2]}`;
+    v = v.replace(/^([^:：\d|]*\p{L}[^:：\d|]*?)\s*[:：]\s*(\d[\d.,]*)\s*$/u, '$1 =$2'); // 「체력: 50」 = 50으로 (검수: 덧셈으로 읽혀 최대에 막혔다)
     return v;
 }
 const dropPipeNote = (val) => { const i = val.indexOf('|'); return i > 0 && /\d\s*$/.test(val.slice(0, i)) ? val.slice(0, i).trim() : val; };
@@ -933,6 +934,7 @@ function opAff(s, val, info, L, T, key, rawKey) {
     { const rv = val.match(/^([=+\-−]\s*\d[\d.]*)\s+([^\d|][^|]*?)\s*(\|.*)?$/); if (rv) val = `${rv[2]} ${rv[1]}${rv[3] ? ` ${rv[3]}` : ''}`; }
     { const g = val.split('|')[0].match(/^(.+?)\s*([=+\-−]\s*\d[\d.]*)\s*$/); const names = g ? g[1].split(/\s*(?:[,，&]|\band\b)\s*/).filter(Boolean) : [];
       if (names.length > 1 && names.length <= 6 && names.every(n => !/\d/.test(n))) { const tail = val.slice(val.split('|')[0].length); for (const n of names) applyPart(s, key, `${n} ${g[2]}${tail}`, info); return; } }
+    { const i = val.indexOf('|'); const h = i < 0 ? val : val.slice(0, i); const h2 = numShape(h); if (h2 !== h) val = h2 + (i < 0 ? '' : ` ${val.slice(i)}`); }
     const rl = ensure(s, 'rel');
     const m = val.match(/^(.+?)\s*([=+\-−]\s*[\d.]+|\d[\d.]*)\s*(?:\|\s*(.*))?$/);
     if (!m) return miss(info, key, val);

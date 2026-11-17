@@ -59,6 +59,8 @@ try {
           await say('aff: +3 Leon'); out.affNumFirst = A('Leon') === l0 + 3;
           await say('aff: Leon, Mia +2'); out.affGroup = A('Leon') === l0 + 5 && A('Mia') === m0 + 2;
           await say('cond: 독 (3턴)'); const cd = st().data.stats.conds.find(c => c.name === '독'); out.condParen = cd?.desc === '3턴'; }
+        await say('stat: 체력: 40'); out.statColonSet = bar('체력').cur === 40;
+        await say('msg: Leon → 거기 있어?\nmsg: Leon "곧 갈게"'); out.msgArrowQuote = ['거기 있어?', '곧 갈게'].every(t => (st().data.contact.threads.Leon ?? []).some(m => m.text === t));
         // 연락 · 속마음: 「이름: 글」
         await say('msg: Leon: 내일 보자'); out.msgColon = (st().data.contact.threads.Leon ?? []).some(m => m.text === '내일 보자');
         await say('msg: Leon'); out.msgNoTextMiss = /msg: Leon/.test(missOf());
