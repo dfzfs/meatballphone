@@ -9,7 +9,7 @@ import { addAdjust, commit, dueLetters, priceMul, peopleAt, hopsBetween, whereNo
 import { trString } from './translate.js';
 import { walletView, fxText } from './money.js';
 import { fateView } from './fate.js';
-import { gauge, sec, emptyBox, chip, avatar, ai1, seg, insertInput, closeIfPopup, askInput, askConfirm } from './kit.js';
+import { gauge, sec, emptyBox, chip, avatar, ai1, seg, insertInput, closeIfPopup, askInput, askConfirm, emojiOf } from './kit.js';
 import { diceView } from './dice.js';
 import { contactView } from './contact.js';
 import { questView, newsView, gossipView, boardView } from './feeds.js';
@@ -23,7 +23,8 @@ import { needLine, LIFE_ACTIONS, inNeedPanel, goodIcon, isMeatShop, needsTab, we
 import { DEVICES as STORY_DEVICES, KEY as STORY_KEY } from './story.js';
 import { busyBtn, confirmPopup, mascot } from './kit.js';
 import { freshDot, usedPrice, placeIcon, miniWidgets, pathTo, tripInfo } from './tiles.js';
-import { isoPt, isoNodes, floorsSVG, parseFloors, homeFloors, planSVG, homeSVG, spotFloor } from './iso.js'; // 🧊 입체 지도 · 건물 층 · 집 안 구조 (v2.9)
+import { isoPt, isoNodes, floorsSVG, parseFloors, homeFloors, homeSVG, spotFloor } from './iso.js'; // 🧊 입체 지도 · 건물 층 · 집 안 구조 (v2.9)
+import { linePos, lineEdges, lineNodes, pinBubble, elevSVG } from './metro.js'; // 🚇 노선도 지도 · 🏢 건물 정면도 · 📍 인물 핀 (v2.9)
 export * from './tiles.js'; // 떼어 낸 것 — 다른 파일은 예전처럼 여기서 받아도 된다
 
 const roleName = { user: '유저', main: '주요', npc: 'NPC' };
@@ -91,10 +92,9 @@ export const VIEW = {
         const areas = [...new Set(d.places.map(p => p.area).filter(Boolean))];
         const shown = ui.mapArea ? d.places.filter(p => p.area === ui.mapArea) : d.places;
         // 🧊 보기 방식 (v2.9): 입체(기본) · 평면 · 목록 — 고른 것은 모든 채팅에 기억
-        const mode = ['iso', 'flat', 'list'].includes(ui.mapMode ?? settings().mapMode) ? (ui.mapMode ?? settings().mapMode) : 'iso';
-        const iso = mode === 'iso';
-        const flatPos = layoutPlaces(d.places);
-        const pos = iso ? new Map([...flatPos].map(([k, o]) => [k, isoPt(o)])) : flatPos;
+        const mode = mapModeOf(ui.mapMode ?? settings().mapMode);
+        const iso = mode === 'iso', line = mode === 'line', rich = iso || line; // rich = 건물을 누르면 안(정면도)으로 들어가는 보기
+        const pos = mapPos(mode, d.places);
         const sel = findBy(d.places, ui.place ?? d.here);
         const shownSet = new Set(shown.map(p => p.name));
         const list = mode === 'list'; // 📋 목록 보기 (v2.9) — 가까운 순 · 바로 이동
@@ -102,25 +102,35 @@ export const VIEW = {
         const route = sel && norm(sel.name) !== norm(d.here) ? pathTo(d, sel.name) : null;
         const onRoute = new Set();
         if (route) for (let i = 0; i + 1 < route.length; i++) onRoute.add([route[i], route[i + 1]].sort().join('|'));
-        const edges = []; const routeEdges = []; const seen = new Set();
+        const edges = []; const routeEdges = []; const seen = new Set(); const pairs = [];
         for (const p of shown) for (const l of p.links) {
             const q = findBy(d.places, l); if (!q || !shownSet.has(q.name)) continue;
             const key = [p.name, q.name].sort().join('|'); if (seen.has(key)) continue; seen.add(key);
             const a = pos.get(p.name), b = pos.get(q.name);
+            pairs.push({ a: p.name, b: q.name, key, route: onRoute.has(key), unk: !(p.known && q.known) });
             (onRoute.has(key) ? routeEdges : edges).push(`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" class="${onRoute.has(key) ? 'route' : p.known && q.known ? '' : 'unk'}"/>`);
         }
         const people = modOn('profile') && s.data.profile;
-        const nodes = iso ? isoNodes(shown, { pos, here: d.here, sel, label: (p) => (p.known ? (viewTr() ? trString(p.name) : p.name) : '???'), count: (p) => (people ? peopleAt(s, p.name).now.length : 0) }) : shown.map(p => {
+        // 📍 인물 핀 (v2.9): 고른 인물이 지금 있는 곳에 이모지로 — 나는 현재 위치 · 다른 사람은 프로필의 사는 곳 · 일과로 (이 채팅만 기억 · AI에게 안 감)
+        const pinCfg = getMeta()?.mapPins ?? {};
+        const roster = people ? (s.data.profile.list ?? []) : [];
+        const hereName = findBy(d.places, d.here)?.name ?? d.here ?? '';
+        const pinned = roster.filter(pf => Object.hasOwn(pinCfg, pf.name)).map(pf => ({ name: pf.name, e: pinEmoji(pinCfg, pf.name), at: pf.role === 'user' ? hereName : (findBy(d.places, whereNow(pf, s.data.calendar))?.name ?? '') }));
+        const pinsAt = (p) => pinned.filter(x => x.at && norm(x.at) === norm(p.name));
+        const nodeOpt = { pos, here: d.here, sel, label: (p) => (p.known ? (viewTr() ? trString(p.name) : p.name) : '???'), count: (p) => (people ? peopleAt(s, p.name).now.length : 0) };
+        const net = line ? lineEdges(pairs, pos) : null; // 🚇 길을 노선으로 묶은 것 (색 · 이름표 자리에 씀)
+        const lineOut = line ? lineNodes(shown, { ...nodeOpt, pins: pinsAt, net }) : null;
+        const nodes = line ? lineOut.svg : iso ? isoNodes(shown, { ...nodeOpt, bubble: (cx, tipY, p) => pinBubble(cx, tipY, pinsAt(p)) }) : shown.map(p => {
             const ic = p.known ? placeIcon(p) : '❔';
             const o = pos.get(p.name); const here = norm(p.name) === norm(d.here); const isSel = sel && sel.name === p.name;
             const n = people ? peopleAt(s, p.name).now.length : 0;
             return `<g class="node ${here ? 'here' : ''} ${isSel ? 'sel' : ''} ${p.known ? '' : 'unk'}" data-act="selplace" data-arg="${esc(p.name)}">
                 ${here ? `<circle cx="${o.x}" cy="${o.y}" r="4.6" class="ring"/>` : ''}<circle cx="${o.x}" cy="${o.y}" r="${here ? 3.2 : 2.8}" class="dot"/><text class="ico" x="${o.x}" y="${o.y + 1.15}">${esc(ic)}</text>
-                <text x="${o.x}" y="${o.y - 4.4}">${esc(p.known ? short(viewTr() ? trString(p.name) : p.name, 8) : '???')}</text>${n ? `<text class="ppl" x="${o.x + 2.6}" y="${o.y + 1.2}">👥${n}</text>` : ''}</g>`;
+                <text x="${o.x}" y="${o.y - 4.4}">${esc(p.known ? short(viewTr() ? trString(p.name) : p.name, 8) : '???')}</text>${n ? `<text class="ppl" x="${o.x + 2.6}" y="${o.y + 1.2}">👥${n}</text>` : ''}${pinBubble(o.x, o.y + 11.6, pinsAt(p)).replace('class="pins"', 'class="pins dn"')}</g>`;
         }).join('');
-        const vb = ui.mapVB ?? (() => { const f = fitBox(shown.map(p => pos.get(p.name))); return iso ? [f[0], f[1] - 5, f[2], f[3] + 5] : f; })(); // 입체: 높은 건물 · 핀이 위로 잘리지 않게
+        const vb = ui.mapVB ?? (() => { const f = fitBox(shown.map(p => pos.get(p.name))); return iso ? [f[0], f[1] - 5, f[2], f[3] + 5] : line && shown.length ? (() => { const e = lineOut.ext, w = e[2] - e[0] + 8, h = e[3] - e[1] + 8, side = Math.max(w, h, 40); return [e[0] - 4 - (side - w) / 2, e[1] - 4 - (side - h) / 2, side, side].map(v => Math.round(v * 10) / 10); })() : f; })(); // 입체: 높은 건물 · 핀이 위로 잘리지 않게
         const night = iso && modOn('calendar') && /밤|새벽|심야|자정|night|midnight|dawn/i.test(timeWords(s.data.calendar));
-        const inKind = iso && ui.inside && sel && norm(ui.inside) === norm(sel.name) ? insideKind(s, sel) : '';
+        const inKind = rich && ui.inside && sel && norm(ui.inside) === norm(sel.name) ? insideKind(s, sel) : '';
         const inside = !!inKind; // 🔍 건물 안으로 들어가 있는 중
         let card = '';
         if (sel) {
@@ -133,15 +143,17 @@ export const VIEW = {
             card = `<div class="ss-card ss-place"><div class="ss-place-h"><b>${esc(sel.known ? sel.name : '알 수 없는 곳')}</b>${sel.kind ? chip(esc(sel.kind)) : ''}${sel.area ? chip(esc(sel.area)) : ''}${here ? chip('현재 위치', 'hi') : ''}</div>
                 <p class="ss-pre ss-dim">${esc(sel.known ? sel.desc : '아직 가 보지 않았다.')}</p>
                 ${pa.now.length || pa.live.length ? `<div class="ss-ppl">${pa.now.length ? `<div><small>지금 여기${cal ? ` (${esc(s.data.calendar.time)})` : ''}</small>${pa.now.map(n => `<button class="ss-chip btn" data-act="talk" data-arg="${esc(n)}">${esc(n)}</button>`).join('')}</div>` : ''}${pa.live.length ? `<div><small>사는 사람</small>${pa.live.map(n => chip(esc(n))).join('')}</div>` : ''}</div>` : ''}
-                ${iso && insideKind(s, sel) && !inside ? `<div class="ss-row-btns"><button class="ss-btn sm" data-act="mapin" data-arg="${esc(sel.name)}"><i class="fa-solid fa-magnifying-glass-plus"></i> 건물 안 보기</button></div>` : ''}
-                ${!iso && sel.known && sel.floors?.length ? `<div class="ss-floorbox"><small>건물 안 · ${sel.floors.length}곳${here ? ' — 층을 누르면 「지금 여기」로 표시해요 (AI에게도 알려요)' : ''}</small>${floorsSVG(sel, here ? d.spot : '', here)}</div>` : ''}
+                ${rich && insideKind(s, sel) && !inside ? `<div class="ss-row-btns"><button class="ss-btn sm" data-act="mapin" data-arg="${esc(sel.name)}"><i class="fa-solid fa-magnifying-glass-plus"></i> 건물 안 보기</button></div>` : ''}
+                ${!rich && sel.known && sel.floors?.length ? `<div class="ss-floorbox"><small>건물 안 · ${sel.floors.length}곳${here ? ' — 층을 누르면 「지금 여기」로 표시해요 (AI에게도 알려요)' : ''}</small>${floorsSVG(sel, here ? d.spot : '', here)}</div>` : ''}
                 ${sel.known && isHomePlace(s, sel) ? `<div class="ss-row-btns"><button class="ss-btn sm" data-act="tab" data-arg="base"><i class="fa-solid fa-house-chimney-window"></i> 집 안 보기</button></div>` : ''}
                 ${sel.links.length ? `<div class="ss-chips">${sel.links.map(l => `<button class="ss-chip btn" data-act="selplace" data-arg="${esc(l)}">${esc(l)}</button>`).join('')}</div>` : ''}
                 ${!here ? `<p class="ss-hint">${trip.path ? `${hops}칸 거리` : '길이 이어져 있지 않아요 · 한 칸으로 쳐요'}${cal && trip.arrive ? ` · 도착 <b>${esc(trip.arrive)}</b>` : ''}${sel.fare ? ` · 요금 ${fmtNum(sel.fare)} ${esc(cur)}${trip.poor ? ' <b class="neg">(모자라요)</b>' : ''}` : ''}${trip.path && trip.path.length > 2 ? `<br><i class="fa-solid fa-route"></i> ${trip.path.map(n => esc(short(nm(n), 12))).join(' → ')}` : ''}</p>
                 <div class="ss-row-btns"><button class="ss-btn pri sm" data-act="travel" data-arg="${esc(sel.name)}"><i class="fa-solid fa-person-walking"></i> 이동</button><button class="ss-btn sm ghost" data-act="goto" data-arg="${esc(sel.name)}">입력창에 쓰기</button><button class="ss-btn sm ghost" data-act="setloc" data-arg="${esc(sel.name)}">위치만 바꾸기</button></div>` : ''}</div>`;
         }
-        const modeSeg = `<div class="ss-seg ss-mapmode">${[['iso', 'fa-cube', '입체'], ['flat', 'fa-map', '평면'], ['list', 'fa-list-ul', '목록']].map(([v, ic, nm2]) => `<button class="${mode === v ? 'on' : ''}" data-act="mapmode" data-arg="${v}"><i class="fa-solid ${ic}"></i> ${nm2}</button>`).join('')}</div>`;
-        const headHTML = `<div class="ss-maphead"><div class="ss-hint"><b>${esc(d.name || '지도')}</b> · 지금 <b>${esc(d.here || '-')}</b>${freshDot('map', 'here')}</div>${modeSeg}</div>`;
+        const modeSeg = `<div class="ss-seg ss-mapmode">${[['line', 'fa-route', '노선도'], ['iso', 'fa-cube', '입체'], ['flat', 'fa-map', '평면'], ['list', 'fa-list-ul', '목록']].map(([v, ic, nm2]) => `<button class="${mode === v ? 'on' : ''}" data-act="mapmode" data-arg="${v}"><i class="fa-solid ${ic}"></i> ${nm2}</button>`).join('')}</div>`;
+        const headHTML = `<div class="ss-maphead"><div class="ss-hint"><b>${esc(d.name || '지도')}</b> · 지금 <b>${esc(d.here || '-')}</b>${freshDot('map', 'here')}</div>${modeSeg}</div>${roster.length ? `<details class="ss-mappins" ${ui.pinOpen ? 'open' : ''}><summary data-act="mappinopen">📍 인물 표시${pinned.length ? ` · <span class="e">${pinned.map(x => esc(x.e)).join(' ')}</span>` : ' <small>— 고른 인물이 지금 있는 곳에 이모지로 떠요</small>'}</summary>
+            <div class="ss-pinlist">${roster.map(pf => { const on = Object.hasOwn(pinCfg, pf.name), at = pinned.find(x => x.name === pf.name)?.at; return `<span class="ss-pinchip ${on ? 'on' : ''}"><button class="ss-chip btn ${on ? 'hi' : ''}" data-act="mappin" data-arg="${esc(pf.name)}" aria-pressed="${on}">${esc(pinEmoji(pinCfg, pf.name))} ${esc(pf.name)}${on && !at ? ' <small>위치 모름</small>' : ''}</button>${on ? `<button class="ss-chip btn" data-act="mappinemo" data-arg="${esc(pf.name)}" title="지도에 뜰 이모지 바꾸기"><i class="fa-solid fa-pen"></i></button>` : ''}</span>`; }).join('')}</div>
+            <p class="ss-hint">누르면 켜고 꺼요 · ✏️로 지도에 뜰 이모지를 정해요. 나는 현재 위치에, 다른 인물은 프로필의 「사는 곳 · 일과」와 지금 시간에 맞는 곳에 떠요.</p></details>` : ''}`;
         const areasHTML = areas.length ? `<div class="ss-seg wrap ss-areas">${[['', '전체'], ...areas.map(a => [a, a])].map(([v, t]) => `<button class="${(ui.mapArea ?? '') === v ? 'on' : ''}" data-act="maparea" data-arg="${esc(v)}">${esc(t)}</button>`).join('')}</div>` : '';
         if (list) {
             // 가까운 순 (지금 위치 → 이어진 곳 → 먼 곳 → 길 없는 곳) · 줄을 누르면 위에 장소 카드 · 「이동」은 바로
@@ -149,7 +161,7 @@ export const VIEW = {
                 .sort((a, b) => (b.here - a.here) || ((a.t.path ? a.t.hops : 99) - (b.t.path ? b.t.hops : 99)))
                 .map(({ p, here, t }) => {
                     const n = people ? peopleAt(s, p.name).now.length : 0;
-                    const info = [p.known && p.kind ? esc(p.kind) : '', n ? `👥 ${n}` : '', here ? '' : t.path ? `${t.hops}칸${t.arrive ? ` · ${esc(t.arrive)} 도착` : ''}` : '길 없음', !here && t.fare ? `${fmtNum(t.fare)} ${esc(t.cur)}` : ''].filter(Boolean).join(' · ');
+                    const info = [pinsAt(p).map(x => esc(x.e)).join(''), p.known && p.kind ? esc(p.kind) : '', n ? `👥 ${n}` : '', here ? '' : t.path ? `${t.hops}칸${t.arrive ? ` · ${esc(t.arrive)} 도착` : ''}` : '길 없음', !here && t.fare ? `${fmtNum(t.fare)} ${esc(t.cur)}` : ''].filter(Boolean).join(' · ');
                     return `<div class="ss-pl ${here ? 'here' : ''} ${sel && sel.name === p.name ? 'sel' : ''} ${p.known ? '' : 'unk'}" role="button" tabindex="0" data-act="selplace" data-arg="${esc(p.name)}"><span class="e">${esc(p.known ? placeIcon(p) : '❔')}</span>
                         <div class="ss-pl-b"><b>${esc(p.known ? (viewTr() ? trString(p.name) : p.name) : '???')}</b>${info ? `<small>${info}</small>` : ''}</div>
                         ${here ? chip('현재 위치', 'hi') : `<button class="ss-btn sm ${t.poor ? 'ghost' : 'pri'}" data-act="travel" data-arg="${esc(p.name)}" title="${t.poor ? '요금이 모자라요' : '여기로 이동'}"><i class="fa-solid fa-person-walking"></i> 이동</button>`}</div>`;
@@ -158,27 +170,26 @@ export const VIEW = {
         }
         if (inside) {
             const hereIn = norm(sel.name) === norm(d.here);
-            // 📐 층별 평면도: 층 단추로 고르고, 그 층을 위에서 본 도면 한 장 (본거지는 방 · 가구)
-            const fls = inKind === 'home' ? homeFloors(s.data.home) : parseFloors(sel.floors);
-            const spot = hereIn && inKind !== 'home' ? norm(d.spot ?? '') : '';
+            // 🏢 정면도 (v2.9): 건물을 앞에서 자른 그림 — 모든 층 · 방이 한 장에 (본거지는 방 · 가구)
+            const home = inKind === 'home';
+            const fls = home ? homeFloors(s.data.home) : parseFloors(sel.floors);
+            const spot = hereIn && !home ? norm(d.spot ?? '') : '';
             const spotFl = spotFloor(fls, spot); // norm은 빈칸을 지우므로 「2층 교실」→「2층교실」 — 이름이 가장 길게 맞는 층 하나만 (「지하」와 「지하 2층」이 같이 있을 때)
-            const atFloor = (f) => f === spotFl;
-            const cur = fls.find(f => ui.floor && norm(f.name) === norm(ui.floor)) ?? fls.find(atFloor) ?? fls.find(f => !/지하|basement|cellar|^b\d/i.test(f.name)) ?? fls[0];
             const spotOf = (f, r) => (r.whole ? f.name : `${f.name} ${r.name}`);
-            const pic = planSVG(cur, inKind === 'home'
-                ? { act: 'selroom', on: (r) => !!ui.hroom && norm(ui.hroom) === norm(r.name) }
-                : { act: hereIn ? 'spot' : '', on: (r) => !!spot && (spot === norm(spotOf(cur, r)) || (!cur.rooms.length && atFloor(cur))), arg: (r) => spotOf(cur, r) });
-            const floorSeg = fls.length > 1 ? `<div class="ss-seg wrap ss-floorseg">${[...fls].reverse().map(f => `<button class="${f === cur ? 'on' : ''}" data-act="mapfloor" data-arg="${esc(f.name)}">${esc(short(f.name, 10))}${atFloor(f) ? ' <i class="fa-solid fa-location-dot"></i>' : ''}</button>`).join('')}</div>` : '';
+            const me = pinned.find(x => roster.find(pf => pf.name === x.name)?.role === 'user')?.e ?? '';
+            const pic = elevSVG(fls, home
+                ? { home: true, act: 'selroom', on: (f, r) => !!ui.hroom && norm(ui.hroom) === norm(r.name), arg: (f, r) => r.name }
+                : { act: hereIn ? 'spot' : '', me, at: (f) => f === spotFl, on: (f, r) => !!spot && (spot === norm(spotOf(f, r)) || (!f.rooms.length && f === spotFl)), arg: spotOf });
             return `${headHTML}
-                <div class="ss-mapwrap inside"><div class="ss-inbar"><button class="ss-btn sm" data-act="mapout"><i class="fa-solid fa-arrow-left"></i> 지도로</button><b>${esc(placeIcon(sel))} ${esc(viewTr() ? trString(sel.name) : sel.name)} · ${esc(cur.name)}</b>${hereIn ? chip('현재 위치', 'hi') : ''}</div>${floorSeg}<div class="ss-inpic">${pic}</div></div>
-                <p class="ss-hint">${inKind === 'home' ? '본거지의 방과 가구예요. 방 「고치기」에서 층(숫자)을 적으면 층별로 나뉘어요. 가구 옮기기 · 창고는 「집 안 보기」(본거지 탭)에서 해요.' : `${hereIn ? '방(층)을 누르면 「지금 여기」로 표시하고 AI에게도 알려요. 다시 누르면 지워요.' : '여기로 이동하면 방을 눌러 「지금 여기」를 표시할 수 있어요.'} 방은 장소 「고치기」 › 안쪽 · 층에 「2층: 교실/복도/화장실」처럼 적어요.`}</p>
+                <div class="ss-mapwrap inside"><div class="ss-inbar"><button class="ss-btn sm" data-act="mapout"><i class="fa-solid fa-arrow-left"></i> 지도로</button><b>${esc(placeIcon(sel))} ${esc(viewTr() ? trString(sel.name) : sel.name)}${spotFl ? ` · ${esc(d.spot)}` : ''}</b>${hereIn ? chip('현재 위치', 'hi') : ''}</div><div class="ss-inpic">${pic}</div></div>
+                <p class="ss-hint">${home ? '본거지의 방과 가구예요. 방 「고치기」에서 층(숫자)을 적으면 층별로 나뉘어요. 가구 옮기기 · 창고는 「집 안 보기」(본거지 탭)에서 해요.' : `${hereIn ? '방(층)을 누르면 「지금 여기」로 표시하고 AI에게도 알려요. 다시 누르면 지워요.' : '여기로 이동하면 방을 눌러 「지금 여기」를 표시할 수 있어요.'} 방은 장소 「고치기」 › 안쪽 · 층에 「2층: 교실/복도/화장실」처럼 적어요.`}</p>
                 ${card}`;
         }
         return `${headHTML}
             ${areas.length ? `<div class="ss-seg wrap ss-areas">${[['', '전체'], ...areas.map(a => [a, a])].map(([v, t]) => `<button class="${(ui.mapArea ?? '') === v ? 'on' : ''}" data-act="maparea" data-arg="${esc(v)}">${esc(t)}</button>`).join('')}</div>` : ''}
-            <div class="ss-mapwrap${iso ? ' iso' : ''}${night ? ' night' : ''}"><svg class="ss-map${iso ? ' ss-iso iso' : ''}" viewBox="${vb.join(' ')}" preserveAspectRatio="xMidYMid meet"><g class="edges">${edges.join('')}${routeEdges.join('')}</g>${nodes}</svg>
+            <div class="ss-mapwrap${iso ? ' iso' : ''}${line ? ' line' : ''}${night ? ' night' : ''}"><svg class="ss-map${iso ? ' ss-iso iso' : ''}${line ? ' line' : ''}" viewBox="${vb.join(' ')}" preserveAspectRatio="xMidYMid meet"><g class="edges">${line ? net.svg : edges.join('') + routeEdges.join('')}</g>${nodes}</svg>
                 <div class="ss-mapctl"><button class="ss-ib" data-act="mapzoom" data-arg="in" title="확대">＋</button><button class="ss-ib" data-act="mapzoom" data-arg="out" title="축소">－</button><button class="ss-ib" data-act="mapzoom" data-arg="here" title="현재 위치로"><i class="fa-solid fa-location-crosshairs"></i></button><button class="ss-ib" data-act="mapzoom" data-arg="fit" title="전체 보기"><i class="fa-solid fa-expand"></i></button></div></div>
-            <p class="ss-hint">끌어서 옮기고, 두 손가락·휠·버튼으로 확대해요.${iso ? ' 장소 「고치기」에서 안쪽 · 층을 적어 두면, 그 건물을 눌렀을 때 안으로 확대돼요.' : ''}</p>
+            <p class="ss-hint">끌어서 옮기고, 두 손가락·휠·버튼으로 확대해요.${rich ? ' 장소 「고치기」에서 안쪽 · 층을 적어 두면, 그 건물을 눌렀을 때 모든 층이 보이는 정면도가 열려요.' : ''}</p>
             ${card}`;
     },
     calendar: (s, d, ui) => {
@@ -256,6 +267,16 @@ VIEW.base = (s, d, ui = {}) => `<div class="ss-hero sm"><div class="ss-hero-t"><
         <div class="ss-item-a">${s.data.wallet && modOn('wallet') ? `<button class="ss-ib" data-act="tobag" data-arg="${esc(x)}" title="소지품으로 옮기기">🎒</button>` : ''}${s.data.wallet && modOn('wallet') ? `<button class="ss-btn sm ghost" data-act="sellused" data-arg="${esc(x)}" title="중고장터에 팔기 (헐값)">♻ 팔기</button>` : ''}<button class="ss-ib" data-act="trashit" data-arg="${esc(x)}" title="쓰레기통에 버리기"><i class="fa-solid fa-trash-can"></i></button></div></div>`).join('')}</div>` : emptyBox('상점에서 가구를 사면 여기에 들어와요', 'fa-couch'))}
     ${d.trash?.length ? `<details class="ss-arc"><summary><i class="fa-solid fa-trash-can"></i> 쓰레기통 ${d.trash.length}개</summary><ul>${[...d.trash].reverse().map(t => `<li><b>${esc(t.name)}</b> <small>${esc(t.date)}</small> <button class="ss-btn sm ghost" data-act="restore" data-arg="${esc(t.name)}">되살리기</button> <button class="ss-btn sm ghost danger" data-act="purge" data-arg="${esc(t.name)}" title="완전 삭제 — 되살릴 수 없어요"><i class="fa-solid fa-xmark"></i> 완전 삭제</button></li>`).join('')}</ul><div class="ss-row-btns"><button class="ss-btn sm ghost danger" data-act="purgeall"><i class="fa-solid fa-broom"></i> 쓰레기통 비우기 (완전 삭제)</button></div></details>` : ''}`;
 
+// 🗺 지도 보기 방식 (v2.9): 노선도(기본) · 입체 · 평면 · 목록 — 보기마다 장소 좌표가 다르다
+const MAP_MODES = ['line', 'iso', 'flat', 'list'];
+const mapModeOf = (v) => (MAP_MODES.includes(v) ? v : 'line');
+function mapPos(mode, places) {
+    const flat = layoutPlaces(places);
+    return mode === 'line' ? linePos(flat) : mode === 'iso' ? new Map([...flat].map(([k, o]) => [k, isoPt(o)])) : flat;
+}
+// 📍 인물 핀에 뜰 이모지: 지도용으로 따로 정한 것 → 얼굴 이모지 → 이름 첫 글자
+const pinEmoji = (cfg, name) => cfg?.[name] || emojiOf(name) || String(name).slice(0, 1);
+const PIN_EMOJI = ['📍', '⭐', '❤️', '💙', '💚', '💛', '💜', '🖤', '🔥', '❄️', '🌙', '☀️', '🌸', '🍀', '👑', '🗡️', '🛡️', '🎩', '🐱', '🐶', '🦊', '🐰', '🐻', '🐧', '🐺', '🦁', '🐲', '👻', '🤖', '👤', '🚶', '💤'];
 // 🔍 지도에서 눌러 「안으로」 들어갈 수 있는 곳인가 (v2.9): 안쪽 · 층을 적어 둔 건물 → 'floors' · 방이 있는 본거지(집) → 'home'
 function insideKind(s, p) {
     if (!p?.known) return '';
@@ -542,7 +563,7 @@ const pkOpts = (keys) => keys.map(pkOpt).filter(Boolean);
 function pkSub(id, s, st) { // 켠 칸 밑의 딸린 옵션
     const parts = [];
     if (id === 'calendar' && s.data.calendar) parts.push(`<div class="ss-pk-opt"><small>시간 적는 법</small>${seg(CLOCK_STYLES.map(([v, name, ex]) => [v, `${name} <small>${ex}</small>`]), s.data.calendar.clock ?? '', 'clockstyle', 'class="ss-seg wrap"')}</div>`);
-    if (id === 'map') parts.push(`<div class="ss-pk-opt"><small>지도 보기</small>${seg([['iso', '입체'], ['flat', '평면'], ['list', '목록']], ['iso', 'flat', 'list'].includes(st.mapMode) ? st.mapMode : 'iso', 'mapmode', 'class="ss-seg wrap"')}</div>`);
+    if (id === 'map') parts.push(`<div class="ss-pk-opt"><small>지도 보기</small>${seg([['line', '노선도'], ['iso', '입체'], ['flat', '평면'], ['list', '목록']], mapModeOf(st.mapMode), 'mapmode', 'class="ss-seg wrap"')}</div>`);
     const flags = (PK_PARENT[id] ?? []).map(k => FLAG_BY[k]).filter(Boolean);
     if (flags.length) parts.push(`<div class="ss-pk-opt"><small>딸린 옵션 · 모든 채팅에 걸려요</small>${flagList(st, flags)}</div>`);
     const det = pkOpts(PK_DETAIL[id] ?? []);
@@ -722,13 +743,32 @@ export const VIEW_ACTIONS = {
     // 🔍 입체 지도에서 층 · 방이 있는 건물을 누르면 그 건물로 확대해 들어간다 (그 밖엔 고르기만)
     selplace: (el, arg, btn, s) => {
         const ui = el._ss.ui; ui.place = arg; ui.inside = null; ui.floor = null;
-        const svg = btn?.closest?.('svg.ss-map.iso'), p = svg ? findBy(s?.data.map?.places, arg) : null;
+        const svg = btn?.closest?.('svg.ss-map.iso, svg.ss-map.line'), p = svg ? findBy(s?.data.map?.places, arg) : null;
         if (svg && p && insideKind(s, p)) return zoomInto(el, svg, p.name);
         app.renderPanel(el);
     },
-    mapin: (el, arg, btn, s) => { const ui = el._ss.ui, svg = el.querySelector('svg.ss-map.iso'); ui.place = arg; if (svg) return zoomInto(el, svg, arg); ui.inside = arg; app.renderPanel(el); },
+    mapin: (el, arg, btn, s) => { const ui = el._ss.ui, svg = el.querySelector('svg.ss-map.iso, svg.ss-map.line'); ui.place = arg; if (svg) return zoomInto(el, svg, arg); ui.inside = arg; app.renderPanel(el); },
     mapout: (el) => { el._ss.ui.inside = null; el._ss.ui.floor = null; app.renderPanel(el); },
     mapfloor: (el, arg) => { el._ss.ui.floor = arg; app.renderPanel(el); },
+    // 📍 인물 핀 (v2.9): 지도에 띄울 인물 고르기 · 이모지 정하기 — 이 채팅의 메타(mapPins)에만 적는다 (AI에게 안 감)
+    mappinopen: (el) => { el._ss.ui.pinOpen = !el._ss.ui.pinOpen; app.renderPanel(el); },
+    mappin: async (el, arg) => {
+        const meta = getMeta(true); if (!meta) return;
+        const pins = { ...(meta.mapPins ?? {}) };
+        if (Object.hasOwn(pins, arg)) delete pins[arg]; else pins[arg] = '';
+        meta.mapPins = pins; el._ss.ui.pinOpen = true;
+        await saveMeta(); app.renderPanel(el);
+    },
+    mappinemo: async (el, arg) => {
+        const meta = getMeta(true); if (!meta || !Object.hasOwn(meta.mapPins ?? {}, arg)) return;
+        const box = document.createElement('div');
+        box.innerHTML = `<p class="ss-hint">${esc(arg)}의 위치에 뜰 이모지를 고르거나 직접 넣어요. 비워 두면 얼굴 이모지를 써요.</p><div class="ss-emopick">${PIN_EMOJI.map(e => `<button data-e="${e}">${e}</button>`).join('')}</div>`;
+        box.addEventListener('click', (e) => { const b = e.target.closest('[data-e]'); if (!b) return; box.querySelectorAll('[data-e]').forEach(x => x.classList.toggle('on', x === b)); const inp = box.closest('dialog, .popup')?.querySelector('.popup-input, textarea, input'); if (inp) inp.value = b.dataset.e; });
+        const v = await ctx().Popup.show.input(TITLE, box, meta.mapPins[arg] ?? '', { rows: 1 });
+        if (v === null || v === false || v === undefined) return;
+        meta.mapPins = { ...meta.mapPins, [arg]: String(v).trim().slice(0, 8) }; el._ss.ui.pinOpen = true;
+        await saveMeta(); app.renderPanel(el);
+    },
     mapmode: (el, arg) => { el._ss.ui.mapMode = arg; el._ss.ui.mapVB = null; el._ss.ui.inside = null; settings().mapMode = arg; saveSettings(); app.renderPanel(el); },
     // 🏢 건물 안에서 층 옮기기 (지금 그 건물에 있을 때만 · 같은 층을 다시 누르면 지움)
     spot: (el, arg, btn, s) => { const mp = s.data.map; if (!mp) return; const off = norm(mp.spot ?? '') === norm(arg); return addAdjust({ ops: [['_spot', off ? '' : arg]], label: off ? `${mp.here} — 층 표시 지움` : `${mp.here} · ${arg}(으)로 갔다` }); },
@@ -738,7 +778,7 @@ export const VIEW_ACTIONS = {
         const ui = el._ss.ui, svg = el.querySelector('svg.ss-map'); if (!svg) return;
         const vb = svgBox(svg);
         if (arg === 'fit') ui.mapVB = null;
-        else if (arg === 'here') { const p0 = layoutPlaces(s.data.map.places).get(findBy(s.data.map.places, s.data.map.here)?.name), p = p0 && svg.classList.contains('iso') ? isoPt(p0) : p0; ui.mapVB = p ? [p.x - 25, p.y - 25, 50, 50] : null; ui.place = s.data.map.here; }
+        else if (arg === 'here') { const p = mapPos(svg.classList.contains('iso') ? 'iso' : svg.classList.contains('line') ? 'line' : 'flat', s.data.map.places).get(findBy(s.data.map.places, s.data.map.here)?.name); ui.mapVB = p ? [p.x - 25, p.y - 25, 50, 50] : null; ui.place = s.data.map.here; }
         else ui.mapVB = zoomBox(vb, arg === 'in' ? 1 / 1.4 : 1.4);
         app.renderPanel(el);
     },

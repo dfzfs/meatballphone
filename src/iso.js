@@ -75,17 +75,18 @@ function shape(kind, cx, cy, p) {
 }
 
 // ───── 지도의 장소들 (뒤에서 앞으로 그린다) ─────
-// o = { pos (이름 → 화면 좌표), here, sel, label(p), count(p) → 지금 거기 있는 사람 수 }
+// o = { pos (이름 → 화면 좌표), here, sel, label(p), count(p) → 지금 거기 있는 사람 수, bubble(cx, tipY, p) → 📍 인물 핀 말풍선 (없으면 '') }
 export function isoNodes(places, o) {
     return [...places].sort((a, b) => o.pos.get(a.name).y - o.pos.get(b.name).y).map(p => {
         const { x: cx, y: cy } = o.pos.get(p.name);
         const here = norm(p.name) === norm(o.here), isSel = o.sel && o.sel.name === p.name;
         const sh = p.known ? shape(isoKind(p), cx, cy, p) : { svg: G('#b8b6b0', box(cx, cy, 2.4, 2.4)) + `<text class="q" x="${cx}" y="${R(cy - 3.1)}">?</text>`, top: 3.8 };
         const n = o.count?.(p) ?? 0, top = cy - sh.top;
+        const bub = o.bubble?.(cx, R(top - (sh.emoji || p.icon ? 4.4 : 0.8)), p) ?? ''; // 📍 고른 인물이 여기 있으면 「현재 위치」 핀 자리에 말풍선
         return `<g class="node iso-n ${here ? 'here' : ''} ${isSel ? 'sel' : ''} ${p.known ? '' : 'unk'}" data-act="selplace" data-arg="${esc(p.name)}">
             ${flat(cx, cy, 4.4, 'gnd')}${sh.svg}
             ${p.known && (sh.emoji || p.icon) ? `<text class="ico" x="${cx}" y="${R(top - 0.4)}">${esc(placeIcon(p))}</text>` : ''}
-            ${here ? `<g class="pin"><line x1="${cx}" y1="${R(top - (sh.emoji || p.icon ? 4.6 : 1))}" x2="${cx}" y2="${R(top - (sh.emoji || p.icon ? 6.4 : 2.8))}"/><circle cx="${cx}" cy="${R(top - (sh.emoji || p.icon ? 7.6 : 4))}" r="1.5"/></g>` : ''}
+            ${bub || (here ? `<g class="pin"><line x1="${cx}" y1="${R(top - (sh.emoji || p.icon ? 4.6 : 1))}" x2="${cx}" y2="${R(top - (sh.emoji || p.icon ? 6.4 : 2.8))}"/><circle cx="${cx}" cy="${R(top - (sh.emoji || p.icon ? 7.6 : 4))}" r="1.5"/></g>` : '')}
             <text x="${cx}" y="${R(cy + 5.9)}">${esc(short(o.label(p), 8))}</text>${n ? `<text class="ppl" x="${R(cx + 4.4)}" y="${R(cy + 1)}">👥${n}</text>` : ''}</g>`;
     }).join('');
 }
@@ -164,8 +165,8 @@ const FURN = [
     [/커튼|curtain|블라인드/i, '🪟'], [/옷장|장롱|wardrobe|closet|서랍|drawer|수납|선반|shelf|cabinet|캐비닛/i, '🗄️'], [/인형|doll|곰|bear|장난감|toy/i, '🧸'], [/피아노|piano|기타|guitar|악기/i, '🎹'],
     [/상자|box|궤|chest|금고|safe/i, '📦'], [/무기|검|sword|칼|방패|shield|갑옷/i, '⚔️'], [/트로피|trophy|상패|메달/i, '🏆'], [/어항|fish|수조/i, '🐟'], [/쿠션|베개|pillow|cushion/i, '🛌'],
 ];
-const furnIcon = (name) => FURN.find(([re]) => re.test(name))?.[1] ?? '📦';
-const ROOM_COLOR = [[/부엌|주방|kitchen|식당|dining/i, '#f3e2b8'], [/욕실|화장실|bath|toilet|세면/i, '#cfe6f2'], [/침실|bedroom|안방|내 방|방$/i, '#f2d9dc'], [/거실|living|응접|라운지|lounge/i, '#e9dcc3'], [/서재|study|도서|작업|work|연구/i, '#dcd2e8'], [/정원|마당|garden|yard|베란다|발코니|테라스|옥상|terrace|balcony|rooftop/i, '#cfe6bf'], [/지하|창고|cellar|basement|storage|다락|attic/i, '#d5d0c6'], [/현관|입구|entrance|hall|복도|corridor/i, '#e4ddd0']];
+export const furnIcon = (name) => FURN.find(([re]) => re.test(name))?.[1] ?? '📦';
+export const ROOM_COLOR = [[/부엌|주방|kitchen|식당|dining/i, '#f3e2b8'], [/욕실|화장실|bath|toilet|세면/i, '#cfe6f2'], [/침실|bedroom|안방|내 방|방$/i, '#f2d9dc'], [/거실|living|응접|라운지|lounge/i, '#e9dcc3'], [/서재|study|도서|작업|work|연구/i, '#dcd2e8'], [/정원|마당|garden|yard|베란다|발코니|테라스|옥상|terrace|balcony|rooftop/i, '#cfe6bf'], [/지하|창고|cellar|basement|storage|다락|attic/i, '#d5d0c6'], [/현관|입구|entrance|hall|복도|corridor/i, '#e4ddd0']];
 export function homeSVG(home, selRoom) {
     const rooms = home?.rooms ?? []; if (!rooms.length) return '';
     const lvOf = (r) => (Number.isFinite(r.floor) ? r.floor : 1);

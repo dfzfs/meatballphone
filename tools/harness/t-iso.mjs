@@ -29,7 +29,7 @@ try {
         try { window.__SS_TEST__.api.app.renderPanel(el); } catch (e) { return String(e.stack || e).slice(0, 300); }
         return '';
     }, [tab, ui]);
-    for (const m of ['iso', 'flat', 'list']) check(!(await render('map', { mapMode: m })), `지도 ${m} 보기가 그려짐`);
+    for (const m of ['line', 'iso', 'flat', 'list']) check(!(await render('map', { mapMode: m })), `지도 ${m} 보기가 그려짐`);
     check(!(await render('base', {})) && await page.evaluate(() => !!document.querySelector('dialog .ss-panel svg.ss-homeiso .rm')), '본거지 탭: 집 안 그림이 그려짐 (homeSVG)');
     // 종류 짐작: 영어 낱말은 낱말 경계로
     const kinds = await page.evaluate(async () => { const { isoKind } = await import('/ext/src/iso.js'); return ['Airport', 'Research Lab', 'Public Library', 'Harbor', '강당', '한강', '지하철역', '빵집'].map(n => isoKind({ name: n })); });
@@ -41,12 +41,12 @@ try {
     check(await inBtn('학교'), '학교(층 있음)엔 「건물 안 보기」');
     // 안으로 → 2층 → 교실을 눌러 「지금 여기」
     await render('map', { mapMode: 'iso', place: '학교', inside: '학교', floor: '2층' });
-    check(await page.evaluate(() => document.querySelectorAll('dialog .ss-panel svg.ss-plan .rm').length) === 3, '2층 도면에 방 셋');
-    await page.evaluate(() => document.querySelector('dialog .ss-panel svg.ss-plan .rm[data-arg="2층 교실"]').dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    check(await page.evaluate(() => document.querySelectorAll('dialog .ss-panel svg.ss-elev .rm').length) === 8, '정면도에 모든 층의 방이 한 장에 (1 + 3 + 3 + 1)');
+    await page.evaluate(() => document.querySelector('dialog .ss-panel svg.ss-elev .rm[data-arg="2층 교실"]').dispatchEvent(new MouseEvent('click', { bubbles: true })));
     await sleep(400);
     check(await page.evaluate(() => window.__SS_TEST__.api.app.current.state.data.map.spot) === '2층 교실', '방을 누르면 spot = 「2층 교실」');
     await render('map', { mapMode: 'iso', place: '학교', inside: '학교' });
-    check(await page.evaluate(() => { const el = document.querySelector('dialog .ss-panel'); return el.querySelector('.ss-floorseg button.on')?.textContent.trim().startsWith('2층') && !!el.querySelector('.ss-floorseg button.on .fa-location-dot') && !!el.querySelector('svg.ss-plan .rm.on'); }), '다시 들어오면 지금 있는 층(2층)이 열리고 📍 · 방에 불');
+    check(await page.evaluate(() => { const el = document.querySelector('dialog .ss-panel'); return el.querySelector('svg.ss-elev .lv.on text')?.textContent.trim() === '2층' && el.querySelector('svg.ss-elev .rm.on')?.dataset.arg === '2층 교실' && /지금 여기/.test(el.querySelector('svg.ss-elev .rm.on .here')?.textContent ?? ''); }), '다시 들어오면 지금 있는 층(2층) 이름표와 방에 불');
     await render('map', { mapMode: 'flat', place: '학교' });
     check(await page.evaluate(() => /2층/.test(document.querySelector('dialog .ss-panel svg.ss-floors .fl.on')?.textContent ?? '')), '평면 보기에서도 2층에 불');
     const inj = () => page.evaluate(async () => { const x = (await import('/ext/src/engine.js')).buildInjection(window.__SS_TEST__.api.app.current, { full: true }); return [x.main, x.people].join('\n'); });
