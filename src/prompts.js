@@ -245,6 +245,37 @@ async function aiGenerateOnce(feature, systemPrompt, prompt, maxTokens, opts = {
     }
 }
 
+// 글(문자열) 밖만 고치는 훑기 (검수): 예전엔 따옴표 바꾸기가 글 안의 「“안녕”」까지 "로 바꿔서 JSON이 더 깨졌다
+//   · 둥근 따옴표 “ ” ‘ ’ 와 홑따옴표 '…'로 감싼 글 → "…" (글 안의 " 는 \" 로)
+//   · 「: +3」의 + 떼기 · True / False / None → true / false / null
+//   · 줄을 바꿔 이어 쓴 값 사이에 빠진 쉼표 넣기 (「"a": 1⏎"b": 2」 · 「{…}⏎{…}」)
+function structFix(x) {
+    let out = '', i = 0, lastVal = false; const n = x.length;
+    const OPEN = { '"': '"', '“': '”', '‘': '’', "'": "'" };
+    while (i < n) {
+        const c = x[i];
+        if (OPEN[c] !== undefined) {
+            // 글 하나 읽기: 연 따옴표에 맞는 닫는 따옴표까지 (" 로 연 글은 " 로만 닫는다 · 다른 따옴표로 연 글은 짝 또는 " 로)
+            const close = OPEN[c]; let j = i + 1, body = '';
+            while (j < n) {
+                const d = x[j];
+                if (d === '\\' && j + 1 < n) { body += d + x[j + 1]; j += 2; continue; }
+                if (d === close || ((c === '“' || c === '‘') && d === '"')) break; // “글" 처럼 짝이 안 맞게 닫은 것
+                body += c !== '"' && d === '"' ? '\\"' : d; j++;
+            }
+            if (lastVal && /\n/.test(out.slice(out.search(/\S\s*$/)))) out = out.replace(/(\S)(\s*)$/, '$1,$2');
+            out += `"${body}"`; i = j + 1; lastVal = true; continue;
+        }
+        if (/[{[]/.test(c)) { if (lastVal && c === '{' && /\n/.test(out.slice(out.search(/\S\s*$/)))) out = out.replace(/(\S)(\s*)$/, '$1,$2'); out += c; lastVal = false; i++; continue; }
+        if (/[}\]]/.test(c)) { out += c; lastVal = true; i++; continue; }
+        if (c === ',' || c === ':') { out += c; lastVal = false; i++; continue; }
+        if (c === '+' && /[\d.]/.test(x[i + 1] ?? '') && /[:,[]\s*$/.test(out)) { i++; continue; }
+        const w = x.slice(i).match(/^(True|False|None|true|false|null|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\b/);
+        if (w) { if (lastVal && /\n/.test(out.slice(out.search(/\S\s*$/)))) out = out.replace(/(\S)(\s*)$/, '$1,$2'); out += w[1] === 'True' ? 'true' : w[1] === 'False' ? 'false' : w[1] === 'None' ? 'null' : w[1]; i += w[1].length; lastVal = true; continue; }
+        out += c; if (!/\s/.test(c)) lastVal = false; i++;
+    }
+    return out;
+}
 export function parseJSON(text) {
     let t = String(text ?? '').trim();
     t = t.replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, ''); // 생각 과정을 붙이는 모델
@@ -254,7 +285,7 @@ export function parseJSON(text) {
     const b = t.lastIndexOf('}');
     const body = b > a ? t.slice(a, b + 1) : t.slice(a);
     try { return JSON.parse(body); } catch { /* repair */ }
-    const fix = (x) => x.replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/\/\/[^\n"]*$/gm, '').replace(/,\s*([}\]])/g, '$1').replace(/([{,]\s*)([A-Za-z_][\w]*)\s*:/g, '$1"$2":').replace(/\bNaN\b|\bundefined\b/g, 'null');
+    const fix = (x) => structFix(x).replace(/\/\/[^\n"]*$/gm, '').replace(/,\s*([}\]])/g, '$1').replace(/([{,]\s*)([A-Za-z_][\w]*)\s*:/g, '$1"$2":').replace(/\bNaN\b|\bundefined\b/g, 'null');
     try { return JSON.parse(fix(body)); } catch { /* 잘린 답 */ }
     return JSON.parse(closeJSON(fix(t.slice(a))));
 }
