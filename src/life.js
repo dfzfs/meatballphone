@@ -150,7 +150,7 @@ export function gearSection(s) {
     if (settings().gearOn !== true) return sec('👕 옷차림 · 장비', `<p class="ss-hint">소지품을 칸마다 하나씩 입거나 들어요. 효과 글의 「힘 +2」는 주사위에 더해지고, 「체온 -30%」는 그 욕구가 30% 덜 줄어요. AI에게는 「지금 입은 것」 한 줄이 가요.</p><div class="ss-row-btns"><button class="ss-btn" data-act="gearon"><i class="fa-solid fa-shirt"></i> 옷차림 · 장비 켜기</button></div>`);
     if (!AD) { loadAD().then(() => app.rerenderPanels?.(true)).catch(e => ssWarn(LOG, 'gear load', e)); return sec('👕 옷차림 · 장비', '<p class="ss-hint">불러오는 중…</p>'); }
     const eq = AD.equipped(s), by = Object.fromEntries(eq.map(e => [e.slot, e]));
-    return sec(`👕 옷차림 · 장비 <small>${eq.length}/${AD.gearSlots().length}</small>`, `<div class="ss-stack">${AD.gearSlots().map(slot => { const e = by[slot]; return `<div class="ss-item ss-gear"><div class="ss-item-b"><b>${esc(slot)}</b><small>${e ? `${esc(e.name)}${e.effect ? ` · ${esc(e.effect)}` : ''}` : '비어 있음'}</small></div><div class="ss-item-a"><button class="ss-btn sm" data-act="gearpick" data-arg="${esc(slot)}">${e ? '바꾸기' : '입기'}</button></div></div>`; }).join('')}</div>
+    return sec(`👕 옷차림 · 장비 <small>${eq.length}/${AD.gearSlots().length}</small>`, `${dollHTML(AD.gearSlots(), by)}
         <p class="ss-hint">효과는 그 물건의 「효과」 글에서 읽어요 (재산 편집에서 고쳐요): 「힘 +2」 = 주사위 보정 · 「체온 -30%」 = 그 욕구가 30% 덜 줄어듦. 물건이 소지품에서 없어지면 저절로 벗겨져요.</p>
         <div class="ss-row-btns"><button class="ss-btn sm ghost" data-act="gearoff">옷차림 · 장비 끄기</button></div>`);
 }
@@ -192,3 +192,91 @@ export const LIFE_ACTIONS = {
     },
     qasknot: async (el, arg) => { await addAdjust({ ops: [['_qask', arg]], silent: true, label: '' }); },
 };
+
+// ───── 🎨 생활 판 (v2.9) — 글 대신 그림으로: 욕구 타일 · 기분 얼굴 · 상태 딱지 · 옷 입히는 인형 ─────
+// 그림은 전부 여기서 직접 그린 선 그림(SVG · 글자색을 따라감)이라 파일도 내려받기도 없다. 생활 틀을 넣은 채팅의 수치 탭에서만 그려진다.
+const svg = (d, cls = 'ss-ic') => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const ICON = {
+    hunger: '<path d="M4 12h16a8 8 0 0 1-16 0z"/><path d="M9 4c-1 1.5 1 2.5 0 4M13 3c-1 1.5 1 2.5 0 4"/><path d="M8.5 20.5h7"/>',
+    thirst: '<path d="M12 3c3.5 4.5 6 7.6 6 11a6 6 0 0 1-12 0c0-3.4 2.5-6.5 6-11z"/><path d="M9.5 14.5A2.5 2.5 0 0 0 12 17"/>',
+    energy: '<path d="M13 2 5 13.5h6L10 22l9-12.5h-6z"/>',
+    fatigue: '<path d="M20 14.5A8 8 0 1 1 9.5 4 6.5 6.5 0 0 0 20 14.5z"/><path d="M15 3.5h4l-4 4h4"/>',
+    hygiene: '<path d="M3.5 11h17v2a6 6 0 0 1-6 6h-5a6 6 0 0 1-6-6z"/><path d="M6 11V6.5a2 2 0 0 1 4 0"/><circle cx="15" cy="6" r="1.1"/><circle cx="18.6" cy="8" r=".8"/><path d="M8 19l-1 2M16 19l1 2"/>',
+    fun: '<rect x="4" y="4" width="16" height="16" rx="3.5"/><circle cx="9" cy="9" r=".9"/><circle cx="15" cy="15" r=".9"/><circle cx="15" cy="9" r=".9"/><circle cx="9" cy="15" r=".9"/><circle cx="12" cy="12" r=".9"/>',
+    boredom: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/>',
+    social: '<path d="M4 5h9a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H9l-3 3v-3H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><path d="M18 10h2a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-1v2.5L16.5 17H13"/>',
+    stress: '<path d="M7 16a4 4 0 0 1-.6-7.95A5.5 5.5 0 0 1 17 9.5 3.5 3.5 0 0 1 17.5 16"/><path d="M13 13l-2 3.5h3L12 20"/>',
+    sanity: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
+    fear: '<path d="M5 21V10a7 7 0 0 1 14 0v11l-2.3-2-2.3 2-2.4-2-2.3 2-2.4-2z"/><circle cx="9.5" cy="10.5" r="1"/><circle cx="14.5" cy="10.5" r="1"/>',
+    warmth: '<path d="M10 14.5V5a2 2 0 0 1 4 0v9.5a4 4 0 1 1-4 0z"/><path d="M12 17.5v-6"/>',
+    mp: '<path d="M10 3h4M10.5 3v5L6 17a3 3 0 0 0 2.7 4h6.6A3 3 0 0 0 18 17l-4.5-9V3"/><path d="M8 15h8"/>',
+    stamina: '<path d="M3 16c3 0 4.5-2 5.5-5l2.5 2c1.5 1 3.5 1.6 6 2 2 .3 4 1 4 3H3z"/><path d="M3 19.500h18"/>',
+    hp: '<path d="M12 20.500S3.5 15.5 3.5 9.200A4.7 4.7 0 0 1 12 6.600a4.7 4.7 0 0 1 8.5 2.600c0 6.3-8.5 11.3-8.5 11.300z"/>',
+    other: '<circle cx="12" cy="12" r="8.5"/><path d="M12 8v4.500M12 16h.01"/>',
+};
+export const needIcon = (name, cls) => svg(ICON[kindOf(name)] ?? ICON.other, cls);
+// 기분 얼굴 0(바닥)~4(최고)
+const MOUTH = ['M8.5 16.500c1-2 6-2 7 0', 'M9 16c1-1 5-1 6 0', 'M9 15.500h6', 'M9 15c1 1.3 5 1.3 6 0', 'M8.5 14.500c1.2 2.6 5.8 2.6 7 0'];
+const MOOD = [['한계예요', 'At the limit'], ['힘들어요', 'Struggling'], ['그럭저럭', 'Getting by'], ['괜찮아요', 'Doing fine'], ['아주 좋아요', 'Feeling great']];
+const face = (lv) => svg(`<circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01" stroke-width="2.6"/><path d="${MOUTH[lv]}"/>`, 'ss-ic ss-face');
+// 0~1: 1이 좋은 쪽 (높을수록 나쁜 게이지는 뒤집어서)
+const goodOf = (b) => { const p = clamp01(b.cur / Math.max(1, b.max)); return RISING.has(kindOf(b.name)) || /\+\s*:/.test(b.stages ?? '') ? 1 - p : p; };
+const clamp01 = (n) => Math.max(0, Math.min(1, Number(n) || 0));
+const lvOf = (g) => (g > 0.6 ? 'ok' : g > 0.3 ? 'mid' : 'low');
+const hasRules = (d) => d.bars.some(b => b.decay || b.stages || b.zero);
+export const inNeedPanel = (b, d) => hasRules(d) && !!(kindOf(b.name) || b.decay || b.stages || b.zero);
+const reEsc = (t) => String(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// 이 물건의 효과가 이 게이지를 좋은 쪽으로 움직이나
+function helps(b, effect) {
+    const m = String(effect ?? '').match(new RegExp(`${reEsc(b.name)}\\s*([+\\-−])\\s*\\d+(?!\\s*%)`, 'i')); if (!m) return false;
+    const up = m[1] === '+'; return RISING.has(kindOf(b.name)) || /\+\s*:/.test(b.stages ?? '') ? !up : up;
+}
+export function goodIcon(it) {
+    if (!it?.effect) return '';
+    const bars = app.current?.state?.data?.stats?.bars ?? [], b = bars.find(x => new RegExp(`${reEsc(x.name)}\\s*[+\\-−]`, 'i').test(it.effect));
+    return b ? `<span class="ss-good-ic k-${kindOf(b.name) || 'other'}">${needIcon(b.name)}</span>` : '';
+}
+export function needPanel(s, d, ui = {}) {
+    if (!hasRules(d)) return '';
+    const bars = d.bars.filter(b => inNeedPanel(b, d)); if (!bars.length) return '';
+    const needs = bars.filter(b => b.decay || b.stages), mood = needs.length ? needs.reduce((a, b) => a + goodOf(b), 0) / needs.length : 1;
+    const worst = needs.length ? Math.min(...needs.map(goodOf)) : 1, lv = Math.max(0, Math.min(4, Math.round((mood * 0.6 + worst * 0.4) * 4)));
+    const me = (s.data.profile?.list ?? []).find(p => p.role === 'user')?.name ?? '';
+    const lets = (d.conds ?? []).filter(c => c.auto).map(c => { const b = d.bars.find(x => x.name === c.auto); return b ? `<span class="ss-mdl lv-${lvOf(goodOf(b))}" title="${esc(c.name)} — ${esc(c.desc)}">${needIcon(b.name)}<em>${esc(c.name)}</em></span>` : ''; }).join('');
+    const tile = (b) => {
+        const g = goodOf(b), pct = Math.round(clamp01(b.cur / Math.max(1, b.max)) * 100), st = stageOf(b), sp = Number(d.speed ?? 1) || 1, rate = Math.abs((b.decay ?? 0) * sp);
+        const arrows = b.decay ? `<small class="ss-nd-tr ${b.decay > 0 ? 'dn' : 'up'}" title="하루 ${fx(Math.round(b.decay * sp))}">${(b.decay > 0 ? '▾' : '▴').repeat(rate >= 80 ? 3 : rate >= 40 ? 2 : 1)}</small>` : '';
+        return `<button class="ss-nd lv-${lvOf(g)} ${ui.need === b.name ? 'on' : ''}" data-act="needopen" data-arg="${esc(b.name)}" aria-expanded="${ui.need === b.name}">
+            <span class="ss-nd-ic">${needIcon(b.name)}</span>
+            <span class="ss-nd-b"><b>${esc(b.name)}${arrows}</b><span class="ss-nd-t"><i style="width:${pct}%"></i></span><small>${st ? esc(st.name) : `${fmtNum(b.cur)}/${fmtNum(b.max)}`}</small></span></button>`;
+    };
+    const open = bars.find(b => b.name === ui.need);
+    let det = '';
+    if (open) {
+        const items = (s.data.wallet?.items ?? []).filter(i => i.qty > 0 && helps(open, i.effect));
+        const si = (s.data.shop?.shops ?? []).findIndex(isMeatShop), goods = si >= 0 && modOn('shop') ? s.data.shop.shops[si].items.map((it, j) => [it, j]).filter(([it]) => it.stock !== 0 && helps(open, it.effect)) : [];
+        const cur = s.data.wallet?.currency ?? '';
+        det = `<div class="ss-nd-det lv-${lvOf(goodOf(open))}"><div class="ss-nd-det-h"><span class="ss-nd-ic">${needIcon(open.name)}</span><div><b>${esc(open.name)} ${fmtNum(open.cur)}<small>/${fmtNum(open.max)}</small></b>${open.desc ? `<small>${esc(open.desc)}</small>` : ''}</div></div>
+            ${needLine(open, d)}
+            ${items.length ? `<div class="ss-nd-acts"><small>가진 것 쓰기</small>${items.map(i => `<button class="ss-btn sm pri" data-act="useitem" data-arg="${esc(i.name)}">${esc(i.name)}${i.qty > 1 ? ` ×${i.qty}` : ''} <small>${esc(i.effect)}</small></button>`).join('')}</div>` : ''}
+            ${goods.length ? `<div class="ss-nd-acts"><small>${esc(MEAT_SHOP())}에서 사기</small>${goods.map(([it, j]) => `<button class="ss-btn sm" data-act="buy" data-arg="${si}|${j}">${esc(it.name)} <small>${fmtNum(it.price)} ${esc(cur)} · ${esc(it.effect)}</small></button>`).join('')}</div>` : ''}
+            ${!items.length && !goods.length ? `<p class="ss-hint">${si < 0 && modOn('shop') && !isSimple() ? '아래 「미트볼 상점 넣기」를 누르면 여기서 바로 살 수 있어요. ' : ''}이야기에서 채우면 AI가 적어 줘요.</p>` : ''}
+            <div class="ss-gbtns"><button class="ss-ib t" data-act="bar" data-arg="${esc(open.name)}|-10">−10</button><button class="ss-ib t" data-act="bar" data-arg="${esc(open.name)}|-1">−1</button><button class="ss-ib t" data-act="bar" data-arg="${esc(open.name)}|+1">+1</button><button class="ss-ib t" data-act="bar" data-arg="${esc(open.name)}|+10">+10</button><small class="ss-dim">직접 고치기</small></div></div>`;
+    }
+    const bills = (modOn('wallet') ? s.data.wallet?.regular ?? [] : []).filter(r => r.amount < 0).slice(0, 4);
+    const EV = { day: '매일', week: '매주', month: '매달' };
+    return `<section class="ss-life lv-${['low', 'low', 'mid', 'ok', 'ok'][lv]}">
+        <div class="ss-life-head">${face(lv)}<div class="ss-life-who"><b>${esc(me || T('나', 'Me'))}</b><small>${esc(T(...MOOD[lv]))}</small></div>${lets ? `<div class="ss-mdls">${lets}</div>` : ''}</div>
+        <div class="ss-nds">${bars.map(tile).join('')}</div>
+        ${det}
+        ${bills.length ? `<div class="ss-bills" title="재산 탭의 정기 지출">${bills.map(r => `<span class="ss-bill"><b>${esc(r.name)}</b><em>−${fmtNum(Math.abs(r.amount))}</em><small>${EV[r.every] ?? ''}</small></span>`).join('')}</div>` : ''}
+    </section>`;
+}
+LIFE_ACTIONS.needopen = (el, arg) => { const ui = el._ss.ui; ui.need = ui.need === arg ? null : arg; app.renderPanel(el); };
+
+// 옷 입히는 인형 (재산 탭 아래) — 가운데 사람 모양, 양옆에 칸
+const DOLL = '<svg class="ss-doll-fig" viewBox="0 0 120 220" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="60" cy="30" r="17"/><path d="M40 62c4-8 36-8 40 0l8 50-13 3-3-24v40H48V91l-3 24-13-3z"/><path d="M48 131l-4 72h14l2-48 2 48h14l-4-72"/></svg>';
+export function dollHTML(slots, by) {
+    const half = Math.ceil(slots.length / 2), cell = (slot) => { const e = by[slot]; return `<button class="ss-slot ${e ? 'on' : ''}" data-act="gearpick" data-arg="${esc(slot)}"><small>${esc(slot)}</small><b>${e ? esc(e.name) : '＋'}</b>${e?.effect ? `<em>${esc(e.effect)}</em>` : ''}</button>`; };
+    return `<div class="ss-doll"><div class="ss-doll-col">${slots.slice(0, half).map(cell).join('')}</div>${DOLL}<div class="ss-doll-col">${slots.slice(half).map(cell).join('')}</div></div>`;
+}

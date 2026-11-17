@@ -25,7 +25,10 @@ try {
     check(!!h1.stg && s1.conds.some(c => c.auto === h1.name && c.name === h1.stg), '단계가 바뀌면 상태에 한 줄 (그 게이지가 만든 것)', JSON.stringify(s1.conds));
     check((s1.nlog ?? []).some(x => x.b === h1.name && x.n === -90 && x.why === 'time'), '왜 줄었는지 기록 (시간 경과)');
     await panel('stats');
-    check(await ev(() => /하루 −90/.test(document.querySelector('dialog .ss-need')?.textContent ?? '') || [...document.querySelectorAll('dialog .ss-need')].some(x => /하루 −90/.test(x.textContent))), '게이지 카드에 「하루 −90」 · 단계 줄');
+    const pn = await ev(() => { const L = document.querySelector('dialog .ss-life'); return L ? { tiles: L.querySelectorAll('.ss-nd').length, svg: L.querySelectorAll('.ss-nd svg').length, face: !!L.querySelector('.ss-face'), lets: L.querySelectorAll('.ss-mdl').length, low: L.querySelectorAll('.ss-nd.lv-low').length } : null; });
+    check(pn && pn.tiles >= 5 && pn.svg === pn.tiles && pn.face && pn.lets >= 1 && pn.low >= 1, '생활 판: 욕구마다 그림 타일 · 기분 얼굴 · 상태 딱지 · 낮은 것은 빨강', JSON.stringify(pn));
+    await ev((n) => { [...document.querySelectorAll('dialog .ss-nd')].find(b => b.dataset.arg === n).click(); }, h1.name); await sleep(250);
+    check(await ev(() => /하루 −90/.test(document.querySelector('dialog .ss-nd-det .ss-need')?.textContent ?? '') && document.querySelectorAll('dialog .ss-nd-det [data-act="bar"]').length === 4), '타일을 누르면 자세히: 「하루 −90」 · 단계 · 직접 고치기');
     check(/Needs that change on their own[^\n]*:/.test(await ev(async () => { const E = await import('/ext/src/engine.js'); const st = window.__st.extensionSettings.statussim; const was = st.deltaMode; st.deltaMode = false; window.__SS_TEST__.api.refreshNow(); const out = E.buildInjection(window.__SS_TEST__.api.app.current).main; st.deltaMode = was; window.__SS_TEST__.api.refreshNow(); return out; })), 'AI에게: 시간이 지났다는 이유만으로 stat을 적지 말라는 한 줄 (전체 주입문)');
     // 바닥이면 체력이 깎인다
     await say('days: +1');
@@ -46,6 +49,8 @@ try {
     const hn = (await bar('hunger')).name, food = shop.items.find(i => i.effect === `${hn} +25`);
     check(/미트볼|Meatball/.test(shop.name) && !!food && shop.items.length >= 6 && shop.items.every(i => i.price > 0 && i.effect), '미트볼 상점: 지금 게이지에 맞는 품목 · 값 · 효과', JSON.stringify(shop.items.map(i => i.effect)));
     await ev(async (t) => { const E = await import('/ext/src/engine.js'); await E.addAdjust({ ops: [['cash', '+100000']], silent: true, label: '' }); }, 0);
+    await panel('stats'); await ev((n) => { [...document.querySelectorAll('dialog .ss-nd')].find(b => b.dataset.arg === n).click(); }, hn); await sleep(250);
+    check(await ev(() => document.querySelectorAll('dialog .ss-nd-det [data-act="buy"]').length >= 1), '허기 타일을 열면 미트볼 상점 물건을 바로 살 수 있다');
     await panel('shop'); await sleep(200);
     const j = shop.items.indexOf(food);
     await ev((j) => { document.querySelector(`dialog [data-act="buy"][data-arg="0|${j}"]`)?.click(); }, j); await sleep(600);
@@ -64,7 +69,7 @@ try {
     await panel('wallet');
     check(await ev(() => !!document.querySelector('dialog [data-act="gearon"]')), '재산 탭 아래 「옷차림 · 장비 켜기」');
     await page.click('dialog [data-act="gearon"]'); await sleep(300);
-    check(await ev(() => document.querySelectorAll('dialog .ss-gear').length) === 6, '칸 6개 (무기 · 겉옷 · 상의 · 하의 · 신발 · 장신구)');
+    check(await ev(() => document.querySelectorAll('dialog .ss-doll .ss-slot').length === 6 && !!document.querySelector('dialog .ss-doll svg')), '인형 양옆에 칸 6개 (무기 · 겉옷 · 상의 · 하의 · 신발 · 장신구)');
     await ev(async (hn) => { const E = await import('/ext/src/engine.js'); await E.addAdjust({ ops: [['item', `+Lucky Apron 1| test | ${hn} -50%`], ['stat', `${hn} =100`]], silent: true, label: '' }); const A = await import('/ext/src/addons.js'); A.equip('상의', 'Lucky Apron'); await A.syncNeedMods(); }, hn); await sleep(400);
     check(Object.values((await stats()).mods ?? {})[0] === -50, '갈아입으면 욕구 보정이 상태에 적힌다', JSON.stringify((await stats()).mods));
     await panel('stats'); await page.click('dialog [data-act="lifespeed"][data-arg="1"]'); await sleep(400);

@@ -1,0 +1,57 @@
+/* 🎨 생활 판 (v2.9 · src/life.js) — 수치 탭 맨 위. 생활 틀을 넣은 채팅에서만 그려진다. 그림은 전부 인라인 SVG(글자색을 따라감) */
+.ss-scope .ss-ic { width: 1.25em; height: 1.25em; flex: none; vertical-align: -0.22em; }
+.ss-scope .ss-life { --lv: var(--ss-pos); display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; padding: 12px; border: 1px solid var(--ss-line); border-radius: calc(var(--ss-r) + 4px); background: linear-gradient(180deg, color-mix(in srgb, var(--lv) 9%, var(--ss-bg)), var(--ss-bg) 70%); }
+.ss-scope .lv-ok { --lv: var(--ss-pos); } .ss-scope .lv-mid { --lv: var(--ss-warn); } .ss-scope .lv-low { --lv: var(--ss-neg); }
+.ss-scope .ss-life-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ss-scope .ss-life-head .ss-face { width: 40px; height: 40px; color: var(--lv); }
+.ss-scope .ss-life-who { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+.ss-scope .ss-life-who b { font-weight: 760; }
+.ss-scope .ss-life-who small { color: var(--lv); font-weight: 650; }
+.ss-scope .ss-mdls { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.ss-scope .ss-mdl { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px 4px 6px; border-radius: 10px; font-size: .84em; font-weight: 680; color: var(--lv); background: color-mix(in srgb, var(--lv) 13%, var(--ss-bg)); border: 1px solid color-mix(in srgb, var(--lv) 40%, transparent); }
+.ss-scope .ss-mdl em { font-style: normal; }
+.ss-scope .ss-mdl.lv-low { animation: ss-mdl-pulse 1.8s ease-in-out infinite; }
+@keyframes ss-mdl-pulse { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--lv) 22%, transparent); } }
+.ss-scope .ss-nds { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: 8px; }
+.ss-scope .ss-nd { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 9px; min-height: 56px; padding: 8px 10px; border-radius: var(--ss-r); background: var(--ss-bg); border: 1px solid var(--ss-line); cursor: pointer; font: inherit; color: var(--ss-ink); transition: transform .12s ease, border-color .12s ease; }
+.ss-scope .ss-nd:hover { border-color: var(--lv); }
+.ss-scope .ss-nd:active { transform: scale(.98); }
+.ss-scope .ss-nd:focus-visible { outline: 2px solid var(--ss-hi); outline-offset: 2px; }
+.ss-scope .ss-nd.on { border-color: var(--lv); box-shadow: 0 0 0 2px color-mix(in srgb, var(--lv) 25%, transparent); }
+.ss-scope .ss-nd-ic { display: grid; place-items: center; width: 34px; height: 34px; flex: none; border-radius: 50%; color: var(--lv); background: color-mix(in srgb, var(--lv) 14%, var(--ss-bg)); }
+.ss-scope .ss-nd-ic .ss-ic { width: 20px; height: 20px; }
+.ss-scope .ss-nd-b { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.ss-scope .ss-nd-b b { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: .92em; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ss-scope .ss-nd-b > small { font-size: .78em; color: var(--ss-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ss-scope .ss-nd.lv-low .ss-nd-b > small, .ss-scope .ss-nd.lv-mid .ss-nd-b > small { color: var(--lv); font-weight: 650; }
+.ss-scope .ss-nd-tr { font-size: .8em; letter-spacing: -2px; color: var(--ss-dim); }
+.ss-scope .ss-nd-t { display: block; height: 9px; border-radius: 99px; background: var(--ss-surface2); overflow: hidden; }
+.ss-scope .ss-nd-t i { display: block; height: 100%; border-radius: 99px; background: var(--lv); transition: width .6s cubic-bezier(.2, .8, .2, 1), background-color .4s ease; }
+.ss-scope .ss-nd-det { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: var(--ss-r); background: var(--ss-bg); border: 1px solid color-mix(in srgb, var(--lv) 45%, var(--ss-line)); }
+.ss-scope .ss-nd-det-h { display: flex; align-items: center; gap: 10px; }
+.ss-scope .ss-nd-det-h > div { display: flex; flex-direction: column; min-width: 0; }
+.ss-scope .ss-nd-det-h small { color: var(--ss-dim); font-weight: 500; }
+.ss-scope .ss-nd-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ss-scope .ss-nd-acts > small { flex: 1 1 100%; color: var(--ss-dim); font-size: .82em; }
+.ss-scope .ss-nd-acts .ss-btn { min-height: 38px; height: auto; white-space: normal; text-align: left; }
+.ss-scope .ss-nd-acts .ss-btn small { opacity: .8; font-weight: 500; margin-left: 4px; }
+/* 고지서 */
+.ss-scope .ss-bills { display: flex; flex-wrap: wrap; gap: 6px; }
+.ss-scope .ss-bill { display: inline-flex; align-items: baseline; gap: 6px; padding: 5px 10px; font-size: .84em; background: var(--ss-surface); border: 1px dashed var(--ss-line); border-radius: 6px; font-variant-numeric: tabular-nums; }
+.ss-scope .ss-bill em { font-style: normal; color: var(--ss-neg); font-weight: 700; }
+.ss-scope .ss-bill small { color: var(--ss-dim); }
+/* 상점 물건 딱지 */
+.ss-scope .ss-good-ic { display: inline-grid; place-items: center; width: 24px; height: 24px; margin-right: 6px; border-radius: 7px; vertical-align: middle; color: var(--ss-hi); background: color-mix(in srgb, var(--ss-hi) 12%, var(--ss-bg)); }
+.ss-scope .ss-good-ic .ss-ic { width: 15px; height: 15px; vertical-align: 0; }
+/* 인형 */
+.ss-scope .ss-doll { display: grid; grid-template-columns: minmax(0, 1fr) minmax(64px, 96px) minmax(0, 1fr); align-items: center; gap: 8px; margin: 6px 0 10px; }
+.ss-scope .ss-doll-col { display: flex; flex-direction: column; gap: 8px; }
+.ss-scope .ss-doll-fig { width: 100%; height: auto; color: var(--ss-dim); opacity: .55; }
+.ss-scope .ss-slot { all: unset; box-sizing: border-box; display: flex; flex-direction: column; gap: 1px; min-height: 52px; padding: 7px 10px; border-radius: var(--ss-r); border: 1px dashed var(--ss-line); background: var(--ss-bg); cursor: pointer; font: inherit; color: var(--ss-ink); min-width: 0; }
+.ss-scope .ss-slot:focus-visible { outline: 2px solid var(--ss-hi); outline-offset: 2px; }
+.ss-scope .ss-slot.on { border-style: solid; border-color: var(--ss-ink); background: var(--ss-surface); }
+.ss-scope .ss-slot small { font-size: .74em; color: var(--ss-dim); }
+.ss-scope .ss-slot b { font-size: .9em; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ss-scope .ss-slot:not(.on) b { color: var(--ss-dim); font-weight: 500; }
+.ss-scope .ss-slot em { font-style: normal; font-size: .76em; color: var(--ss-hi); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .ss-scope .ss-mdl.lv-low { animation: none; } .ss-scope .ss-nd, .ss-scope .ss-nd-t i { transition: none; } }
