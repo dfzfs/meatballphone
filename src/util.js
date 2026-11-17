@@ -44,6 +44,11 @@ export function dayIndex(cal, y = cal.y, m = cal.m, d = cal.d) {
 export function addDays(cal, k) {
     let { y, m, d } = cal;
     k = Math.round(k);
+    if (!Number.isFinite(k)) return;
+    // 터무니없이 큰 수(AI가 「date: +999999999999」처럼 적었을 때)는 달을 하나씩 세다가 화면이 멈춘다 → 1만 년까지만 · 해 단위는 한 번에 건너뛴다
+    const yd = yearDays(cal);
+    k = Math.max(-yd * 10000, Math.min(yd * 10000, k));
+    if (yd > 0 && Math.abs(k) >= yd) { const yy = Math.trunc(k / yd); y += yy; k -= yy * yd; if (d > cal.months[m - 1].days) d = cal.months[m - 1].days; }
     while (k > 0) {
         const md = cal.months[m - 1].days;
         if (d + k <= md) { d += k; k = 0; } else { k -= md - d + 1; d = 1; m++; if (m > cal.months.length) { m = 1; y++; } }

@@ -1596,7 +1596,7 @@ function buildInjection0(r, opt = {}) {
     if (on('map')) {
         const m = d.map, p = findBy(m.places, m.here);
         const ppl = modOn('profile', meta) ? peopleAt(s, m.here).now : [];
-        if (m.here) L.push(`Location: ${m.here}${m.spot && p?.floors?.length ? ` (inside: ${m.spot})` : ''}${p?.desc ? ` — ${short(p.desc, 120)}` : ''}${p?.links?.length ? ` · nearby: ${p.links.join(', ')}` : ''}${ppl.length ? ` · usually here now: ${ppl.join(', ')}` : ''}`);
+        if (m.here) L.push(`Location: ${m.here}${m.spot && p?.floors?.length ? ` (inside: ${m.spot})` : ''}${p?.floors?.length ? ` [inside it: ${p.floors.map(f => String(f).split(/[:：]/)[0].trim()).filter(Boolean).join(', ')} — when {{user}} moves within it write "loc: ${m.here} > floor/room"]` : ''}${p?.desc ? ` — ${short(p.desc, 120)}` : ''}${p?.links?.length ? ` · nearby: ${p.links.join(', ')}` : ''}${ppl.length ? ` · usually here now: ${ppl.join(', ')}` : ''}`);
     }
     if (on('stats')) {
         const st = d.stats;

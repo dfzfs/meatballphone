@@ -63,6 +63,13 @@ try {
     // 다른 곳으로 가면 spot 지움
     await page.evaluate(async () => { const { addAdjust } = await import('/ext/src/engine.js'); await addAdjust({ ops: [['loc', '빵집']], label: 'go' }); });
     check(await page.evaluate(() => window.__SS_TEST__.api.app.current.state.data.map.spot) === undefined && !(await inj()).includes('inside:'), '다른 곳으로 가면 「건물 안 어디」가 지워짐');
+    // 🏢 AI가 「loc: 학교 > 옥상」으로 층을 옮김 · 처음 듣는 층은 적어 둠 · 「학교 > 옥상」이라는 장소는 안 생김
+    await page.evaluate(() => window.__addUser('go')); await page.evaluate(() => window.__addAI('up.\n<meatball>\nloc: 학교 > 옥상\n</meatball>')); await sleep(300);
+    check(await page.evaluate(() => { const m = window.__SS_TEST__.api.app.current.state.data.map; return m.here === '학교' && m.spot === '옥상' && !m.places.some(p => p.name.includes('>')); }), 'AI 「loc: 학교 > 옥상」 → 학교 · 옥상');
+    check(/Location: 학교 \(inside: 옥상\).*inside it: 지하, 1층, 2층, 옥상/.test(await inj()), 'AI에게 층 목록과 옮기는 법을 알려 줌 (층 있는 건물에 있을 때만)');
+    await page.evaluate(() => window.__addUser('go')); await page.evaluate(() => window.__addAI('b.\n<meatball>\nloc: 빵집 > 주방\n</meatball>')); await sleep(300);
+    check(await page.evaluate(() => { const m = window.__SS_TEST__.api.app.current.state.data.map; return m.here === '빵집' && m.spot === '주방' && m.places.find(p => p.name === '빵집').floors?.join() === '주방'; }), '처음 듣는 안쪽(빵집 > 주방)은 그 건물의 층에 적어 둠');
+    check(await page.evaluate(async () => (await import('/ext/src/core.js')).normalize('home', { name: 'h', rooms: [{ name: 'a', floor: 0 }, { name: 'b', floor: -1 }] }).rooms.map(r => r.floor ?? '').join()) === ',-1', '방 0층은 없음 (1층으로) · 지하는 그대로');
     // 방을 새로 넣으면 층이 비어 있음 (0 = 지하로 들어가던 것)
     check(await page.evaluate(async () => { const { EDIT } = await import('/ext/src/core.js'); const f = EDIT.home.find(x => x.k === 'rooms').fields.find(x => x.k === 'floor'); return f.blank === true; }), '방 층 칸은 비워 둘 수 있는 숫자');
     const errs = logs.filter(l => /error/i.test(l) && !/favicon|404|Failed to load resource/.test(l));

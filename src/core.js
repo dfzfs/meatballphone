@@ -814,7 +814,7 @@ export const NORM = {
     dice: (d) => ({
         system: ['d20', 'd100'].includes(d.system) ? d.system : 'd20', rules: str(d.rules),
         quick: arr(d.quick).filter(q => q?.name).map(q => ({ name: str(q.name), attr: str(q.attr), dc: num(q.dc, 0) })),
-        log: arr(d.log).slice(-30),
+        log: arr(d.log).filter(l => l && typeof l === 'object').slice(-30), // 깨진 기록(null · 글자)이 섞이면 주사위 탭이 안 열렸다
     }),
     wallet: (d) => ({
         currency: str(d.currency, '골드') || '골드', cash: num(d.cash, 0),
@@ -837,7 +837,7 @@ export const NORM = {
     }),
     home: (d) => ({
         name: str(d.name), desc: str(d.desc),
-        rooms: arr(d.rooms).filter(r => r?.name).map(r => ({ name: str(r.name), desc: str(r.desc), decor: arr(r.decor).map(String).filter(Boolean), ...(r.floor !== '' && r.floor != null && Number.isFinite(Number(r.floor)) ? { floor: clamp(Math.round(Number(r.floor)), -5, 30) } : {}) })), // floor = 몇 층 (선택 · 집 안 그림에서 층별로 나눔)
+        rooms: arr(d.rooms).filter(r => r?.name).map(r => ({ name: str(r.name), desc: str(r.desc), decor: arr(r.decor).map(String).filter(Boolean), ...(r.floor !== '' && r.floor != null && Number.isFinite(Number(r.floor)) && Math.round(Number(r.floor)) !== 0 ? { floor: clamp(Math.round(Number(r.floor)), -5, 30) } : {}) })), // floor = 몇 층 (선택 · 집 안 그림에서 층별로 나눔 · 0층은 없다 → 안 적은 것(1층)으로)
         storage: arr(d.storage).map(String).filter(Boolean),
         trash: arr(d.trash).filter(t => t?.name).map(t => ({ name: str(t.name), date: str(t.date) })).slice(-20),
     }),

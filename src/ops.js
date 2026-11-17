@@ -416,7 +416,8 @@ export function applyOp(s, rawKey, rawVal, info) {
     if (NOTE_KEYS.has(key)) val = dropNote(val);
     const L = (t) => info.labels.push(t);
     const T = (s.tally ??= { earn: 0, spend: 0, places: [], rolls: 0, good: 0, crit: 0, fumble: 0, sent: 0, got: 0, quests: 0, curses: 0 });
-    if (Object.hasOwn(OPS, key)) OPS[key](s, val, info, L, T, key, rawKey);
+    // 한 줄이 잘못돼도 그 줄만 건너뛴다 — 예전엔 여기서 오류가 나면 그 채팅의 상태창 계산 전체가 멈췄다 (그 답이 남아 있는 한 계속)
+    if (Object.hasOwn(OPS, key)) { try { OPS[key](s, val, info, L, T, key, rawKey); } catch (e) { ssNote(`op ${key}`, e); } }
 }
 // ───── 변화량 처리기: 예전엔 applyOp 한 함수의 switch 안에 다 들어 있었음 → 종류마다 함수 하나
 // 모두 (s 상태, val 값, info 이번 메시지 정보, L 칩 글 남기기, T 집계, key 정리한 키, rawKey 원래 키)를 받고, 돌려주는 값은 쓰지 않는다
@@ -777,8 +778,10 @@ function opRoom(s, val, info, L, T, key, rawKey) {
 }
 function opLoc(s, val, info, L, T, key, rawKey) {
     const mp = ensure(s, 'map');
-    const [nm, desc] = splitBar(val);
+    let [nm, desc] = splitBar(val), inner = '';
     if (!nm) return;
+    // 🏢 「loc: 학교 > 옥상」 — 건물 안에서 층 · 방을 옮김 (이름이 글자 그대로 「학교 > 옥상」인 장소가 따로 없을 때만 나눈다 · 예전엔 뒤쪽을 그냥 버렸다)
+    if (!mp.places.some(q => norm(q.name) === norm(nm))) { const m = nm.match(/^(.+?)\s*[>›»]\s*(.+)$/); if (m) { nm = m[1].trim(); inner = m[2].trim().slice(0, 40); } }
     let p = findBy(mp.places, nm);
     if (!p) {
         const from = findBy(mp.places, mp.here);
@@ -789,6 +792,12 @@ function opLoc(s, val, info, L, T, key, rawKey) {
     p.known = true;
     if (!T.places.some(x => norm(x) === norm(p.name))) T.places.push(p.name);
     if (norm(mp.here) !== norm(p.name)) { mp.here = p.name; delete mp.spot; L(`📍 ${p.name}`); } // 다른 곳으로 가면 「건물 안 어디」는 지운다
+    if (inner) {
+        if (norm(mp.spot ?? '') !== norm(inner)) { mp.spot = inner; L(`🏢 ${inner}`); }
+        // 처음 듣는 층이면 그 건물의 안쪽 · 층에 적어 둔다 (지도에서 건물 안을 볼 수 있게 · 12곳까지)
+        const fls = (p.floors ??= []), head = (f) => norm(String(f).split(/[:：]/)[0]);
+        if (!fls.some(f => head(f) && norm(inner).startsWith(head(f))) && fls.length < 12) fls.push(inner);
+    }
     return;
 }
 function opPlace(s, val, info, L, T, key, rawKey) {
@@ -940,6 +949,7 @@ function opMsg(s, val, info, L, T, key, rawKey) {
     if ((mm === 'emoji' || mm === 'kaomoji') && !/[A-Za-z0-9가-힣]/.test(text) && findBy(s.data.rel?.user ?? [], nm)) { applyOp(s, 'mind', val, info); return; }
     const ct = ensure(s, 'contact');
     const who = findBy(ct.contacts, nm)?.name ?? nm.trim();
+    if (who in Object.prototype) return; // 「constructor」 · 「toString」 · 「__proto__」 같은 이름은 대화방 열쇠로 못 쓴다 (객체에 원래 있는 이름)
     if (!findBy(ct.contacts, who)) ct.contacts.push({ name: who, handle: '', status: '', courier: '' });
     const t = wholeTick(s, info.meta);
     const letter = letterMode(ct);
