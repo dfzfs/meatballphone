@@ -21,7 +21,7 @@ import { needLine, LIFE_ACTIONS, inNeedPanel, goodIcon, isMeatShop, needsTab, we
 import { DEVICES as STORY_DEVICES, KEY as STORY_KEY } from './story.js';
 import { busyBtn, confirmPopup, mascot } from './kit.js';
 import { freshDot, usedPrice, placeIcon, miniWidgets, pathTo, tripInfo } from './tiles.js';
-import { isoPt, isoNodes, floorsSVG, homeSVG, buildingSVG } from './iso.js'; // 🧊 입체 지도 · 건물 층 · 집 안 구조 (v2.9)
+import { isoPt, isoNodes, floorsSVG, parseFloors, homeFloors, planSVG } from './iso.js'; // 🧊 입체 지도 · 건물 층 · 집 안 구조 (v2.9)
 export * from './tiles.js'; // 떼어 낸 것 — 다른 파일은 예전처럼 여기서 받아도 된다
 
 const roleName = { user: '유저', main: '주요', npc: 'NPC' };
@@ -154,10 +154,19 @@ export const VIEW = {
         }
         if (inside) {
             const hereIn = norm(sel.name) === norm(d.here);
-            const pic = inKind === 'home' ? homeSVG(s.data.home, ui.room) : buildingSVG(sel, hereIn ? d.spot : '', hereIn);
+            // 📐 층별 평면도: 층 단추로 고르고, 그 층을 위에서 본 도면 한 장 (본거지는 방 · 가구)
+            const fls = inKind === 'home' ? homeFloors(s.data.home) : parseFloors(sel.floors);
+            const spot = hereIn && inKind !== 'home' ? norm(d.spot ?? '') : '';
+            const atFloor = (f) => !!spot && (spot === norm(f.name) || spot.startsWith(`${norm(f.name)} `));
+            const cur = fls.find(f => ui.floor && norm(f.name) === norm(ui.floor)) ?? fls.find(atFloor) ?? fls.find(f => !/지하|basement|cellar|^b\d/i.test(f.name)) ?? fls[0];
+            const spotOf = (f, r) => (r.whole ? f.name : `${f.name} ${r.name}`);
+            const pic = planSVG(cur, inKind === 'home'
+                ? { act: 'selroom', on: (r) => !!ui.room && norm(ui.room) === norm(r.name) }
+                : { act: hereIn ? 'spot' : '', on: (r) => !!spot && (spot === norm(spotOf(cur, r)) || (!cur.rooms.length && atFloor(cur))), arg: (r) => spotOf(cur, r) });
+            const floorSeg = fls.length > 1 ? `<div class="ss-seg wrap ss-floorseg">${[...fls].reverse().map(f => `<button class="${f === cur ? 'on' : ''}" data-act="mapfloor" data-arg="${esc(f.name)}">${esc(short(f.name, 10))}${atFloor(f) ? ' <i class="fa-solid fa-location-dot"></i>' : ''}</button>`).join('')}</div>` : '';
             return `${headHTML}
-                <div class="ss-mapwrap iso inside${night ? ' night' : ''}"><div class="ss-inbar"><button class="ss-btn sm" data-act="mapout"><i class="fa-solid fa-arrow-left"></i> 지도로</button><b>${esc(placeIcon(sel))} ${esc(viewTr() ? trString(sel.name) : sel.name)}</b>${hereIn ? chip('현재 위치', 'hi') : ''}</div><div class="ss-inpic">${pic}</div></div>
-                <p class="ss-hint">${inKind === 'home' ? '본거지의 방과 가구예요. 가구 옮기기 · 창고는 「집 안 보기」(본거지 탭)에서 해요.' : hereIn ? '층을 누르면 「지금 여기」로 표시하고 AI에게도 알려요. 다시 누르면 지워요.' : '여기로 이동하면 층을 눌러 「지금 여기」를 표시할 수 있어요.'}</p>
+                <div class="ss-mapwrap inside"><div class="ss-inbar"><button class="ss-btn sm" data-act="mapout"><i class="fa-solid fa-arrow-left"></i> 지도로</button><b>${esc(placeIcon(sel))} ${esc(viewTr() ? trString(sel.name) : sel.name)} · ${esc(cur.name)}</b>${hereIn ? chip('현재 위치', 'hi') : ''}</div>${floorSeg}<div class="ss-inpic">${pic}</div></div>
+                <p class="ss-hint">${inKind === 'home' ? '본거지의 방과 가구예요. 방 「고치기」에서 층(숫자)을 적으면 층별로 나뉘어요. 가구 옮기기 · 창고는 「집 안 보기」(본거지 탭)에서 해요.' : `${hereIn ? '방(층)을 누르면 「지금 여기」로 표시하고 AI에게도 알려요. 다시 누르면 지워요.' : '여기로 이동하면 방을 눌러 「지금 여기」를 표시할 수 있어요.'} 방은 장소 「고치기」 › 안쪽 · 층에 「2층: 교실/복도/화장실」처럼 적어요.`}</p>
                 ${card}`;
         }
         return `${headHTML}
@@ -581,13 +590,14 @@ export const VIEW_ACTIONS = {
     },
     // 🔍 입체 지도에서 층 · 방이 있는 건물을 누르면 그 건물로 확대해 들어간다 (그 밖엔 고르기만)
     selplace: (el, arg, btn, s) => {
-        const ui = el._ss.ui; ui.place = arg; ui.inside = null;
+        const ui = el._ss.ui; ui.place = arg; ui.inside = null; ui.floor = null;
         const svg = btn?.closest?.('svg.ss-map.iso'), p = svg ? findBy(s?.data.map?.places, arg) : null;
         if (svg && p && insideKind(s, p)) return zoomInto(el, svg, p.name);
         app.renderPanel(el);
     },
     mapin: (el, arg, btn, s) => { const ui = el._ss.ui, svg = el.querySelector('svg.ss-map.iso'); ui.place = arg; if (svg) return zoomInto(el, svg, arg); ui.inside = arg; app.renderPanel(el); },
-    mapout: (el) => { el._ss.ui.inside = null; app.renderPanel(el); },
+    mapout: (el) => { el._ss.ui.inside = null; el._ss.ui.floor = null; app.renderPanel(el); },
+    mapfloor: (el, arg) => { el._ss.ui.floor = arg; app.renderPanel(el); },
     mapmode: (el, arg) => { el._ss.ui.mapMode = arg; el._ss.ui.mapVB = null; el._ss.ui.inside = null; settings().mapMode = arg; saveSettings(); app.renderPanel(el); },
     // 🏢 건물 안에서 층 옮기기 (지금 그 건물에 있을 때만 · 같은 층을 다시 누르면 지움)
     spot: (el, arg, btn, s) => { const mp = s.data.map; if (!mp) return; const off = norm(mp.spot ?? '') === norm(arg); return addAdjust({ ops: [['_spot', off ? '' : arg]], label: off ? `${mp.here} — 층 표시 지움` : `${mp.here} · ${arg}(으)로 갔다` }); },

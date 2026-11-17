@@ -88,9 +88,56 @@ export function isoNodes(places, o) {
     }).join('');
 }
 
+// 층 한 줄 「2층: 교실/복도/화장실」 → 이름 「2층」 · 방 [교실, 복도, 화장실] (방은 / · | 로 나눔 · 안 적으면 통째로 한 칸)
+const floorName = (x) => String(x).split(/[:：]/)[0].trim() || String(x).trim();
+export function parseFloors(floors) {
+    return (floors ?? []).slice(0, 12).map(x => {
+        const str = String(x), k = str.search(/[:：]/);
+        const name = (k < 0 ? str : str.slice(0, k)).trim(), rest = k < 0 ? '' : str.slice(k + 1);
+        return { name: name || str.trim(), rooms: rest.split(/[\/·|]/).map(r => r.trim()).filter(Boolean).slice(0, 12).map(r => ({ name: r })) };
+    }).filter(f => f.name);
+}
+// 본거지 방들을 층별로 (층을 안 적은 방은 1층) — 아래층부터
+export function homeFloors(home) {
+    const lvOf = (r) => (Number.isFinite(r.floor) ? r.floor : 1);
+    const rooms = home?.rooms ?? [];
+    return [...new Set(rooms.map(lvOf))].sort((x, y) => x - y).map(lv => ({ name: lv < 0 ? `지하 ${-lv}층` : lv === 0 ? '지하' : `${lv}층`, rooms: rooms.filter(r => lvOf(r) === lv).map(r => ({ name: r.name, items: r.decor })) }));
+}
+// ───── 📐 층 도면 (v2.9): 한 층을 위에서 내려다본 평면도 — 바깥벽 굵게 · 방마다 칸 · 문 · 복도가 있으면 가운데 띠 ─────
+// o = { act ('spot' | 'selroom' | ''), on(room) → 강조할 방인가, arg(room) → 눌렀을 때 넘길 값 }
+const HALL = /복도|통로|corridor|hallway|홀$|^hall$/i;
+export function planSVG(floor, o = {}) {
+    const W = 120, X0 = 5, IW = W - 2 * X0, RH = 34, HH = 13;
+    const all = floor.rooms.length ? floor.rooms : [{ name: floor.name, whole: true }];
+    const hall = all.length >= 3 ? all.find(r => HALL.test(r.name)) : null, rest = hall ? all.filter(r => r !== hall) : all;
+    // 줄 나누기: 복도가 있으면 위 줄 · 복도 · 아래 줄 / 없으면 한 줄에 셋까지
+    const bands = [];
+    if (hall) { const k = Math.ceil(rest.length / 2); bands.push({ rooms: rest.slice(0, k), h: RH, door: 'b' }, { rooms: [hall], h: HH, hall: true }); if (rest.length > k) bands.push({ rooms: rest.slice(k), h: RH, door: 't' }); }
+    else { const per = rest.length <= 3 ? rest.length : rest.length === 4 ? 2 : 3; for (let i = 0; i < rest.length; i += per) bands.push({ rooms: rest.slice(i, i + per), h: rest.length === 1 ? 46 : RH, door: 'b' }); }
+    let y = 5, out = '', doors = '';
+    bands.forEach((bd, bi) => {
+        const w = IW / bd.rooms.length, last = bi === bands.length - 1;
+        bd.rooms.forEach((r, i) => {
+            const x = X0 + i * w, on = !!o.on?.(r), col = bd.hall ? '#e9e4da' : ROOM_COLOR.find(([re]) => re.test(r.name))?.[1] ?? '#f4eee2';
+            const items = (r.items ?? []).slice(0, 7);
+            out += `<g class="rm ${on ? 'on' : ''} ${o.act ? 'can' : ''}" ${o.act ? `data-act="${o.act}" data-arg="${esc(o.arg ? o.arg(r) : r.name)}" role="button"` : ''}><title>${esc(r.name)}${r.items?.length ? ` — ${esc(r.items.join(', '))}` : ''}</title>
+                <rect x="${R(x)}" y="${R(y)}" width="${R(w)}" height="${bd.h}" style="--c:${col}"/>
+                <text class="nm" x="${R(x + w / 2)}" y="${R(y + bd.h / 2 + (items.length ? -1.5 : 1.4))}">${esc(short(r.name, Math.max(4, Math.floor(w / 4.2))))}</text>
+                ${items.length ? `<text class="fu" x="${R(x + w / 2)}" y="${R(y + bd.h / 2 + 5.5)}">${items.slice(0, Math.max(2, Math.floor(w / 6))).map(furnIcon).join('')}${r.items.length > Math.max(2, Math.floor(w / 6)) ? '…' : ''}</text>` : ''}
+                ${on && o.act === 'spot' ? `<text class="here" x="${R(x + w / 2)}" y="${R(y + bd.h - 3)}">● 지금 여기</text>` : ''}</g>`;
+            // 문: 복도 쪽 벽에 (복도가 없으면 아래 벽 — 맨 아랫줄은 바깥으로 나가는 문)
+            if (!bd.hall && !r.whole) { const dy = bd.door === 't' ? y : y + bd.h, dx = x + w / 2 - 3, dir = bd.door === 't' ? 1 : -1;
+                doors += `<line class="gap" x1="${R(dx)}" y1="${R(dy)}" x2="${R(dx + 6)}" y2="${R(dy)}"/><path class="door" d="M${R(dx)} ${R(dy)} v${6 * dir} a6 6 0 0 ${dir > 0 ? 0 : 1} 6 ${-6 * dir}"/>`; }
+            if (r.whole || (last && bd.hall && i === 0)) doors += `<line class="gap" x1="${R(x + w / 2 - 4)}" y1="${R(y + bd.h)}" x2="${R(x + w / 2 + 4)}" y2="${R(y + bd.h)}"/>`;
+        });
+        y += bd.h;
+    });
+    return `<svg class="ss-plan" viewBox="0 0 ${W} ${R(y + 5)}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${esc(floor.name)} 도면">${out}<rect class="outer" x="${X0}" y="5" width="${IW}" height="${R(y - 5)}"/>${doors}</svg>`;
+}
+
 // ───── 건물 안 · 층 (아래층부터 쌓는다) — 지금 그 건물에 있으면 층을 눌러 「여기 있어요」 ─────
 export function floorsSVG(p, spot, canSet) {
-    const fl = (p.floors ?? []).slice(0, 12), n = fl.length; if (!n) return '';
+    const fl = (p.floors ?? []).slice(0, 12).map(x => floorName(x)), n = fl.length; if (!n) return '';
     const a = 20, b = a * K, h = 3.4, gap = 11.5, H = (n - 1) * gap + 2 * b + h + 5, base = H - b - 2.5;
     const rows = fl.map((name, i) => {
         const cy = base - i * gap, on = spot && norm(spot) === norm(name);

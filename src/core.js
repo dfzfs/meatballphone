@@ -1072,7 +1072,7 @@ export const EDIT = {
     ],
     map: [
         { k: 'name', label: '지도 이름', type: 'text' }, { k: 'here', label: '현재 위치', type: 'text' },
-        { k: 'places', label: '장소', type: 'list', title: 'name', fields: [{ k: 'name', label: '이름', type: 'text' }, { k: 'kind', label: '종류', type: 'text' }, { k: 'x', label: 'x (0~100)', type: 'num' }, { k: 'y', label: 'y (0~100)', type: 'num' }, { k: 'links', label: '이어진 곳 (쉼표)', type: 'tags' }, { k: 'floors', label: '안쪽 · 층 (아래층부터 · 쉼표)', type: 'tags' }, { k: 'area', label: '구역', type: 'text' }, { k: 'fare', label: '가는 요금', type: 'num' }, { k: 'known', label: '알려짐', type: 'bool' }, { k: 'desc', label: '설명', type: 'area' }] },
+        { k: 'places', label: '장소', type: 'list', title: 'name', fields: [{ k: 'name', label: '이름', type: 'text' }, { k: 'kind', label: '종류', type: 'text' }, { k: 'x', label: 'x (0~100)', type: 'num' }, { k: 'y', label: 'y (0~100)', type: 'num' }, { k: 'links', label: '이어진 곳 (쉼표)', type: 'tags' }, { k: 'floors', label: '안쪽 · 층 (아래층부터 쉼표 · 방은 「2층: 교실/복도」)', type: 'tags' }, { k: 'area', label: '구역', type: 'text' }, { k: 'fare', label: '가는 요금', type: 'num' }, { k: 'known', label: '알려짐', type: 'bool' }, { k: 'desc', label: '설명', type: 'area' }] },
     ],
     calendar: [
         { k: 'weather', label: '오늘 날씨', type: 'text' }, { k: 'autoWeather', label: '날씨 자동으로 바뀜 (계절따라)', type: 'bool' },

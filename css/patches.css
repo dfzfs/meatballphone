@@ -602,3 +602,19 @@ dialog.popup.ss-dlg.ss-full .popup-content { max-height: none; }
 .ss-bldg .pin line { stroke: var(--ss-hi); stroke-width: .6; stroke-linecap: round; }
 .ss-bldg .pin circle { fill: var(--ss-hi); stroke: #fff; stroke-width: .5; }
 .ss-bldg .pin { animation: ss-iso-bob 1.6s ease-in-out infinite; }
+
+/* 📐 층 도면 (건물 안 · 위에서 본 평면도) */
+.ss-mapwrap.inside { background: linear-gradient(color-mix(in srgb, var(--ss-ink) 7%, transparent) 1px, transparent 0) 0 0 / 100% 14px, linear-gradient(90deg, color-mix(in srgb, var(--ss-ink) 7%, transparent) 1px, transparent 0) 0 0 / 14px 100%, var(--ss-surface); }
+.ss-scope .ss-floorseg { margin: 0 8px 4px; }
+.ss-plan { display: block; width: 100%; height: auto; max-height: 58vh; user-select: none; -webkit-user-select: none; }
+.ss-plan .rm rect { fill: color-mix(in srgb, var(--c, #f4eee2) 55%, var(--ss-surface)); stroke: var(--ss-ink); stroke-width: .5; }
+.ss-plan .rm.can { cursor: pointer; }
+.ss-plan .rm.can:hover rect { fill: color-mix(in srgb, var(--ss-hi) 14%, var(--ss-surface)); }
+.ss-plan .rm.on rect { fill: color-mix(in srgb, var(--ss-hi) 26%, var(--ss-surface)); }
+.ss-plan text { text-anchor: middle; pointer-events: none; }
+.ss-plan .nm { font-size: 4.2px; font-weight: 700; fill: var(--ss-ink); }
+.ss-plan .fu { font-size: 4.4px; }
+.ss-plan .here { font-size: 3px; font-weight: 700; fill: var(--ss-hi); }
+.ss-plan .outer { fill: none; stroke: var(--ss-ink); stroke-width: 1.5; stroke-linejoin: miter; pointer-events: none; }
+.ss-plan .gap { stroke: var(--ss-surface); stroke-width: 1.9; pointer-events: none; }
+.ss-plan .door { fill: none; stroke: var(--ss-ink); stroke-width: .3; pointer-events: none; opacity: .75; }
