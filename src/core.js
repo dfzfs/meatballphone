@@ -798,7 +798,7 @@ export function msgText(m, max = 0) {
 const courierN = (c) => ({ name: str(c.name), icon: str(c.icon, '✉️') || '✉️', min: clamp(Math.round(num(c.min, 1)), 0, 60), max: clamp(Math.round(num(c.max, num(c.min, 1))), 0, 60), fee: Math.max(0, num(c.fee, 0)), note: str(c.note) });
 
 export const NORM = {
-    core: (d) => ({ title: str(d.title), genre: str(d.genre), summary: str(d.summary), tone: str(d.tone), userRole: str(d.userRole), rules: str(d.rules), canon: str(d.canon) }),
+    core: (d0) => { const d = d0 && typeof d0 === 'object' ? d0 : {}; return { title: str(d.title), genre: str(d.genre), summary: str(d.summary), tone: str(d.tone), userRole: str(d.userRole), rules: str(d.rules), canon: str(d.canon) }; }, // AI가 세계 핵심을 null · 글로 돌려줘도 멈추지 않게 (검수)
     profile: (d) => ({
         mode: d.mode === 'detailed' ? 'detailed' : 'minimal',
         list: arr(d.list).filter(p => p?.name).map(p => ({
