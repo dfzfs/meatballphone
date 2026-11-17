@@ -224,6 +224,7 @@ export function takeSends(t, out) {
 }
 // 💗 연락에서 호감 반영 (선택 · addons.js의 socialAff): 답 끝의 [FEEL ±N] 줄을 떼고 값은 sends.feel로 넘긴다 — 꺼져 있어도 줄은 떼어 낸다
 // 🔕 상대가 연락을 꺼 두기 (v2.7.23): 답 끝의 「(OFFLINE: 이유 | N)」 줄을 떼어 info.away = { why, n }으로 돌려준다
+const MSG_CAP = 1200, LETTER_CAP = 6000; // 문자 한 줄 · 편지 한 통 최대 글자 (모델이 고장 나 끝없이 쓴 답이 채팅 파일을 키우지 않게)
 const OFFLINE_RE = /\(\s*OFFLINE\s*[:：]\s*([^|)\n]*?)\s*(?:\|\s*(\d+)\s*)?\)/i;
 export async function phoneReply(who, state, sends = null, info = null) {
     const ct = state.data.contact;
@@ -233,7 +234,7 @@ export async function phoneReply(who, state, sends = null, info = null) {
     const off = OFFLINE_RE.exec(raw);
     if (off) { raw = raw.replace(OFFLINE_RE, ''); if (awayOn) info.away = { why: off[1].trim().slice(0, 40), n: Math.min(6, Math.max(1, Number(off[2]) || 2)) }; }
     const out = takeSends(raw, sends);
-    return finLines(stripStatus(out).split(/\r?\n/).map(x => x.replace(nameRe(who), '').replace(/^["“](.*)["”]$/, '$1').trim()).filter(Boolean).slice(0, 4));
+    return finLines(stripStatus(out).split(/\r?\n/).map(x => x.replace(nameRe(who), '').replace(/^["“](.*)["”]$/, '$1').trim().slice(0, MSG_CAP)).filter(Boolean).slice(0, 4)); // 한 줄 최대 길이 (검수: 고장 난 답이 2만 자 한 줄로 저장됐다)
 }
 // 편지 답장 → 본문 하나
 // 🕵 최면 어플 (v2.7.23): 연락의 「다크 버전」 — 그 인물이 숨김없이 답한다. 이야기 밖 놀이라 상태를 바꾸지 않고 본편 AI에게도 안 간다
@@ -246,7 +247,7 @@ export async function truthReply(who, state) {
         `Their ordinary conversation so far (context only):\n${threadMemory(ct, who, 8) || '(none)'}`,
         `Hypnosis-app session so far:\n${threadMemory({ threads: ct.truth ?? {}, summaries: {} }, who, 14) || '(none)'}`].filter(Boolean).join('\n\n');
     const out = await aiGenerate('phone', P('ai.truth', { who, app: ct.app }), body, 900);
-    return finLines(stripStatus(out).split(/\r?\n/).map(x => x.replace(nameRe(who), '').replace(/^["“](.*)["”]$/, '$1').trim()).filter(Boolean).slice(0, 5));
+    return finLines(stripStatus(out).split(/\r?\n/).map(x => x.replace(nameRe(who), '').replace(/^["“](.*)["”]$/, '$1').trim().slice(0, MSG_CAP)).filter(Boolean).slice(0, 5));
 }
 // 👥 단체방 (v2.8): 방에 있는 인물들이 내 말에 · 서로에게 반응한다 → [{ who, text }]. 인물끼리 호감(pairs)이 있으면 같이 준다
 // (모델 · 프로필은 메신저 답장과 같은 칸)
@@ -271,7 +272,7 @@ export async function groupReply(room, state) {
     for (const line of out.split(/\r?\n/)) {
         const m = line.replace(/^\s*(?:[-*•]\s*)?/, '').match(/^\**([^:：*]{1,40}?)\**\s*[:：]\s*(.+)$/); if (!m) continue;
         const name = members.find(x => norm(x) === norm(m[1])); if (!name) continue;
-        const text = m[2].replace(/^["“](.*)["”]$/, '$1').trim(); if (text) got.push({ who: name, text });
+        const text = m[2].replace(/^["“](.*)["”]$/, '$1').trim().slice(0, MSG_CAP); if (text) got.push({ who: name, text });
     }
     const top = got.slice(0, 6), texts = await finLines(top.map(x => x.text));
     return texts.length === top.length ? top.map((x, i) => ({ who: x.who, text: texts[i] || x.text })) : top;
@@ -281,7 +282,7 @@ export async function letterReply(who, state, { courier, rush }, sends = null) {
     const sys = P('ai.letter', { who, app: ct.app, courier: courier || ct.app, rush: rush ? `${who} paid extra for an express courier so it arrives fast — it may show a little in the letter (eagerness).` : '' }) + remoteRule(who) + sendRule(state, who) + (app.socRule?.(who) ?? '');
     // v2.7.18: 700 → 2400 (한국어 편지 · 생각하는 모델은 700으로 끝까지 못 써서 잘렸음)
     const out = await aiGenerate('letter', sys, [...aboutPerson(who, state), `Letters so far (oldest first):\n${threadMemory(ct, who, 8)}`].join('\n\n'), 2400);
-    return finText(takeSends(stripStatus(out), sends).replace(/^```\w*\s*|```\s*$/g, '').trim());
+    return finText(takeSends(stripStatus(out), sends).replace(/^```\w*\s*|```\s*$/g, '').trim().slice(0, LETTER_CAP));
 }
 // 선톡
 export async function pingMessage(who, state, auto = false, sends = null) {

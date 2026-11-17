@@ -1,5 +1,5 @@
 // 🧪 AI가 돌려준 JSON 고치기 (prompts.js parseJSON) — 흔한 모델 실수들
-import { open, check } from './lib.mjs';
+import { open, makeStatus, check } from './lib.mjs';
 const { page, close } = await open();
 const cases = [
     ['```json\n{"a":1}\n```', { a: 1 }, '코드 울타리'],
@@ -27,4 +27,8 @@ try {
     // AI가 세계 핵심을 null · 글로 돌려줘도 멈추지 않게 (예전엔 NORM.core(null)이 오류)
     const core = await page.evaluate(async () => { const c = await import('/ext/src/core.js'); try { return [c.NORM.core(null), c.NORM.core('x'), c.NORM.core({ title: 5 })].map(x => x.title).join('|'); } catch (e) { return `THROW ${e.message}`; } });
     check(core === '||5', 'NORM.core(null · 글 · 숫자 제목)', core);
+    // 고장 난 모델이 끝없이 쓴 문자 답장: 한 줄 1,200자까지만 (채팅 파일이 커지지 않게)
+    await makeStatus(page, ['profile', 'rel', 'contact', 'calendar']);
+    const cap = await page.evaluate(async () => { const ai = await import('/ext/src/ai.js'); window.__ai = () => 'x'.repeat(20000) + '\n둘째 줄'; return (await ai.phoneReply('Leon', window.__SS_TEST__.api.app.current.state)).map(l => l.length).join(','); });
+    check(cap === '1200,4', '문자 답장 한 줄 최대 1,200자', cap);
 } finally { await close(); }
