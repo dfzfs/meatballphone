@@ -34,11 +34,12 @@ const draw = (fn) => { if (!fn) return null; const d = pen(); fn(d); return d.g;
 
 // ───── 몸 ─────
 const BODY = (d) => {
-    d.e(15.5, 14, 8.5, 8, 's'); d.S(() => d.r(6, 13, 1, 3, 's'));
-    d.r(14, 21, 4, 3, 's'); d.r(11, 23, 10, 1, 's'); d.r(10, 24, 12, 11, 's');
-    d.S(() => { d.r(7, 24, 3, 11, 's'); d.r(7, 35, 3, 2, 's'); });
-    d.r(10, 35, 12, 3, 's');
-    d.S(() => { d.r(11, 38, 4, 6, 's'); d.r(10, 44, 5, 2, 's'); });
+    d.e(15.5, 13, 8.6, 7.6, 's'); d.e(15.5, 16.5, 8.2, 6, 's'); d.S(() => d.r(6, 13, 1, 3, 's')); // 머리 (턱은 조금 좁게) · 귀
+    d.r(14, 21, 4, 3, 's');
+    d.e(15.5, 26.5, 6.4, 3.6, 's', 23, 26); d.p([[9.6, 26], [21.4, 26], [20.6, 35], [10.4, 35]], 's'); // 둥근 어깨 · 허리로 살짝 좁아지는 몸통
+    d.S(() => { d.r(7, 24, 3, 11, 's'); d.c(7, 24, 1, 1); d.e(8, 35.4, 1.6, 1.5, 's'); }); // 바깥으로 살짝 벌어진 팔 · 둥근 손
+    d.r(11, 35, 10, 2, 's'); d.e(15.5, 36.5, 5.4, 1.8, 's');
+    d.S(() => { d.r(11, 37, 4, 8, 's'); d.e(12.4, 44.8, 2.8, 1.5, 's'); }); // 다리 · 둥근 발
 };
 
 // ───── 머리 모양 ─────
@@ -71,8 +72,8 @@ const HAIR_DEF = {
 };
 
 // ───── 표정 ─────
-const eOpen = (d) => { d.S(() => d.r(11, 14, 2, 3, 'e')); d.x(11, 14, 'W'); d.x(19, 14, 'W'); }, eArc = (d) => d.S(() => { d.x(10, 16, 'e'); d.x(11, 15, 'e'); d.x(12, 15, 'e'); d.x(13, 16, 'e'); });
-const eShut = (d) => d.S(() => d.r(10, 16, 4, 1, 'e')), eWide = (d) => { d.S(() => d.r(10, 13, 3, 4, 'e')); d.x(10, 13, 'W'); d.x(19, 13, 'W'); }, eDown = (d) => d.S(() => d.r(11, 16, 2, 1, 'e'));
+const eOpen = (d) => { d.S(() => { d.r(11, 14, 2, 3, 'e'); d.r(11, 16, 2, 1, 'i'); d.x(10, 14, 'e'); }); d.x(11, 14, 'W'); d.x(19, 14, 'W'); }, eArc = (d) => d.S(() => { d.x(10, 16, 'e'); d.x(11, 15, 'e'); d.x(12, 15, 'e'); d.x(13, 16, 'e'); });
+const eShut = (d) => d.S(() => d.r(10, 16, 4, 1, 'e')), eWide = (d) => { d.S(() => { d.r(10, 13, 3, 4, 'e'); d.r(10, 16, 3, 1, 'i'); }); d.x(10, 13, 'W'); d.x(11, 13, 'W'); d.x(19, 13, 'W'); d.x(20, 13, 'W'); }, eDown = (d) => d.S(() => d.r(11, 16, 2, 1, 'e'));
 const eX = (d) => d.S(() => { d.l(10, 13, 13, 16, 'e'); d.l(13, 13, 10, 16, 'e'); }), eHeart = (d) => d.S(() => { d.x(10, 13, 'p'); d.x(12, 13, 'p'); d.r(9, 14, 5, 1, 'p'); d.r(10, 15, 3, 1, 'p'); d.x(11, 16, 'p'); });
 const blush = (d) => d.S(() => d.r(8, 18, 3, 1, 'b')), blushBig = (d) => d.S(() => d.r(8, 17, 4, 2, 'b'));
 const brSad = (d) => d.S(() => d.l(9, 12, 12, 11, 'e')), brMad = (d) => d.S(() => d.l(9, 10, 12, 12, 'e'));
@@ -83,7 +84,7 @@ const tears = (d) => d.S(() => d.r(11, 17, 1, 4, 't')), sweat = (d) => { d.r(24,
 const F_ = (...fs) => (d) => fs.forEach(fn => fn(d));
 const FACE_DEF = {
     smile: F_(eOpen, blush, mSmile), happy: F_(eArc, blush, mOpen), neutral: F_(eOpen, mFlat), sad: F_(eOpen, brSad, mFrown), angry: F_(eOpen, brMad, mFlat),
-    surprised: F_(eWide, mO), sleepy: F_(eShut, mFlat), wink: F_((d) => { d.r(11, 14, 2, 3, 'e'); d.x(11, 14, 'W'); d.r(18, 16, 4, 1, 'e'); }, blush, mSmile), cry: F_(eShut, tears, mFrown),
+    surprised: F_(eWide, mO), sleepy: F_(eShut, mFlat), wink: F_((d) => { d.r(11, 14, 2, 3, 'e'); d.r(11, 16, 2, 1, 'i'); d.x(10, 14, 'e'); d.x(11, 14, 'W'); d.l(18, 16, 19, 15, 'e'); d.l(20, 15, 21, 16, 'e'); }, blush, mSmile), cry: F_(eShut, tears, mFrown),
     dizzy: F_(eX, mWavy, sweat), love: F_(eHeart, blush, mSmile), smirk: F_(eOpen, mSmirk), shy: F_(eDown, blushBig, mFlat), tongue: F_(eArc, blush, mTongue), cat: F_(eOpen, blush, mCat),
     worried: F_(eOpen, brSad, mWavy, sweat),
 };
@@ -91,8 +92,8 @@ export const FACES = { auto: '기분 따라', smile: '미소', happy: '활짝', 
 const MOOD_FACE = ['dizzy', 'sad', 'neutral', 'smile', 'happy'];
 
 // ───── 옷: 조각 ─────
-const torso = (d, y1 = 35) => { d.r(11, 23, 10, 1, 'c'); d.r(10, 24, 12, y1 - 23, 'c'); };
-const slS = (d) => d.S(() => d.r(7, 24, 3, 4, 'c')), slL = (d) => d.S(() => { d.r(7, 24, 3, 11, 'c'); d.r(7, 34, 3, 1, 'D'); }), slPuff = (d) => d.S(() => d.e(8, 26, 2.6, 3, 'c'));
+const torso = (d, y1 = 35) => { d.r(12, 23, 8, 1, 'c'); d.r(10, 24, 12, y1 - 23, 'c'); };
+const slS = (d) => d.S(() => { d.r(7, 24, 3, 4, 'c'); d.c(7, 24, 1, 1); }), slL = (d) => d.S(() => { d.r(7, 24, 3, 11, 'c'); d.r(7, 34, 3, 1, 'D'); d.c(7, 24, 1, 1); }), slPuff = (d) => d.S(() => d.e(8, 26, 2.6, 3, 'c'));
 const neckV = (d) => d.p([[13, 23], [18, 23], [15.5, 27]], 's'), collarW = (d) => d.S(() => d.p([[12, 23], [15, 23], [13, 26]], 'w'));
 const btn3 = (d) => { for (const y of [27, 30, 33]) d.x(15, y, 'k'); }, stripesT = (d) => { d.r(10, 27, 12, 2, 'a'); d.r(10, 31, 12, 2, 'a'); };
 const flare = (d, y1, w) => d.p([[10, 35], [21, 35], [21 + w, y1], [10 - w, y1]], 'c');
@@ -131,7 +132,7 @@ const BOTTOMS = {
     frill: ['프릴 치마', (d) => { skirtP(d, 39, 3); for (let x = 6; x <= 25; x++) d.x(x, 40 + (x % 2), 'w'); d.r(7, 40, 18, 1, 'w'); }], mini: ['미니스커트', (d) => skirtP(d, 38, 2)], tights: ['치마 + 스타킹', (d) => { d.S(() => d.r(11, 38, 4, 6, 'k')); skirtP(d, 40, 3); }],
     longskirt: ['긴 치마', (d) => skirtP(d, 44, 4)], tiered: ['티어드 치마', (d) => { skirtP(d, 44, 5); d.r(8, 38, 16, 1, 'a'); d.r(7, 41, 18, 1, 'a'); d.r(5, 44, 22, 1, 'a'); }],
 };
-const sides = (d, y1 = 35) => d.S(() => d.r(10, 23, 4, y1 - 22, 'c')), slO = (d) => d.S(() => { d.r(6, 24, 4, 11, 'c'); d.r(6, 34, 4, 1, 'D'); }), lapel = (d) => d.S(() => d.l(13, 23, 12, 29, 'D'));
+const sides = (d, y1 = 35) => d.S(() => d.r(10, 23, 4, y1 - 22, 'c')), slO = (d) => d.S(() => { d.r(6, 24, 4, 11, 'c'); d.r(6, 34, 4, 1, 'D'); d.c(6, 24, 1, 1); }), lapel = (d) => d.S(() => d.l(13, 23, 12, 29, 'D'));
 const capeB = (d) => d.p([[8, 22], [23, 22], [27, 44], [4, 44]], 'c'), hoodF = (d) => d.o(15.5, 13, 11, 10.5, 8.8, 8.4, 'c', 2, 22), hoodB = (d) => d.e(15.5, 13, 11, 10.5, 'c', 2, 24);
 const OUTERS = {
     jacket: ['재킷', (d) => { sides(d); slO(d); lapel(d); }], blazer: ['블레이저', (d) => { sides(d); slO(d); d.S(() => d.p([[13, 23], [14, 23], [14, 30], [11, 26]], 'D')); d.x(13, 32, 'a'); }],
@@ -247,10 +248,16 @@ export const EYE_COLORS = ['#2f2a2a', '#5a3a26', '#3a6fd6', '#3a9a5a', '#9a5ad6'
 
 const rgb = (hex) => { const n = parseInt(String(hex).slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
 const hexOf = (a) => `#${a.map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('')}`;
-const shade = (hex, k) => hexOf(rgb(hex).map(v => v * k));
-const tint = (hex, k) => hexOf(rgb(hex).map(v => v + (255 - v) * k));
+function toHsl(hex) { const [r, g, b] = rgb(hex).map(v => v / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, dd = mx - mn; if (!dd) return [0, 0, l]; const sat = dd / (1 - Math.abs(2 * l - 1)); let h = mx === r ? ((g - b) / dd) % 6 : mx === g ? (b - r) / dd + 2 : (r - g) / dd + 4; h *= 60; if (h < 0) h += 360; return [h, sat, l]; }
+function fromHsl(h, sat, l) { const c = (1 - Math.abs(2 * l - 1)) * sat, x = c * (1 - Math.abs((h / 60) % 2 - 1)), mm = l - c / 2; const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x]; return hexOf([(r + mm) * 255, (g + mm) * 255, (b + mm) * 255]); }
+const turn = (h, to, k) => { let dlt = ((to - h + 540) % 360) - 180; return (h + dlt * k + 360) % 360; };
+// 그늘은 어둡게 + 보랏빛 쪽으로, 빛은 밝게 + 노란빛 쪽으로 (그냥 검정 · 흰색을 섞으면 탁해 보인다)
+const memo = new Map();
+const mixTo = (hex, to, k) => hexOf(rgb(hex).map((v, n) => v + (to[n] - v) * k));
+function shade(hex, a) { const k = `s${hex}${a}`; let v = memo.get(k); if (!v) { v = mixTo(hexOf(rgb(hex).map(c => 255 * Math.pow(c / 255, 1 + a * 3) * (1 - a * 0.55))), [58, 40, 92], a * 0.25); memo.set(k, v); } return v; }
+function tint(hex, a) { const k = `t${hex}${a}`; let v = memo.get(k); if (!v) { v = mixTo(hex, [255, 248, 222], a); memo.set(k, v); } return v; }
 const MAIN = new Set(['c', 's', 'h']);
-// 한 장을 칠한다. 바탕 글자(c · s · h)는 4단계: 테두리(가장자리) · 그늘(아래 · 오른쪽에서 한 칸 안) · 밝은 띠(위 · 왼쪽에서 한 칸 안) · 바탕
+// 한 장을 칠한다 (빛은 왼쪽 위에서): 아래 · 오른쪽 가장자리 = 짙은 그늘 · 그 안쪽 한 칸 = 옅은 그늘 · 위 · 왼쪽 안쪽 한 칸 = 밝은 띠 · 나머지 = 바탕
 function paint(img, g, pal, flat = false) {
     if (!g) return;
     const has = (y, x) => y >= 0 && y < H && x >= 0 && x < W && g[y][x] !== '';
@@ -258,22 +265,27 @@ function paint(img, g, pal, flat = false) {
         const ch = g[y][x]; if (!ch) continue;
         const base = pal[ch]; if (!base) continue;
         let col = base;
-        if (!flat) {
-            const edge = !has(y - 1, x) || !has(y + 1, x) || !has(y, x - 1) || !has(y, x + 1);
-            if (MAIN.has(ch)) { if (edge) col = shade(base, 0.62); else if (!has(y + 2, x) || !has(y, x + 2)) col = shade(base, 0.85); else if (!has(y - 2, x) || !has(y, x - 2)) col = tint(base, 0.18); }
-            else if (edge) col = shade(base, 0.72);
+        if (!flat && MAIN.has(ch)) {
+            if (!has(y + 1, x) || !has(y, x + 1)) col = shade(base, 0.2);
+            else if (!has(y + 2, x) || !has(y, x + 2)) col = shade(base, 0.09);
+            else if (has(y - 1, x) && has(y, x - 1) && (!has(y - 2, x) || !has(y, x - 2))) col = tint(base, 0.2);
         }
         img[y][x] = col;
     }
 }
-const clothPal = (c, skin) => ({ c, a: tint(c, 0.55), L: tint(c, 0.32), D: shade(c, 0.74), w: '#f7f4ee', k: '#5a4636', s: skin });
+// 다 겹친 뒤: 그림 전체의 바깥 테두리만 짙게 (칸마다 테두리를 치면 지저분해 보인다)
+function outline(img) {
+    const occ = img.map(r => r.map(Boolean)), at = (y, x) => y >= 0 && y < H && x >= 0 && x < W && occ[y][x];
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (occ[y][x] && !(at(y - 1, x) && at(y + 1, x) && at(y, x - 1) && at(y, x + 1))) img[y][x] = shade(img[y][x], 0.78);
+}
+const clothPal = (c, skin) => ({ c, a: tint(c, 0.55), L: tint(c, 0.3), D: shade(c, 0.22), w: '#f7f4ee', k: '#5a4636', s: skin });
 export const HURT_PARTS = { head: '머리', torso: '몸통', arms: '팔', legs: '다리' };
 const inPart = (part, y, x) => (part === 'head' ? y <= 22 : part === 'torso' ? y >= 23 && y <= 37 && x >= 10 && x <= 21 : part === 'arms' ? y >= 23 && y <= 36 && (x < 10 || x > 21) : part === 'legs' ? y >= 38 : false);
 const BODY_G = draw(BODY);
 function toUrl(img, only) {
     if (typeof document === 'undefined') return '';
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d'); if (!c) return '';
-    if (!only) { c.fillStyle = 'rgba(0,0,0,.16)'; c.fillRect(9, 46, 14, 1); c.fillRect(7, 45, 18, 1); }
+    if (!only) { c.fillStyle = 'rgba(40,30,60,.14)'; c.fillRect(9, 46, 14, 1); c.fillStyle = 'rgba(40,30,60,.2)'; c.fillRect(7, 45, 18, 1); c.fillRect(10, 46, 12, 1); }
     let any = false;
     for (let y = 0; y < H; y++) for (let x = 0; x < W;) {
         const col = img[y][x]; if (!col || (only && !only(y, x))) { x++; continue; }
@@ -289,16 +301,22 @@ function render(look, wear, mood, hurt) {
     const of = (kind) => { const x = wear.find(v => v.kind === kind); return x && SHAPES[kind]?.[x.shape] ? { g: layerOf(`${kind}:${x.shape}`, SHAPES[kind][x.shape]), pal: clothPal(x.color, skin) } : null; };
     const top = of('top') ?? { g: layerOf('top:tee', SHAPES.top.tee), pal: clothPal('#f7f4ee', skin) }, bottom = of('bottom') ?? { g: layerOf('bottom:shorts', SHAPES.bottom.shorts), pal: clothPal('#8a8f98', skin) };
     const outer = of('outer'), shoes = of('shoes'), acc = of('acc'), weapon = of('weapon');
-    const hairPal = { h: hc, a: '#e2557b', D: shade(hc, 0.72) };
+    const hairPal = { h: hc, a: '#e2557b', D: shade(hc, 0.24) };
     paint(img, hair.b, hairPal); if (top.g.b) paint(img, top.g.b, top.pal); if (outer?.g.b) paint(img, outer.g.b, outer.pal); if (acc?.g.b) paint(img, acc.g.b, acc.pal);
     paint(img, BODY_G, { s: skin });
     paint(img, bottom.g.f, bottom.pal); if (shoes) paint(img, shoes.g.f, shoes.pal);
     paint(img, top.g.f, top.pal);
-    paint(img, hair.f, hairPal);
     if (outer) paint(img, outer.g.f, outer.pal);
+    for (let y = 23; y <= 24; y++) for (let x = 12; x <= 19; x++) if (img[y][x]) img[y][x] = shade(img[y][x], y === 23 ? 0.16 : 0.08); // 턱 밑 그늘
+    paint(img, hair.f, hairPal);
+    if (hair.f) for (let x = 9; x <= 17; x++) for (const y of [6, 7]) if (hair.f[y][x] === 'h' && (x + y) % 5 !== 0 && (y === 6 ? x < 16 : x < 13)) img[y][x] = tint(hc, 0.38); // 머리카락 윤기
+    for (let x = 8; x <= 23; x++) if (img[15][x] && hair.f?.[14]?.[x] === 'h' && !hair.f[15][x]) img[15][x] = shade(img[15][x], 0.1); // 앞머리 그늘
     const faceId = FACE_DEF[look.face] ? look.face : MOOD_FACE[Math.max(0, Math.min(4, Math.round(mood)))];
-    paint(img, layerOf(`face:${faceId}`, { f: FACE_DEF[faceId] }).f, { e: look.eye || '#2f2a2a', W: '#ffffff', m: '#8a4a44', b: '#f7a8a8', t: '#6ab7f0', p: '#f06a9a' }, true);
+    const eye = look.eye || '#2f2a2a', mix = (a, b, k) => hexOf(rgb(a).map((v, i) => v + (rgb(b)[i] - v) * k));
+    paint(img, layerOf(`face:${faceId}`, { f: FACE_DEF[faceId] }).f, { e: shade(eye, 0.45), i: tint(eye, 0.35), W: '#ffffff', m: mix(skin, '#9a3f3f', 0.62), b: mix(skin, '#f47a8a', 0.5), t: '#7cc4f5', p: '#f06a9a' }, true);
     if (acc?.g.f) paint(img, acc.g.f, acc.pal);
+    for (let y = 25; y <= 35; y++) for (const x of [9, MID - 9]) if (img[y][x] && img[y][x + (x === 9 ? 1 : -1)]) img[y][x] = shade(img[y][x], 0.3); // 팔과 몸통 사이 그늘 (안 그러면 팔이 몸에 붙어 보인다)
+    outline(img);
     if (weapon?.g.f) paint(img, weapon.g.f, weapon.pal, true);
     return [toUrl(img), hurt.length ? toUrl(img, (y, x) => hurt.some(p => inPart(p, y, x))) : ''];
 }
