@@ -50,6 +50,11 @@ try {
         await say('msg: Leon: 내일 보자'); out.msgColon = (st().data.contact.threads.Leon ?? []).some(m => m.text === '내일 보자');
         await say('msg: Leon'); out.msgNoTextMiss = /msg: Leon/.test(missOf());
         await say('mind: Leon: 설렌다'); out.mindColon = /설렌다/.test(st().data.rel.user.find(x => x.name === 'Leon')?.mind?.text ?? '');
+        // AI가 지어낸 영어 키 이름 (예전엔 ⚠ 못 읽은 줄): inventory · affection · friendship · relationship · status · health
+        { const L0 = st().data.rel.user.find(x => x.name === 'Leon'), a0 = L0.aff, t0 = L0.trust, h0 = bar('체력').cur;
+          await say('inventory: +열쇠\naffection: Leon +2\nfriendship: Leon +1\nrelationship: Leon +1\nstatus: +어지러움\nhealth: -3');
+          const L1 = st().data.rel.user.find(x => x.name === 'Leon');
+          out.keyAliases = !!st().data.wallet.items.find(i => i.name === '열쇠') && L1.aff === a0 + 3 && L1.trust === t0 + 1 && !!st().data.stats.conds.find(c => c.name === '어지러움') && bar('체력').cur === h0 - 3; }
         // 🪘 굿 가호: AI가 효과를 글 하나로 · 날수를 「3일」로 줘도 (예전엔 글자마다 효과 하나)
         { const ops = await import('/ext/src/ops.js'); const s2 = structuredClone(st()); ops.applyOp(s2, '_fortune', JSON.stringify({ who: 'Me', method: 'gut', bless: { name: '가호', effects: '가격 -10%, 호감 +20%', days: '3일' } }), { labels: [], alerts: [], seed: 'x' });
           const b = s2.data.fate.curses.find(c => c.name === '가호'); out.gutBless = JSON.stringify(b?.effects) === '["가격 -10%","호감 +20%"]' && b.days === 3 && b.kind === 'bless'; }

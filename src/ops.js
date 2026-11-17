@@ -6,15 +6,15 @@ import { enStr } from './skeleton_en.js';
 export const KEYMAP = {
     stat: 'stat', '수치': 'stat', '게이지': 'stat', gauge: 'stat', hp: 'stat',
     attr: 'attr', '능력치': 'attr', '능력': 'attr',
-    cond: 'cond', '상태': 'cond', '상태이상': 'cond', buff: 'cond', '버프': 'cond', condition: 'cond',
+    cond: 'cond', '상태': 'cond', '상태이상': 'cond', buff: 'cond', '버프': 'cond', condition: 'cond', conditions: 'cond', status: 'cond', debuff: 'cond', '디버프': 'cond',
     cash: 'cash', money: 'cash', '돈': 'cash', '재산': 'cash', '소지금': 'cash', gold: 'cash',
-    item: 'item', items: 'item', '아이템': 'item', '소지품': 'item',
+    item: 'item', items: 'item', '아이템': 'item', '소지품': 'item', inventory: 'item', inv: 'item', bag: 'item', '가방': 'item', '인벤토리': 'item',
     stock: 'stock', '상품': 'stock', '입고': 'stock',
     decor: 'decor', '가구': 'decor', '장식': 'decor',
     room: 'room', '방': 'room',
     loc: 'loc', '위치': 'loc', '장소': 'loc', location: 'loc',
     place: 'place', '발견장소': 'place', '새장소': 'place',
-    aff: 'aff', '호감': 'aff', '호감도': 'aff', '애정': 'aff', '애정도': 'aff', trust: 'trust', '신뢰': 'trust', '신뢰도': 'trust', '우정': 'trust', '우정도': 'trust',
+    aff: 'aff', affection: 'aff', love: 'aff', romance: 'aff', '호감': 'aff', '호감도': 'aff', '애정': 'aff', '애정도': 'aff', trust: 'trust', friendship: 'trust', '신뢰': 'trust', '신뢰도': 'trust', '우정': 'trust', '우정도': 'trust',
     rel: 'rel', '관계': 'rel', pair: 'pair', '인물관계': 'pair', pairaff: 'pairaff', '인물호감': 'pairaff',
     date: 'date', '날짜': 'date', day: 'date', '일': 'date', time: 'time', '시간': 'time', '시간대': 'time',
     days: 'date', '날짜이동': 'date', period: 'time', slot: 'time',
@@ -24,7 +24,7 @@ export const KEYMAP = {
     msg: 'msg', '연락': 'msg', '문자': 'msg', message: 'msg', '메시지': 'msg', letter: 'msg', '편지': 'msg',
     npc: 'npc', '인물': 'npc', '새인물': 'npc',
     roll: 'roll', '판정': 'roll', '판정요청': 'roll',
-    quest: 'quest', '퀘스트': 'quest', '의뢰': 'quest',
+    quest: 'quest', quests: 'quest', mission: 'quest', '퀘스트': 'quest', '의뢰': 'quest', '임무': 'quest',
     news: 'news', '뉴스': 'news', '소식': 'news',
     rumor: 'rumor', gossip: 'rumor', '소문': 'rumor', '가십': 'rumor',
     post: 'post', '게시글': 'post', '게시판': 'post',
@@ -406,9 +406,10 @@ export function applyOp(s, rawKey, rawVal, info) {
     setAlias(s.data?.rel?.alias);
     let key = KEYMAP[String(rawKey).trim().toLowerCase()] ?? (String(rawKey).startsWith('_') ? String(rawKey) : null);
     let val = String(rawVal ?? '').trim();
+    if (!key && /^(relationship|relation|관계도)$/i.test(String(rawKey).trim())) key = /[+\-−]\s*\d/.test(val) ? 'aff' : 'rel'; // 「relationship: Leon +2」 = 애정 · 「relationship: Leon = 친구」 = 관계 이름 (검수)
     if (!key) {
         const nm = String(rawKey).trim();
-        if (s.data.stats && findBy(s.data.stats.bars, nm)) { key = 'stat'; val = `${nm} ${val}`; }
+        if (s.data.stats && (findBy(s.data.stats.bars, nm) || aliasBar(s.data.stats.bars, nm))) { key = 'stat'; val = `${nm} ${val}`; } // 「health: -5」 → 체력 (검수: 별명 키를 못 읽었다)
         else if (s.data.stats && findBy(s.data.stats.attrs, nm)) { key = 'attr'; val = `${nm} ${val}`; }
         else if (s.data.wallet && norm(nm) === norm(s.data.wallet.currency)) key = 'cash';
         else return miss(info, nm, val);
