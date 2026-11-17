@@ -634,3 +634,12 @@ dialog.popup.ss-dlg.ss-full .popup-content { max-height: none; }
 .ss-pk-opt > small { color: var(--ss-dim); font-size: .8em; }
 .ss-pk-opt .ss-seg button small { opacity: .65; margin-left: 2px; }
 @media (max-width: 520px) { .ss-pk-syn { padding-left: 4px; } .ss-pk-sub { margin-left: 4px; } }
+/* 🎛 기능 고르기: 고른 대로 채우기 · 세부 설정 */
+.ss-pk-fill { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; padding: 10px 12px; margin-bottom: 8px; border-radius: var(--ss-r); background: color-mix(in srgb, var(--ss-hi) 9%, var(--ss-bg)); border: 1px solid color-mix(in srgb, var(--ss-hi) 35%, transparent); }
+.ss-pk-fill > div:first-child { flex: 1 1 240px; min-width: 0; display: grid; gap: 2px; }
+.ss-pk-fill small { color: var(--ss-dim); line-height: 1.4; }
+.ss-pk-more > summary { cursor: pointer; font-size: .86em; color: var(--ss-dim); padding: 4px 0; list-style-position: inside; }
+.ss-pk-more > summary small { opacity: .8; margin-left: 4px; }
+.ss-pk-more[open] > summary { color: var(--ss-ink); }
+.ss-pk-det { display: grid; gap: 6px; padding: 4px 0 2px; min-width: 0; }
+.ss-pk-det .ss-tog span, .ss-pk-det .ss-f > span { font-size: .88em; line-height: 1.4; }

@@ -911,7 +911,7 @@ async function onChatChanged() {
     try { if (sweepSent()) { saveMeta(); refreshNow(); } } catch (e) { ssNote('지운 연락 기록 정리 실패', e); } // 업데이트 전에 지운 말풍선의 기록
     try { app.sideSweep(); } catch (e) { ssNote('따로 보관 옮기기 실패', e); } // 📦 예전 방식으로 쌓인 연락 · 피드 기록을 덩어리 하나로
     // 카드에 상태창이 들어 있으면 (이 채팅에 아직 없을 때) 한 번 물어본다
-    setTimeout(() => { offerCard(setBase).catch(e => ssWarn(LOG, 'card', e)); }, 400);
+    setTimeout(() => { offerCard(setBase).catch(e => ssWarn(LOG, 'card', e)).then(() => import('./src/autostart.js')).then(m => m.autoStart()).catch(e => ssWarn(LOG, 'autostart', e)); }, 400); // 🧆 그다음: 상태창이 없으면 틀을 바로 (AI 0회)
 }
 
 // 📦 따로 보관 (v2.7.23): 쌓인 연락 · 피드 기록을 덩어리 하나로 → 바꿨으면 저장하고 다시 계산
@@ -968,6 +968,7 @@ function init() {
     try { watchChat(); } catch (e) { ssWarn(LOG, 'slots', e); }
     const on = (name, fn) => { if (E[name]) eventSource.on(E[name], fn); };
     on('CHAT_CHANGED', onChatChanged);
+    setTimeout(() => import('./src/autostart.js').then(m => m.autoStart()).catch(e => ssWarn(LOG, 'autostart', e)), 1500); // 🧆 채팅이 이미 열린 채로 확장이 켜졌을 때도 (CHAT_CHANGED가 다시 안 올 수 있다)
     on('GENERATION_AFTER_COMMANDS', onBeforeGenerate);
     on('MESSAGE_RECEIVED', onReceived);
     on('CHARACTER_MESSAGE_RENDERED', onCharRendered);

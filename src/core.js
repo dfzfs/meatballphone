@@ -238,6 +238,7 @@ export const DEFAULTS = Object.freeze({
     offscreen: true,         // NPC 화면 밖 생활 (날이 지나면 가끔)
     favTabs: [],             // 즐겨찾기 탭
     bottomNav: false,        // 폰: 탭 바를 아래로 (한 손 모드)
+    autoStart: true,         // 🧆 상태창이 없는 채팅을 열면 틀을 바로 만든다 (AI 0회 · 추천 6칸) — 끄면 예전처럼 「만들기」를 눌러야 생긴다 (autostart.js)
     cardOffer: true,         // 카드에 붙은 상태창이 있으면 새 채팅에서 불러올지 물어봄
     autoSave: true,          // 자동 세이브 (오래된 기록을 굳히기 전에 · 최근 3개)
     carry: {},               // 2회차 이어받기 (캐릭터별)

@@ -4,6 +4,7 @@ import {
     fmtNum, clone, splitBar, parseNum, dateStr, dayIndex, eventsOn, nextTime, nextTimeWraps, CLOCK_STYLES, timeWords, upcoming, userName, TITLE, VERSION, EMPTY, CONTACT_MODES, stamp, weekday, viewTr, GLOBAL_OFF,
 } from './core.js';
 import { tagKeysFor, buildInjection } from './engine.js';
+import { autoOf, fillTodo, fillChosen, fillWorld, goMods } from './autostart.js';
 import { addAdjust, commit, dueLetters, priceMul, peopleAt, hopsBetween, whereNow, seasonOf, SEASON_NAME, purgeTrash, undoAt, skillRoll, SOCIAL_RE } from './engine.js';
 import { trString } from './translate.js';
 import { walletView, fxText } from './money.js';
@@ -31,6 +32,8 @@ const roleName = { user: '유저', main: '주요', npc: 'NPC' };
 function homeView(s, ui) {
     const c = s.core, d = s.data, meta = getMeta();
     const alerts = [];
+    const auto = autoOf(meta); // 🧆 바로 시작으로 만든 틀: 고르고 채우러 가는 길을 맨 위에
+    if (auto) alerts.push(`<div class="ss-callout" data-act="gomods"><i class="fa-solid fa-sliders"></i><div><b>지금은 틀만 있어요</b><span>이것저것 눌러 보고, 관리 › 쓸 기능에서 쓸 칸을 고르면 이 이야기에 맞게 채워 드려요 — 여기를 누르면 가요</span></div></div>`);
     const due = dueLetters(s);
     if (due.length) alerts.push(`<div class="ss-callout mail" data-act="tab" data-arg="contact"><i class="fa-solid fa-envelope-open-text"></i><div><b>도착한 편지 ${due.length}통</b><span>${due.map(x => esc(x.who)).join(', ')}</span></div></div>`);
     const un = Object.entries(d.contact?.unread ?? {}).filter(([, n]) => n);
@@ -510,12 +513,40 @@ function pkCosts(meta) { // 칸마다: 켰을 때 AI에게 가는 「적는 법 
     return out;
 }
 function pkTotal() { try { const r = app.current; if (!r || getMeta()?.paused) return null; const inj = buildInjection(r); return pkTok(inj.main) + pkTok(inj.people) + pkTok(inj.romance); } catch { return null; } }
+// 칸마다의 세부 설정 — 확장 설정 서랍(#ss-settings)의 같은 칸을 그대로 비춘다: 이름 · 고르는 값은 서랍에서 읽고, 바꾸면 서랍의 칸을 바꾼 것과 똑같이 처리된다 (값은 하나 · 모든 채팅 공통)
+const PK_DETAIL = {
+    stats: ['extraJudge'],
+    rel: ['jealousy', 'stageLock', 'offscreen', 'romBond', 'romCap', 'romCapAff', 'romCapTrust', 'romFatigue', 'romFacts', 'romDrive', 'romDepth', 'romSpark', 'romSparkPct'],
+    contact: ['contactReflect', 'contactSimple', 'contactSimpleReflect', 'autoPing', 'autoPingEvery', 'rushChance', 'contactRecall', 'contactStayRemote', 'contactAway', 'profContact'],
+    calendar: ['daySummary'],
+    quest: ['questAsk', 'questJudge', 'questJudgeAI', 'questExpire'],
+    memo: ['pinCap'],
+    music: ['musicTaste', 'musicApp', 'musicToast'],
+    news: ['profFeeds'],
+};
+// 칸에 딸리지 않은 공통 설정 (맨 아래 접힌 묶음 둘)
+const PK_COMMON = [
+    ['send', 'AI에게 보내는 방식', ['injectMode', 'sceneFilter', 'sceneTurns', 'deltaMode', 'deltaEvery', 'injectDepth', 'injWorld', 'injScan', 'goneInject', 'oocDetect', 'skipQuiet']],
+    ['look', '화면 · 알림 · 기록', ['msgCard', 'chipOutside', 'freshDot', 'toastMode', 'toastPos', 'toastSec', 'featureTips', 'actionTips', 'albumOn', 'recordOn', 'autoStart']],
+];
+const pkDrawer = (k) => document.querySelector(`#ss-settings [data-s="${k}"]`);
+function pkOpt(k) {
+    const inp = pkDrawer(k); if (!inp) return '';
+    const lab = inp.closest('label'); let text = k;
+    if (lab) { const c = lab.cloneNode(true); c.querySelectorAll('input, select, textarea').forEach(x => x.remove()); text = c.textContent.replace(/^[\s　└]+/, '').replace(/\s+/g, ' ').trim() || k; }
+    if (inp.type === 'checkbox') return `<label class="ss-tog"><input type="checkbox" class="ss-switch" data-chg="setopt" data-arg="${k}" ${inp.checked ? 'checked' : ''}><span>${esc(text)}</span></label>`;
+    if (inp.tagName === 'SELECT') return `<label class="ss-f wide"><span>${esc(text)}</span><select class="ss-in" data-chg="setopt" data-arg="${k}">${[...inp.options].map(o => `<option value="${esc(o.value)}" ${o.value === inp.value ? 'selected' : ''}>${esc(o.textContent)}</option>`).join('')}</select></label>`;
+    return `<label class="ss-f wide"><span>${esc(text)}</span><input class="ss-in" data-chg="setopt" data-arg="${k}" type="${inp.type === 'number' ? 'number' : 'text'}" ${inp.min ? `min="${esc(inp.min)}"` : ''} ${inp.max ? `max="${esc(inp.max)}"` : ''} value="${esc(inp.value)}" placeholder="${esc(inp.placeholder ?? '')}"></label>`;
+}
+const pkOpts = (keys) => keys.map(pkOpt).filter(Boolean);
 function pkSub(id, s, st) { // 켠 칸 밑의 딸린 옵션
     const parts = [];
     if (id === 'calendar' && s.data.calendar) parts.push(`<div class="ss-pk-opt"><small>시간 적는 법</small>${seg(CLOCK_STYLES.map(([v, name, ex]) => [v, `${name} <small>${ex}</small>`]), s.data.calendar.clock ?? '', 'clockstyle', 'class="ss-seg wrap"')}</div>`);
     if (id === 'map') parts.push(`<div class="ss-pk-opt"><small>지도 보기</small>${seg([['iso', '입체'], ['flat', '평면'], ['list', '목록']], ['iso', 'flat', 'list'].includes(st.mapMode) ? st.mapMode : 'iso', 'mapmode', 'class="ss-seg wrap"')}</div>`);
     const flags = (PK_PARENT[id] ?? []).map(k => FLAG_BY[k]).filter(Boolean);
     if (flags.length) parts.push(`<div class="ss-pk-opt"><small>딸린 옵션 · 모든 채팅에 걸려요</small>${flagList(st, flags)}</div>`);
+    const det = pkOpts(PK_DETAIL[id] ?? []);
+    if (det.length) parts.push(`<details class="ss-pk-more"><summary>세부 설정 ${det.length}개 <small>모든 채팅에 걸려요 · 확장 설정의 같은 칸과 한 값</small></summary><div class="ss-pk-det">${det.join('')}</div></details>`);
     return parts.join('');
 }
 function pickerHTML(s, meta, st) {
@@ -524,19 +555,25 @@ function pickerHTML(s, meta, st) {
     const isOn = (m) => meta.mods?.[m.id] !== false && !(GLOBAL_OFF[m.id] && st[GLOBAL_OFF[m.id]] === false);
     const onIds = MODS.filter(isOn).map(m => m.id), recOnly = onIds.length === REC_MODS.length && REC_MODS.every(id => onIds.includes(id));
     const setOn = (add) => { const want = new Set([...REC_MODS, ...add]); return onIds.length === want.size && onIds.every(id => want.has(id)); };
+    const tplSet = new Set(autoOf(meta)?.tpl ?? []);
     const card = (m) => {
         const gOff = GLOBAL_OFF[m.id] && st[GLOBAL_OFF[m.id]] === false, on = isOn(m), c = cost[m.id];
         const syn = (PK_SYN[m.id] ?? []).filter(([o]) => MOD[o]);
         return `<div class="ss-pk ${on ? 'on' : ''}" data-pk="${m.id}">
             <label class="ss-mod ${on ? 'on' : ''}"><input type="checkbox" class="ss-switch" data-chg="mod" data-arg="${m.id}" ${on ? 'checked' : ''} ${gOff ? 'disabled' : ''}>
-            <i class="fa-solid ${m.icon}"></i><span><b>${m.name}</b><small>${gOff ? '모든 채팅에서 꺼 둠 — 확장 설정 › 기능 켜고 끄기' : m.desc}</small></span>${gOff ? '' : `${s.data[m.id] ? '' : '<em>비어 있음</em>'}${Number.isFinite(c) ? `<em class="ss-pk-cost" title="켜면 AI에게 가는 「적는 법 안내」가 이만큼 늘어요 (어림 · 그 칸의 내용은 따로)">${c ? `+${c} 토큰` : '토큰 0'}</em>` : ''}`}</label>
+            <i class="fa-solid ${m.icon}"></i><span><b>${m.name}</b><small>${gOff ? '모든 채팅에서 꺼 둠 — 확장 설정 › 기능 켜고 끄기' : m.desc}</small></span>${gOff ? '' : `${!s.data[m.id] ? '<em>비어 있음</em>' : tplSet.has(m.id) ? '<em title="기본 틀만 들어 있어요 — 「고른 대로 채우기」를 누르면 이 이야기에 맞게 채워요">틀만</em>' : ''}${Number.isFinite(c) ? `<em class="ss-pk-cost" title="켜면 AI에게 가는 「적는 법 안내」가 이만큼 늘어요 (어림 · 그 칸의 내용은 따로)">${c ? `+${c} 토큰` : '토큰 0'}</em>` : ''}`}</label>
             ${syn.length ? `<div class="ss-pk-syn"><small>같이 켜면</small>${syn.map(([o, why]) => { const oo = isOn(MOD[o]); return oo ? `<span class="ss-chip" title="${esc(why)}"><i class="fa-solid fa-check"></i> ${MOD[o].name}</span>` : `<button type="button" class="ss-chip btn" data-act="pkon" data-arg="${o}" title="${esc(why)} — 눌러서 켜기"><i class="fa-solid fa-plus"></i> ${MOD[o].name}</button>`; }).join('')}</div>` : ''}
             <div class="ss-pk-sub"${on ? '' : ' hidden'}>${pkSub(m.id, s, st)}</div></div>`;
     };
     const groups = GROUPS.filter(g => g.id !== 'manage').map(g => ({ ...g, tabs: g.tabs.filter(t => !PSEUDO.has(t) && MOD[TAB_MOD(t)]) })).filter(g => g.tabs.length);
     const rest = [...ADDON_FLAGS, ...STORY_FLAGS].filter(f => !PK_CHILD.has(f[0]));
     const oRest = mgIsOpen('ex-rest'), nRest = rest.filter(f => flagOn(st, f)).length;
-    return `${sec('🎛 기능 고르기 <small>이 채팅만 · 끈 칸은 내용은 남고 AI에게만 안 보내요</small>', `
+    const auto = autoOf(meta), todo = live ? fillTodo(s, meta) : [], needWorld = !!auto && !auto.world;
+    const fillBox = auto || todo.length ? `<div class="ss-pk-fill">
+            <div><b>${auto ? '🧆 지금은 틀만 있어요' : '🧆 비어 있는 칸이 있어요'}</b><small>${auto ? '아래에서 쓸 칸을 고른 뒤 누르면, 켜 둔 칸만 이 이야기(카드 · 로어북 · 지금까지의 채팅)에 맞게 채워요.' : '켜 둔 칸 중 비어 있는 칸을 이 이야기에 맞게 채워요.'}${todo.length ? ` 채울 칸: ${todo.map(id => MOD[id].name).join(' · ')}` : ''}</small></div>
+            <div class="ss-row-btns">${needWorld ? `<button class="ss-btn sm" data-act="fillworld" title="카드 · 로어북 · 이야기를 읽고 세계 핵심(제목 · 장르 · 줄거리 · 규칙)만 맞춰요">${ai1} 세계관만 맞추기</button>` : ''}<button class="ss-btn pri" data-act="fillchosen">${ai1} 고른 대로 채우기</button></div></div>` : '';
+    const common = PK_COMMON.map(([id, name, keys]) => { const list = live ? pkOpts(keys) : []; if (!list.length) return ''; const o = mgIsOpen(`cm-${id}`); return `<div class="ss-modgrp ss-fold ${o ? 'open' : ''}"><button type="button" class="ss-mg-h" data-act="mgfold" data-arg="cm-${id}" aria-expanded="${o}"><b>${name}</b><small>세부 설정 ${list.length}개 · 모든 채팅에 걸려요</small><i class="fa-solid fa-chevron-down ss-mg-chev"></i></button><div class="ss-mg-b"${o ? '' : ' hidden'}><div class="ss-pk-det">${list.join('')}</div></div></div>`; }).join('');
+    return `${sec('🎛 기능 고르기 <small>이 채팅만 · 끈 칸은 내용은 남고 AI에게만 안 보내요</small>', `${fillBox}
             <div class="ss-pk-sum"><span><i class="fa-solid fa-gauge-high"></i> 켠 칸 <b>${onIds.length}</b>개</span>${total !== null ? `<span>지금 매 턴 AI에게 가는 글 <b>약 ${fmtNum(total)} 토큰</b></span>` : ''}</div>
             <div class="ss-seg wrap stack ss-pk-sets">
                 <button class="${recOnly ? 'on' : ''}" data-act="modset" data-arg="rec" title="꼭 필요한 6칸(프로필 · 수치 · 재산 · 관계 · 지도 · 달력)만 켜요"><i class="fa-solid fa-feather"></i> 가볍게<small>추천 6칸만</small></button>
@@ -544,7 +581,8 @@ function pickerHTML(s, meta, st) {
             </div>
             <p class="ss-hint">묶음을 누르면 칸만 바뀌어요 (딸린 옵션은 그대로). 나중에 켠 칸은 그때부터 적히고, 끈 칸은 다시 켜면 내용이 그대로 돌아와요.</p>
             ${groups.map(g => { const o = mgIsOpen(`mods-${g.id}`), ms = g.tabs.map(t => MOD[TAB_MOD(t)]), nOn = ms.filter(isOn).length; return `<div class="ss-modgrp ss-fold ${o ? 'open' : ''}"><button type="button" class="ss-mg-h" data-act="mgfold" data-arg="mods-${g.id}" aria-expanded="${o}"><b>${g.name}</b><small>${nOn}/${ms.length} 켬 · ${ms.map(m => m.name).join(' · ')}</small><i class="fa-solid fa-chevron-down ss-mg-chev"></i></button><div class="ss-mg-b"${o ? '' : ' hidden'}><div class="ss-pklist">${ms.map(card).join('')}</div></div></div>`; }).join('')}
-            <div class="ss-modgrp ss-fold ${oRest ? 'open' : ''}"><button type="button" class="ss-mg-h" data-act="mgfold" data-arg="ex-rest" aria-expanded="${oRest}"><b>그 밖의 장치</b><small>${nRest}/${rest.length} 켬 · 칸에 딸리지 않은 선택 기능 · 모든 채팅에 걸려요</small><i class="fa-solid fa-chevron-down ss-mg-chev"></i></button><div class="ss-mg-b"${oRest ? '' : ' hidden'}>${flagList(st, rest)}<p class="ss-hint">켠 장치의 화면은 「부가 기능」 탭에 모여요.</p><div class="ss-row-btns"><small>딸린 옵션 · 장치를 한 번에</small>${FLAGSET_BTNS}</div></div></div>`,
+            <div class="ss-modgrp ss-fold ${oRest ? 'open' : ''}"><button type="button" class="ss-mg-h" data-act="mgfold" data-arg="ex-rest" aria-expanded="${oRest}"><b>그 밖의 장치</b><small>${nRest}/${rest.length} 켬 · 칸에 딸리지 않은 선택 기능 · 모든 채팅에 걸려요</small><i class="fa-solid fa-chevron-down ss-mg-chev"></i></button><div class="ss-mg-b"${oRest ? '' : ' hidden'}>${flagList(st, rest)}<p class="ss-hint">켠 장치의 화면은 「부가 기능」 탭에 모여요.</p><div class="ss-row-btns"><small>딸린 옵션 · 장치를 한 번에</small>${FLAGSET_BTNS}</div></div></div>
+            ${common}`,
         `<button class="ss-btn sm ghost" data-act="modset" data-arg="all" title="칸을 전부 켜요 (딸린 옵션은 그대로)">칸 전부</button><button class="ss-btn sm ghost" data-act="modset" data-arg="none" title="칸과 딸린 옵션을 전부 꺼요 — 내용은 남아요">전부 끄기</button>`)}`;
 }
 export function manageHTML(s, ui = {}, extra = '') {
@@ -712,6 +750,9 @@ export const VIEW_ACTIONS = {
         await saveMeta(); app.refreshNow(); app.rerenderPanels?.(true); app.renderPanel(el);
         toastr.info(arg === 'rec' ? '추천 6칸만 켰어요 (부가 기능은 공략만). 끈 칸의 내용은 그대로 남아 있어요.' : arg === 'all' ? '칸을 전부 켰어요. 부가 기능은 그대로 뒀어요 — 아래 「부가 기능」에서 골라 켜요.' : '칸과 부가 기능을 전부 껐어요. 내용은 그대로 남아 있어요.', TITLE);
     },
+    gomods: () => goMods(), // 🧆 홈의 「틀만 있어요」 → 관리 › 쓸 기능
+    fillchosen: async (el, arg, btn) => { await fillChosen(btn); app.renderPanel(el); },
+    fillworld: async (el, arg, btn) => { if (await fillWorld(btn)) toastr.success('세계관을 이 이야기에 맞췄어요.', TITLE); app.refreshNow(); app.renderPanel(el); },
     pkset: async (el, arg) => { // 🎛 묶음: 추천 6칸 + 그 묶음의 칸 (부가 기능 스위치는 그대로)
         const set = PK_SETS.find(x => x[0] === arg); if (!set) return;
         const meta = getMeta(true), want = new Set([...REC_MODS, ...set[3]]); meta.mods ??= {};
@@ -846,6 +887,12 @@ export const VIEW_CHANGES = {
         if (t.checked) app.loadAddons?.(true);
         try { app.storyChanged?.(); } catch { /* 화면 표시일 뿐 */ }
         app.refreshNow(); app.rerenderPanels?.(true);
+    },
+    setopt: (el, t) => { // 🎛 세부 설정 — 확장 설정 서랍의 같은 칸을 바꾼 것과 똑같이 (그쪽 처리기가 저장 · 뒷일을 한다)
+        const inp = pkDrawer(t.dataset.arg); if (!inp) return;
+        if (inp.type === 'checkbox') inp.checked = t.checked; else inp.value = t.value;
+        inp.dispatchEvent(new Event('change', { bubbles: true }));
+        app.refreshNow();
     },
     mod: async (el, t) => { // 칸 켜고 끄기 — 꼭 필요한 칸(상점 → 재산)은 같이 켠다 · 켜면 딸린 옵션이 펼쳐지게 다시 그린다
         const meta = getMeta(true), id = t.dataset.arg, need = MOD[id]?.needs; meta.mods ??= {}; meta.mods[id] = t.checked;
