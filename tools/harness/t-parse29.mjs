@@ -16,6 +16,9 @@ try {
         let c0 = cash(); await say('- cash: +10\n**cash**: +5\n**cash:** +3\n1. cash: +2'); out.markdown = cash() - c0 === 20;
         c0 = cash(); await say('money: +$20'); out.dollar = cash() - c0 === 20;
         await say('cash: 500 → 90'); out.arrowCash = cash() === 90;
+        await say('cash: 30 지출'); out.spendWord = cash() === 60;
+        await say('cash: 15골드 획득'); out.earnWord = cash() === 75;
+        await say('aff: Leon(+2)'); out.affParen = st().data.rel.user.find(x => x.name === 'Leon').aff === 2;
         // 게이지 · 능력치
         await say('stat: 체력 = 50'); out.statSetSpaced = bar('체력').cur === 50;
         await say('stat: 체력 85/100'); out.statFrac = bar('체력').cur === 85 && bar('체력').max === 100;

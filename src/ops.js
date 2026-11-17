@@ -128,11 +128,12 @@ export function applyLines(s, text, info) {
     }
 }
 function applyBare(s, line, info) {
+    line = dropNote(line); // 「Health -5 (fall)」 (검수: 예전엔 키 없는 줄에 이유가 붙으면 버려졌다)
     const nv = line.match(/^(.+?)\s+([=+\-−]?\d[\d.,]*)$/);
     if (!nv) return;
     const nm = nv[1].trim();
     // 게이지·능력치 이름이 먼저 (예: 'HP'는 키 별칭이기도 해서)
-    if (findBy(s.data.stats?.bars ?? [], nm)) applyOp(s, 'stat', `${nm} ${nv[2]}`, info);
+    if (findBy(s.data.stats?.bars ?? [], nm) || (s.data.stats && aliasBar(s.data.stats.bars, nm))) applyOp(s, 'stat', `${nm} ${nv[2]}`, info); // HP · Health → 체력 (stat: 줄과 같은 별명)
     else if (findBy(s.data.stats?.attrs ?? [], nm)) applyOp(s, 'attr', `${nm} ${nv[2]}`, info);
     else applyOp(s, nm, nv[2], info);
 }
@@ -416,7 +417,7 @@ export function applyOp(s, rawKey, rawVal, info) {
     if (mod && info.mods && info.mods[mod] === false) return;
     if (mod && GLOBAL_OFF[mod] && settings()[GLOBAL_OFF[mod]] === false) return; // 모든 채팅에서 끈 칸 (v2.7.3)
     if (!val && !key.startsWith('_')) return;
-    if (NOTE_KEYS.has(key)) val = dropNote(val);
+    if (NOTE_KEYS.has(key)) val = dropNote(val.replace(/\(\s*([=+\-−]\s*\d[\d.,]*)\s*\)\s*$/, ' $1')); // 「Leon(+2)」 → 「Leon +2」 (검수)
     const L = (t) => info.labels.push(t);
     const T = (s.tally ??= { earn: 0, spend: 0, places: [], rolls: 0, good: 0, crit: 0, fumble: 0, sent: 0, got: 0, quests: 0, curses: 0 });
     // 한 줄이 잘못돼도 그 줄만 건너뛴다 — 예전엔 여기서 오류가 나면 그 채팅의 상태창 계산 전체가 멈췄다 (그 답이 남아 있는 한 계속)
@@ -788,6 +789,8 @@ function opCond(s, val, info, L, T, key, rawKey) {
 function opCash(s, val, info, L, T, key, rawKey) {
     const w = ensure(s, 'wallet');
     val = numShape(val);
+    // 「3,000원 지출」 「spent 30」처럼 부호 없이 쓰는 말이 붙으면 그 뜻대로 (검수: 예전엔 지출이 +3,000으로 들어갔다)
+    if (!/^\s*[=+\-−]/.test(val)) { const m = val.match(/[\d.,]+\s*(?:만|천|억|k)?/i); if (m) { if (/(지출|사용|소비|잃|뺏|빼앗|내[줬주]|지불|낸|냈|떨어뜨|spent|spend|lost|paid|pay|cost)/i.test(val)) val = `-${m[0]}`; else if (/(획득|수입|벌|받|얻|주웠|earn|gain|got|receiv|found)/i.test(val)) val = `+${m[0]}`; } }
     const p = bareFix(parseNum(val), w.cash, info); if (!p) return /\d/.test(val) ? miss(info, rawKey, val) : undefined; // 숫자는 있는데 못 읽음 = ⚠
     if (!Number.isFinite(p.v) || Math.abs(p.v) > 1e15) return miss(info, rawKey, val); // 터무니없이 큰 숫자(AI 실수)는 반영하지 않고 ⚠ 못 읽은 줄로 (v2.8)
     const b = w.cash; w.cash = Math.max(0, p.mode === 'add' ? w.cash + p.v : p.v);
