@@ -15,7 +15,7 @@ import { DICE_ACTIONS, DICE_CHANGES } from './dice.js';
 import { CONTACT_ACTIONS , CONTACT_CHANGES } from './contact.js';
 import { FEED_ACTIONS, FEED_CHANGES } from './feeds.js';
 import { MONEY_ACTIONS } from './money.js';
-import { FATE_ACTIONS } from './fate.js';
+import { FATE_ACTIONS, FATE_CHANGES } from './fate.js';
 import { EDIT, viewTr, letterMode, GLOBAL_OFF, isSimple } from './core.js';
 import { translateSheet, missingTr } from './translate.js';
 import { hintAfterAction } from './tips.js';
@@ -277,7 +277,7 @@ function renderPanel0(el) {
 app.renderPanel = renderPanel;
 
 const ACTIONS = { ...PARTS_ACTIONS, ...VIEW_ACTIONS, ...DICE_ACTIONS, ...CONTACT_ACTIONS, ...FEED_ACTIONS, ...MONEY_ACTIONS, ...FATE_ACTIONS };
-const CHANGES = { ...VIEW_CHANGES, ...DICE_CHANGES, ...FEED_CHANGES, ...CONTACT_CHANGES };
+const CHANGES = { ...VIEW_CHANGES, ...DICE_CHANGES, ...FEED_CHANGES, ...CONTACT_CHANGES, ...FATE_CHANGES };
 
 async function onPanelAction(el, act, arg, btn) {
     const st = el._ss;

@@ -301,7 +301,7 @@ export const MODS = [
     { id: 'board', name: '게시판', icon: 'fa-clipboard-list', desc: '커뮤니티 · 길드 게시판 (글·댓글)' },
     { id: 'ach', name: '업적', icon: 'fa-trophy', desc: '세계관 맞춤 업적' },
     { id: 'memo', name: '메모', icon: 'fa-note-sticky', desc: '꼭 기억할 약속·단서를 📌 고정해 매 턴 AI에게 (요약 확장과 달리 내가 고른 것만)' },
-    { id: 'fate', name: '운명', icon: 'fa-hat-wizard', desc: '저주·축복 · 이벤트 카드 · 자동 규칙 · 미니게임' },
+    { id: 'fate', name: '운명', icon: 'fa-hat-wizard', desc: '저주·축복 · 이벤트 카드 · 자동 규칙 · 미니게임 · 점집(타로·수정구슬·무당·굿)' },
     { id: 'sns', name: 'SNS', icon: 'fa-hashtag', desc: '인물들의 SNS 피드 (사진 묘사 · 좋아요 · 댓글)' },
     { id: 'music', name: '추천 음악', icon: 'fa-music', desc: '장면에 어울리는 곡 추천 (▶ 누르면 검색)' },
     { id: 'custom', name: '내 탭', icon: 'fa-shapes', desc: '직접 만드는 탭 — 칸 · 수치 · 글 자유롭게' },
@@ -759,12 +759,15 @@ export const EMPTY = {
     board: () => ({ name: '', posts: [] }),
     ach: () => ({ list: [], endings: [] }),
     memo: () => ({ list: [] }),
-    fate: () => ({ curses: [], deck: [], drawChance: 20, rules: [], log: [], today: null }),
+    fate: () => ({ curses: [], deck: [], drawChance: 20, rules: [], log: [], today: null, readings: [], births: [], omen: null, feeTarot: 0, feeOrb: 0, feeShaman: 0, feeGut: 0 }),
     sns: () => ({ name: '', posts: [] }),
     music: () => ({ taste: '', now: null, log: [] }),
     custom: () => ({ tabs: [] }),
 };
 
+// 🔮 점집: 인물의 타고난 것 (생년월일 · 시 · 띠 · 별자리 …) — 점괘 기록과 명식 목록이 같은 모양을 쓴다
+export const FORTUNE_PERSON_KEYS = ['birth', 'hour', 'age', 'zodiac', 'star', 'element', 'place', 'nature'];
+export const fortunePerson = (p) => Object.fromEntries(FORTUNE_PERSON_KEYS.map(k => [k, short(str(p?.[k]).trim(), k === 'nature' ? 400 : 80)]));
 const msgN = (x) => ({
     id: str(x.id) || uid(), from: x.from === 'me' ? 'me' : 'them', text: str(x.text), date: str(x.date),
     at: Number.isFinite(Number(x.at)) ? Number(x.at) : null, arrive: Number.isFinite(Number(x.arrive)) ? Number(x.arrive) : null,
@@ -939,6 +942,16 @@ export const NORM = {
         rules: arr(d.rules).filter(r => r?.when && r?.then).map(r => ({ name: str(r.name) || str(r.when), when: str(r.when), then: str(r.then), on: !!r.on })),
         log: arr(d.log).filter(x => x?.title).map(x => ({ title: str(x.title), kind: str(x.kind), date: str(x.date) })).slice(-30),
         today: d.today?.title ? { title: str(d.today.title), desc: str(d.today.desc), day: num(d.today.day, 0) } : null,
+        // 🔮 점집 (v2.8.1): 지난 점괘 · 인물별 생년월일(명식) · 오늘의 점괘 한 줄 · 복채 (0 = 물가에 맞춰 자동)
+        readings: arr(d.readings).filter(r => r?.who && r?.method).map(r => ({
+            id: str(r.id) || uid(), who: str(r.who), method: ['tarot', 'orb', 'shaman', 'gut'].includes(r.method) ? r.method : 'tarot', topic: str(r.topic), q: str(r.q),
+            when: str(r.when), basis: r.basis === 'real' ? 'real' : 'story', fee: Math.max(0, Math.round(num(r.fee, 0))), draw: arr(r.draw).map(x => str(x)).filter(Boolean).slice(0, 12),
+            teller: str(r.teller), summary: str(r.summary), sections: arr(r.sections).filter(x => x?.text).map(x => ({ title: str(x.title), text: str(x.text) })).slice(0, 12),
+            omen: str(r.omen), advice: str(r.advice), lucky: str(r.lucky), rite: str(r.rite), result: str(r.result), person: fortunePerson(r.person),
+        })).slice(-12),
+        births: arr(d.births).map(b => ({ name: str(b?.name), ...fortunePerson(b) })).filter(b => b.name).slice(0, 80),
+        omen: d.omen?.text ? { who: str(d.omen.who), method: str(d.omen.method), text: str(d.omen.text), day: num(d.omen.day, 0) } : null,
+        feeTarot: Math.max(0, Math.round(num(d.feeTarot, 0))), feeOrb: Math.max(0, Math.round(num(d.feeOrb, 0))), feeShaman: Math.max(0, Math.round(num(d.feeShaman, 0))), feeGut: Math.max(0, Math.round(num(d.feeGut, 0))),
     }),
     sns: (d) => ({
         name: str(d.name),
@@ -1145,6 +1158,12 @@ export const EDIT = {
             { k: 'title', label: '이름', type: 'text' }, { k: 'kind', label: '종류', type: 'select', options: [['luck', '행운'], ['bad', '불운'], ['event', '사건']] },
             { k: 'desc', label: '내용', type: 'area' }, { k: 'effect', label: '바뀌는 상태 (예: cash: +200 ; stat: 체력 -10)', type: 'text' },
         ] },
+        { k: 'births', label: '🔮 점집: 인물별 생년월일 (명식)', type: 'list', title: 'name', fields: [
+            { k: 'name', label: '이름', type: 'text' }, { k: 'birth', label: '생년월일', type: 'text' }, { k: 'hour', label: '태어난 시', type: 'text' }, { k: 'age', label: '나이', type: 'text' },
+            { k: 'zodiac', label: '띠', type: 'text' }, { k: 'star', label: '별자리', type: 'text' }, { k: 'element', label: '타고난 기운 (오행 등)', type: 'text' }, { k: 'place', label: '태어난 곳', type: 'text' }, { k: 'nature', label: '타고난 기질', type: 'area' },
+        ] },
+        { k: 'feeTarot', label: '🔮 복채: 타로 (0 = 물가에 맞춰 자동)', type: 'num' }, { k: 'feeOrb', label: '🔮 복채: 수정구슬 (0 = 자동)', type: 'num' },
+        { k: 'feeShaman', label: '🔮 복채: 무당 (0 = 자동)', type: 'num' }, { k: 'feeGut', label: '🔮 굿 값 (0 = 자동)', type: 'num' },
         { k: 'rules', label: '자동 규칙', type: 'list', title: 'name', fields: [
             { k: 'name', label: '이름', type: 'text' }, { k: 'when', label: '조건 (예: 돈 <= 0 / 체력 < 20 / 호감:레온 >= 80)', type: 'text' }, { k: 'then', label: '그러면 (상태 줄 · 여러 개면 ;)', type: 'area' },
         ] },

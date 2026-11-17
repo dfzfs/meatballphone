@@ -1,5 +1,5 @@
 // 확장 AI가 하는 일 (모두 토큰이 드는 호출)
-import { letterMode, instantLetter, contactSimple, app, ctx, settings, getMeta, MOD, NORM, normalize, ensureLove, LOVE_AXES, relAxes, fixLoveLadder, short, findBy, norm, dateStr, stamp, MODULE, LOG, DIFFS, diffOf, CONTACT_MODES, uid, msgText, fmtNum, playOf, normPlay, ssWarn, dayIndex, heroIsUser } from './core.js';
+import { letterMode, instantLetter, contactSimple, app, ctx, settings, getMeta, MOD, NORM, normalize, ensureLove, LOVE_AXES, relAxes, fixLoveLadder, short, findBy, norm, dateStr, stamp, MODULE, LOG, DIFFS, diffOf, CONTACT_MODES, uid, msgText, fmtNum, playOf, normPlay, ssWarn, dayIndex, heroIsUser, userName } from './core.js';
 import { P, aiGenerate, parseJSON, aiJSON } from './prompts.js';
 import { SCHEMA, modOn, parseNum } from './core.js';
 import { compute, buildInjection, tagKeysFor, extractOps, stripStatus, recentChat, chatCharacters, setDrawer, MIND_FMT } from './engine.js';
@@ -375,6 +375,51 @@ export async function fetchMinds(names, state) {
         got.push({ name, text: await finText(m[2]) });
     }
     return got;
+}
+// 🔮 점집 (v2.8.1) — 점괘 한 번 = 1호출. 뽑은 카드 · 오방기는 여기 오기 전에 이미 정해져 있다 (fortune.js)
+// o: { who, method, topic, q, basis, storyNow, realNow, draw: ['과거 — 탑 (역방향)', …], saved: 명식 또는 null }
+const FT_METHOD = { tarot: 'tarot cards', orb: 'crystal ball', shaman: "a shaman's (mudang) spirit reading with saju" };
+function fortuneBody(o, state) {
+    const d = state.data;
+    const isUser = norm(o.who) === norm(userName());
+    const persona = isUser ? short(ctx().powerUserSettings?.persona_description ?? '', 1500) : '';
+    const curses = isUser ? (d.fate?.curses ?? []).map(c => `${c.name}${c.effects.length ? ` (${c.effects.join(', ')})` : ''}`).join(' · ') : '';
+    const before = (d.fate?.readings ?? []).filter(r => norm(r.who) === norm(o.who) && r.summary).slice(-2).map(r => `${r.when}: ${r.summary}`).join(' / ');
+    return [
+        ...aboutPerson(o.who, state),
+        persona ? `About ${o.who} ({{user}}'s persona): ${persona}` : '',
+        curses ? `Curses/blessings on ${o.who} right now: ${curses}` : '',
+        `Story time now: ${o.storyNow || '(this story has no calendar)'}\nReal-world time now: ${o.realNow}\nREADING DATE = ${o.basis === 'real' ? 'the REAL-WORLD time' : 'the STORY time'} above — count ages, this year and this month from it.`,
+        o.topic ? `Topic asked: ${o.topic}` : '',
+        o.q ? `{{user}}'s question: ${o.q}` : '',
+        o.draw?.length ? `Drawn (fixed — interpret exactly these):\n${o.draw.map(x => `- ${x}`).join('\n')}` : '',
+        before ? `Earlier readings for ${o.who} (stay consistent, do not repeat): ${before}` : '',
+    ].filter(Boolean).join('\n\n');
+}
+export async function fortuneRead(o, state) {
+    const savedTxt = o.saved ? Object.entries(o.saved).filter(([k, v]) => k !== 'name' && v).map(([k, v]) => `${k}: ${v}`).join(' · ') : '';
+    const birthRule = savedTxt
+        ? `Already recorded for ${o.who} — copy it into "person" unchanged and fill in only the empty fields: ${savedTxt}`
+        : `Nothing is recorded yet. Establish ${o.who}'s birth data now and return it in "person": use any birthday or age stated in the material; otherwise choose values that fit the character, and work out the birth year from the reading date and their age. Use the world's own calendar. It is saved and reused in every later reading, so make it definite (no "unknown").`;
+    const sys = P('ai.fortune', { who: o.who, method: FT_METHOD[o.method] ?? o.method, methodRule: P(`ai.fortune.${o.method}`, { who: o.who }), birthRule });
+    const r = await finJSON(await aiJSON('fortune', sys, fortuneBody(o, state), 4000));
+    const S = (v) => (typeof v === 'string' ? v.trim() : v === null || v === undefined ? '' : String(v));
+    const sections = (Array.isArray(r.sections) ? r.sections : []).filter(x => x && S(x.text)).map(x => ({ title: S(x.title), text: S(x.text) })).slice(0, 12);
+    if (!sections.length && !S(r.summary)) throw new Error('점괘가 비어서 왔어요. 다시 해 주세요.');
+    return { person: r.person && typeof r.person === 'object' ? r.person : null, teller: S(r.teller), summary: S(r.summary), sections, omen: S(r.omen), advice: S(r.advice), lucky: S(r.lucky) };
+}
+// 굿 한 번 = 1호출. 결과(무엇이 풀리고 걸리는지)는 이미 정해져서 온다 — AI는 장면만 쓴다
+export async function gutRite(o, state) {
+    const body = [
+        ...aboutPerson(o.who, state),
+        `Story time now: ${o.storyNow || '(no calendar)'}`,
+        `Rite: ${o.rite}${o.wish ? ` — wish: ${o.wish}` : ''}`,
+        `DECIDED OUTCOME: ${o.outcome}`,
+    ].filter(Boolean).join('\n\n');
+    const r = await finJSON(await aiJSON('gut', P('ai.gut', { who: o.who, rite: o.rite }), body, 1500));
+    const S = (v) => (typeof v === 'string' ? v.trim() : '');
+    if (!S(r.rite)) throw new Error('굿 장면이 비어서 왔어요. 다시 해 주세요.');
+    return { rite: S(r.rite), result: S(r.result), omen: S(r.omen) };
 }
 export async function newNews(state) {
     const o = normalize('news', await freshItems('news', 'news', state));

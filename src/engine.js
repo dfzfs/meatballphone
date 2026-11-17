@@ -787,7 +787,7 @@ export async function purgeTrash(names) {
 // 미트볼 전용 기록 키(_roll 같은 것)가 어느 칸 것인지
 export const PRIV_MOD = {
     _qask: 'quest', _needmod: 'stats', _achtog: 'ach', _bond: 'rel', _love: 'rel', _nolove: 'rel', _leave: 'rel', _unbond: 'rel', _peekday: 'rel', _merge: 'rel',
-    _draw: 'fate', _effect: 'fate', _loan: 'wallet', _repay: 'wallet', _sellused: 'wallet', _tobag: 'wallet', _memo: 'memo', _questpay: 'quest',
+    _draw: 'fate', _effect: 'fate', _fortune: 'fate', _birth: 'fate', _ftfee: 'fate', _loan: 'wallet', _repay: 'wallet', _sellused: 'wallet', _tobag: 'wallet', _memo: 'memo', _questpay: 'quest',
     _read: 'contact', _nread: 'news', _roll: 'dice', _trash: 'home', _purge: 'home', _restore: 'home', _tostore: 'home', _unplace: 'home', _travel: 'map', _spot: 'map', _clock: 'calendar',
 };
 export const opMod = (s, k) => opInfo(s, k).mod ?? PRIV_MOD[k] ?? null;
@@ -809,7 +809,7 @@ function stripAdjust(meta, s, drop) {
 const WIPE_KEEP = {
     calendar: ['y', 'm', 'd', 'time', 'era', 'months', 'week', 'times', 'autoWeather', 'noAuto', 'clock'], wallet: ['currency', 'fx', 'prices'],
     contact: ['mode', 'app', 'couriers', 'express'], rel: ['stages', 'affName', 'trustName'], dice: ['system', 'rules', 'quick'],
-    music: ['taste'], fate: ['deck', 'drawChance', 'rules'], news: ['name'], gossip: ['name'], board: ['name'], sns: ['name'], profile: ['mode'], home: ['name', 'desc'], map: ['name'],
+    music: ['taste'], fate: ['deck', 'drawChance', 'rules', 'feeTarot', 'feeOrb', 'feeShaman', 'feeGut'], news: ['name'], gossip: ['name'], board: ['name'], sns: ['name'], profile: ['mode'], home: ['name', 'desc'], map: ['name'],
 };
 export function wipedData(mod, cur) {
     const out = EMPTY[mod]();
@@ -1245,6 +1245,11 @@ function fateText(s, ultra) {
         : `Curses/blessings on {{user}} (real, the story must respect them): ${f.curses.map(c => `${c.name}${c.effects.length ? ` (${c.effects.join(', ')})` : ''}${c.cure ? ` — lifted by: ${c.cure}` : ''}`).join(' · ')}`);
     const now = s.data.calendar ? dayIndex(s.data.calendar) : s.turn;
     if (f.today && f.today.day === now) L.push(ultra ? `🃏${f.today.title}:${short(f.today.desc, 60)}` : `Event card today (it happens — weave it into the story): ${f.today.title}${f.today.desc ? ` — ${f.today.desc}` : ''}`);
+    // 🔮 오늘 본 점괘 (점집 · v2.8.1): 본 날에만 한 줄 — 점을 안 봤으면 아무것도 안 붙는다
+    if (f.omen?.text && f.omen.day === now) {
+        const how = { tarot: 'tarot reading', orb: 'crystal-ball reading', shaman: "shaman's reading", gut: 'shamanic rite (gut)' }[f.omen.method] ?? 'fortune';
+        L.push(ultra ? `🔮${f.omen.who}:${short(f.omen.text, 60)}` : `Fortune today — {{user}} paid for a ${how} about ${f.omen.who}: "${short(f.omen.text, 220)}" (an in-world prophecy, not a certainty: let the story echo, test or subvert it naturally; do not repeat it word for word)`);
+    }
     return L;
 }
 

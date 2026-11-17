@@ -19,6 +19,7 @@
 | 계산 | `src/engine.js` | `<meatball>` 읽기 → 상태 다시 계산(`compute`) → 프롬프트 주입. `ops.js`를 다시 내보냄 |
 | AI | `src/prompts.js` · `src/ai.js` · `src/translate.js` | AI 호출 · 번역 |
 | 기능 | `contact` · `dice` · `extra` · `fate` · `feeds` · `money` · `notify` · `safe` · `pip` · `tips` · `help` · `report` · `mascot` | 칸 하나씩 |
+| 기능 | `src/fortune.js` | 🔮 점집 (v2.8.1 · 운명 탭 맨 아래): 타로 · 수정구슬 · 무당 · 굿. 카드 · 오방기는 여기서 뽑고 AI(`ai.js`의 `fortuneRead` · `gutRite`)는 풀이만. 기록은 `_fortune`(점괘 통째 · 생년월일 기억 · 굿의 저주 풀기/가호) · `_birth` · `_ftfee` (`ops.js`). 점 본 날에만 `fateText`에 한 줄. 시험: `t-fortune.mjs` |
 | 화면 | `src/tiles.js` | 미니 위젯 · 타일 판 |
 | 화면 | `src/views.js` | 칸별 화면 · 관리 · 칸 공통 동작. `tiles.js`를 다시 내보냄 |
 | 틀 | `src/shell.js` | 패널 · HUD · 사이드 |

@@ -704,3 +704,22 @@ dialog.popup.ss-dlg.ss-full .popup-content { max-height: none; }
 .ss-elev .lv text { text-anchor: end; font-size: 3.6px; font-weight: 700; fill: var(--ss-dim); }
 .ss-elev .lv.on text { fill: var(--ss-hi); }
 .ss-pk-fill .ss-pk-ask { font-size: .86em; color: var(--ss-dim); align-self: center; }
+/* 🔮 점집 (v2.8.1) — 운명 탭 */
+.ss-ft { display: flex; flex-direction: column; gap: 10px; }
+.ss-ft-clock { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 8px 10px; border-radius: var(--ss-r2); background: color-mix(in srgb, var(--ss-hi) 7%, var(--ss-bg)); border: 1px solid var(--ss-line); font-size: .92em; }
+.ss-ft-clock b { font-weight: 700; }
+.ss-scope .ss-ft > .ss-f, .ss-scope .ss-ft-gut .ss-f { flex: 0 0 auto; }
+.ss-ft-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 8px; }
+.ss-ft-birth { display: flex; flex-direction: column; gap: 6px; }
+.ss-ft-birth > small:first-child { color: var(--ss-hi); font-weight: 700; }
+.ss-ft-birth p, .ss-ft-birth .ss-row-btns { margin: 0; }
+.ss-scope .ss-ft .ss-seg { flex-wrap: wrap; border-radius: calc(var(--ss-r2) + 3px); }
+.ss-ft .ss-seg small { opacity: .7; margin-left: 3px; }
+.ss-ft-gut > *:not(summary) { margin-top: 8px; }
+.ss-ft-log { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.ss-ft-log .ss-btn { width: 100%; justify-content: flex-start; text-align: left; white-space: normal; }
+.ss-ft-pop { display: flex; flex-direction: column; gap: 10px; text-align: left; }
+.ss-ft-pop p, .ss-ft-pop blockquote { margin: 0; }
+.ss-ft-pop blockquote { padding: 8px 12px; border-left: 3px solid var(--ss-hi); font-style: italic; }
+.ss-ft-sum { text-align: center; border: 1px dashed color-mix(in srgb, var(--ss-hi) 50%, var(--ss-line)); }
+.ss-ft-sec h5 { margin: 0 0 3px; font-size: 1em; color: var(--ss-hi); }

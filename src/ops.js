@@ -627,6 +627,53 @@ function opXDraw(s, val, info, L, T, key, rawKey) {
     if (card?.title) drawCard(s, card, info);
     return;
 }
+// 🔮 점집 (v2.8.1): 본 점괘를 통째로 기록에 담는다 (다시 계산해도 같은 점괘) · 그 인물의 생년월일(명식)을 기억 · 오늘의 점괘 한 줄은 AI에게도 감
+const FT_NAME = { tarot: '타로', orb: '수정구슬', shaman: '무당', gut: '굿' };
+function keepBirth(f, who, person) {
+    if (!person || !Object.values(person).some(Boolean)) return;
+    f.births ??= [];
+    const ex = findBy(f.births, who);
+    if (ex) { for (const [k, v] of Object.entries(person)) if (v && !ex[k]) ex[k] = v; } // 이미 적힌 것은 안 바꾼다 (내가 고친 생년월일이 이김)
+    else f.births.push({ name: who, ...person });
+}
+function opXFortune(s, val, info, L, T, key, rawKey) {
+    let r = null;
+    try { r = JSON.parse(val); } catch (err) { ssNote('점괘 값이 깨짐', err); }
+    if (!r?.who || !r.method) return;
+    const f = ensure(s, 'fate');
+    f.readings ??= [];
+    f.readings.push({ ...r, id: r.id || `${info.seed}:ft${f.readings.length}` });
+    if (f.readings.length > 12) f.readings.shift();
+    keepBirth(f, r.who, r.person);
+    const gist = r.omen || r.summary || r.result || '';
+    if (gist) f.omen = { who: r.who, method: r.method, text: gist, day: today(s) ?? s.turn };
+    // 굿: 저주 풀기 · 가호(축복) 걸기는 여기서 실제로 일어난다
+    if (r.method === 'gut') {
+        if (r.lift) { const ex = findBy(f.curses, r.lift); if (ex) { f.curses.splice(f.curses.indexOf(ex), 1); L(`해제: ${ex.name}`); } }
+        if (r.bless?.name) addCurse(s, { name: r.bless.name, kind: 'bless', desc: r.bless.desc ?? '', effects: r.bless.effects ?? [], days: r.bless.days ?? null, cure: '' }, info);
+    }
+    L(`🔮 ${FT_NAME[r.method] ?? '점'}: ${r.who}${r.topic ? ` · ${r.topic}` : ''}`);
+    return;
+}
+// 생년월일 직접 고치기 (이름 | JSON) · 지우기 (-이름)
+function opXBirth(s, val, info, L, T, key, rawKey) {
+    const f = ensure(s, 'fate');
+    f.births ??= [];
+    if (/^[-−]/.test(val)) { const ex = findBy(f.births, val.replace(/^[-−]\s*/, '')); if (ex) f.births.splice(f.births.indexOf(ex), 1); return; }
+    let b = null;
+    try { b = JSON.parse(val); } catch (err) { ssNote('생년월일 값이 깨짐', err); }
+    if (!b?.name) return;
+    const ex = findBy(f.births, b.name);
+    if (ex) Object.assign(ex, b); else f.births.push(b);
+    return;
+}
+// 복채 정하기: 타로 | 수정구슬 | 무당 | 굿 (0 = 자동)
+function opXFee(s, val, info, L, T, key, rawKey) {
+    const f = ensure(s, 'fate');
+    const [a, b, c, d] = splitBar(val).map(x => Math.max(0, Math.round(num(x, 0))));
+    f.feeTarot = a || 0; f.feeOrb = b || 0; f.feeShaman = c || 0; f.feeGut = d || 0;
+    return;
+}
 function opXLoan(s, val, info, L, T, key, rawKey) {
     const w = ensure(s, 'wallet');
     const [kind0, amt0, item] = splitBar(val);
@@ -1147,6 +1194,9 @@ const OPS = {
     '_purge': opXPurge,
     '_restore': opXRestore,
     '_draw': opXDraw,
+    '_fortune': opXFortune,
+    '_birth': opXBirth,
+    '_ftfee': opXFee,
     '_loan': opXLoan,
     '_repay': opXRepay,
     'stat': opStat,
