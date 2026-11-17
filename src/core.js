@@ -653,8 +653,27 @@ export function getMeta(create = false) {
         if (!Array.isArray(m.notes)) m.notes = []; if (!Array.isArray(m.album)) m.album = []; if (!Array.isArray(m.saves)) m.saves = [];
         if (!Array.isArray(m.adjust)) m.adjust = [];
         if ((m.v ?? 1) < DATA_V) migrate(m); // 옛 버전 채팅 데이터를 지금 모양으로 (새 칸·새 항목 채우기)
+        if (!cleaned.has(m)) { cleaned.add(m); cleanMeta(m); }
     }
     return m ?? null;
+}
+// 🧹 깨진 저장 자료 다듬기 (검수 · 채팅을 열 때 한 번): 손으로 고친 파일 · 다른 확장 · 옛 판 때문에 모양이 어긋난 칸이 있으면
+//   계산 · 화면이 멈췄다 (편집 기록의 ops가 목록이 아님 · 칸 자료가 글 · 세이브/알림 목록에 null …). 버전과 상관없이 모양만 맞춘다
+const cleaned = new WeakSet();
+function cleanMeta(m) {
+    try {
+        const objs = (a) => (Array.isArray(a) ? a.filter(x => x && typeof x === 'object' && !Array.isArray(x)) : []);
+        m.notes = objs(m.notes); m.album = objs(m.album); m.saves = objs(m.saves);
+        if (!m.mods || typeof m.mods !== 'object' || Array.isArray(m.mods)) m.mods = {};
+        m.adjust = objs(m.adjust);
+        for (const a of m.adjust) if (a.ops !== undefined) a.ops = Array.isArray(a.ops) ? a.ops.filter(o => Array.isArray(o) && typeof o[0] === 'string') : [];
+        const b = m.base;
+        if (b && typeof b === 'object') {
+            if (!b.data || typeof b.data !== 'object' || Array.isArray(b.data)) b.data = {};
+            for (const id of Object.keys(b.data)) { const d = b.data[id]; if (d == null) continue; b.data[id] = typeof d === 'object' && !Array.isArray(d) && NORM[id] ? normalize(id, d) : null; }
+            if (b.core !== undefined) b.core = NORM.core(b.core);
+        } else if (b !== null && b !== undefined) m.base = null;
+    } catch (e) { ssWarn(LOG, 'clean meta', e); }
 }
 // v1 → v2: 칸 데이터를 새 모양으로 (메시지 id 등) 한 번만 다듬어 둔다
 // 저장 데이터 모양 버전 — 칸에 새 항목이 생기면 올린다 (v3: 재산 물가·빚·정기·일거리, 연락 요약·반영, 운명)

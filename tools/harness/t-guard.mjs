@@ -163,6 +163,7 @@ try {
             show() { document.body.append(this.dlg); this.dlg.show(); return new Promise(res => { this.ok.onclick = () => { this.dlg.close(); this.dlg.remove(); res(1); }; }); }
         };
         window.SillyTavern.getContext = () => new Proxy(c, { get: (t, k) => (k === 'Popup' ? window.__st2 : t[k]) });
+        window.__ssBackAlways = true; // 뒤로 가기로 닫기는 폰 · 태블릿에서만 → 여기서는 폰처럼 (t-backclose에서 PC 쪽을 본다)
     });
     const openOne = () => page.evaluate(async () => { const core = await import('/ext/src/core.js'), kit = await import('/ext/src/kit.js'); core.ctxReset(); const el = document.createElement('div'); el.textContent = 'back-test'; window.__closed = false; kit.popup(el).then(() => { window.__closed = true; }); await new Promise(r => setTimeout(r, 50)); return [history.state?.ssDlg ?? 0, !!document.querySelector('dialog.ss-dlg[open]')]; });
     let o = await openOne();
