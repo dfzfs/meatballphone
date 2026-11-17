@@ -599,6 +599,7 @@ export function compute(limit, opts = {}) {
             }
         }
         const had = a.ops?.length || (a.set && a.label) ? owned(s) : null; // 번역 · 영어 저장으로 바꾼 칸(이름 없는 기록)은 「버림」으로 안 셈
+        if (had) for (const [k, v] of a.ops ?? []) if (k === '_purge') had.delete(norm(v)); // 🗑 완전 삭제는 AI에게 「이제 없음」으로도 알리지 않는다 (검수: 지운 뒤에도 그 줄에 이름이 남았다)
         for (const [k, v] of a.ops ?? []) applyOp(s, k, v, info);
         try { needsTick(s, info); } catch (e) { ssNote('needs', e); } // 🍞 욕구 게이지 (v2.9 · 없으면 아무것도 안 함)
         checkRules(s, info);
@@ -778,6 +779,7 @@ export async function purgeTrash(names) {
         }
         // ③ 칸을 통째로 저장한 기록(직접 편집·AI로 수정)에 남은 쓰레기통 사본에서도 빼기
         for (const a of meta.adjust ?? []) if (a.set?.mod === 'home' && Array.isArray(a.set.data?.trash)) a.set.data.trash = a.set.data.trash.filter(t => norm(t.name) !== key);
+        if (Array.isArray(meta.base.gone)) meta.base.gone = meta.base.gone.filter(g => norm(g?.name) !== key); // 굳힌 「이제 없음」 목록에서도
         // ④ 하루 정리 기록에 남은 「버렸다」 줄 지우기 (굳힌 것)
         for (const d of meta.base.days ?? []) if (Array.isArray(d.labels)) { const before = d.labels.length; d.labels = d.labels.filter(l => !said(nm)(l)); d.n = Math.max(0, (d.n ?? before) - (before - d.labels.length)); }
     }
