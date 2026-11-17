@@ -125,13 +125,14 @@ function fanHTML(ui, sp) {
         return picked.includes(i) ? `<span class="ss-tc-gap" style="--j:${j}"></span>` : `<button class="ss-tc back" data-act="ftpick" data-arg="${i}" ${full ? 'disabled' : ''} style="--j:${j}" title="이 카드 뽑기"><div class="ss-tc-in"><div class="ss-tc-back"></div></div></button>`;
     }).join(''));
     return `<div class="ss-ft-stage tarot"><div class="ss-ft-fan">${rows.map(x => `<div class="ss-ft-fanrow">${x}</div>`).join('')}</div>
-        <div class="ss-ft-spread pick">${sp.pos.map((pos, k) => (picked[k] !== undefined ? backHTML(pos, 'placed') : `<div class="ss-tc empty"><div class="ss-tc-in"></div><small class="ss-tc-pos">${esc(pos)}</small></div>`)).join('')}</div>
-        <div class="ss-row-btns"><small class="ss-dim">78장 중에서 ${full ? '다 골랐어요. 카드는 점을 볼 때 뒤집어요!' : `마음 가는 카드를 ${n - picked.length}장 더 골라요 — 안 고르고 보면 세라가 대신 뽑아요`}</small><button class="ss-btn sm ghost" data-act="ftshuffle"><i class="fa-solid fa-shuffle"></i> 다시 섞기</button></div></div>`;
+        <div class="ss-ft-spread pick">${sp.pos.map((pos, k) => (picked[k] !== undefined ? cardHTML(deck[picked[k]].name, deck[picked[k]].rev, pos, ui.ftJust === picked[k] ? 'just' : '') : `<div class="ss-tc empty"><div class="ss-tc-in"></div><small class="ss-tc-pos">${esc(pos)}</small></div>`)).join('')}</div>
+        <div class="ss-row-btns"><small class="ss-dim">78장 중에서 ${full ? '다 골랐어요. 이 카드로 점을 볼게요!' : `마음 가는 카드를 ${n - picked.length}장 더 골라요 — 안 고르고 보면 세라가 대신 뽑아요`}</small><button class="ss-btn sm ghost" data-act="ftshuffle"><i class="fa-solid fa-shuffle"></i> 다시 섞기</button></div></div>`;
 }
 const form = (ui) => (ui.ft ??= { who: '', name: '', method: 'tarot', spread: '3', topic: '종합', q: '', basis: 'story', gut: 'ward', wish: '' });
 const whoOf = (F) => (F.name.trim() || F.who || userName());
 function keepForm(el) {
     const F = form(el._ss.ui);
+    el._ss.ui.ftJust = -1; // 막 뒤집은 카드 표시는 한 번만 (다른 단추를 눌러 다시 그릴 땐 또 뒤집지 않게)
     const v = (c) => el.querySelector(c)?.value;
     if (v('.ss-ft-who') !== undefined) F.who = v('.ss-ft-who');
     if (v('.ss-ft-name') !== undefined) F.name = v('.ss-ft-name');
@@ -165,7 +166,7 @@ export function fortuneView(s, d, ui) {
             <div class="ss-ft-row">${[['feeTarot', '타로 (3장 기준)', fees.tarot], ['feeOrb', '수정구슬', fees.orb], ['feeShaman', '무당', fees.shaman], ['feeGut', '굿', fees.gut]].map(([k, l, now]) => `<label class="ss-f"><span>${l} <small>지금 ${fmtNum(now)}</small></span><input class="ss-in" type="number" min="0" data-ftf="${k}" value="${d[k] || ''}" placeholder="자동"></label>`).join('')}</div>
             <div class="ss-row-btns"><button class="ss-btn pri sm" data-act="ftfsave">저장</button><button class="ss-btn sm ghost" data-act="ftclose">취소</button></div></div>` : '';
     return sec('🔮 점집 <small>타로 · 수정구슬 · 무당 · 굿</small>', `<div class="ss-ft">
-        ${ui.ftBusy ? `<div class="ss-card ss-ft-busy ${esc(ui.ftBusyKind ?? '')}">${ui.ftBusyKind === 'orb' ? orbHTML(['…', '무언가 비친다', '…'], true, true) : ui.ftBusyKind === 'tarot' && ui.ftBusyDraw?.length ? `<div class="ss-ft-spread">${ui.ftBusyDraw.map(parseDraw).filter(Boolean).map(c => backHTML(c.pos, 'wait')).join('')}</div>` : ui.ftBusyKind === 'shaman' || ui.ftBusyKind === 'gut' ? '<div class="ss-ft-bells">🔔🪭🔔</div>' : ''}<div><i class="fa-solid fa-spinner fa-spin"></i> ${esc(ui.ftBusy)} <small class="ss-dim">창을 닫아도 끝까지 받아서 알려 드려요</small></div></div>` : ''}
+        ${ui.ftBusy ? `<div class="ss-card ss-ft-busy ${esc(ui.ftBusyKind ?? '')}">${ui.ftBusyKind === 'orb' ? orbHTML(['…', '무언가 비친다', '…'], true, true) : ui.ftBusyKind === 'tarot' && ui.ftBusyDraw?.length ? `<div class="ss-ft-spread">${ui.ftBusyDraw.map(parseDraw).filter(Boolean).map(c => cardHTML(c.name, c.rev, c.pos, 'wait')).join('')}</div>` : ui.ftBusyKind === 'shaman' || ui.ftBusyKind === 'gut' ? '<div class="ss-ft-bells">🔔🪭🔔</div>' : ''}<div><i class="fa-solid fa-spinner fa-spin"></i> ${esc(ui.ftBusy)} <small class="ss-dim">창을 닫아도 끝까지 받아서 알려 드려요</small></div></div>` : ''}
         ${shown ? `<div class="ss-card ss-ft-pop">${readingHTML(shown)}<div class="ss-row-btns"><button class="ss-btn sm ghost" data-act="ftclose"><i class="fa-solid fa-xmark"></i> 점괘 접기</button></div></div>` : ''}
         <div class="ss-ft-clock"><span title="이야기 속 지금">📅 이야기 속 <b>${esc(sn || '달력 칸이 없어요')}</b></span><span title="현실의 지금">🕰 현실 <b>${esc(realNow())}</b></span></div>
         <div class="ss-ft-row">
@@ -203,7 +204,7 @@ function readingHTML(r) {
     return `<div class="ss-wz-head"><i class="fa-solid fa-hat-wizard"></i><div><b>${m.icon} ${esc(r.who)} — ${esc(m.name)}${r.topic ? ` · ${esc(r.topic)}` : ''}</b><small>${r.basis === 'real' ? '🕰 현실 시간' : '📅 이야기 속 시간'} ${esc(r.when)}${r.fee ? ` · 복채 ${fmtNum(r.fee)}` : ''}</small></div></div>
         ${r.q ? `<p class="ss-dim">물은 것: ${esc(r.q)}</p>` : ''}
         ${pc || r.person?.nature ? `<div class="ss-card ss-ft-birth"><small>타고난 것</small><div class="ss-chips">${pc}</div>${r.person?.nature ? `<p class="ss-dim ss-pre">${esc(r.person.nature)}</p>` : ''}</div>` : ''}
-        ${r.method === 'tarot' && r.draw?.length ? `<div class="ss-ft-spread">${r.draw.map(parseDraw).filter(Boolean).map((c, i) => cardHTML(c.name, c.rev, c.pos, 'deal" style="--i:' + i)).join('')}</div>` : ''}
+        ${r.method === 'tarot' && r.draw?.length ? `<div class="ss-ft-spread">${r.draw.map(parseDraw).filter(Boolean).map(c => cardHTML(c.name, c.rev, c.pos)).join('')}</div>` : ''}
         ${r.method === 'shaman' && r.draw?.length ? `<div class="ss-ft-flags">${r.draw.map(x => { const nm = String(x).replace(/^오방기 — /, ''); const col = FLAG_COLOR[nm.split(' ')[0]] ?? '#888'; return `<span class="ss-ft-flag"><i style="--c:${col}"></i>${esc(nm)}</span>`; }).join('')}</div>` : ''}
         ${r.method === 'orb' ? `<div class="ss-ft-stage orb">${orbHTML((r.sections ?? []).filter(x => x.voice === 'vision').map(x => x.text).concat((r.sections ?? []).some(x => x.voice === 'vision') ? [] : [r.summary]), true)}</div>` : ''}
         ${luckHTML(r.luck)}
@@ -248,7 +249,7 @@ export const FORTUNE_ACTIONS = {
         keepForm(el); const ui = el._ss.ui, sp = SPREADS[form(ui).spread] ?? SPREADS[3], i = Number(arg);
         deckOf(ui);
         if (ui.ftPicked.includes(i) || ui.ftPicked.length >= sp.pos.length) return;
-        ui.ftPicked.push(i);
+        ui.ftPicked.push(i); ui.ftJust = i;
         app.renderPanel(el);
     },
     ftshuffle: (el) => { keepForm(el); el._ss.ui.ftDeck = null; app.renderPanel(el); },
