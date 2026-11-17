@@ -670,8 +670,16 @@ function cleanMeta(m) {
         const b = m.base;
         if (b && typeof b === 'object') {
             if (!b.data || typeof b.data !== 'object' || Array.isArray(b.data)) b.data = {};
-            for (const id of Object.keys(b.data)) { const d = b.data[id]; if (d == null) continue; b.data[id] = typeof d === 'object' && !Array.isArray(d) && NORM[id] ? normalize(id, d) : null; }
-            if (b.core !== undefined) b.core = NORM.core(b.core);
+            // 멀쩡한 칸은 손대지 않는다 (다듬기가 기본 칸을 더하고 · 보관함으로 옮겨서 AI에게 가는 글이 업데이트 전과 달라지면 안 된다)
+            //   모양이 틀린 칸만: 칸이 객체가 아님 → 비움 · 목록이어야 할 곳이 목록이 아니거나 객체여야 할 곳이 객체가 아님 → 그 칸만 다듬기
+            for (const id of Object.keys(b.data)) {
+                const d = b.data[id]; if (d == null) continue;
+                if (typeof d !== 'object' || Array.isArray(d) || !NORM[id] || !EMPTY[id]) { b.data[id] = null; continue; }
+                const t = EMPTY[id]();
+                const bad = Object.keys(t).some(k => d[k] !== undefined && d[k] !== null && (Array.isArray(t[k]) ? !Array.isArray(d[k]) || d[k].some(x => x === null || x === undefined) : t[k] && typeof t[k] === 'object' ? typeof d[k] !== 'object' || Array.isArray(d[k]) : false));
+                if (bad) b.data[id] = normalize(id, d);
+            }
+            if (b.core !== undefined && (!b.core || typeof b.core !== 'object' || Array.isArray(b.core))) b.core = NORM.core(b.core);
         } else if (b !== null && b !== undefined) m.base = null;
     } catch (e) { ssWarn(LOG, 'clean meta', e); }
 }
