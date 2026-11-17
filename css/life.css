@@ -55,3 +55,35 @@
 .ss-scope .ss-slot:not(.on) b { color: var(--ss-dim); font-weight: 500; }
 .ss-scope .ss-slot em { font-style: normal; font-size: .76em; color: var(--ss-hi); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) { .ss-scope .ss-mdl.lv-low { animation: none; } .ss-scope .ss-nd, .ss-scope .ss-nd-t i { transition: none; } }
+
+/* HUD · 미니창의 작은 딱지 */
+.ss-scope .ss-mdl.sm { padding: 2px 6px 2px 4px; gap: 3px; font-size: .8em; border-radius: 8px; margin-right: 3px; }
+.ss-scope .ss-mdl.sm .ss-ic { width: 1.1em; height: 1.1em; }
+
+/* ✨ 순간 연출 ① 단계가 바뀔 때 튀어나오는 딱지 */
+#ss-mdl-pops { position: fixed; z-index: 9995; left: 50%; top: max(64px, env(safe-area-inset-top)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
+#ss-mdl-pops .ss-mdl-pop { display: flex; align-items: center; gap: 10px; padding: 9px 16px 9px 9px; border-radius: 16px; background: var(--ss-bg); color: var(--ss-ink); border: 2px solid var(--lv); box-shadow: 0 8px 28px rgba(0, 0, 0, .22); animation: ss-mdl-in 3.4s cubic-bezier(.2, 1.2, .3, 1) both; }
+#ss-mdl-pops .ss-mdl-pop > div { display: flex; flex-direction: column; line-height: 1.2; }
+#ss-mdl-pops .ss-mdl-pop small { color: var(--ss-dim); font-size: .78em; }
+#ss-mdl-pops .ss-mdl-pop b { color: var(--lv); font-weight: 780; font-size: 1.05em; }
+#ss-mdl-pops .ss-nd-ic { width: 38px; height: 38px; }
+@keyframes ss-mdl-in { 0% { opacity: 0; transform: translateY(-14px) scale(.7); } 9% { opacity: 1; transform: translateY(0) scale(1.08); } 14% { transform: scale(1); } 86% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-10px); } }
+/* ② 욕구가 낮으면 화면 가장자리가 물든다 (누르는 데는 방해 안 됨) */
+#ss-need-veil { position: fixed; inset: 0; z-index: 9990; pointer-events: none; opacity: 0; transition: opacity .8s ease; }
+#ss-need-veil[data-lv="mid"] { opacity: 1; box-shadow: inset 0 0 90px 6px rgba(196, 127, 10, .20); }
+#ss-need-veil[data-lv="low"] { opacity: 1; box-shadow: inset 0 0 130px 22px rgba(209, 67, 58, .34); animation: ss-need-pulse 2.6s ease-in-out infinite; }
+@keyframes ss-need-pulse { 50% { box-shadow: inset 0 0 150px 34px rgba(209, 67, 58, .46); } }
+
+/* 🏪 미트볼 상점 진열대 — 목록 대신 물건 카드 */
+.ss-scope .ss-shop-h.meat { padding: 12px; border-radius: var(--ss-r) var(--ss-r) 0 0; background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--ss-neg) 16%, var(--ss-bg)) 0 22px, var(--ss-bg) 22px 44px); border: 1px solid var(--ss-line); border-bottom: 3px solid color-mix(in srgb, var(--ss-neg) 55%, var(--ss-line)); }
+.ss-scope .ss-goods.shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 138px), 1fr)); gap: 8px; padding: 10px; border: 1px solid var(--ss-line); border-top: 0; border-radius: 0 0 var(--ss-r) var(--ss-r); background: var(--ss-surface); }
+.ss-scope .ss-goods.shelf .ss-good { display: flex; flex-flow: column nowrap; align-items: stretch; gap: 8px; padding: 12px 10px 10px; border-radius: var(--ss-r); background: var(--ss-bg); border: 1px solid var(--ss-line); text-align: center; }
+.ss-scope .ss-goods.shelf .ss-good-b { display: flex; flex-flow: column nowrap; align-items: center; gap: 3px; min-width: 0; flex: 1 1 auto; }
+.ss-scope .ss-goods.shelf .ss-good-b > b { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: .92em; }
+.ss-scope .ss-goods.shelf .ss-good-ic { width: 46px; height: 46px; margin: 0; border-radius: 14px; }
+.ss-scope .ss-goods.shelf .ss-good-ic .ss-ic { width: 26px; height: 26px; }
+.ss-scope .ss-goods.shelf .ss-good-b > small { font-size: .78em; }
+.ss-scope .ss-goods.shelf .ss-good-fx { display: block; white-space: normal; font-weight: 650; }
+.ss-scope .ss-goods.shelf .ss-good-a { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; margin-left: 0; }
+.ss-scope .ss-goods.shelf .ss-good-b > small:last-child { flex-basis: auto; }
+@media (prefers-reduced-motion: reduce) { #ss-need-veil[data-lv="low"] { animation: none; } #ss-mdl-pops .ss-mdl-pop { animation-duration: .01s; animation-fill-mode: none; } }

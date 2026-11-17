@@ -744,6 +744,7 @@ export function ensureUI() {
     if (!showSide && side) { panels.delete(side.querySelector('.ss-panel')); side.remove(); side = null; }
     // body 클래스는 바뀔 때만 건드린다 (지웠다 다시 붙이면 매 갱신마다 페이지 전체 스타일을 다시 계산 → 긴 채팅 렉의 주범)
     const simple = isSimple(); document.body.classList.toggle('ss-simple', simple); // 같은 값이면 아무것도 안 바뀐다
+    try { app.lifeFx?.(); } catch (e) { ssErr(LOG, 'lifeFx', e); } // ✨ 생활 틀 화면 연출 (life.js · 넣지 않은 채팅에선 아무것도 안 함)
     const sstate = simple && set.sideState === 'full' ? 'mini' : set.sideState; // 🍙 심플: 「펼침」으로 저장돼 있어도 미니로 보여 준다 (설정값은 안 건드림 — 다른 채팅은 그대로)
     const want = side && sstate !== 'closed' ? `ss-body-${sstate}` : '';
     for (const c of ['ss-body-full', 'ss-body-mini']) document.body.classList.toggle(c, c === want);

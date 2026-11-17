@@ -255,6 +255,7 @@ export const DEFAULTS = Object.freeze({
     pipCheck: true,          // 🔍 칩 점검: 마지막 AI 답에 칩이 안 보이면 작은 🔍 표시 → 눌러서 「씹혔나 / 안 보이나」 확인 · 다시 읽기
     freshDot: true,          // 🔴 방금 AI 답에서 바뀐 칸 · 줄에 작은 빨간 점
     questJudge: 'ask',       // 🎲 퀘스트 완료 판정: ask (완료 누르면 판정할지 물어봄) · roll (늘 판정) · off (판정 없이 완료)
+    lifeFx: true,            // ✨ 생활 틀의 화면 연출 (단계가 바뀔 때 딱지 · 욕구가 바닥이면 화면 가장자리) — 생활 틀을 넣은 채팅에서만
     questAsk: true,          // v2.9: 단계가 남은 퀘스트를 AI가 「완료」라고 적으면 바로 끝내지 않고 확인을 기다림 (보상도 확인한 뒤에)
     questJudgeAI: false,     // 본편 AI가 「완료」라고 적은 퀘스트도 보상 판정을 자동으로 굴림 (토큰 0)
     extraJudge: true,        // 🎲 흥정(상점) · 일하기 판정 (AI 0회 · v2.7.6)

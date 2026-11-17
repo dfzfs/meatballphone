@@ -17,7 +17,7 @@ import { presetHTML } from './extra.js';
 import { detectPlay, instructModule } from './ai.js';
 import { PLAY_MODES, normPlay, playOf, REC_MODS, isSimple } from './core.js';
 import { mindBar, mindPeek, mindBlock, MIND_ACTIONS } from './mind.js'; // 💭 속마음: 프로필 탭에서 인물마다 프로필 밑에 (v2.9)
-import { needLine, lifeSection, gearSection, LIFE_ACTIONS, needPanel, inNeedPanel, goodIcon } from './life.js';
+import { needLine, lifeSection, gearSection, LIFE_ACTIONS, needPanel, inNeedPanel, goodIcon, isMeatShop } from './life.js';
 import { DEVICES as STORY_DEVICES, KEY as STORY_KEY } from './story.js';
 import { busyBtn, confirmPopup, mascot } from './kit.js';
 import { freshDot, usedPrice, placeIcon, miniWidgets } from './tiles.js';
@@ -75,8 +75,8 @@ export const VIEW = {
         const mul = priceMul(s), pr = (it, j) => Math.round(it.price * mul * (j === undefined ? 1 : haggleMul(s, i0, j)));
         const sh = d.shops[i0];
         return `${d.shops.length > 1 ? seg(d.shops.map((x, i) => [i, esc(x.name)]), i0, 'shoptab', 'class="ss-seg wrap"') : ''}
-        ${sh ? `<div class="ss-shop-h"><div><b>${esc(sh.name)}</b><small>${esc(sh.desc)}${sh.place ? ` · 📍 ${esc(sh.place)}` : ''}</small></div>${w ? `<span class="ss-chip"><i class="fa-solid fa-coins"></i> ${fmtNum(w.cash)} ${esc(w.currency)}${fxText(w, w.cash) ? ` <small class="ss-dim">${esc(fxText(w, w.cash))}</small>` : ''}</span>` : ''}</div>
-        <div class="ss-goods">${sh.items.map((it, j) => `<div class="ss-good ${it.stock === 0 ? 'out' : ''}"><div class="ss-good-b"><b>${goodIcon(it)}${esc(it.name)}</b>${it.kind === 'deco' ? chip('가구') : ''}${it.stock === 0 ? chip('품절', 'neg') : it.stock > 0 ? `<small>재고 ${it.stock}</small>` : ''}<small>${esc(it.desc)}${it.effect ? ` <span class="ss-good-fx">✨ ${esc(it.effect)}</span>` : ''}</small></div>
+        ${sh ? `<div class="ss-shop-h ${isMeatShop(sh) ? 'meat' : ''}"><div><b>${esc(sh.name)}</b><small>${esc(sh.desc)}${sh.place ? ` · 📍 ${esc(sh.place)}` : ''}</small></div>${w ? `<span class="ss-chip"><i class="fa-solid fa-coins"></i> ${fmtNum(w.cash)} ${esc(w.currency)}${fxText(w, w.cash) ? ` <small class="ss-dim">${esc(fxText(w, w.cash))}</small>` : ''}</span>` : ''}</div>
+        <div class="ss-goods ${isMeatShop(sh) ? 'shelf' : ''}">${sh.items.map((it, j) => `<div class="ss-good ${it.stock === 0 ? 'out' : ''}"><div class="ss-good-b"><b>${goodIcon(it)}${esc(it.name)}</b>${it.kind === 'deco' ? chip('가구') : ''}${it.stock === 0 ? chip('품절', 'neg') : it.stock > 0 ? `<small>재고 ${it.stock}</small>` : ''}<small>${esc(it.desc)}${it.effect ? ` <span class="ss-good-fx">✨ ${esc(it.effect)}</span>` : ''}</small></div>
             <div class="ss-good-a">${(() => { const hm = haggleMul(s, i0, j), p = pr(it, j); return `<b class="ss-price ${mul * hm > 1 ? 'up' : mul * hm < 1 ? 'down' : ''}">${hm !== 1 ? `<s class="ss-dim">${fmtNum(pr(it))}</s> ` : ''}${fmtNum(p)}${fxText(w, p) ? `<small class="ss-fx">${esc(fxText(w, p))}</small>` : ''}</b>${settings().extraJudge !== false && it.stock !== 0 ? `<button class="ss-btn sm ghost" data-act="haggle" data-arg="${i0}|${j}" title="🎲 흥정 — 매력 · 화술 같은 능력치로 d20 (하루에 물건마다 한 번 · AI 0회)" ${hm !== 1 || getMeta()?.haggle?.[`${s.data.calendar ? dayIndex(s.data.calendar) : s.turn}|${i0}|${j}`] ? 'disabled' : ''}>🎲</button>` : ''}<button class="ss-btn sm pri" data-act="buy" data-arg="${i0}|${j}" ${it.stock === 0 || (w && w.cash < p) ? 'disabled' : ''}>구매</button>`; })()}</div></div>`).join('') || emptyBox('상품이 없어요')}</div>` : emptyBox('상점이 없어요. ✨ AI로 수정에서 "○○ 상점 추가"라고 해 보세요.', 'fa-store')}`;
     },
     rel: relView,

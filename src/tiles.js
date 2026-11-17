@@ -5,6 +5,7 @@ import { trString } from './translate.js';
 import { gauge, chip, avatar, emojiOf } from './kit.js';
 import { songLink } from './notify.js';
 import { confirmPopup } from './kit.js';
+import { needIcon, goodOf, lvOf } from './needicons.js'; // 🎨 욕구 단계 상태는 글 대신 그림 딱지로 (v2.9)
 
 // 🔴 방금 AI 답에서 바뀐 곳 (v2.7.3) — 작은 빨간 점 하나
 export const FRESH_DOT = '<i class="ss-fresh" title="방금 AI 답에서 바뀌었어요"></i>';
@@ -47,7 +48,11 @@ export const TILES = {
     rel: { name: '관계', w: 2, on: (d) => d.rel?.user.length, f: (s, L) => { const o = miniRelOpt(), rl = s.data.rel, key = { aff: (r) => r.aff, trust: (r) => r.trust, sum: (r) => r.aff + r.trust }[o.sort]; const p = o.pick.map(n => rl.user.find(r => r.name === n)).filter(Boolean); const list = (p.length ? p : [...rl.user].filter(r => !r.out).sort((a, b) => key(b) - key(a))).slice(0, o.n);
         return { h: list.map(r => `<span class="p">${face(r.name)}${L ? `<small>${esc(r.name)}</small>` : ''}${r.noLove ? '' : `<b class="lv">${r.aff}</b>`}${L || r.noLove ? `<b class="tr">${r.trust}</b>` : ''}</span>`).join(''), t: list.map(r => `${r.name} ♥${r.aff} 🤝${r.trust}`).join(' · ') }; } },
     mind: { name: '속마음', w: 2, on: (d) => (settings().mindMode ?? 'off') !== 'off' && !!app.current && mindList(app.current.state).length > 0, f: (s, L) => ({ h: mindList(s, L ? 4 : 2).map(x => `<span class="p">${face(x.name)}<span class="m">${esc(mindShown(x))}</span></span>`).join(''), t: mindList(s, 4).map(x => `${x.name}: ${x.mind.text}`).join(' · ') }) },
-    cond: { name: '상태 이상', on: (d) => d.stats?.conds.length, f: (s, L) => ({ h: `${fi('fa-triangle-exclamation')}<span>${L ? esc(s.data.stats.conds.map(c => c.name).join(', ')) : s.data.stats.conds.length}</span>`, t: s.data.stats.conds.map(c => c.name).join(', '), alert: true }) },
+    cond: { name: '상태 이상', on: (d) => d.stats?.conds.length, f: (s, L) => {
+        const st = s.data.stats, rest = st.conds.filter(c => !c.auto);
+        const badges = st.conds.filter(c => c.auto).map(c => { const b = st.bars.find(x => x.name === c.auto); return b ? `<span class="ss-mdl sm lv-${lvOf(goodOf(b))}" title="${esc(c.name)}">${needIcon(b.name)}${L ? `<em>${esc(c.name)}</em>` : ''}</span>` : ''; }).join(''); // 욕구 게이지가 만든 상태 = 그림 딱지
+        return { h: `${badges}${rest.length || !badges ? `${fi('fa-triangle-exclamation')}<span>${L ? esc(rest.map(c => c.name).join(', ')) : rest.length}</span>` : ''}`, t: st.conds.map(c => c.name).join(', '), alert: true };
+    } },
     news: { name: '최신 뉴스', on: (d) => d.news?.items.length, f: (s, L) => ({ h: `${fi('fa-newspaper')}${L ? `<span>${esc(short(s.data.news.items.at(-1).title, 40))}</span>` : ''}`, t: s.data.news.items.at(-1).title }) },
     fate: { name: '저주 · 빚', on: (d) => d.fate?.curses.length || d.wallet?.loans.some(l => l.status === 'open' || l.status === 'late'), f: (s) => ({ h: `${fi('fa-hat-wizard')}<span>${(s.data.fate?.curses ?? []).length + (s.data.wallet?.loans ?? []).filter(l => l.status === 'open' || l.status === 'late').length}</span>`, t: '저주 · 빚', alert: (s.data.wallet?.loans ?? []).some(l => l.status === 'late') }) },
     diff: { name: '난이도', on: () => true, f: (s, L) => { const d = DIFFS[diffOf()]; return { h: `${fi(d.icon)}<span>${esc(d.name)}</span>`, t: `난이도 ${d.name}` }; } },

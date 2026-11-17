@@ -4,9 +4,11 @@
 //   ③ 생활비 틀: 월세 · 관리비 · 통신비 · 구독료를 재산의 「정기 수입 · 지출」에 넣는다
 //   ④ 👕 옷차림 · 장비 화면: addons.js(장비 착용)의 단추 — 재산 탭 아래. 효과 글의 「체온 -30%」는 그 욕구가 30% 덜 줄게 한다
 // 값은 이 채팅의 물가(재산 › 물가 · 상점 가격의 아래쪽 4분의 1)를 한 단위로 삼아 맞춘다.
-import { app, settings, saveSettings, modOn, esc, fmtNum, norm, clone, findBy, EMPTY, TITLE, LOG, ssWarn, isSimple } from './core.js';
+import { app, ctx, settings, saveSettings, getMeta, modOn, esc, fmtNum, norm, clone, findBy, EMPTY, TITLE, LOG, ssWarn, isSimple } from './core.js';
 import { commit, addAdjust } from './engine.js';
 import { parseStages, stageOf } from './ops.js';
+import { kindOf, RISING, svg, needIcon, goodOf, clamp01, lvOf } from './needicons.js';
+export { kindOf, needIcon } from './needicons.js';
 import { sec, choosePopup } from './kit.js';
 // addons.js는 켠 사람만 불러오는 파일이라(index.js loadAddons) 여기서도 쓸 때 불러온다 — 그 전에는 「켜기」 단추만 보인다
 let AD = null;
@@ -15,14 +17,6 @@ const loadAD = async () => { if (!AD) { try { await app.loadAddons?.(true); } ca
 const EN = () => /^en/i.test(String(settings().ssGenLang || settings().genLang || ''));
 const T = (ko, en) => (EN() ? en : ko);
 
-// 게이지 이름 → 무슨 욕구인지 (이미 있는 게이지에 얹을 때 · 상점 품목을 고를 때)
-const KIND = [
-    ['hunger', /허기|배고|포만|hunger|satiety/i], ['thirst', /갈증|수분|thirst|hydrat/i], ['fatigue', /피로|fatigue/i], ['energy', /에너지|기력|수면|졸음|energy|sleep/i],
-    ['hygiene', /위생|청결|hygiene/i], ['boredom', /지루|boredom/i], ['fun', /재미|즐거|\bfun\b/i], ['social', /사교|외로|social|lonel/i], ['stress', /스트레스|stress/i],
-    ['sanity', /정신|이성|멘탈|sanity|mental/i], ['fear', /공포|두려|fear|panic/i], ['warmth', /체온|온기|warmth|temperature/i], ['mp', /마나|마력|\bmp\b|mana/i], ['stamina', /스태미나|지구력|stamina/i], ['hp', /체력|생명|\bhp\b|health/i],
-];
-export const kindOf = (name) => KIND.find(([, re]) => re.test(String(name)))?.[0] ?? '';
-const RISING = new Set(['fatigue', 'boredom', 'stress', 'fear']); // 높을수록 나쁜 것 (0에서 시작)
 
 // decay = 하루에 줄어드는 양 (음수 = 저절로 참 · 오름)
 const BAR = {
@@ -98,7 +92,7 @@ const GOODS = [
 // 입는 것: [욕구, 이름, 설명, 덜 줄게 하는 %, 값]
 const WEARS = [['warmth', ['두꺼운 외투', 'Heavy Coat'], ['입고 있으면 체온이 덜 떨어져요', 'Worn: warmth drops slower'], -40, 6], ['energy', ['편한 운동화', 'Comfy Sneakers'], ['신고 있으면 덜 지쳐요', 'Worn: tire slower'], -15, 5], ['hygiene', ['방수 우비', 'Rain Poncho'], ['입고 있으면 덜 더러워져요', 'Worn: stay clean longer'], -20, 3]];
 export const MEAT_SHOP = () => T('미트볼 상점', 'Meatball Mart');
-const isMeatShop = (x) => ['미트볼 상점', 'Meatball Mart'].some(n => norm(n) === norm(x?.name));
+export const isMeatShop = (x) => ['미트볼 상점', 'Meatball Mart'].some(n => norm(n) === norm(x?.name));
 export function meatShop(s) {
     const bars = s.data.stats?.bars ?? [], u = priceUnit(s), items = [], seen = new Set();
     const add = (name, desc, effect, mul) => { if (seen.has(name)) return; seen.add(name); items.push({ name, price: nice(u * mul), desc, effect, kind: 'item', stock: -1 }); };
@@ -138,6 +132,7 @@ export function lifeSection(s, d) {
         <div class="ss-row-btns">
             <button class="ss-btn" data-act="lifeshop" ${shopOn && !simple ? '' : 'disabled'} title="지금 있는 게이지를 채워 주는 기본 품목 · 물약이 늘 있는 가게를 상점 칸에 넣어요"><i class="fa-solid fa-store"></i> ${hasShop ? '미트볼 상점 품목 다시 맞추기' : '미트볼 상점 넣기'}</button>
             <button class="ss-btn" data-act="lifebills" ${walletOn ? '' : 'disabled'} title="월세 · 관리비 · 통신비 · 구독료를 정기 지출에 넣어요 (값은 재산 탭 편집에서 고쳐요)"><i class="fa-solid fa-file-invoice-dollar"></i> 생활비 틀 넣기</button>
+            ${any ? `<button class="ss-btn ghost" data-act="lifefx" title="단계가 바뀔 때 딱지가 튀어나오고, 욕구가 바닥이면 화면 가장자리가 물들어요 (모든 채팅)"><i class="fa-solid fa-wand-sparkles"></i> 화면 연출 ${settings().lifeFx !== false ? '켬' : '끔'}</button>` : ''}
             ${any ? '<button class="ss-btn ghost" data-act="lifeoff" title="게이지는 그대로 두고, 저절로 줄기 · 단계 · 바닥 규칙만 떼요"><i class="fa-solid fa-ban"></i> 저절로 줄기 끄기</button>' : ''}
         </div>
         ${shopOn && !simple ? '' : `<p class="ss-hint">미트볼 상점은 ${simple ? '기본 모드에서' : '상점 칸을 켜면 (관리 › 쓸 기능)'} 쓸 수 있어요.</p>`}
@@ -195,34 +190,10 @@ export const LIFE_ACTIONS = {
 
 // ───── 🎨 생활 판 (v2.9) — 글 대신 그림으로: 욕구 타일 · 기분 얼굴 · 상태 딱지 · 옷 입히는 인형 ─────
 // 그림은 전부 여기서 직접 그린 선 그림(SVG · 글자색을 따라감)이라 파일도 내려받기도 없다. 생활 틀을 넣은 채팅의 수치 탭에서만 그려진다.
-const svg = (d, cls = 'ss-ic') => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
-const ICON = {
-    hunger: '<path d="M4 12h16a8 8 0 0 1-16 0z"/><path d="M9 4c-1 1.5 1 2.5 0 4M13 3c-1 1.5 1 2.5 0 4"/><path d="M8.5 20.5h7"/>',
-    thirst: '<path d="M12 3c3.5 4.5 6 7.6 6 11a6 6 0 0 1-12 0c0-3.4 2.5-6.5 6-11z"/><path d="M9.5 14.5A2.5 2.5 0 0 0 12 17"/>',
-    energy: '<path d="M13 2 5 13.5h6L10 22l9-12.5h-6z"/>',
-    fatigue: '<path d="M20 14.5A8 8 0 1 1 9.5 4 6.5 6.5 0 0 0 20 14.5z"/><path d="M15 3.5h4l-4 4h4"/>',
-    hygiene: '<path d="M3.5 11h17v2a6 6 0 0 1-6 6h-5a6 6 0 0 1-6-6z"/><path d="M6 11V6.5a2 2 0 0 1 4 0"/><circle cx="15" cy="6" r="1.1"/><circle cx="18.6" cy="8" r=".8"/><path d="M8 19l-1 2M16 19l1 2"/>',
-    fun: '<rect x="4" y="4" width="16" height="16" rx="3.5"/><circle cx="9" cy="9" r=".9"/><circle cx="15" cy="15" r=".9"/><circle cx="15" cy="9" r=".9"/><circle cx="9" cy="15" r=".9"/><circle cx="12" cy="12" r=".9"/>',
-    boredom: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/>',
-    social: '<path d="M4 5h9a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H9l-3 3v-3H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><path d="M18 10h2a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-1v2.5L16.5 17H13"/>',
-    stress: '<path d="M7 16a4 4 0 0 1-.6-7.95A5.5 5.5 0 0 1 17 9.5 3.5 3.5 0 0 1 17.5 16"/><path d="M13 13l-2 3.5h3L12 20"/>',
-    sanity: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
-    fear: '<path d="M5 21V10a7 7 0 0 1 14 0v11l-2.3-2-2.3 2-2.4-2-2.3 2-2.4-2z"/><circle cx="9.5" cy="10.5" r="1"/><circle cx="14.5" cy="10.5" r="1"/>',
-    warmth: '<path d="M10 14.5V5a2 2 0 0 1 4 0v9.5a4 4 0 1 1-4 0z"/><path d="M12 17.5v-6"/>',
-    mp: '<path d="M10 3h4M10.5 3v5L6 17a3 3 0 0 0 2.7 4h6.6A3 3 0 0 0 18 17l-4.5-9V3"/><path d="M8 15h8"/>',
-    stamina: '<path d="M3 16c3 0 4.5-2 5.5-5l2.5 2c1.5 1 3.5 1.6 6 2 2 .3 4 1 4 3H3z"/><path d="M3 19.500h18"/>',
-    hp: '<path d="M12 20.500S3.5 15.5 3.5 9.200A4.7 4.7 0 0 1 12 6.600a4.7 4.7 0 0 1 8.5 2.600c0 6.3-8.5 11.3-8.5 11.300z"/>',
-    other: '<circle cx="12" cy="12" r="8.5"/><path d="M12 8v4.500M12 16h.01"/>',
-};
-export const needIcon = (name, cls) => svg(ICON[kindOf(name)] ?? ICON.other, cls);
 // 기분 얼굴 0(바닥)~4(최고)
 const MOUTH = ['M8.5 16.500c1-2 6-2 7 0', 'M9 16c1-1 5-1 6 0', 'M9 15.500h6', 'M9 15c1 1.3 5 1.3 6 0', 'M8.5 14.500c1.2 2.6 5.8 2.6 7 0'];
 const MOOD = [['한계예요', 'At the limit'], ['힘들어요', 'Struggling'], ['그럭저럭', 'Getting by'], ['괜찮아요', 'Doing fine'], ['아주 좋아요', 'Feeling great']];
 const face = (lv) => svg(`<circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01" stroke-width="2.6"/><path d="${MOUTH[lv]}"/>`, 'ss-ic ss-face');
-// 0~1: 1이 좋은 쪽 (높을수록 나쁜 게이지는 뒤집어서)
-const goodOf = (b) => { const p = clamp01(b.cur / Math.max(1, b.max)); return RISING.has(kindOf(b.name)) || /\+\s*:/.test(b.stages ?? '') ? 1 - p : p; };
-const clamp01 = (n) => Math.max(0, Math.min(1, Number(n) || 0));
-const lvOf = (g) => (g > 0.6 ? 'ok' : g > 0.3 ? 'mid' : 'low');
 const hasRules = (d) => d.bars.some(b => b.decay || b.stages || b.zero);
 export const inNeedPanel = (b, d) => hasRules(d) && !!(kindOf(b.name) || b.decay || b.stages || b.zero);
 const reEsc = (t) => String(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -280,3 +251,33 @@ export function dollHTML(slots, by) {
     const half = Math.ceil(slots.length / 2), cell = (slot) => { const e = by[slot]; return `<button class="ss-slot ${e ? 'on' : ''}" data-act="gearpick" data-arg="${esc(slot)}"><small>${esc(slot)}</small><b>${e ? esc(e.name) : '＋'}</b>${e?.effect ? `<em>${esc(e.effect)}</em>` : ''}</button>`; };
     return `<div class="ss-doll"><div class="ss-doll-col">${slots.slice(0, half).map(cell).join('')}</div>${DOLL}<div class="ss-doll-col">${slots.slice(half).map(cell).join('')}</div></div>`;
 }
+
+// ───── ✨ 순간 연출 (v2.9 · 설정 lifeFx — 기본 켬 · 생활 틀을 넣은 채팅에서만) ─────
+// ① 욕구 단계가 바뀌면 화면 위에 딱지가 톡 튀어나왔다 사라진다  ② 욕구가 낮으면 화면 가장자리가 주황, 바닥이면 빨갛게 물든다
+// 화면을 다시 그릴 때마다(shell.js ensureUI) 불리지만 하는 일은 class 두 개와 비교 한 번뿐이다.
+let fxPrev = null, fxChat = null;
+function popMoodlet(bar, name, d) {
+    const b = d.bars.find(x => x.name === bar); if (!b) return;
+    let box = document.getElementById('ss-mdl-pops');
+    if (!box) { box = document.createElement('div'); box.id = 'ss-mdl-pops'; box.className = 'ss-root ss-scope'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); }
+    const el = document.createElement('div'); el.className = `ss-mdl-pop lv-${lvOf(goodOf(b))}`;
+    el.innerHTML = `<span class="ss-nd-ic">${needIcon(b.name)}</span><div><small>${esc(b.name)}</small><b>${esc(name)}</b></div>`;
+    box.appendChild(el); setTimeout(() => el.remove(), 3400);
+    while (box.children.length > 3) box.firstChild.remove();
+}
+export function lifeFx() {
+    const body = document.body; if (!body) return;
+    const s = app.current?.state, d = s?.data?.stats;
+    let on = false; try { on = settings().lifeFx !== false && !!d && hasRules(d) && modOn('stats') && !getMeta()?.paused; } catch { on = false; }
+    let worst = 1; const now = new Map();
+    if (on) { for (const x of d.bars) if (x.decay || x.stages) worst = Math.min(worst, goodOf(x)); for (const c of d.conds ?? []) if (c.auto) now.set(c.auto, c.name); }
+    let veil = document.getElementById('ss-need-veil');
+    const lv = !on ? '' : worst <= 0.02 ? 'low' : worst <= 0.25 ? 'mid' : '';
+    if (lv && !veil) { veil = document.createElement('div'); veil.id = 'ss-need-veil'; veil.setAttribute('aria-hidden', 'true'); body.appendChild(veil); }
+    if (veil && veil.dataset.lv !== lv) veil.dataset.lv = lv;
+    let chat = ''; try { chat = ctx().getCurrentChatId?.() ?? ''; } catch { chat = ''; }
+    if (on && fxPrev && fxChat === chat) for (const [bar, name] of now) if (fxPrev.get(bar) !== name) popMoodlet(bar, name, d);
+    fxPrev = on ? now : null; fxChat = chat;
+}
+app.lifeFx = lifeFx;
+LIFE_ACTIONS.lifefx = (el) => { settings().lifeFx = settings().lifeFx === false; saveSettings(); lifeFx(); app.renderPanel(el); };
