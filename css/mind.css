@@ -23,3 +23,5 @@
 .ss-scope .ss-good-fx { color: var(--ss-acc); white-space: nowrap; }
 .ss-scope .ss-qask { align-items: center; margin: 6px 0; }
 .ss-scope.ss-gearpick .ss-stack > .ss-btn { justify-content: flex-start; min-height: 40px; height: auto; white-space: normal; text-align: left; }
+/* 속마음 칸에서는 프로필의 「보일 것」 막대를 숨긴다 (프로필 칸의 것이라) */
+.ss-scope .ss-body:has(.ss-mindset) > .ss-partbar { display: none; }

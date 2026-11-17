@@ -74,7 +74,7 @@ try {
 
     // ── 만들기 창: 처음이면 심플 · 줄인 화면 · 만들면 타일 판만 ──
     await ev(() => window.__changeChat('simple-new')); await sleep(300);
-    await ev(async () => { const c = await import('/ext/src/core.js'); c.settings().genMode = 'tpl'; delete c.settings().startMode; c.settings().themeAsked = false; c.saveSettings(); (await import('/ext/src/lazy.js')).openWizard(); });
+    await ev(async () => { const c = await import('/ext/src/core.js'); c.settings().genMode = 'tpl'; delete c.settings().startMode; c.settings().themeAsked = false; c.settings().hompyFull = false; c.saveSettings(); (await import('/ext/src/lazy.js')).openWizard(); });
     await sleep(600);
     const wz = await ev(() => { const el = document.querySelector('dialog .ss-wizard'); const vis = (q) => [...el.querySelectorAll(q)].filter(x => x.offsetParent !== null).length; return { simple: el.classList.contains('wz-simple'), adv: vis('.ss-wz-adv'), full: vis('.ss-wz-full'), genre: vis('[data-w="genre"]'), go: vis('.ss-w-go'), cost: el.querySelector('.ss-w-cost').textContent }; });
     check(wz.simple && wz.adv === 0 && wz.full === 0 && wz.genre === 1 && wz.go === 1, '만들기 창: 심플이 기본 · 장르와 「생성 시작」만 보임', JSON.stringify(wz));

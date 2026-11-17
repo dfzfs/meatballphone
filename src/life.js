@@ -8,7 +8,9 @@ import { app, settings, saveSettings, modOn, esc, fmtNum, norm, clone, findBy, E
 import { commit, addAdjust } from './engine.js';
 import { parseStages, stageOf } from './ops.js';
 import { sec, choosePopup } from './kit.js';
-import * as AD from './addons.js';
+// addons.js는 켠 사람만 불러오는 파일이라(index.js loadAddons) 여기서도 쓸 때 불러온다 — 그 전에는 「켜기」 단추만 보인다
+let AD = null;
+const loadAD = async () => { if (!AD) { try { await app.loadAddons?.(true); } catch (e) { ssWarn(LOG, 'addons', e); } AD = await import('./addons.js'); } return AD; };
 
 const EN = () => /^en/i.test(String(settings().ssGenLang || settings().genLang || ''));
 const T = (ko, en) => (EN() ? en : ko);
@@ -145,7 +147,8 @@ export function lifeSection(s, d) {
 // ───── 화면: 재산 탭 아래 👕 옷차림 · 장비 ─────
 export function gearSection(s) {
     if (!s?.data?.wallet) return '';
-    if (!AD.gearOn()) return sec('👕 옷차림 · 장비', `<p class="ss-hint">소지품을 칸마다 하나씩 입거나 들어요. 효과 글의 「힘 +2」는 주사위에 더해지고, 「체온 -30%」는 그 욕구가 30% 덜 줄어요. AI에게는 「지금 입은 것」 한 줄이 가요.</p><div class="ss-row-btns"><button class="ss-btn" data-act="gearon"><i class="fa-solid fa-shirt"></i> 옷차림 · 장비 켜기</button></div>`);
+    if (settings().gearOn !== true) return sec('👕 옷차림 · 장비', `<p class="ss-hint">소지품을 칸마다 하나씩 입거나 들어요. 효과 글의 「힘 +2」는 주사위에 더해지고, 「체온 -30%」는 그 욕구가 30% 덜 줄어요. AI에게는 「지금 입은 것」 한 줄이 가요.</p><div class="ss-row-btns"><button class="ss-btn" data-act="gearon"><i class="fa-solid fa-shirt"></i> 옷차림 · 장비 켜기</button></div>`);
+    if (!AD) { loadAD().then(() => app.rerenderPanels?.(true)).catch(e => ssWarn(LOG, 'gear load', e)); return sec('👕 옷차림 · 장비', '<p class="ss-hint">불러오는 중…</p>'); }
     const eq = AD.equipped(s), by = Object.fromEntries(eq.map(e => [e.slot, e]));
     return sec(`👕 옷차림 · 장비 <small>${eq.length}/${AD.gearSlots().length}</small>`, `<div class="ss-stack">${AD.gearSlots().map(slot => { const e = by[slot]; return `<div class="ss-item ss-gear"><div class="ss-item-b"><b>${esc(slot)}</b><small>${e ? `${esc(e.name)}${e.effect ? ` · ${esc(e.effect)}` : ''}` : '비어 있음'}</small></div><div class="ss-item-a"><button class="ss-btn sm" data-act="gearpick" data-arg="${esc(slot)}">${e ? '바꾸기' : '입기'}</button></div></div>`; }).join('')}</div>
         <p class="ss-hint">효과는 그 물건의 「효과」 글에서 읽어요 (재산 편집에서 고쳐요): 「힘 +2」 = 주사위 보정 · 「체온 -30%」 = 그 욕구가 30% 덜 줄어듦. 물건이 소지품에서 없어지면 저절로 벗겨져요.</p>
@@ -173,9 +176,10 @@ export const LIFE_ACTIONS = {
         await commit('wallet', nd, '🧾 생활비 틀 (월세 · 관리비 · 통신비 · 구독료)');
         toastr.success('정기 지출에 생활비를 넣었어요. 값은 재산 탭 편집에서 고칠 수 있어요.', TITLE);
     },
-    gearon: (el) => { settings().gearOn = true; saveSettings(); app.refreshNow?.(); app.renderPanel(el); },
-    gearoff: async (el) => { settings().gearOn = false; saveSettings(); try { await AD.syncNeedMods(); } catch (e) { ssWarn(LOG, 'gear sync', e); } app.refreshNow?.(); app.renderPanel(el); },
+    gearon: async (el) => { settings().gearOn = true; saveSettings(); await loadAD(); app.refreshNow?.(); app.renderPanel(el); },
+    gearoff: async (el) => { settings().gearOn = false; saveSettings(); try { await (await loadAD()).syncNeedMods(); } catch (e) { ssWarn(LOG, 'gear sync', e); } app.refreshNow?.(); app.renderPanel(el); },
     gearpick: async (el, arg, btn, s) => {
+        await loadAD();
         const items = (s.data.wallet?.items ?? []).filter(i => i.qty > 0), cur = AD.equipped(s).find(e => e.slot === arg);
         const box = document.createElement('div'); box.className = 'ss-root ss-scope ss-gearpick';
         box.innerHTML = `<div class="ss-wz-head"><i class="fa-solid fa-shirt"></i><div><b>${esc(arg)}</b><small>소지품에서 골라요 — 한 물건은 한 칸에만</small></div></div>
