@@ -861,6 +861,7 @@ async function onChatChanged() {
     pingCounter = 0;
     for (const el of panels) if (el._ss) { el._ss.mode = 'view'; el._ss.ui = {}; el._ss.tab = 'home'; el._ss.group = null; }
     try { await followBranch(); } catch (e) { ssWarn(LOG, 'branch', e); }
+    try { const meta = getMeta(); if (meta?.base && meta.qAsk === undefined) { meta.qAsk = ctx().chat?.length ?? 0; saveMeta(); } } catch (e) { ssNote('퀘스트 확인 시작점 적기 실패', e); } // v2.9: 지난 답의 결과는 안 바꾼다
     try { const meta = getMeta(); if (meta?.base && rebindToUser(meta)) saveMeta(); } catch (e) { ssNote('행동 묶음 옮기기 실패', e); } // 예전에 한 행동도 그 다음 내 메시지에 묶는다
     try { if (isActive() && ready()) { const n = slimLegacy(); if (n) { saveMeta(); console.log(LOG, `옛 연락 · 피드 기록 ${n}개를 줄였어요`); } } } catch (e) { ssWarn(LOG, 'slim', e); }
     refreshNow();

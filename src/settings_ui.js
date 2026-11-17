@@ -75,6 +75,7 @@ export function renderSettings() {
             <label>🎲 퀘스트 완료 판정<select class="text_pole" data-s="questJudge">${o('questJudge', 'ask', '물어보기 — 완료 누르면 「판정하고 완료 / 판정 없이 완료」 (기본)')}${o('questJudge', 'roll', '늘 판정 — 대성공 1.5배 · 성공 · 실패 절반 · 대실패 보상 없음')}${o('questJudge', 'off', '끔 — 판정 없이 바로 보상')}</select></label>
             <label class="checkbox_label"><input type="checkbox" data-s="questExpire" ${s.questExpire !== false ? 'checked' : ''}> ⌛ 퀘스트 기한이 지나면 실패로 · 마지막 날 알림 <small>(「3일 안에」 · 「3월 14일까지」 같은 기한을 달력으로 읽어요 · 달력이 켜져 있을 때 · 토큰 0)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="extraJudge" ${s.extraJudge !== false ? 'checked' : ''}> 🎲 흥정 · 일하기 판정 <small>(상점 물건 옆 🎲로 값을 깎고, 일거리는 d20으로 일당이 달라져요 · AI 0회)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="questAsk" ${s.questAsk !== false ? 'checked' : ''}> 단계가 남은 퀘스트를 AI가 「완료」라고 적으면 확인을 기다리기 <small>(바로 끝내지 않고 퀘스트 탭에서 물어봐요 · 보상도 확인한 뒤에 · 업데이트 뒤의 답부터)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="questJudgeAI" ${s.questJudgeAI ? 'checked' : ''}> 본편 AI가 「완료」라고 적은 퀘스트도 자동으로 보상 판정 <small>(토큰 0 · 같은 답은 늘 같은 결과)</small></label>
             <div class="ss-set-btns"><button class="menu_button" data-s-act="lightall" title="메모 · 앨범 · 속마음 · 플레이 기록 · 하루 정리 · 팁 · 마스코트를 한 번에 꺼요"><i class="fa-solid fa-feather"></i> 부가 기능 한 번에 끄기</button><button class="menu_button" data-s-act="perf"><i class="fa-solid fa-gauge-simple-high"></i> 부하 재기</button></div>
             <b class="ss-set-h">상태창 언어 · 번역</b>

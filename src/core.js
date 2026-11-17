@@ -255,6 +255,7 @@ export const DEFAULTS = Object.freeze({
     pipCheck: true,          // 🔍 칩 점검: 마지막 AI 답에 칩이 안 보이면 작은 🔍 표시 → 눌러서 「씹혔나 / 안 보이나」 확인 · 다시 읽기
     freshDot: true,          // 🔴 방금 AI 답에서 바뀐 칸 · 줄에 작은 빨간 점
     questJudge: 'ask',       // 🎲 퀘스트 완료 판정: ask (완료 누르면 판정할지 물어봄) · roll (늘 판정) · off (판정 없이 완료)
+    questAsk: true,          // v2.9: 단계가 남은 퀘스트를 AI가 「완료」라고 적으면 바로 끝내지 않고 확인을 기다림 (보상도 확인한 뒤에)
     questJudgeAI: false,     // 본편 AI가 「완료」라고 적은 퀘스트도 보상 판정을 자동으로 굴림 (토큰 0)
     extraJudge: true,        // 🎲 흥정(상점) · 일하기 판정 (AI 0회 · v2.7.6)
     questExpire: true,       // ⌛ 퀘스트 기한이 지나면 실패 · 마지막 날 알림 (달력이 켜져 있을 때 · v2.7.5)
@@ -751,9 +752,17 @@ export const NORM = {
         })),
     }),
     stats: (d) => ({
-        bars: arr(d.bars).filter(b => b?.name).map(b => { const max = Math.max(1, num(b.max, 100)); return { name: str(b.name), cur: clamp(num(b.cur, max), 0, max), max, color: str(b.color), desc: str(b.desc) }; }),
+        // v2.9 욕구 게이지: decay = 하루에 줄어드는 양(음수면 저절로 참) · stages = 「50:출출함, 25:배고픔」(이하일 때 · 「70+:불안」은 이상일 때) · zero = 바닥(0)일 때 하루마다 다른 게이지에 「체력 -10」
+        //   rem · zrem = 소수점 나머지 · stg = 지금 단계 이름 (ops.js needsTick이 적는다). 이 항목이 하나도 없으면 예전과 똑같이 계산한다
+        bars: arr(d.bars).filter(b => b?.name).map(b => { const max = Math.max(1, num(b.max, 100)); return { name: str(b.name), cur: clamp(num(b.cur, max), 0, max), max, color: str(b.color), desc: str(b.desc),
+            ...(num(b.decay, 0) ? { decay: clamp(num(b.decay, 0), -1000, 1000) } : {}), ...(str(b.stages).trim() ? { stages: str(b.stages).trim() } : {}), ...(str(b.zero).trim() ? { zero: str(b.zero).trim() } : {}),
+            ...(num(b.rem, 0) ? { rem: num(b.rem, 0) } : {}), ...(num(b.zrem, 0) ? { zrem: num(b.zrem, 0) } : {}), ...(str(b.stg) ? { stg: str(b.stg) } : {}) }; }),
         attrs: arr(d.attrs).filter(a => a?.name).map(a => ({ name: str(a.name), val: Math.round(num(a.val, 0)), desc: str(a.desc) })),
-        conds: arr(d.conds).filter(c => c?.name).map(c => ({ name: str(c.name), desc: str(c.desc) })),
+        conds: arr(d.conds).filter(c => c?.name).map(c => ({ name: str(c.name), desc: str(c.desc), ...(str(c.auto) ? { auto: str(c.auto) } : {}) })), // auto = 이 상태를 만든 욕구 게이지 이름 (단계가 바뀌면 같이 바뀜)
+        ...(typeof d.tick === 'number' && Number.isFinite(d.tick) ? { tick: d.tick, days: !!d.days } : {}), // 욕구를 마지막으로 계산한 때 (날 · 달력이 없으면 턴 ÷ 6)
+        ...(d.mods && typeof d.mods === 'object' && Object.keys(d.mods).length ? { mods: Object.fromEntries(Object.entries(d.mods).filter(([k, v]) => k && Number.isFinite(Number(v))).slice(0, 12).map(([k, v]) => [str(k), clamp(Number(v), -100, 300)])) } : {}), // 👕 입은 것이 욕구에 주는 보정 (%)
+        ...(Number(d.speed) > 0 && Number(d.speed) !== 1 ? { speed: clamp(Number(d.speed), 0.25, 4) } : {}), // 욕구가 줄어드는 속도 (생활 틀 › 느긋 · 보통 · 빠듯 · 혹독)
+        ...(arr(d.nlog).length ? { nlog: arr(d.nlog).filter(x => x?.b).slice(-6).map(x => ({ b: str(x.b), n: num(x.n, 0), why: str(x.why), t: num(x.t, 0) })) } : {}), // 저절로 바뀐 것 (최근 6개 · 화면용)
     }),
     dice: (d) => ({
         system: ['d20', 'd100'].includes(d.system) ? d.system : 'd20', rules: str(d.rules),
@@ -776,7 +785,7 @@ export const NORM = {
     shop: (d) => ({
         shops: arr(d.shops).filter(s => s?.name).map(s => ({
             name: str(s.name), desc: str(s.desc), place: str(s.place),
-            items: arr(s.items).filter(i => i?.name).map(i => ({ name: str(i.name), price: Math.max(0, num(i.price, 0)), desc: str(i.desc), kind: i.kind === 'deco' ? 'deco' : 'item', stock: Math.round(num(i.stock, -1)) })),
+            items: arr(s.items).filter(i => i?.name).map(i => ({ name: str(i.name), price: Math.max(0, num(i.price, 0)), desc: str(i.desc), kind: i.kind === 'deco' ? 'deco' : 'item', stock: Math.round(num(i.stock, -1)), ...(str(i.effect).trim() ? { effect: str(i.effect).trim() } : {}) })), // effect (v2.9): 사면 소지품에 그 효과가 붙어서 「사용」할 수 있다
         })),
     }),
     home: (d) => ({
@@ -845,6 +854,7 @@ export const NORM = {
             status: ['open', 'active', 'done', 'failed'].includes(q.status) ? q.status : 'open',
             steps: arr(q.steps).map(s => (typeof s === 'string' ? { text: s, done: false } : { text: str(s?.text), done: !!s?.done })).filter(s => s.text),
             paid: !!q.paid,
+            ...(q.ask ? { ask: true } : {}), // v2.9: AI가 「완료」라고 적었지만 단계가 남아 있어 확인을 기다리는 중
             ...(q.check && typeof q.check === 'object' ? { check: { attr: str(q.check.attr), dc: Math.max(2, Math.min(30, num(q.check.dc, 12))) } } : {}), // 🎲 완료 판정 (v2.7.3)
             ...(['crit', 'ok', 'fail', 'fumble'].includes(q.judge) ? { judge: q.judge } : {}),
             ...(Number.isFinite(Number(q.since)) && q.since !== null && q.since !== '' ? { since: Math.round(Number(q.since)) } : {}), // 받은 날 (달력 날짜 번호 · 「3일 안에」 계산용 · v2.7.5)
@@ -974,7 +984,7 @@ export const EDIT = {
         ] },
     ],
     stats: [
-        { k: 'bars', label: '게이지', type: 'list', title: 'name', fields: [{ k: 'name', label: '이름', type: 'text' }, { k: 'cur', label: '현재', type: 'num' }, { k: 'max', label: '최대', type: 'num' }, { k: 'color', label: '색', type: 'color' }, { k: 'desc', label: '설명', type: 'text' }] },
+        { k: 'bars', label: '게이지', type: 'list', title: 'name', fields: [{ k: 'name', label: '이름', type: 'text' }, { k: 'cur', label: '현재', type: 'num' }, { k: 'max', label: '최대', type: 'num' }, { k: 'color', label: '색', type: 'color' }, { k: 'decay', label: '하루에 줄어드는 양 (0 = 안 줄어듦 · 음수 = 저절로 참)', type: 'num' }, { k: 'stages', label: '단계 (예: 50:출출함, 25:배고픔 · 70+:불안)', type: 'text' }, { k: 'zero', label: '바닥일 때 하루마다 (예: 체력 -10)', type: 'text' }, { k: 'desc', label: '설명', type: 'text' }] },
         { k: 'attrs', label: '능력치 (판정 보정)', type: 'list', title: 'name', fields: [{ k: 'name', label: '이름', type: 'text' }, { k: 'val', label: '보정', type: 'num' }, { k: 'desc', label: '설명', type: 'text' }] },
         { k: 'conds', label: '상태 이상 · 버프', type: 'list', title: 'name', fields: [{ k: 'name', label: '이름', type: 'text' }, { k: 'desc', label: '효과', type: 'text' }] },
     ],

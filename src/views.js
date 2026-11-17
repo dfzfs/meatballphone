@@ -17,6 +17,7 @@ import { presetHTML } from './extra.js';
 import { detectPlay, instructModule } from './ai.js';
 import { PLAY_MODES, normPlay, playOf, REC_MODS, isSimple } from './core.js';
 import { mindView, MIND_ACTIONS } from './mind.js';
+import { needLine, lifeSection, gearSection, LIFE_ACTIONS } from './life.js';
 // 💭 프로필 탭 안의 두 칸 (v2.9): 프로필 · 속마음 — 고른 칸은 그 창에서만 기억 (ui.ptab)
 const ptabStrip = (cur) => `<div class="ss-seg ss-ptabs" role="tablist"><button class="${cur === 'sheet' ? 'on' : ''}" data-act="ptab" data-arg="sheet" role="tab"><i class="fa-solid fa-id-card"></i> 프로필</button><button class="${cur === 'mind' ? 'on' : ''}" data-act="ptab" data-arg="mind" role="tab"><i class="fa-solid fa-comment-dots"></i> 속마음</button></div>`;
 const profileSheet = (s, d, ui) => VIEW._profileSheet(s, d, ui);
@@ -65,11 +66,12 @@ export const VIEW = {
             ${modOn('contact') && p.role !== 'user' ? `<button class="ss-btn sm ghost" data-act="talk" data-arg="${esc(p.name)}"><i class="fa-solid fa-envelope"></i> 연락하기</button>` : ''}</div>
         </details>`).join('') || emptyBox('인물이 없어요', 'fa-id-card')}</div>`,
     stats: (s, d) => `${sec('게이지', `<div class="ss-stack">${d.bars.map(b => `<div class="ss-card ss-gcard">${gauge(b, false, freshDot('stats', 'bars', b.name))}
-            <div class="ss-gbtns"><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|-10">−10</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|-1">−1</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|+1">+1</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|+10">+10</button>${b.desc ? `<small class="ss-dim">${esc(b.desc)}</small>` : ''}</div></div>`).join('') || emptyBox('게이지가 없어요')}</div>`)}
+            <div class="ss-gbtns"><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|-10">−10</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|-1">−1</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|+1">+1</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|+10">+10</button>${b.desc ? `<small class="ss-dim">${esc(b.desc)}</small>` : ''}</div>${needLine(b, d)}</div>`).join('') || emptyBox('게이지가 없어요')}</div>`)}
         ${sec('능력치', `<div class="ss-attrs">${d.attrs.map(a => `<div class="ss-attr" title="${esc(a.desc)}"><span>${esc(a.name)}${freshDot('stats', 'attrs', a.name)}</span><b>${a.val >= 0 ? '+' : ''}${a.val}</b></div>`).join('') || emptyBox('능력치가 없어요')}</div>`)}
-        ${sec('상태 이상 · 버프', `<div class="ss-chips">${d.conds.map(c => `<span class="ss-chip warn" title="${esc(c.desc)}">${freshDot('stats', 'conds', c.name)}${esc(c.name)}<button class="ss-x" data-act="uncond" data-arg="${esc(c.name)}">×</button></span>`).join('') || '<span class="ss-hint">없음</span>'}</div>`)}`,
+        ${sec('상태 이상 · 버프', `<div class="ss-chips">${d.conds.map(c => `<span class="ss-chip warn" title="${esc(c.desc)}">${freshDot('stats', 'conds', c.name)}${esc(c.name)}<button class="ss-x" data-act="uncond" data-arg="${esc(c.name)}">×</button></span>`).join('') || '<span class="ss-hint">없음</span>'}</div>`)}
+        ${lifeSection(s, d)}`,
     dice: diceView,
-    wallet: walletView,
+    wallet: (s, d, ui) => `${walletView(s, d, ui)}${gearSection(s)}`,
     fate: fateView,
     shop: (s, d, ui) => {
         const w = s.data.wallet;
@@ -78,7 +80,7 @@ export const VIEW = {
         const sh = d.shops[i0];
         return `${d.shops.length > 1 ? seg(d.shops.map((x, i) => [i, esc(x.name)]), i0, 'shoptab', 'class="ss-seg wrap"') : ''}
         ${sh ? `<div class="ss-shop-h"><div><b>${esc(sh.name)}</b><small>${esc(sh.desc)}${sh.place ? ` · 📍 ${esc(sh.place)}` : ''}</small></div>${w ? `<span class="ss-chip"><i class="fa-solid fa-coins"></i> ${fmtNum(w.cash)} ${esc(w.currency)}${fxText(w, w.cash) ? ` <small class="ss-dim">${esc(fxText(w, w.cash))}</small>` : ''}</span>` : ''}</div>
-        <div class="ss-goods">${sh.items.map((it, j) => `<div class="ss-good ${it.stock === 0 ? 'out' : ''}"><div class="ss-good-b"><b>${esc(it.name)}</b>${it.kind === 'deco' ? chip('가구') : ''}${it.stock === 0 ? chip('품절', 'neg') : it.stock > 0 ? `<small>재고 ${it.stock}</small>` : ''}<small>${esc(it.desc)}</small></div>
+        <div class="ss-goods">${sh.items.map((it, j) => `<div class="ss-good ${it.stock === 0 ? 'out' : ''}"><div class="ss-good-b"><b>${esc(it.name)}</b>${it.kind === 'deco' ? chip('가구') : ''}${it.stock === 0 ? chip('품절', 'neg') : it.stock > 0 ? `<small>재고 ${it.stock}</small>` : ''}<small>${esc(it.desc)}${it.effect ? ` <span class="ss-good-fx">✨ ${esc(it.effect)}</span>` : ''}</small></div>
             <div class="ss-good-a">${(() => { const hm = haggleMul(s, i0, j), p = pr(it, j); return `<b class="ss-price ${mul * hm > 1 ? 'up' : mul * hm < 1 ? 'down' : ''}">${hm !== 1 ? `<s class="ss-dim">${fmtNum(pr(it))}</s> ` : ''}${fmtNum(p)}${fxText(w, p) ? `<small class="ss-fx">${esc(fxText(w, p))}</small>` : ''}</b>${settings().extraJudge !== false && it.stock !== 0 ? `<button class="ss-btn sm ghost" data-act="haggle" data-arg="${i0}|${j}" title="🎲 흥정 — 매력 · 화술 같은 능력치로 d20 (하루에 물건마다 한 번 · AI 0회)" ${hm !== 1 || getMeta()?.haggle?.[`${s.data.calendar ? dayIndex(s.data.calendar) : s.turn}|${i0}|${j}`] ? 'disabled' : ''}>🎲</button>` : ''}<button class="ss-btn sm pri" data-act="buy" data-arg="${i0}|${j}" ${it.stock === 0 || (w && w.cash < p) ? 'disabled' : ''}>구매</button>`; })()}</div></div>`).join('') || emptyBox('상품이 없어요')}</div>` : emptyBox('상점이 없어요. ✨ AI로 수정에서 "○○ 상점 추가"라고 해 보세요.', 'fa-store')}`;
     },
     rel: relView,
@@ -481,7 +483,7 @@ export const VIEW_ACTIONS = {
         const price = Math.round(it.price * priceMul(s) * haggleMul(s, i, j));
         if (w && w.cash < price) { toastr.warning('돈이 모자라요.', TITLE); return; }
         const ops = [['cash', `-${price}`]];
-        if (it.kind === 'deco' && modOn('home')) ops.push(['decor', `+${it.name}`]); else ops.push(['item', `+${it.name} 1|${it.desc ? ` ${it.desc}` : ''}`]);
+        if (it.kind === 'deco' && modOn('home')) ops.push(['decor', `+${it.name}`]); else ops.push(['item', `+${it.name} 1|${it.desc ? ` ${it.desc}` : ''}${it.effect ? `|${it.effect}` : ''}`]);
         if (it.stock > 0) { const nd = clone(s.data.shop); nd.shops[i].items[j].stock--; await addAdjust({ set: { mod: 'shop', data: nd }, silent: true }); }
         await addAdjust({ ops, label: `${sh.name}에서 ${it.name} 구매 (−${fmtNum(price)} ${w?.currency ?? ''})` });
         toastr.success(`${esc(it.name)} 구매!`, TITLE);
@@ -638,7 +640,7 @@ export const VIEW_ACTIONS = {
     },
     helpcardoff: () => { settings().helpCardOff = true; saveSettings(); app.rerenderPanels?.(true); },
     newv5off: async () => { const meta = getMeta(); if (meta) { delete meta.newV5; await saveMeta(); app.refreshNow(); } },
-    ...SNS_ACTIONS, ...MUSIC_ACTIONS, ...CUSTOM_ACTIONS, ...REL_ACTIONS, ...ACH_ACTIONS, ...ALBUM_ACTIONS, ...MIND_ACTIONS,
+    ...SNS_ACTIONS, ...MUSIC_ACTIONS, ...CUSTOM_ACTIONS, ...REL_ACTIONS, ...ACH_ACTIONS, ...ALBUM_ACTIONS, ...MIND_ACTIONS, ...LIFE_ACTIONS,
 };
 export const VIEW_CHANGES = {
     place: (el, t, s) => { if (!t.value) return; const nm = s.data.home.storage[Number(t.dataset.arg)]; return addAdjust({ ops: [['decor', `+${nm} | ${t.value}`]], label: `${t.value}에 ${nm} 배치` }); },

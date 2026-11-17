@@ -1,6 +1,6 @@
 // 규칙 · 변화량 처리 — <meatball> 한 줄(키=값)을 상태에 반영 (engine.js에서 떼어 냄)
 import { setAlias } from './core.js';
-import { letterMode, ctx, settings, EMPTY, DIFFS, GLOBAL_OFF, clamp, num, norm, findBy, parseNum, splitBar, signed, fmtNum, short, dayIndex, addDays, dateStr, eventsOn, parseDate, nowTick, wholeTick, stamp, viewTr, diffOf, loveIndex, touchContact, THREAD_MAX, dateShort, DEFAULT_STAGES, relAxes, romanceStart, ssNote } from './core.js';
+import { letterMode, ctx, settings, EMPTY, DIFFS, GLOBAL_OFF, clamp, num, norm, findBy, parseNum, splitBar, signed, fmtNum, short, dayIndex, addDays, dateStr, eventsOn, parseDate, nowTick, wholeTick, useDays, stamp, viewTr, diffOf, loveIndex, touchContact, THREAD_MAX, dateShort, DEFAULT_STAGES, relAxes, romanceStart, ssNote } from './core.js';
 import { enStr } from './skeleton_en.js';
 
 export const KEYMAP = {
@@ -539,6 +539,14 @@ function opConcern(s, val, info, L, T, key, rawKey) {
     else { if (a) r.likes = a; if (b) r.dislikes = b; }
     return;
 }
+// v2.9 퀘스트 확인 대기: 본편 AI의 답이고(info.ai) · 설정이 켜져 있고 · 이 기능이 생긴 뒤의 답이고(meta.qAsk 번째 메시지부터 — 옛 답의 결과는 안 바꾼다) · 안 끝난 단계가 있을 때
+function questHold(q, info) {
+    if (!info?.ai || settings().questAsk === false) return false;
+    const from = info.meta?.qAsk; if (!Number.isFinite(from) || !(info.i >= from)) return false;
+    return q.steps.length > 0 && q.steps.some(x => !x.done);
+}
+function opXQask(s, val) { const q = (s.data.quest?.list ?? []).find(x => x.id === val || norm(x.title) === norm(val)); if (q) delete q.ask; return; } // 「아직 아니에요」
+function opXNeedmod(s, val) { const st = s.data.stats; if (!st) return; let o = {}; try { o = JSON.parse(val || '{}') ?? {}; } catch { o = {}; } if (o && typeof o === 'object' && Object.keys(o).length) st.mods = o; else delete st.mods; return; } // 👕 입은 것의 욕구 보정 (addons.js가 갈아입을 때 적는다)
 function opXPeekday(s, val, info, L, T, key, rawKey) { s.peek = { day: today(s) ?? s.turn, n: ((s.peek?.day === (today(s) ?? s.turn)) ? s.peek.n : 0) + 1 }; return; }
 function opCurse(s, val, info, L, T, key, rawKey) {
     const [n0, eff, days, cure, kind] = splitBar(val);
@@ -684,7 +692,7 @@ function opItem(s, val, info, L, T, key, rawKey) {
     const w = ensure(s, 'wallet');
     const parts = val.includes('|') ? [val] : val.split(/\s*[,，/]\s*/);
     for (const part of parts) {
-        const [head, desc] = splitBar(part);
+        const [head, desc, eff] = splitBar(part); // v2.9: 셋째 칸 = 효과 (상점에서 산 물건)
         // 수량은 띄어 쓰거나 x를 붙인 1~3자리 숫자만 (「AK-47」 「S24」처럼 이름 끝 숫자를 수량으로 읽지 않게)
         const m = head.match(/^([+\-−]?)\s*(.+?)(?:(?:\s+[x×*]?|\s*[x×*])\s*(\d{1,3})\s*(?:개|장|병|권|통)?)?$/);
         if (!m) continue;
@@ -697,7 +705,7 @@ function opItem(s, val, info, L, T, key, rawKey) {
             ex.qty -= q; if (ex.qty <= 0) w.items.splice(w.items.indexOf(ex), 1);
             L(`−${ex.name}${q > 1 ? `×${q}` : ''}`);
         } else {
-            if (ex) { ex.qty += q; if (desc) ex.desc = desc; } else w.items.push({ name, qty: q, desc: desc ?? '' });
+            if (ex) { ex.qty += q; if (desc) ex.desc = desc; if (eff && !ex.effect) ex.effect = eff; } else w.items.push({ name, qty: q, desc: desc ?? '', ...(eff ? { effect: eff } : {}) });
             L(`+${name}${q > 1 ? `×${q}` : ''}`);
         }
     }
@@ -998,8 +1006,12 @@ function opQuest(s, val, info, L, T, key, rawKey) {
         qs.list.push(q);
         L(`📜 ${QNAME[q.status]}: ${q.title}`);
         if (q.status === 'open' || q.status === 'active') info.alerts.push(`퀘스트 — ${q.title}`);
+    } else if (st === 'done' && q.status !== 'done' && questHold(q, info)) {
+        // v2.9: 단계가 남았는데 AI가 「완료」라고 적었다 → 끝내지 않고 확인을 기다린다 (보상 · 판정도 그때)
+        if (!q.ask) { q.ask = true; if (q.status === 'open') q.status = 'active'; L(`📜 ${q.title}: 완료? (확인 필요)`); info.alerts.push(`퀘스트 — ${q.title}: AI가 완료라고 적었지만 단계가 남아 있어요. 퀘스트 탭에서 확인해 주세요`); }
+        return;
     } else if (st && st !== q.status) {
-        q.status = st; L(`📜 ${q.title}: ${QNAME[st]}`);
+        q.status = st; delete q.ask; L(`📜 ${q.title}: ${QNAME[st]}`);
     } else if (!st && st0) {
         if (q.steps.some(x => norm(x.text) === norm(st0) && x.done)) return; // 같은 진행을 매 턴 다시 적어도 한 번만
         // v2.7.5: AI가 적는 「진행 내용」은 이미 한 일 → 해 둔 단계로. 할 일 목록에 같은(비슷한) 단계가 있으면 그걸 체크해요
@@ -1092,6 +1104,8 @@ const OPS = {
     'concern': opConcern,
     'taste': opConcern,
     '_peekday': opXPeekday,
+    '_qask': opXQask,
+    '_needmod': opXNeedmod,
     'curse': opCurse,
     '_effect': opXEffect,
     'weather': opWeather,
@@ -1175,4 +1189,59 @@ export function cleanMind(t) {
     const max = /[가-힣]/.test(x) ? 22 : 48;
     if (x.length > max) { const m = x.match(/^.+?[.!?。…~]+(?=\s|$)/); if (m && m[0].length >= 4) x = m[0]; } // 길 때만 첫 문장
     return x.length > max ? `${x.slice(0, max - 1).trim()}…` : x;
+}
+
+// ───── 🍞 욕구 게이지 (v2.9): 시간이 지나면 저절로 줄고 · 단계마다 상태가 붙고 · 바닥이면 다른 게이지를 깎는다 ─────
+// 게이지에 decay · stages · zero 가운데 하나라도 있어야 움직인다 (없으면 아무것도 안 함 — 예전 채팅은 그대로).
+// 시간: 달력이 있으면 날짜 + 시간대(하루의 몇 분의 몇), 없으면 한 턴 = 하루의 1/6. 답마다(그리고 내가 한 행동마다) 지난 만큼만 계산한다.
+const NEED_TURN = 1 / 6, NEED_MAX_DT = 14;
+export function parseStages(text) {
+    const out = [];
+    for (const part of String(text ?? '').split(/[,，\n]+/)) { const m = part.match(/^\s*(\d{1,3})\s*(\+?)\s*[:：]\s*(.+?)\s*$/); if (m) out.push({ at: clamp(Number(m[1]), 0, 100), up: m[2] === '+', name: m[3] }); }
+    return out;
+}
+// 지금 단계: 「이하」는 가장 낮은 문턱, 「이상(+)」은 가장 높은 문턱이 이긴다
+export function stageOf(b) {
+    const pct = (b.cur / Math.max(1, b.max)) * 100; let hit = null;
+    for (const x of parseStages(b.stages)) { if (x.up ? pct >= x.at : pct <= x.at) { if (!hit || (x.up ? x.at > hit.at : x.at < hit.at)) hit = x; } }
+    return hit;
+}
+function needMove(b, amount, key) {
+    const x = (b[key] ?? 0) + amount, n = x < 0 ? Math.ceil(x) : Math.floor(x);
+    const r = Math.round((x - n) * 1e4) / 1e4; if (r) b[key] = r; else delete b[key];
+    if (!n) return 0;
+    const old = b.cur; b.cur = clamp(b.cur + n, 0, b.max); return b.cur - old;
+}
+export function needsTick(s, info) {
+    const st = s.data.stats; if (!st?.bars?.some(b => b.decay || b.stages || b.zero)) return;
+    const days = useDays(s, info?.meta), now = days ? nowTick(s, info?.meta) : (s.turn ?? 0) * NEED_TURN;
+    let dt = 0;
+    if (typeof st.tick !== 'number' || !!st.days !== days) { st.tick = now; st.days = days; }
+    else { dt = now - st.tick; st.tick = now; if (dt < 0) dt = 0; dt = Math.min(dt, NEED_MAX_DT); }
+    const log = (b, n, why) => { if (!n) return; (st.nlog ??= []).push({ b: b.name, n, why, t: s.turn ?? 0 }); if (st.nlog.length > 6) st.nlog.splice(0, st.nlog.length - 6); };
+    const sp = Number(st.speed) > 0 ? Number(st.speed) : 1;
+    if (dt > 0) {
+        const zt = new Map(); // 이번 사이에 바닥(0)이었던 시간 — 도중에 바닥난 게이지는 바닥난 뒤의 시간만 센다
+        for (const b of st.bars) {
+            const pre = b.cur;
+            if (b.decay) { const mod = Number(st.mods?.[norm(b.name)] ?? 0), rate = b.decay * sp * Math.max(0, 1 + mod / 100); log(b, needMove(b, -rate * dt, 'rem'), 'time'); if (b.cur <= 0) zt.set(b, rate > 0 && pre > 0 ? Math.max(0, dt - pre / rate) : dt); }
+            else if (b.cur <= 0) zt.set(b, dt);
+        }
+        for (const b of st.bars) {
+            if (!b.zero || b.cur > 0 || !(zt.get(b) > 0)) continue;
+            const m = String(b.zero).match(/^\s*(.+?)\s*([+\-−])\s*(\d+(?:\.\d+)?)\s*$/); if (!m) continue;
+            const t = findBy(st.bars, m[1]) ?? aliasBar(st.bars, m[1]); if (!t || t === b) continue;
+            const got = needMove(t, (m[2] === '+' ? 1 : -1) * Number(m[3]) * zt.get(b), 'zrem'); if (got) (st.nlog ??= []).push({ b: t.name, n: got, why: `zero:${b.name}`, t: s.turn ?? 0 });
+        }
+        if (st.nlog?.length > 6) st.nlog.splice(0, st.nlog.length - 6);
+    }
+    // 단계 → 상태(conds)에 한 줄: 그 게이지가 만든 것(auto)만 갈아 끼운다
+    for (const b of st.bars) {
+        if (!b.stages && !b.stg) continue;
+        const cur = stageOf(b)?.name ?? '';
+        if (cur === (b.stg ?? '')) continue;
+        st.conds = (st.conds ?? []).filter(c => c.auto !== b.name);
+        if (cur) { if (!findBy(st.conds, cur)) st.conds.push({ name: cur, desc: `${b.name} ${fmtNum(b.cur)}/${fmtNum(b.max)}`, auto: b.name }); info?.labels?.push(`${b.name}: ${cur}`); info?.alerts?.push(`${b.name} — ${cur}`); b.stg = cur; }
+        else { info?.labels?.push(`${b.name}: 괜찮아짐`); delete b.stg; }
+    }
 }

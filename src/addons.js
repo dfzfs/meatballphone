@@ -24,10 +24,10 @@ const save = () => { saveMeta(); app.refreshNow?.(); };
 // ───── ⚔ 장비 착용 ─────
 // 소지품(wallet.items) 가운데 착용한 것을 칸(slot)마다 하나씩 적어 둔다. 물건이 소지품에서 없어지면 착용도 저절로 풀린 것으로 본다
 // 보정은 그 물건의 「효과」 글에서 읽는다: 「힘 +2, 매력 +1」 → 능력치 이름이 같은 판정(주사위)에 더해짐. 지난 계산은 건드리지 않는다 (굴릴 때만 더함)
-export const GEAR_SLOTS = ['무기', '옷', '장신구'];
+export const GEAR_SLOTS = ['무기', '겉옷', '상의', '하의', '신발', '장신구']; // v2.9: 옷 칸을 나눔 (예전 「옷」 칸에 입혀 둔 것은 그 칸째로 남는다 — gearSlots)
 export const gearOn = () => on('gearOn');
 export function gearData(create = false) { const m = getMeta(); if (!m) return null; if (create) m.gear ??= { on: {} }; return m.gear ?? null; }
-export const gearSlots = () => { const g = gearData(); return Array.isArray(g?.slots) && g.slots.length ? g.slots : GEAR_SLOTS; };
+export const gearSlots = () => { const g = gearData(), base = Array.isArray(g?.slots) && g.slots.length ? g.slots : GEAR_SLOTS; const extra = Object.keys(g?.on ?? {}).filter(k => !base.includes(k)); return extra.length ? [...base, ...extra] : base; };
 // 「힘 +2, 가격 -10%」 → [{ k: '힘', v: 2, pct: false }, { k: '가격', v: -10, pct: true }]
 export function parseBonus(text) {
     const out = [];
@@ -54,6 +54,16 @@ export function equip(slot, item) {
 export function unequip(slot) { const g = gearData(); if (!g?.on || !own(g.on, slot)) return false; delete g.on[slot]; save(); return true; }
 export function setGearSlots(list) { const g = gearData(true); if (!g) return false; const a = [...new Set((Array.isArray(list) ? list : []).map(x => cut(x, 12)).filter(Boolean))].slice(0, 8); if (a.length) g.slots = a; else delete g.slots; save(); return true; }
 // 판정에 더할 값: 능력치 이름이 같은 보정의 합 (% 보정은 여기 안 들어감)
+// 👕 입은 것이 욕구 게이지에 주는 보정 (v2.9): 효과 글의 「체온 -30%」 → 그 게이지가 30% 덜 줄어듦. 갈아입을 때 상태에 적어 둔다 (지난 계산은 안 바뀐다 — ops.js _needmod)
+export async function syncNeedMods() {
+    const s = st(); if (!s?.data?.stats) return false;
+    const mods = {};
+    if (gearOn()) for (const e of equipped(s)) for (const b of e.bonus) if (b.pct && findBy(s.data.stats.bars, b.k)) { const k = norm(b.k); mods[k] = (mods[k] ?? 0) + b.v; }
+    const cur = s.data.stats.mods ?? {}, key = (o) => JSON.stringify(Object.keys(o).sort().map(k => [k, o[k]]));
+    if (key(mods) === key(cur)) return false;
+    await addAdjust({ ops: [['_needmod', JSON.stringify(mods)]], silent: true, label: '' });
+    return true;
+}
 export function gearBonus(attr) {
     if (!attr || !gearOn()) return 0;
     let n = 0; try { for (const e of equipped()) for (const b of e.bonus) if (!b.pct && norm(b.k) === norm(attr)) n += b.v; } catch (e) { ssNote('gear bonus', e); }

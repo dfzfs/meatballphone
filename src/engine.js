@@ -4,7 +4,7 @@ import {
     waitText, setAlias, TITLE, INJECT_KEY, INJECT_KEY2, INJECT_KEY3, INJECT_KEY4, trLook, trBack, viewTr, weekday, PROMPT_IN_CHAT, ROLE_SYSTEM, MODULE, AI_PARTS, aiOff, uid, diffOf, LOG, loveIndex, CONTACT_MODES, tidy, msgText, DEFAULT_STAGES, arr, playOf, swapUser, ssWarn, relAxes, INJ, isHidden, modOnRaw, DATA_V, normPlay, ssNote, heroIsUser,
 } from './core.js';
 import { P } from './prompts.js';
-import { pairStage, KEYMAP, KEY_MOD, seeded, effSum, today, applyLines, seasonOf, pickWeather, stageIndex, noLoveStage, updateStage, startDay, applyOp, stagesOn, dateFromIndex } from './ops.js';
+import { pairStage, KEYMAP, KEY_MOD, seeded, effSum, today, applyLines, seasonOf, pickWeather, stageIndex, noLoveStage, updateStage, startDay, applyOp, stagesOn, dateFromIndex , needsTick } from './ops.js';
 export * from './ops.js'; // 떼어 낸 것 — 다른 파일은 예전처럼 여기서 받아도 된다
 
 
@@ -595,6 +595,7 @@ export function compute(limit, opts = {}) {
         }
         const had = a.ops?.length || (a.set && a.label) ? owned(s) : null; // 번역 · 영어 저장으로 바꾼 칸(이름 없는 기록)은 「버림」으로 안 셈
         for (const [k, v] of a.ops ?? []) applyOp(s, k, v, info);
+        try { needsTick(s, info); } catch (e) { ssNote('needs', e); } // 🍞 욕구 게이지 (v2.9 · 없으면 아무것도 안 함)
         checkRules(s, info);
         if (had) trackGone(s, had, a.ops?.some(([k]) => k === '_sellused' || k === 'cash') ? 'sold' : 'discarded');
         if (a.label && !a.silent) s.dayBuf?.labels.push(a.label);
@@ -612,10 +613,11 @@ export function compute(limit, opts = {}) {
         if (wipe) ops = ops.filter(([k]) => { const md = opMod(s, k); return !(md && (wipe[md] ?? -1) > i); }); // 🧹 전체 삭제한 칸의 옛 변화는 빼기
         if (!ops.length) continue;
         s.romActive = i >= romFrom;
-        const info = { seed: `${seed}:${i}`, labels: [], alerts: [], mods: meta.mods, roll: null, meta, cut: 0, ai: true };
+        const info = { seed: `${seed}:${i}`, labels: [], alerts: [], mods: meta.mods, roll: null, meta, cut: 0, ai: true, i };
         if (recent && i >= recentFrom) info.recent = recent;
         const before = i === lastAI && !opts.bake && settings().freshDot !== false ? freshSnap(s) : null; // 🔴 방금 AI 답에서 바뀐 곳 (v2.7.3)
         for (const [k, v] of ops) applyOp(s, k, v, info);
+        try { needsTick(s, info); } catch (e) { ssNote('needs', e); } // 🍞 욕구 게이지 (v2.9)
         if (romRun && s.romActive) { const used = info.romUsed ?? {}; const run = (s.romRun ??= {}); for (const k of new Set([...Object.keys(run), ...Object.keys(used)])) run[k] = used[k] > 0 ? (run[k] ?? 0) + 1 : 0; }
         checkRules(s, info);
         if (before) fresh = freshDiff(before, s, `${seed}:${i}:${m.swipe_id ?? 0}`);
@@ -780,7 +782,7 @@ export async function purgeTrash(names) {
 // ───── 🧹 기록 · 칸 지우기 (v2.7.18) — 찌꺼기 없이 ─────
 // 미트볼 전용 기록 키(_roll 같은 것)가 어느 칸 것인지
 export const PRIV_MOD = {
-    _achtog: 'ach', _bond: 'rel', _love: 'rel', _nolove: 'rel', _leave: 'rel', _unbond: 'rel', _peekday: 'rel', _merge: 'rel',
+    _qask: 'quest', _needmod: 'stats', _achtog: 'ach', _bond: 'rel', _love: 'rel', _nolove: 'rel', _leave: 'rel', _unbond: 'rel', _peekday: 'rel', _merge: 'rel',
     _draw: 'fate', _effect: 'fate', _loan: 'wallet', _repay: 'wallet', _sellused: 'wallet', _tobag: 'wallet', _memo: 'memo', _questpay: 'quest',
     _read: 'contact', _nread: 'news', _roll: 'dice', _trash: 'home', _purge: 'home', _restore: 'home', _tostore: 'home', _unplace: 'home', _travel: 'map',
 };
@@ -1592,6 +1594,7 @@ function buildInjection0(r, opt = {}) {
     if (on('stats')) {
         const st = d.stats;
         if (st.bars.length) L.push(`{{user}} gauges: ${st.bars.map(b => `${b.name} ${fmtNum(b.cur)}/${fmtNum(b.max)}`).join(' · ')}`);
+        { const auto = st.bars.filter(b => b.decay).map(b => b.name); if (auto.length) L.push(`Needs that change on their own as story time passes (already calculated — do NOT write stat lines just because time passed; write them only for events such as eating, drinking, resting, washing, getting hurt): ${auto.join(', ')}`); }
         if (st.attrs.length) L.push(`{{user}} attributes: ${st.attrs.map(a => `${a.name} ${a.val >= 0 ? '+' : ''}${a.val}`).join(' · ')}`);
         if (st.conds.length) L.push(`Conditions: ${st.conds.map(c => c.name + (c.desc && !lite ? ` (${short(c.desc, 50)})` : '')).join(', ')}`);
     }
@@ -1822,6 +1825,7 @@ export async function setBase(base, mods, difficulty, play) {
     meta.baseTurn = 0;
     meta.startAt = chat.length;
     meta.startKey = chat.at(-1)?.send_date ?? null;
+    meta.qAsk = 0; // v2.9: 새로 만든 상태창은 처음부터 「퀘스트 완료 확인」을 쓴다
     meta.adjust = [];
     delete meta.wipe; // 🧹 칸 전체 삭제 표시도 새로 만들면 비움
     meta.off = false;

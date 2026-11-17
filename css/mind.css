@@ -11,3 +11,15 @@
 .ss-scope .ss-mind-log { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .ss-scope .ss-mind-log li { display: flex; justify-content: space-between; gap: 10px; }
 .ss-scope .ss-mind-log small { color: var(--ss-dim); flex: none; }
+
+/* 🍞 생활 틀 (v2.9 · src/life.js) — 수치 탭의 욕구 줄 · 추천 세트 · 재산 탭의 옷차림 */
+.ss-scope .ss-need { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 6px; font-size: .86em; color: var(--ss-dim); }
+.ss-scope .ss-need > span { display: inline-flex; align-items: center; gap: 4px; }
+.ss-scope .ss-need > span.warn { color: var(--ss-warn, #c77700); font-weight: 650; }
+.ss-scope .ss-need > small { flex: 1 1 100%; }
+.ss-scope .ss-life-sets { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 6px; margin: 8px 0; }
+.ss-scope .ss-life-sets > .ss-btn { flex-direction: column; align-items: flex-start; gap: 2px; min-height: 52px; text-align: left; height: auto; white-space: normal; }
+.ss-scope .ss-life-sets > .ss-btn small { color: var(--ss-dim); font-weight: 500; font-size: .8em; }
+.ss-scope .ss-good-fx { color: var(--ss-acc); white-space: nowrap; }
+.ss-scope .ss-qask { align-items: center; margin: 6px 0; }
+.ss-scope.ss-gearpick .ss-stack > .ss-btn { justify-content: flex-start; min-height: 40px; height: auto; white-space: normal; text-align: left; }
