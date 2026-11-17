@@ -34,6 +34,11 @@ export function pipDiag(i) {
         const raw = [m.mes, m.swipes?.[sid], m.extra?.display_text].filter(x => typeof x === 'string').join('\n');
         if (/meatball/i.test(raw)) return { code: 'malformed', title: '태그는 있는데 못 읽었어요 — 씹혔어요', text: `<meatball> 비슷한 글은 보이는데 「키: 값」 줄을 못 찾았어요 (태그가 안 닫혔거나 모양이 달라요). 「태그 다시 읽기」를 눌러 보고, 안 되면 직접 적어요.\n\n${short(raw.slice(Math.max(0, raw.search(/meatball/i) - 20)), 220)}`, acts: ['reread', 'analyze', 'edit'] };
         if (run === 'empty') return { code: 'nochange', title: '분석했는데 바뀐 게 없대요', text: '별도 분석 AI가 이 답에서는 상태 변화가 없다고 했어요.', acts: ['analyze', 'edit'] };
+        // 빈 <meatball></meatball> = AI가 「이번 답엔 바뀐 게 없다」고 적은 것 (주입문이 그렇게 시킨다) — 읽을 때 본문에서 떼고 빈 서랍만 남는다
+        //   (검수: 예전엔 본문에 태그가 안 남아서 「안 썼어요 — 씹혔어요」로 보고, 바뀐 게 없는 턴마다 🔍가 붙었다)
+        const junk = m.extra?.[MODULE]?.junk?.[sid];
+        if (Array.isArray(drawerOps(m)) && junk) return { code: 'malformed', title: '태그는 있는데 못 읽었어요 — 씹혔어요', text: `<meatball> 안에 「키: 값」 모양의 줄이 없었어요:\n${junk}\n\n맞는 변화면 「직접 적기」로 적어 주세요.`, acts: ['analyze', 'edit'] };
+        if (Array.isArray(drawerOps(m))) return { code: 'nochange', title: 'AI가 이번 답엔 바뀐 게 없다고 했어요', text: '빈 <meatball>을 적었어요 — 상태가 바뀌지 않은 답이에요 (정상). 바뀐 게 있었다면 「직접 적기」나 「AI로 다시 분석」을 써요.', acts: ['analyze', 'edit'] };
         if (set.sync === 'off') return { code: 'syncoff', title: '자동 반영이 꺼져 있어요', text: '확장 설정 › 「스토리 → 상태창 자동 반영」이 C(끔)이라 AI 답을 읽지 않아요.', acts: ['analyze', 'edit'] };
         return { code: 'notag', title: 'AI가 이번 답에 <meatball>을 안 썼어요 — 씹혔어요', text: set.sync === 'tag' ? '자동 반영이 「A. 태그」만이라 태그를 빼먹은 답은 그냥 넘어가요. 「A+B」로 바꾸면 빠진 답만 따로 분석해요. 지금은 「AI로 다시 분석」(AI 1회) 이나 직접 적기.' : '이 답엔 변화 줄이 없어요. 「AI로 다시 분석」(AI 1회)이나 직접 적기.', acts: ['analyze', 'edit'] };
     }

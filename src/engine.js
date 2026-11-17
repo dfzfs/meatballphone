@@ -136,10 +136,20 @@ export function setDrawer(m, ops) {
     syncSwipe(m);
 }
 // replace = true: 서랍을 새 내용으로 바꿈 / false: 이어 쓰기(continue)처럼 뒤에 덧붙임
+// 깨진 블록의 글: 「키: 값」 줄은 없는데 「없음 · none」이 아닌 글이 들어 있으면 그 글 (빈 블록 · 「변화 없음」이면 '')
+export function blockJunk(text) {
+    const inner = ourBlocks(text).map(b => b[2] ?? '').join('\n').trim();
+    if (!inner || /^[\s(（\[]*(없음|변화\s*없음|바뀐\s*(것|게)\s*없음|none|nothing|no\s*changes?|n\/a|-+)[\s)）\].]*$/i.test(inner)) return '';
+    return extractOps(text).length ? '' : short(inner, 200);
+}
 export function stashStatus(m, { replace = false } = {}) {
     if (!m || m.is_user || typeof m.mes !== 'string' || !hasStatus(m.mes)) return false;
     const ops = extractOps(m.mes);
     const old = replace ? [] : (drawerOps(m) ?? []);
+    // 「키: 값」 줄이 하나도 없는데 글은 있는 블록(「cash +5」처럼 깨진 것)은 그 글을 적어 둔다 — 칩 점검이 빈 블록(바뀐 것 없음)과 가려내게 (검수)
+    { const j = ops.length ? '' : blockJunk(m.mes), sid = m.swipe_id ?? 0;
+      m.extra ??= {}; m.extra[MODULE] ??= {};
+      if (j) (m.extra[MODULE].junk ??= {})[sid] = j; else if (m.extra[MODULE].junk) delete m.extra[MODULE].junk[sid]; }
     m.mes = removeStatus(m.mes).replace(/\s+$/, ''); // 다른 프리셋의 <status>는 본문에 그대로
     // 이어 쓰기: 모델이 앞에서 쓴 변화를 다시 적으면 두 번 세지 않게 (새로 생긴 줄만 덧붙임)
     const had = new Set(old.map(([k, v]) => `${norm(k)}\u0000${norm(v)}`));

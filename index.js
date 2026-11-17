@@ -5,7 +5,7 @@ import {
     ready, modOn, esc, splitBar, TITLE, LOG, VERSION, MODULE, rand, ssErr, ssWarn, ssNote, SLOT_SEL, isSlotEl, sealMeta, checkSeal, loadPure,
 } from './src/core.js';
 import { applyGuardLook } from './src/guard.js';
-import { opInfo } from './src/engine.js';
+import { opInfo, blockJunk } from './src/engine.js';
 import {
     shiftSwipeAnchors, clampAdjust, noteGeneration, compute, buildInjection, setInjection, addAdjust, stashStatus, stashAllSwipes,
     sideSweep, bakedLabels, rebindToUser, shiftSwipeKeys, drawerOps, setDrawer, extractOps, ssValue, undoLast, hasStatus, autoBake, slimLegacy,
@@ -890,7 +890,8 @@ function onCharRendered(id, type) {
     if (set.sync !== 'analyze' && set.sync !== 'tagPlus') return;
     if (app.lastGenSkipped) return; // OOC·건너뛴 턴의 답은 분석하지 않음
     // v2.7.5: 태그가 있어도 읽은 줄이 하나도 쓸모없으면(깨진 태그 · 모르는 키만) 따로 분석 — 예전엔 「태그 있음」이라 그냥 씹혔어요
-    const useful = (ops) => Array.isArray(ops) && (!ops.length || ops.some(([k]) => opInfo(app.current?.state, k).key)); // 빈 태그 = 「바뀐 것 없음」이라 괜찮아요
+    const broken = !!(m.extra?.[MODULE]?.junk?.[m.swipe_id ?? 0] || blockJunk(m.mes)); // 「cash +5」처럼 깨진 블록은 빈 블록(바뀐 것 없음)과 달리 따로 분석 (검수)
+    const useful = (ops) => Array.isArray(ops) && (ops.length ? ops.some(([k]) => opInfo(app.current?.state, k).key) : !broken); // 빈 태그 = 「바뀐 것 없음」이라 괜찮아요
     if (set.sync === 'tagPlus' && hasStatus(m.mes) && useful(extractOps(m.mes))) return;
     const drawer = m.extra?.[MODULE]?.bySwipe?.[m.swipe_id ?? 0];
     if (drawer && (useful(drawer) || drawer.analyzed)) return;
