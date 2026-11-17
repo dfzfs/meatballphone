@@ -706,7 +706,11 @@ function opXRepay(s, val, info, L, T, key, rawKey) {
     liftDebtCurse(s, info);
     return;
 }
+// 「스태미나 +10 | 난로 옆에서 쉼」처럼 숫자 뒤에 「| 이유」를 붙이면 줄이 통째로 버려졌다 (칩 점검 「일부 줄을 못 읽었어요」)
+// stat · attr에는 「|」 뒤에 들어갈 칸이 없으니, 「|」 앞이 숫자로 끝나면 뒤는 이유로 보고 뗀다 (쉼표가 든 이유도 여러 개로 쪼개지지 않게 먼저)
+const dropPipeNote = (val) => { const i = val.indexOf('|'); return i > 0 && /\d\s*$/.test(val.slice(0, i)) ? val.slice(0, i).trim() : val; };
 function opStat(s, val, info, L, T, key, rawKey) {
+    val = dropPipeNote(val);
     // v2.7.19: 「Stamina +30, Stress -5」처럼 쉼표로 여러 개 — 예전엔 통째로 「Stamina +30, Stress」 게이지 -5로 읽어서 Stamina가 깎였음
     if (MULTI_RE.test(val)) { for (const part of val.split(MULTI_RE)) if (part.trim()) applyPart(s, 'stat', part.trim(), info); return; }
     const st = ensure(s, 'stats');
@@ -728,6 +732,7 @@ function opStat(s, val, info, L, T, key, rawKey) {
     return;
 }
 function opAttr(s, val, info, L, T, key, rawKey) {
+    val = dropPipeNote(val);
     if (MULTI_RE.test(val)) { for (const part of val.split(MULTI_RE)) if (part.trim()) applyPart(s, 'attr', part.trim(), info); return; }
     const st = ensure(s, 'stats');
     const m = val.match(/^(.+?)\s*([=+\-−][\d.]+|\d[\d.]*)\s*$/);

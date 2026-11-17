@@ -22,6 +22,10 @@ try {
         await say('stat: Health -5, Mana -10'); out.alias2 = bar('체력') === 75 && bar('마나') === 90;
         await say('hp: −5'); out.hpKey = bar('체력') === 70;
         await say('hp: -5'); out.hpKey2 = bar('체력') === 65;
+        // 숫자 뒤 「| 이유」 (칩 점검 「일부 줄을 못 읽었어요」로 뜨던 것) — 쉼표가 든 이유도 한 줄로
+        await say('stat: 체력 +5 | Resting inside by the warm stove'); out.statPipe = bar('체력') === 70;
+        await say('stat: 마나 -5 | read a book, then slept'); out.statPipeComma = bar('마나') === 85;
+        { const a = st().data.stats.attrs[0]; if (a) { const v0 = a.val; await say(`attr: ${a.name} +1 | trained all day`); out.attrPipe = st().data.stats.attrs.find(x => x.name === a.name).val === v0 + 1; } }
         out.noNewBars = bars() === bars0;
         await say('stat: 오염도 -30'); out.newBarStill = bar('오염도') === 70; // 정말 새 게이지는 예전처럼 생김
         await say('stat: 체력 max +10'); out.maxStill = st().data.stats.bars.find(b => b.name === '체력').max === 110;
