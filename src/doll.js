@@ -1,14 +1,15 @@
-// 🧸 도트 인형 v3 (v2.9) — 32×48칸짜리 꼬마 캐릭터를 코드로 그린다 (직접 디자인한 그림 · 내려받는 파일 없음 · 다른 파일을 안 불러오는 순수한 조각).
+// 🧸 도트 인형 v5 (v2.9) — 32×40칸짜리 2등신 꼬마 캐릭터를 코드로 그린다 (직접 디자인한 그림 · 내려받는 파일 없음 · 다른 파일을 안 불러오는 순수한 조각).
 //   모양 하나하나를 네모 · 타원 · 선 · 다각형으로 「그려서」 칸에 찍는다 → 명암 · 테두리는 칠할 때 자동 (테두리 · 그늘 · 바탕 · 밝은 띠 4단계).
 //   다 그린 그림은 작은 PNG(data URL) 한 장이 된다 — 한 번 그린 것은 기억해 둔다.
 //   겹치는 순서: 뒤쪽 머리 · 망토 · 날개 → 몸 → 하의 → 신발 → 상의 → 앞머리 → 겉옷 → 얼굴 → 장신구 → 손에 든 것 (+ 다친 곳은 빨간 그림 한 장 더)
 //   글자: s 살 · h 머리카락 · c 옷 색 (이 셋은 자동 명암) / a 포인트 색 · L 옷 색의 밝은 쪽 · D 어두운 쪽 · w 흰색 · k 짙은 갈색 · e 눈 · W 눈빛 · m 입 · b 볼 · t 눈물 · p 분홍
 //   이 파일은 욕구 · 옷차림 탭을 켠 채팅에서만 불러온다 (life.js loadDL).
-export const W = 32, H = 48;
+export const W = 32, H = 40;
 const MID = W - 1; // 좌우 대칭: x → 31 − x
 
 // ───── 그리는 도구 ─────
-function pen() {
+const Y0 = 23, KY = 0.6, KX = 0.75;
+function pen(hand = false) {
     const g = Array.from({ length: H }, () => Array(W).fill(''));
     let sym = false;
     const set = (x, y, ch) => { x = Math.round(x); y = Math.round(y); if (x >= 0 && x < W && y >= 0 && y < H) g[y][x] = ch; };
@@ -28,13 +29,30 @@ function pen() {
         // 왼쪽만 그리면 오른쪽에도 똑같이
         S(fn) { sym = true; fn(d); sym = false; },
     };
+    // 꼬마(2등신) 비율: 모양은 예전 키 큰 몸 기준 좌표로 그리고, 찍을 때 목 아래(23줄~)만 납작 · 좁게 옮긴다. 머리 쪽은 그대로.
+    const o = { ...d }; let raw = false;
+    const run = (fn) => { const was = raw; raw = true; try { fn(); } finally { raw = was; } };
+    const ty = hand ? (v) => 30.7 + (v - 35.5) * 0.8 : (v) => (v < Y0 ? v : Y0 + (v - Y0) * KY);
+    const ex = hand ? (e) => Math.round(25 + (e - 27) * 0.85) : (e) => 16 + Math.sign(e - 16) * Math.round(Math.abs(e - 16) * KX - 0.001); // 칸 가장자리
+    const cx_ = hand ? (v) => 24.5 + (v - 26.5) * 0.85 : (v) => 15.5 + (v - 15.5) * KX; // 칸 가운데
+    const low = (y) => hand || y >= Y0 - 1, kx = hand ? 0.85 : KX;
+    d.x = (x, y, ch) => { if (raw) return o.x(x, y, ch); const b = low(y); run(() => o.x(b ? Math.floor(cx_(x) + 0.5 + 1e-6) : x, Math.floor(ty(y + 0.5) + 1e-6), ch)); };
+    d.r = (x, y, w, h, ch) => { const b = low(y), x0 = b ? ex(x) : x, x1 = b ? ex(x + w) : x + w, y0 = Math.round(ty(y)), y1 = Math.round(ty(y + h)); run(() => o.r(Math.min(x0, x1), y0, Math.max(1, Math.abs(x1 - x0)), Math.max(1, y1 - y0), ch)); };
+    d.c = (x, y, w, h) => d.r(x, y, w, h, '');
+    const ell = (cx, cy, rx, ry) => { if (!hand && cy + ry < Y0) return [cx, cy, rx, ry, 1]; const b = low(cy - ry), t = ty(cy + 0.5 - ry), u = ty(cy + 0.5 + ry); return [b ? cx_(cx) : cx, (t + u) / 2 - 0.5, b ? Math.max(0.6, rx * kx) : rx, Math.max(0.6, (u - t) / 2), (u - t) / 2 / ry]; };
+    const rows = (y0, y1) => [y0 <= -99 ? y0 : Math.round(ty(y0)), y1 >= 99 ? y1 : Math.max(Math.round(ty(y0)), Math.round(ty(y1 + 1)) - 1)];
+    d.e = (cx, cy, rx, ry, ch, y0 = -99, y1 = 99) => { const [a, b, c, e] = ell(cx, cy, rx, ry), [r0, r1] = rows(y0, y1); run(() => o.e(a, b, c, e, ch, r0, r1)); };
+    d.o = (cx, cy, rx, ry, irx, iry, ch, y0 = -99, y1 = 99) => { const [a, b, c, e, k] = ell(cx, cy, rx, ry), [r0, r1] = rows(y0, y1); run(() => o.o(a, b, c, e, irx * (c / rx), iry * k, ch, r0, r1)); };
+    const pt = (x, y, b) => [b ? cx_(x) : x, ty(y + 0.5) - 0.5];
+    d.l = (x0, y0, x1, y1, ch, t = 1) => { const b = low(Math.min(y0, y1)), A = pt(x0, y0, b), B = pt(x1, y1, b); run(() => o.l(A[0], A[1], B[0], B[1], ch, t)); };
+    d.p = (pts, ch) => { const b = low(Math.min(...pts.map(q => q[1]))); run(() => o.p(pts.map(q => pt(q[0], q[1], b)), ch)); };
     return d;
 }
-const draw = (fn) => { if (!fn) return null; const d = pen(); fn(d); return d.g; };
+const draw = (fn, hand = false) => { if (!fn) return null; const d = pen(hand); fn(d); return d.g; };
 
 // ───── 몸 ─────
 const BODY = (d) => {
-    d.e(15.5, 13, 8.6, 7.6, 's'); d.e(15.5, 16.5, 8.2, 6, 's'); d.S(() => d.r(6, 13, 1, 3, 's')); // 머리 (턱은 조금 좁게) · 귀
+    d.e(15.5, 13, 8.6, 7.6, 's'); d.e(15.5, 16, 8.6, 6.5, 's'); d.S(() => d.r(6, 13, 1, 3, 's')); // 머리 (턱은 조금 좁게) · 귀
     d.r(14, 21, 4, 3, 's');
     d.e(15.5, 26.5, 6.4, 3.6, 's', 23, 26); d.p([[9.6, 26], [21.4, 26], [20.6, 35], [10.4, 35]], 's'); // 둥근 어깨 · 허리로 살짝 좁아지는 몸통
     d.S(() => { d.r(7, 24, 3, 11, 's'); d.c(7, 24, 1, 1); d.e(8, 35.4, 1.6, 1.5, 's'); }); // 바깥으로 살짝 벌어진 팔 · 둥근 손
@@ -72,19 +90,19 @@ const HAIR_DEF = {
 };
 
 // ───── 표정 ─────
-const eOpen = (d) => { d.S(() => { d.r(11, 14, 2, 3, 'e'); d.r(11, 16, 2, 1, 'i'); d.x(10, 14, 'e'); }); d.x(11, 14, 'W'); d.x(19, 14, 'W'); }, eArc = (d) => d.S(() => { d.x(10, 16, 'e'); d.x(11, 15, 'e'); d.x(12, 15, 'e'); d.x(13, 16, 'e'); });
-const eShut = (d) => d.S(() => d.r(10, 16, 4, 1, 'e')), eWide = (d) => { d.S(() => { d.r(10, 13, 3, 4, 'e'); d.r(10, 16, 3, 1, 'i'); }); d.x(10, 13, 'W'); d.x(11, 13, 'W'); d.x(19, 13, 'W'); d.x(20, 13, 'W'); }, eDown = (d) => d.S(() => d.r(11, 16, 2, 1, 'e'));
-const eX = (d) => d.S(() => { d.l(10, 13, 13, 16, 'e'); d.l(13, 13, 10, 16, 'e'); }), eHeart = (d) => d.S(() => { d.x(10, 13, 'p'); d.x(12, 13, 'p'); d.r(9, 14, 5, 1, 'p'); d.r(10, 15, 3, 1, 'p'); d.x(11, 16, 'p'); });
-const blush = (d) => d.S(() => d.r(8, 18, 3, 1, 'b')), blushBig = (d) => d.S(() => d.r(8, 17, 4, 2, 'b'));
-const brSad = (d) => d.S(() => d.l(9, 12, 12, 11, 'e')), brMad = (d) => d.S(() => d.l(9, 10, 12, 12, 'e'));
-const mSmile = (d) => { d.x(13, 19, 'm'); d.x(18, 19, 'm'); d.r(14, 20, 4, 1, 'm'); }, mFlat = (d) => d.r(14, 20, 4, 1, 'm'), mFrown = (d) => { d.r(14, 19, 4, 1, 'm'); d.x(13, 20, 'm'); d.x(18, 20, 'm'); };
-const mOpen = (d) => { d.r(14, 19, 4, 2, 'm'); d.r(15, 20, 2, 1, 'p'); }, mO = (d) => d.r(15, 19, 2, 2, 'm'), mSmirk = (d) => { d.r(14, 20, 3, 1, 'm'); d.x(17, 19, 'm'); d.x(18, 18, 'm'); };
-const mTongue = (d) => { d.r(14, 19, 4, 1, 'm'); d.r(15, 20, 2, 2, 'p'); }, mWavy = (d) => { for (let i = 0; i < 6; i++) d.x(13 + i, 20 - (i % 2), 'm'); }, mCat = (d) => { d.x(13, 19, 'm'); d.x(14, 20, 'm'); d.x(15, 19, 'm'); d.x(16, 19, 'm'); d.x(17, 20, 'm'); d.x(18, 19, 'm'); };
-const tears = (d) => d.S(() => d.r(11, 17, 1, 4, 't')), sweat = (d) => { d.r(24, 9, 1, 3, 't'); d.x(25, 11, 't'); };
+const eOpen = (d) => { d.S(() => { d.r(10, 15, 3, 1, 'e'); d.r(10, 16, 3, 1, 'j'); d.r(10, 17, 3, 1, 'i'); d.r(10, 18, 3, 1, 'I'); d.x(9, 15, 'e'); }); d.x(10, 16, 'W'); d.x(19, 16, 'W'); }, eArc = (d) => d.S(() => { d.x(9, 17, 'e'); d.r(10, 16, 3, 1, 'e'); d.x(13, 17, 'e'); });
+const eShut = (d) => d.S(() => d.r(9, 17, 4, 1, 'e')), eWide = (d) => d.S(() => { d.r(10, 14, 3, 5, 'W'); d.r(10, 14, 3, 1, 'e'); d.r(11, 16, 1, 2, 'e'); }), eDown = (d) => d.S(() => { d.r(10, 16, 3, 1, 'e'); d.r(10, 17, 3, 2, 'i'); });
+const eX = (d) => d.S(() => { d.l(10, 15, 12, 17, 'e'); d.l(12, 15, 10, 17, 'e'); }), eHeart = (d) => d.S(() => { d.x(10, 15, 'p'); d.x(12, 15, 'p'); d.r(9, 16, 5, 1, 'p'); d.r(10, 17, 3, 1, 'p'); d.x(11, 18, 'p'); });
+const blush = (d) => d.S(() => d.r(8, 19, 2, 1, 'b')), blushBig = (d) => d.S(() => d.r(8, 19, 2, 2, 'b'));
+const brSad = (d) => d.S(() => d.l(9, 14, 12, 13, 'e')), brMad = (d) => d.S(() => d.l(9, 13, 12, 14, 'e'));
+const mSmile = (d) => { d.x(14, 20, 'm'); d.x(17, 20, 'm'); d.r(15, 21, 2, 1, 'm'); }, mFlat = (d) => d.r(15, 21, 2, 1, 'm'), mFrown = (d) => { d.r(15, 20, 2, 1, 'm'); d.x(14, 21, 'm'); d.x(17, 21, 'm'); };
+const mOpen = (d) => { d.r(14, 20, 4, 1, 'm'); d.r(15, 21, 2, 1, 'p'); }, mO = (d) => d.r(15, 20, 2, 2, 'm'), mSmirk = (d) => { d.r(15, 21, 2, 1, 'm'); d.x(17, 20, 'm'); };
+const mTongue = (d) => { d.r(14, 20, 4, 1, 'm'); d.r(15, 21, 2, 1, 'p'); }, mWavy = (d) => { for (let i = 0; i < 4; i++) d.x(14 + i, 21 - (i % 2), 'm'); }, mCat = (d) => { d.x(13, 20, 'm'); d.x(14, 21, 'm'); d.x(15, 20, 'm'); d.x(16, 20, 'm'); d.x(17, 21, 'm'); d.x(18, 20, 'm'); };
+const tears = (d) => d.S(() => d.r(11, 18, 1, 3, 't')), sweat = (d) => { d.r(24, 9, 1, 3, 't'); d.x(25, 11, 't'); };
 const F_ = (...fs) => (d) => fs.forEach(fn => fn(d));
 const FACE_DEF = {
     smile: F_(eOpen, blush, mSmile), happy: F_(eArc, blush, mOpen), neutral: F_(eOpen, mFlat), sad: F_(eOpen, brSad, mFrown), angry: F_(eOpen, brMad, mFlat),
-    surprised: F_(eWide, mO), sleepy: F_(eShut, mFlat), wink: F_((d) => { d.r(11, 14, 2, 3, 'e'); d.r(11, 16, 2, 1, 'i'); d.x(10, 14, 'e'); d.x(11, 14, 'W'); d.l(18, 16, 19, 15, 'e'); d.l(20, 15, 21, 16, 'e'); }, blush, mSmile), cry: F_(eShut, tears, mFrown),
+    surprised: F_(eWide, mO), sleepy: F_(eShut, mFlat), wink: F_((d) => { d.r(10, 15, 3, 1, 'e'); d.r(10, 16, 3, 1, 'j'); d.r(10, 17, 3, 1, 'i'); d.r(10, 18, 3, 1, 'I'); d.x(9, 15, 'e'); d.x(10, 16, 'W'); d.x(18, 17, 'e'); d.r(19, 16, 3, 1, 'e'); d.x(22, 17, 'e'); }, blush, mSmile), cry: F_(eShut, tears, mFrown),
     dizzy: F_(eX, mWavy, sweat), love: F_(eHeart, blush, mSmile), smirk: F_(eOpen, mSmirk), shy: F_(eDown, blushBig, mFlat), tongue: F_(eArc, blush, mTongue), cat: F_(eOpen, blush, mCat),
     worried: F_(eOpen, brSad, mWavy, sweat),
 };
@@ -199,7 +217,7 @@ export const KIND_NAMES = { top: '상의', bottom: '하의', outer: '겉옷', sh
 export const shapeName = (kind, id) => SHAPES[kind]?.[id]?.n ?? id;
 // 그려 둔 칸 그림은 기억해 둔다
 const LAYERS = new Map();
-function layerOf(key, def) { if (!def) return null; let v = LAYERS.get(key); if (!v) { v = { f: draw(def.f), b: draw(def.b) }; LAYERS.set(key, v); } return v; }
+function layerOf(key, def) { if (!def) return null; let v = LAYERS.get(key); if (!v) { const hand = key.startsWith('weapon:'); v = { f: draw(def.f, hand), b: draw(def.b, hand) }; LAYERS.set(key, v); } return v; }
 
 // 칸 이름 → 종류
 export function slotKind(slot) {
@@ -276,16 +294,16 @@ function paint(img, g, pal, flat = false) {
 // 다 겹친 뒤: 그림 전체의 바깥 테두리만 짙게 (칸마다 테두리를 치면 지저분해 보인다)
 function outline(img) {
     const occ = img.map(r => r.map(Boolean)), at = (y, x) => y >= 0 && y < H && x >= 0 && x < W && occ[y][x];
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (occ[y][x] && !(at(y - 1, x) && at(y + 1, x) && at(y, x - 1) && at(y, x + 1))) img[y][x] = shade(img[y][x], 0.78);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (occ[y][x] && !(at(y - 1, x) && at(y + 1, x) && at(y, x - 1) && at(y, x + 1))) img[y][x] = shade(img[y][x], 0.7);
 }
 const clothPal = (c, skin) => ({ c, a: tint(c, 0.55), L: tint(c, 0.3), D: shade(c, 0.22), w: '#f7f4ee', k: '#5a4636', s: skin });
 export const HURT_PARTS = { head: '머리', torso: '몸통', arms: '팔', legs: '다리' };
-const inPart = (part, y, x) => (part === 'head' ? y <= 22 : part === 'torso' ? y >= 23 && y <= 37 && x >= 10 && x <= 21 : part === 'arms' ? y >= 23 && y <= 36 && (x < 10 || x > 21) : part === 'legs' ? y >= 38 : false);
+const inPart = (part, y, x) => (part === 'head' ? y <= 22 : part === 'torso' ? y >= 23 && y <= 30 && x >= 12 && x <= 19 : part === 'arms' ? y >= 23 && y <= 31 && (x < 12 || x > 19) : part === 'legs' ? y >= 31 : false);
 const BODY_G = draw(BODY);
 function toUrl(img, only) {
     if (typeof document === 'undefined') return '';
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d'); if (!c) return '';
-    if (!only) { c.fillStyle = 'rgba(40,30,60,.14)'; c.fillRect(9, 46, 14, 1); c.fillStyle = 'rgba(40,30,60,.2)'; c.fillRect(7, 45, 18, 1); c.fillRect(10, 46, 12, 1); }
+    if (!only) { c.fillStyle = 'rgba(40,30,60,.2)'; c.fillRect(9, 37, 14, 1); c.fillStyle = 'rgba(40,30,60,.14)'; c.fillRect(11, 38, 10, 1); }
     let any = false;
     for (let y = 0; y < H; y++) for (let x = 0; x < W;) {
         const col = img[y][x]; if (!col || (only && !only(y, x))) { x++; continue; }
@@ -307,15 +325,15 @@ function render(look, wear, mood, hurt) {
     paint(img, bottom.g.f, bottom.pal); if (shoes) paint(img, shoes.g.f, shoes.pal);
     paint(img, top.g.f, top.pal);
     if (outer) paint(img, outer.g.f, outer.pal);
-    for (let y = 23; y <= 24; y++) for (let x = 12; x <= 19; x++) if (img[y][x]) img[y][x] = shade(img[y][x], y === 23 ? 0.16 : 0.08); // 턱 밑 그늘
+    for (let x = 12; x <= 19; x++) if (img[23][x]) img[23][x] = shade(img[23][x], 0.14); // 턱 밑 그늘
     paint(img, hair.f, hairPal);
     if (hair.f) for (let x = 9; x <= 17; x++) for (const y of [6, 7]) if (hair.f[y][x] === 'h' && (x + y) % 5 !== 0 && (y === 6 ? x < 16 : x < 13)) img[y][x] = tint(hc, 0.38); // 머리카락 윤기
     for (let x = 8; x <= 23; x++) if (img[15][x] && hair.f?.[14]?.[x] === 'h' && !hair.f[15][x]) img[15][x] = shade(img[15][x], 0.1); // 앞머리 그늘
     const faceId = FACE_DEF[look.face] ? look.face : MOOD_FACE[Math.max(0, Math.min(4, Math.round(mood)))];
-    const eye = look.eye || '#2f2a2a', mix = (a, b, k) => hexOf(rgb(a).map((v, i) => v + (rgb(b)[i] - v) * k));
-    paint(img, layerOf(`face:${faceId}`, { f: FACE_DEF[faceId] }).f, { e: shade(eye, 0.45), i: tint(eye, 0.35), W: '#ffffff', m: mix(skin, '#9a3f3f', 0.62), b: mix(skin, '#f47a8a', 0.5), t: '#7cc4f5', p: '#f06a9a' }, true);
+    const eye = look.eye || '#8a5230', mix = (a, b, k) => hexOf(rgb(a).map((v, i) => v + (rgb(b)[i] - v) * k));
+    paint(img, layerOf(`face:${faceId}`, { f: FACE_DEF[faceId] }).f, { e: shade(eye, 0.62), j: shade(eye, 0.3), i: eye, I: tint(eye, 0.42), W: '#ffffff', m: mix(skin, '#9a3f3f', 0.62), b: mix(skin, '#f47a8a', 0.5), t: '#7cc4f5', p: '#f06a9a' }, true);
     if (acc?.g.f) paint(img, acc.g.f, acc.pal);
-    for (let y = 25; y <= 35; y++) for (const x of [9, MID - 9]) if (img[y][x] && img[y][x + (x === 9 ? 1 : -1)]) img[y][x] = shade(img[y][x], 0.3); // 팔과 몸통 사이 그늘 (안 그러면 팔이 몸에 붙어 보인다)
+    for (let y = 24; y <= 30; y++) for (const x of [11, MID - 11]) if (img[y][x] && img[y][x + (x === 11 ? 1 : -1)]) img[y][x] = shade(img[y][x], 0.3); // 팔과 몸통 사이 그늘 (안 그러면 팔이 몸에 붙어 보인다)
     outline(img);
     if (weapon?.g.f) paint(img, weapon.g.f, weapon.pal, true);
     return [toUrl(img), hurt.length ? toUrl(img, (y, x) => hurt.some(p => inPart(p, y, x))) : ''];

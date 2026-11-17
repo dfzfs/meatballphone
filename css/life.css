@@ -137,7 +137,7 @@
 /* 🧸 도트 인형 v2: 다친 곳 · 고르기 창 */
 .ss-scope .ss-px-hurt, .ss-px-hurt { opacity: .5; animation: ss-px-hurt 1.1s steps(2, jump-none) infinite; }
 @keyframes ss-px-hurt { 50% { opacity: .15; } }
-.ss-scope .ss-px-wait { display: block; width: 64px; aspect-ratio: 16 / 26; }
+.ss-scope .ss-px-wait { display: block; width: 64px; aspect-ratio: 16 / 20; }
 .ss-scope .ss-px-wait.big { width: 112px; }
 .ss-scope .ss-tama-pet { height: 114px; }
 .ss-scope.ss-dollpick .ss-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; max-height: min(62vh, 520px); overflow-y: auto; padding: 4px; }
