@@ -40,6 +40,7 @@ try {
     check((await page.$$('dialog')).length === 1 && !!(await page.$('dialog .ss-ft .ss-ft-pop')), '점괘가 새 창 없이 같은 창 안에 펼쳐진다');
     check(await page.$eval('dialog .ss-ft-pop .ss-ft-spirit', e => e.textContent.includes('물귀신') && getComputedStyle(e).color === 'rgb(224, 40, 46)').catch(() => false), '빙의한 말은 빨간 글씨');
     check(/STORY time/.test(body) && /Real-world time now/.test(body) && body.includes('이 사람을 믿어도 될까?'), '이야기 속 시간 기준 · 질문이 AI에게 갔다');
+    check(!/Recent story|Relationship with/.test(body) && /walk-in stranger/.test(body) && /OBJECTIVE READING/.test(sys), '점괘엔 이야기 · 관계를 안 보낸다 (처음 보는 손님)');
     check(/TAROT/.test(sys) && /Nothing is recorded yet/.test(sys), '타로 규칙 · 「생년월일을 정해라」가 갔다');
     check(s1.f.births.find(b => b.name === 'Leon')?.birth === READ.person.birth, 'Leon의 생년월일이 기억됐다');
     check(/Fortune today/.test(await inj()) && (await inj()).includes(READ.omen), '오늘 본 점괘가 AI에게 가는 글에 한 줄 붙었다');

@@ -379,28 +379,30 @@ export async function fetchMinds(names, state) {
 // 🔮 점집 (v2.8.1) — 점괘 한 번 = 1호출. 뽑은 카드 · 오방기는 여기 오기 전에 이미 정해져 있다 (fortune.js)
 // o: { who, method, topic, q, basis, storyNow, realNow, draw: ['과거 — 탑 (역방향)', …], saved: 명식 또는 null }
 const FT_METHOD = { tarot: 'tarot cards', orb: 'crystal ball', shaman: "a shaman's (mudang) spirit reading with saju" };
+// 점괘는 이야기와 별개 (v2.8.1 고침): 점쟁이는 처음 보는 손님으로 본다 — 지금 관계 · 최근 이야기 · 페르소나 · 카드 설명을 주지 않는다
+// (예전엔 다 줘서 지금 상황에 맞춘 듣기 좋은 소리만 했음). 주는 것: 이름 · 생년월일(없으면 나이·생일 칸만) · 날짜 · 물은 것 · 뽑은 것
+const BIRTH_KEY_RE = /나이|연령|생일|생년|출생|태어|띠|별자리|age|birth|born|zodiac/i;
+function birthHints(who, state) {
+    const prof = state.data.profile ? findBy(state.data.profile.list, who) : null;
+    return (prof?.fields ?? []).filter(f => BIRTH_KEY_RE.test(f.k) && String(f.v ?? '').trim()).map(f => `${f.k}: ${short(f.v, 60)}`).slice(0, 4).join(' · ');
+}
 function fortuneBody(o, state) {
-    const d = state.data;
-    const isUser = norm(o.who) === norm(userName());
-    const persona = isUser ? short(ctx().powerUserSettings?.persona_description ?? '', 1500) : '';
-    const curses = isUser ? (d.fate?.curses ?? []).map(c => `${c.name}${c.effects.length ? ` (${c.effects.join(', ')})` : ''}`).join(' · ') : '';
-    const before = (d.fate?.readings ?? []).filter(r => norm(r.who) === norm(o.who) && r.summary).slice(-2).map(r => `${r.when}: ${r.summary}`).join(' / ');
+    const hints = o.saved ? '' : birthHints(o.who, state);
     return [
-        ...aboutPerson(o.who, state),
-        persona ? `About ${o.who} ({{user}}'s persona): ${persona}` : '',
-        curses ? `Curses/blessings on ${o.who} right now: ${curses}` : '',
+        `Customer: ${o.who} — a walk-in stranger. You know NOTHING about their life, relationships or circumstances, and you must not guess them from the name.`,
+        hints ? `Facts for the birth data ONLY (use them to fix the birth data, never as story hints): ${hints}` : '',
+        `World setting (only so the teller and calendar fit): ${short(state.core.title, 80)}${state.core.genre ? ` · ${short(state.core.genre, 40)}` : ''}`,
         `Story time now: ${o.storyNow || '(this story has no calendar)'}\nReal-world time now: ${o.realNow}\nREADING DATE = ${o.basis === 'real' ? 'the REAL-WORLD time' : 'the STORY time'} above — count ages, this year and this month from it.`,
         o.topic ? `Topic asked: ${o.topic}` : '',
-        o.q ? `{{user}}'s question: ${o.q}` : '',
+        o.q ? `The customer's question: ${o.q}` : '',
         o.draw?.length ? `Drawn (fixed — interpret exactly these):\n${o.draw.map(x => `- ${x}`).join('\n')}` : '',
-        before ? `Earlier readings for ${o.who} (stay consistent, do not repeat): ${before}` : '',
     ].filter(Boolean).join('\n\n');
 }
 export async function fortuneRead(o, state) {
     const savedTxt = o.saved ? Object.entries(o.saved).filter(([k, v]) => k !== 'name' && v).map(([k, v]) => `${k}: ${v}`).join(' · ') : '';
     const birthRule = savedTxt
         ? `Already recorded for ${o.who} — copy it into "person" unchanged and fill in only the empty fields: ${savedTxt}`
-        : `Nothing is recorded yet. Establish ${o.who}'s birth data now and return it in "person": use any birthday or age stated in the material; otherwise choose values that fit the character, and work out the birth year from the reading date and their age. Use the world's own calendar. It is saved and reused in every later reading, so make it definite (no "unknown").`;
+        : `Nothing is recorded yet. Establish ${o.who}'s birth data now and return it in "person": use any birthday or age stated in the material; otherwise choose plausible values, and work out the birth year from the reading date and their age. Use the world's own calendar. It is saved and reused in every later reading, so make it definite (no "unknown").`;
     const sys = P('ai.fortune', { who: o.who, method: FT_METHOD[o.method] ?? o.method, methodRule: P(`ai.fortune.${o.method}`, { who: o.who }), birthRule });
     const r = await finJSON(await aiJSON('fortune', sys, fortuneBody(o, state), 4000));
     const S = (v) => (typeof v === 'string' ? v.trim() : v === null || v === undefined ? '' : String(v));
