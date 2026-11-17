@@ -311,7 +311,7 @@ async function onPanelAction(el, act, arg, btn) {
         case 'cardload': return loadFromCard(setBase, false);
         case 'carrystart': return startCarry(setBase);
         case 'filerestore': return restoreFile(setBase);
-        case 'tab': st.tab = arg; st.mode = 'view'; st.ui = {}; if (el.classList.contains('ss-panel-side') && settings().sideState !== 'full') { settings().sideState = 'full'; saveSettings(); ensureUI(); } return rr();
+        case 'tab': st.tab = arg === 'mind' ? (modOn('profile') ? 'profile' : 'rel') : arg; st.mode = 'view'; st.ui = arg === 'mind' ? { ptab: 'mind' } : {}; if (el.classList.contains('ss-panel-side') && settings().sideState !== 'full') { settings().sideState = 'full'; saveSettings(); ensureUI(); } return rr();
         case 'instructtog': st.ui.instructOpen = !st.ui.instructOpen; return rr();
         case 'edit': st.work = clone((mod === 'core' ? s.core : s.data[mod]) ?? EMPTY[mod]()); st.mode = 'edit'; return rr();
         case 'json': st.mode = 'json'; return rr();
@@ -431,7 +431,8 @@ export function rerenderPanels(force = false) {
 export async function openSheet(tab, opt = {}) {
     const el = document.createElement('div');
     el.className = 'ss-panel ss-panel-pop';
-    el._ss = { tab: tab ?? 'home', mode: 'view', work: null, ui: {} };
+    const toMind = tab === 'mind'; if (toMind) tab = modOn('profile') ? 'profile' : 'rel'; // 💭 속마음 칸 = 프로필 탭 안의 둘째 칸 (프로필을 꺼 뒀으면 관계 탭으로)
+    el._ss = { tab: tab ?? 'home', mode: 'view', work: null, ui: toMind ? { ptab: 'mind' } : {} };
     const full = opt.full ?? settings().sheetFull;
     if (opt.full) settings().sheetFull = true;
     el._ss.full = !!full;
@@ -625,7 +626,7 @@ function onSide(e) {
     if (a === 'full') set.sideState = 'full';
     if (a === 'close') set.sideState = 'closed';
     if (a === 'mini') set.sideState = 'mini';
-    if (a === 'mindfreq' && ['always', 'random'].includes(b.dataset.v)) set.mindFreq = b.dataset.v; // 💭 속마음 빈도 (v2.7.21)
+    if (a === 'mindfreq' && ['always', 'random', 'tab'].includes(b.dataset.v)) set.mindFreq = b.dataset.v; // 💭 속마음 빈도 (v2.7.21)
     if (a === 'mindmode' && ['off', 'thought', 'emoji', 'kaomoji'].includes(b.dataset.v)) set.mindMode = b.dataset.v;
     if (a === 'mindfreq' || a === 'mindmode') { saveSettings(); app.refreshNow?.(); app.rerenderPanels?.(true); const body = document.querySelector('#ss-side .ss-mini-body'); if (body) setHTML(body, sideMiniHTML()); return; }
     saveSettings(); ensureUI();

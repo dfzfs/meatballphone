@@ -1411,7 +1411,7 @@ export function buildInjection(r, opt = {}) {
 // 설렘 한 스푼: 단계마다 할 수 있는 「설레는 한 순간」과 넘으면 안 되는 선 (친구인데 연인처럼 굴지 않게)
 const sparkMemo = new Map(); // 「채팅:종류:확률:쉬는 턴」 → { upto, last, hits }
 // 💭 속마음 (v2.7.21): 이번 턴에 장면 속 인물의 속마음을 <meatball>에 같이 적게 — 본편 AI가 쓰므로 추가 호출 0
-const MIND_FMT = {
+export const MIND_FMT = {
     thought: 'their unspoken inner voice in FIRST person, like a thought bubble — 3 to 8 words, no narration, no name, no numbers (e.g. "…또 사고 쳤겠지" / "Idiot. Still glad he\'s okay.")',
     emoji: '1-3 emoji that show their true feeling right now (emoji only, no words)',
     kaomoji: 'one kaomoji that shows their true feeling right now, e.g. (｡•́︿•̀｡) (≧▽≦) (￣ヘ￣) (⁄ ⁄•⁄ω⁄•⁄ ⁄) — kaomoji only, no words',
@@ -1419,6 +1419,7 @@ const MIND_FMT = {
 export function mindActive(turn, set = settings()) {
     if (!MIND_FMT[set.mindMode]) return false;
     if (set.mindFreq === 'always') return true;
+    if (set.mindFreq === 'tab') return false; // 탭에 들어올 때 따로 받는다 (mind.js) — 본편 AI에게는 시키지 않는다
     return sparkHit(`${ctx().getCurrentChatId?.() ?? MODULE}:mind`, clamp(num(set.mindPct, 35), 0, 100), 0, turn ?? 0);
 }
 function mindLine(r) {

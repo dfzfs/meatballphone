@@ -486,8 +486,10 @@ function opMind(s, val, info, L, T, key, rawKey) { // 💭 속마음 · 이모�
     const rl = s.data.rel; if (!rl) return;
     const [nm, ...rest] = splitBar(val); const text = rest.join(' | ').trim();
     const r = findBy(rl.user, nm); if (!r || !text) return;
-    r.mind = { text: cleanMind(text), turn: s.turn };
-    if (!r.mind.text) delete r.mind;
+    const t = cleanMind(text); if (!t) return;
+    r.mind = { text: t, turn: s.turn };
+    // v2.9: 지난 것도 5개까지 남긴다 (프로필 › 속마음 탭의 기록) — 같은 턴에 다시 오면 바꿔 적는다
+    const log = (r.mindLog ?? []).filter(x => x.turn !== s.turn); log.push({ text: t, turn: s.turn }); r.mindLog = log.slice(-5);
     return;
 }
 function opJealous(s, val, info, L, T, key, rawKey) {

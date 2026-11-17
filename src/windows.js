@@ -137,7 +137,7 @@ export async function openThemeWindow() {
             ${sec('사이드 미니창에 보일 것', `<div class="ss-pills">${Object.entries(MINI).map(([k, v]) => `<label class="ss-tog"><input type="checkbox" class="ss-switch" data-mini="${k}" ${set.sideMini.includes(k) ? 'checked' : ''}><span>${v.name}</span></label>`).join('')}</div>`)}
             ${sec('속마음 <small class="ss-dim">미니창 · HUD · 인물 카드</small>', `
                 <div class="ss-f wide"><span>보는 방식</span>${seg([['off', '끔'], ['thought', '속마음 글'], ['emoji', '이모티콘'], ['kaomoji', '카모지']], set.mindMode ?? 'off', 'mindmode', 'class="ss-seg wrap"')}</div>
-                ${(set.mindMode ?? 'off') !== 'off' ? `<div class="ss-f wide"><span>빈도</span>${seg([['always', '항상 (매 턴)'], ['random', `랜덤 (${Number(set.mindPct ?? 35)}% 턴)`]], set.mindFreq ?? 'random', 'mindfreq', 'class="ss-seg wrap"')}</div>
+                ${(set.mindMode ?? 'off') !== 'off' ? `<div class="ss-f wide"><span>빈도</span>${seg([['always', '항상 (매 턴)'], ['random', `랜덤 (${Number(set.mindPct ?? 35)}% 턴)`], ['tab', '속마음 탭에 들어올 때 (AI 1회)']], set.mindFreq ?? 'random', 'mindfreq', 'class="ss-seg wrap"')}</div>
                 <label class="ss-f wide"><span>랜덤 확률 ${Number(set.mindPct ?? 35)}%</span><input type="range" min="5" max="100" step="5" value="${Number(set.mindPct ?? 35)}" data-mindpct="1"></label>` : ''}
                 <p class="ss-hint">본편 AI가 답에 같이 적어요 (추가 호출 없음 · 켜진 턴엔 요청 한 줄이 붙어요).</p>`)}
             ${(() => {

@@ -3,7 +3,7 @@ import { app, ctx, settings, saveSettings, isAiPart, aiOff, partTouched, getMeta
 import { loveIndex, ensureLove, relAxes, romanceStart, ladderIssue, fixLoveLadder, playOf } from './core.js';
 import { addAdjust, commit, stageIndex, stripStatus, isFresh, pairStage } from './engine.js';
 const FRESH_I = '<i class="ss-fresh" title="방금 AI 답에서 바뀌었어요"></i>';
-import { newSns, snsReactions, musicPicks, peekMind, fillWants } from './ai.js';
+import { newSns, snsReactions, musicPicks, fillWants } from './ai.js';
 import { sec, emptyBox, chip, avatar, ai1, seg, gauge, meter, askInput, askConfirm, busyBtn, insertInput, closeIfPopup, mascot, choosePopup } from './kit.js';
 import { MUSIC_APPS, songLink } from './notify.js';
 import { openTrend } from './trend.js';
@@ -124,16 +124,14 @@ export const CUSTOM_ACTIONS = {
 const stagesOf = (d) => (d.stages?.length ? d.stages : DEFAULT_STAGES);
 // 관계 화면에 보일 것 (v2.7.18) — 다 끄면 이름 · 애정 · 우정 숫자만
 export const MIND_NAMES = { off: '끔', thought: '속마음', emoji: '이모티콘', kaomoji: '카모지' };
-export const MIND_FREQ = { always: '항상', random: '랜덤' };
-const MIND_ON = () => settings().mindMode && settings().mindMode !== 'off';
+export const MIND_FREQ = { always: '항상', random: '랜덤', tab: '탭에 들어올 때' };
 export const REL_SHOW = [
-    ['relShowMind', '속마음', '인물 카드의 속마음 줄 (아래 「속마음」에서 보는 방식 · 빈도)'],
     ['relStagesOn', '단계', '단계 이름 · 해금 · 다음 단계 · 단계 알림 (끄면 AI에게도 단계를 안 보내요)'],
     ['relShowUnlock', '🔓 해금된 것', '지금 단계에서 생긴 것'],
     ['relShowNext', '다음 단계', '다음 단계까지 남은 수치'],
     ['relShowMemo', '메모', '관계 메모'],
     ['relShowWants', '욕구', '끌리는 것 · 싫어하는 것 · 신경 쓰는 것 (⑤를 켰을 때)'],
-    ['relShowBtns', '단추', '속마음 · 연락 · 빠짐 · 애정 끄기 단추'],
+    ['relShowBtns', '단추', '연락 · 빠짐 · 애정 끄기 단추'],
     ['relShowLife', '화면 밖 소식', '🌙 화면 밖 소식 목록'],
     ['relShowPairs', '인물끼리', '인물끼리 관계 목록'],
 ];
@@ -166,15 +164,13 @@ function raceHTML(d, st, AX, STG, ens) {
 export function relView(s, d, ui) {
     const st = stagesOf(d);
     const set = settings();
-    const left = peekLeft(s);
     const L = loveIndex(st), AX = relAxes(d);
     const STG = relOn('relStagesOn');
     const card = (r) => {
         const k = clamp(r.stage ?? stageIndex(st, r.aff, r.trust), 0, st.length - 1);
         const g = st[k], rs = r.noLove ? romanceStart(d) : -1, nx = rs > 0 && k + 1 >= rs ? null : st[k + 1]; // 애정 꺼 둔 사람은 연애 단계를 다음 목표로 안 보여 줌
         const need = nx ? [r.aff < nx.at ? `${AX.aff} ${nx.at - r.aff}` : '', r.trust < nx.trust ? `${AX.trust} ${nx.trust - r.trust}` : ''].filter(Boolean).join(' · ') : '';
-        const btns = relOn('relShowBtns') ? `${set.peekOn !== false ? `<button class="ss-ib" data-act="peek" data-arg="${esc(r.name)}" title="속마음 엿보기 (AI 1회${set.peekPerDay ? ` · 오늘 ${left}번 남음` : ''})" ${set.peekPerDay && left <= 0 ? 'disabled' : ''}><i class="fa-solid fa-heart-circle-question"></i></button>` : ''}
-            ${modOn('contact') ? `<button class="ss-ib" data-act="talk" data-arg="${esc(r.name)}" title="연락"><i class="fa-solid fa-envelope"></i></button>` : ''}
+        const btns = relOn('relShowBtns') ? `${modOn('contact') ? `<button class="ss-ib" data-act="talk" data-arg="${esc(r.name)}" title="연락"><i class="fa-solid fa-envelope"></i></button>` : ''}
             <button class="ss-ib ss-leave ${r.out ? 'on' : ''}" data-act="leave" data-arg="${esc(r.name)}" title="${r.out ? '이야기에 다시 등장시키기' : '이야기에서 빠짐 (사망 · 떠남) — AI가 이 사람을 다시 등장시키지 않게'}"><i class="fa-solid fa-dove"></i></button>
             <button class="ss-ib ss-nolove ${r.noLove ? 'on' : ''}" data-act="${r.noLove ? 'love' : 'nolove'}" data-arg="${esc(r.name)}" title="${r.noLove ? `💗 ${esc(AX.aff)} 다시 켜기` : `💗 ${esc(AX.aff)} 꺼 두기 — 이 사람은 우정만 (연애 없음)`}"><i class="fa-solid ${r.noLove ? 'fa-heart-crack' : 'fa-heart'}"></i></button>${d.user.length > 1 ? `<button class="ss-ib" data-act="relmerge" data-arg="${esc(r.name)}" title="다른 이름과 합치기 — 같은 사람이 이름만 달라 둘로 생겼을 때 (예: Leon · 레온)"><i class="fa-solid fa-link"></i></button>` : ''}` : '';
         const nextLine = !STG || !relOn('relShowNext') ? ''
@@ -183,7 +179,6 @@ export function relView(s, d, ui) {
         return `<div class="ss-card ss-relc ${r.out ? 'out' : ''}">${r.out ? `<div class="ss-outbar">🕊 ${r.out === 'dead' ? '세상을 떠났어요' : '이야기에서 떠났어요'} — AI에게는 「등장하지 않음」으로 알려요</div>` : ''}<div class="ss-relc-h"><button class="ss-ava-btn" data-act="relemoji" data-arg="${esc(r.name)}" title="얼굴 이모지 바꾸기">${avatar(r.name)}</button><div class="ss-ct-b"><b>${isFresh(app.current?.fresh, 'rel', 'user', r.name) ? FRESH_I : ''}${esc(r.name)}${STG ? ` <span class="ss-stage s${k}">${esc(g.name)}</span>` : ''}${set.romBond && r.bond && (!STG || k < (L < 0 ? Infinity : L)) ? ' <span class="ss-stage love">💞 연인</span>' : ''}</b>${r.label ? `<small>${esc(r.label)}</small>` : ''}</div>
             ${btns}</div>
             ${r.noLove ? `<div class="ss-meter love off"><span>${esc(AX.aff)}</span><div class="ss-meter-t"></div><em>꺼 둠</em></div>` : meter(AX.aff, r.aff, 'love')}${meter(AX.trust, r.trust, 'trust')}${set.jealousy && r.jealous ? `<div class="ss-meter jealous"><span>질투</span><div class="ss-meter-t"><b style="left:0;width:${r.jealous}%"></b></div><em>${r.jealous}</em></div>` : ''}
-            ${MIND_ON() && relOn('relShowMind') && r.mind?.text ? `<p class="ss-mind" title="속마음 (${esc(MIND_NAMES[set.mindMode])} · ${r.mind.turn}턴)"><i class="fa-solid fa-comment-dots"></i> ${esc(r.mind.text)}</p>` : ''}
             ${STG && relOn('relShowUnlock') && g.unlock ? `<p class="ss-unlock"><i class="fa-solid fa-lock-open"></i> ${esc(g.unlock)}</p>` : ''}
             ${nextLine}
             ${!set.romBond ? '' : r.bond ? `<div class="ss-bondrow"><span>💍 연인 확정됨</span><button class="ss-btn sm ghost" data-act="unbond" data-arg="${esc(r.name)}" title="확정 취소 (단계가 숫자대로 돌아가요)">확정 취소</button></div>`
@@ -194,9 +189,6 @@ export function relView(s, d, ui) {
     const life = relOn('relShowLife') ? [...(d.life ?? [])].reverse() : [];
     const romBar = set.romDrive && relOn('relShowWants') && d.user.length ? `<div class="ss-rombar"><span><i class="fa-solid fa-seedling"></i> 인물의 욕구 <small>끌리는 것 · 싫어하는 것 · 요즘 신경 쓰는 것</small></span><button class="ss-btn sm" data-act="fillwants" title="비어 있는 인물의 욕구를 AI가 채워요 (AI 1회)"><i class="fa-solid fa-wand-magic-sparkles"></i> 욕구 AI로 채우기 ${ai1}</button></div>` : '';
     const nOff = REL_SHOW.filter(([k]) => !relOn(k)).length;
-    const mindBar = `<div class="ss-mindbar"><span><i class="fa-solid fa-comment-dots"></i> 속마음 <small>본편 AI가 같이 적어요 · 추가 호출 0</small></span>
-        <div class="ss-seg">${Object.entries(MIND_NAMES).map(([k, v]) => `<button class="${(set.mindMode ?? 'off') === k ? 'on' : ''}" data-act="mindset" data-arg="mode:${k}">${v}</button>`).join('')}</div>
-        ${MIND_ON() ? `<div class="ss-seg">${Object.entries(MIND_FREQ).map(([k, v]) => `<button class="${(set.mindFreq ?? 'random') === k ? 'on' : ''}" data-act="mindset" data-arg="freq:${k}">${v}${k === 'random' ? ` ${num(set.mindPct, 35)}%` : ''}</button>`).join('')}</div>` : ''}</div>`;
     const showBar = `<details class="ss-more ss-relshow" ${ui.relShow ? 'open' : ''}><summary><i class="fa-solid fa-sliders"></i> 보일 것 ${nOff ? `<small>${REL_SHOW.length - nOff}/${REL_SHOW.length} 켬</small>` : ''}</summary>
         <div class="ss-pills">${REL_SHOW.map(([k, t, tip]) => `<button class="ss-pill ${relOn(k) ? 'on' : ''}" data-act="relshow" data-arg="${k}" title="${esc(tip)}${isAiPart('rel', k) ? (relOn(k) || aiOff('rel', k) ? ' · 끄면 AI에게도 안 보내요' : ' · 예전에 꺼 둔 것이라 지금은 화면에서만 숨김 — 다시 눌러 켰다 끄면 AI에게도 안 보내요') : ''}">${relOn(k) ? '<i class="fa-solid fa-check"></i> ' : ''}${isAiPart('rel', k) ? '<i class="fa-solid fa-robot"></i> ' : ''}${esc(t)}</button>`).join('')}</div>
         <div class="ss-pills ss-relopt"><small>선택 기능</small>${REL_OPT.map(([k, t, tip]) => `<button class="ss-pill ${optOn(k) ? 'on' : ''}" data-act="relopt" data-arg="${k}" title="${esc(tip)}">${optOn(k) ? '<i class="fa-solid fa-check"></i> ' : ''}${esc(t)}</button>`).join('')}</div>
@@ -208,16 +200,10 @@ export function relView(s, d, ui) {
     const race = optOn('relRace') ? raceHTML(d, st, AX, STG, ens) : '';
     const pairRow = (p) => `<div><b>${esc(p.a)}</b><i class="fa-solid fa-arrows-left-right"></i><b>${esc(p.b)}</b>${p.label ? chip(esc(p.label)) : ''}${PA ? `${STG && Number.isFinite(p.aff) ? chip(esc(pairStage(d, p).name)) : ''}<span class="ss-pair-adj"><button class="ss-ib" data-act="pairadj" data-arg="${esc(`${p.a}|${p.b}|-5`)}" title="${esc(AX.aff)} −5">−</button><button class="ss-ib" data-act="pairadj" data-arg="${esc(`${p.a}|${p.b}|+5`)}" title="${esc(AX.aff)} +5">+</button></span>` : ''}${p.memo ? `<small>${esc(p.memo)}</small>` : ''}${PA ? meter(AX.aff, p.aff ?? 0, 'love') : ''}</div>`;
     const trendBar = d.user.length ? `<div class="ss-row-btns"><button class="ss-btn sm ghost" data-act="trend" title="애정 · 우정 · 돈이 어떻게 변해 왔는지 (AI 0회)"><i class="fa-solid fa-chart-line"></i> 변화 그래프</button></div>` : '';
-    return `${ladderBar}${showBar}${ens ? '' : mindBar}${ens ? '' : romBar}${race}${trendBar}${ens && !d.user.length ? '' : `<div class="ss-stack">${d.user.map(card).join('') || emptyBox('관계가 없어요', 'fa-people-arrows')}</div>`}
+    return `${ladderBar}${showBar}${ens ? '' : romBar}${race}${trendBar}${ens && !d.user.length ? '' : `<div class="ss-stack">${d.user.map(card).join('') || emptyBox('관계가 없어요', 'fa-people-arrows')}</div>`}
         ${life.length ? sec('🌙 화면 밖 소식', `<div class="ss-stack">${life.map(x => `<div class="ss-ev"><b>${esc(x.who)}</b><small>${esc(x.text)}${x.date ? ` · ${esc(x.date)}` : ''}</small></div>`).join('')}</div>`) : ''}
         ${relOn('relShowPairs') && d.pairs.length ? sec('인물끼리', `<div class="ss-pairs ${PA ? 'aff' : ''}">${d.pairs.map(pairRow).join('')}</div>`) : ens ? emptyBox('인물끼리의 관계가 아직 없어요', 'fa-people-arrows') : ''}
         ${!STG ? '' : `<details class="ss-more"><summary>관계 단계 ${st.length}개</summary><ol class="ss-stages">${st.map((x, i) => `<li><b>${i === L ? '💞 ' : ''}${esc(x.name)}</b> <small>${esc([x.at > -100 ? `${AX.aff} ${x.at}+` : '', x.trust > -100 ? `${AX.trust} ${x.trust}+` : ''].filter(Boolean).join(' · ')) || '처음부터'}${x.unlock ? ` — <span>${esc(x.unlock)}</span>` : ''}</small></li>`).join('')}</ol><p class="ss-hint">${L >= 0 ? `💞 표시가 <b>연인 단계</b>예요${set.romBond ? ' — 숫자만으론 안 올라가고, 고백 후 💍 확정해야 올라가요' : ''}.` : '이 세계관의 단계엔 <b>연인 단계가 없어요</b>. 아래 버튼으로 맨 위에 붙일 수 있어요.'} 다른 단계를 연인 단계로 쓰려면 ✏️ 편집 › 관계 단계에서 「💞 연인 단계」를 체크하세요.</p>${L < 0 ? '<div class="ss-row-btns"><button class="ss-btn sm pri" data-act="addlove"><i class="fa-solid fa-heart"></i> 💞 연인 단계 추가</button></div>' : ''}</details>`}`;
-}
-function peekLeft(s) {
-    const per = Number(settings().peekPerDay) || 0;
-    if (!per) return Infinity;
-    const day = s.data.calendar ? dayIndex(s.data.calendar) : s.turn;
-    return Math.max(0, per - (s.peek?.day === day ? s.peek.n : 0));
 }
 export const REL_ACTIONS = {
     relladder: async (el, arg, btn, s) => {
@@ -225,23 +211,23 @@ export const REL_ACTIONS = {
         await commit('rel', nd, '💞 관계 단계: 연애 느낌 단계엔 애정도 필요하게');
         toastr.success('연애 느낌 단계에 애정 조건을 붙였어요. 단계 이름 · 조건은 ✏️ 편집에서 바꿀 수 있어요.', TITLE);
     },
-    relemoji: async (el, arg, btn, s) => { // 사람마다 얼굴 이모지 (미니창 · HUD · 연락 · 카드 모두)
-        const r = s.data.rel.user.find(x => x.name === arg); if (!r) return;
+    relemoji: async (el, arg, btn, s) => { // 사람마다 얼굴 이모지 (미니창 · HUD · 연락 · 카드 모두) — v2.9: 프로필 카드의 얼굴에서도 (관계에 없는 사람 · 나 자신은 프로필에 적는다)
+        const r = s.data.rel?.user?.find(x => x.name === arg), pf = s.data.profile?.list?.find(x => x.name === arg); if (!r && !pf) return;
         const box = document.createElement('div');
         box.innerHTML = `<p class="ss-hint">${esc(arg)}의 얼굴로 쓸 이모지를 고르거나 직접 넣어요.</p><div class="ss-emopick">${['🐱', '🐶', '🦊', '🐻', '🐰', '🐼', '🐸', '🐧', '🦁', '🐯', '🐨', '🐹', '🦉', '🐺', '🦝', '🐮', '🐲', '🦈', '🐙', '🦋', '🌸', '🍖', '☕', '⚓', '🔥', '❄️', '⭐', '🌙', '👑', '🗡️', '💉', '🎩'].map(e => `<button data-e="${e}">${e}</button>`).join('')}</div>`;
         let pick = null;
         box.addEventListener('click', (e) => { const b = e.target.closest('[data-e]'); if (!b) return; pick = b.dataset.e; box.querySelectorAll('[data-e]').forEach(x => x.classList.toggle('on', x === b)); const inp = box.closest('dialog, .popup')?.querySelector('.popup-input, textarea, input'); if (inp) inp.value = pick; });
-        const v = await ctx().Popup.show.input(TITLE, box, r.emoji ?? '', { rows: 1 });
+        const v = await ctx().Popup.show.input(TITLE, box, r?.emoji ?? pf?.emoji ?? '', { rows: 1 });
         if (v === null || v === false || v === undefined) return;
         const e = String(v).trim().slice(0, 8);
-        const nd = clone(s.data.rel); const t = nd.user.find(x => x.name === arg); if (!t) return;
-        if (e) t.emoji = e; else delete t.emoji;
-        await commit('rel', nd, '');
+        if (r) { const nd = clone(s.data.rel); const t = nd.user.find(x => x.name === arg); if (t) { if (e) t.emoji = e; else delete t.emoji; await commit('rel', nd, ''); } }
+        if (pf) { const np = clone(s.data.profile); const t = np.list.find(x => x.name === arg); if (t) { if (e) t.emoji = e; else delete t.emoji; await commit('profile', np, ''); } }
     },
     mindset: (el, arg) => {
         const set = settings(), [k, v] = String(arg).split(':');
         if (k === 'mode' && MIND_NAMES[v]) { set.mindMode = v; if (v !== 'off' && Array.isArray(set.sideMini) && !set.sideMini.includes('mind')) set.sideMini = [...set.sideMini, 'mind']; } // 켜면 사이드 미니창에도
         if (k === 'freq' && MIND_FREQ[v]) set.mindFreq = v;
+        if (k === 'sus') set.peekCost = set.peekCost !== true; // 👁 볼 때마다 눈치 (이야기 장치 「엿보기엔 대가가 있다」와 같은 설정)
         saveSettings(); app.refreshNow?.(); app.rerenderPanels?.(true); app.renderPanel(el);
     },
     relopt: (el, arg) => {
@@ -308,22 +294,6 @@ export const REL_ACTIONS = {
         await addAdjust({ ops: [['_leave', `${arg}|${pick}`]], label: pick === 'back' ? `🕊 ${arg}: 다시 이야기에 등장` : `🕊 ${arg}: ${pick === 'dead' ? '세상을 떠났다' : '이야기에서 떠났다'}` });
     },
     unbond: async (el, arg) => { await addAdjust({ ops: [['_unbond', arg]], label: `💔 ${arg}와(과)는 연인이 아니다 (확정 취소)` }); },
-    peek: async (el, arg, btn, s) => {
-        if (peekLeft(s) <= 0) { toastr.info('오늘은 더 엿볼 수 없어요. 내일 다시!', TITLE); return; }
-        busyBtn(btn, true, '');
-        try {
-            const text = await peekMind(arg, s);
-            busyBtn(btn, false);
-            await addAdjust({ ops: [['_peekday', '1']], silent: true });
-            const box = document.createElement('div');
-            box.className = 'ss-root ss-scope ss-peek';
-            box.innerHTML = `<div class="ss-wz-head"><i class="fa-solid fa-heart-circle-question"></i><div><b>${esc(arg)}의 속마음</b><small>${esc(stamp(s))} · ${esc(arg)}은(는) 모르는 일이에요</small></div></div><blockquote class="ss-pre">${esc(text)}</blockquote>
-                ${settings().albumOn !== false ? '<div class="ss-row-btns"><button class="ss-btn sm" data-save="1"><i class="fa-regular fa-star"></i> 앨범에 저장</button></div>' : ''}`;
-            box.addEventListener('click', async (e) => { const b = e.target.closest('[data-save]'); if (!b) return; await addAlbum({ kind: 'peek', who: arg, text, when: stamp(s), here: s.data.map?.here ?? '' }); b.disabled = true; b.innerHTML = '<i class="fa-solid fa-star"></i> 저장했어요'; });
-            app.storyPeek?.(arg); // 👁 엿보기엔 대가가 있다 (꺼져 있으면 아무 일도 안 함)
-            await app.popup(box);
-        } catch (e) { toastr.error(`엿보지 못했어요: ${esc(e.message)}`, TITLE); busyBtn(btn, false); }
-    },
 };
 
 // ───── 🏆 업적 + 엔딩 ─────

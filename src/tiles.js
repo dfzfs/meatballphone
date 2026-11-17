@@ -1,5 +1,5 @@
 // 미니 위젯 · 타일 판 (HUD · 사이드 미니창 공통) — views.js에서 떼어 냄
-import { app, settings, saveSettings, getMeta, modOn, DIFFS, diffOf, esc, short, clamp, norm, fmtNum, dateShort, mascotUrl, eventsOn, TITLE, relAxes, DEFAULT_STAGES, viewTr, isSimple, SIMPLE_TILES } from './core.js';
+import { app, settings, saveSettings, getMeta, modOn, DIFFS, diffOf, esc, short, clamp, norm, fmtNum, dateShort, mascotUrl, eventsOn, TITLE, relAxes, DEFAULT_STAGES, viewTr, isSimple, SIMPLE_TILES, mindCovered } from './core.js';
 import { unreadCount, inTransit, stageIndex, isFresh } from './engine.js';
 import { trString } from './translate.js';
 import { gauge, chip, avatar, emojiOf } from './kit.js';
@@ -19,7 +19,7 @@ export const MINI = {
     quest: { name: '퀘스트', on: (d) => d.quest?.list.some(q => q.status === 'active'), html: (s) => `<div class="ss-mini-quests">${s.data.quest.list.filter(q => q.status === 'active').slice(0, 3).map(q => `<div class="ss-mini-line"><i class="fa-solid fa-scroll"></i><span>${esc(short(q.title, 26))}</span></div>`).join('')}</div>`, tab: 'quest' },
     rel: { name: '관계', on: (d) => d.rel?.user.length, html: (s) => miniRelHTML(s), tab: 'rel' },
     // 💭 속마음 (v2.7.21): 얼굴(첫 글자) + 말풍선 — 이름 대신 · 최근 3턴 것만 · 있을 때만 칸이 보임 (보는 방식 · 빈도는 꾸미기 › 미니창)
-    mind: { name: '속마음', on: (d) => (settings().mindMode ?? 'off') !== 'off' && !!app.current && mindList(app.current.state).length > 0, html: (s) => `<div class="ss-mind-row">${mindList(s).map(mindBub).join('')}</div>`, tab: 'rel' },
+    mind: { name: '속마음', on: (d) => (settings().mindMode ?? 'off') !== 'off' && !!app.current && mindList(app.current.state).length > 0, html: (s) => `<div class="ss-mind-row">${mindList(s).map(mindBub).join('')}</div>`, tab: 'mind' },
     cond: { name: '상태 이상', on: (d) => d.stats?.conds.length, html: (s) => `<div class="ss-chips">${s.data.stats.conds.slice(0, 5).map(c => chip(esc(c.name), 'warn')).join('')}</div>`, tab: 'stats' },
     news: { name: '최신 뉴스', on: (d) => d.news?.items.length, html: (s) => `<div class="ss-mini-line"><i class="fa-solid fa-newspaper"></i><span>${esc(short(s.data.news.items.at(-1).title, 34))}</span></div>`, tab: 'news' },
     fate: { name: '저주 · 빚', on: (d) => d.fate?.curses.length || d.wallet?.loans.some(l => l.status === 'open' || l.status === 'late'), html: (s) => { const cs = s.data.fate?.curses ?? []; const debt = (s.data.wallet?.loans ?? []).filter(l => l.status === 'open' || l.status === 'late'); return `<div class="ss-mini-line ${debt.some(l => l.status === 'late') ? 'alert' : ''}"><i class="fa-solid fa-hat-wizard"></i><span>${cs.map(c => esc(c.name)).join(', ')}${cs.length && debt.length ? ' · ' : ''}${debt.length ? `빚 ${fmtNum(debt.reduce((a, l) => a + l.owed, 0))}${debt.some(l => l.status === 'late') ? ' (연체)' : ''}` : ''}</span></div>`; }, tab: 'fate' },
@@ -46,7 +46,7 @@ export const TILES = {
     quest: { name: '퀘스트', on: (d) => d.quest?.list.some(q => q.status === 'active'), f: (s, L) => { const a = s.data.quest.list.filter(q => q.status === 'active'); return { h: `${fi('fa-scroll')}<span>${L ? esc(a[0].title) : a.length}</span>`, t: a.map(q => q.title).join(' · ') }; } },
     rel: { name: '관계', w: 2, on: (d) => d.rel?.user.length, f: (s, L) => { const o = miniRelOpt(), rl = s.data.rel, key = { aff: (r) => r.aff, trust: (r) => r.trust, sum: (r) => r.aff + r.trust }[o.sort]; const p = o.pick.map(n => rl.user.find(r => r.name === n)).filter(Boolean); const list = (p.length ? p : [...rl.user].filter(r => !r.out).sort((a, b) => key(b) - key(a))).slice(0, o.n);
         return { h: list.map(r => `<span class="p">${face(r.name)}${L ? `<small>${esc(r.name)}</small>` : ''}${r.noLove ? '' : `<b class="lv">${r.aff}</b>`}${L || r.noLove ? `<b class="tr">${r.trust}</b>` : ''}</span>`).join(''), t: list.map(r => `${r.name} ♥${r.aff} 🤝${r.trust}`).join(' · ') }; } },
-    mind: { name: '속마음', w: 2, on: (d) => (settings().mindMode ?? 'off') !== 'off' && !!app.current && mindList(app.current.state).length > 0, f: (s, L) => ({ h: mindList(s, L ? 4 : 2).map(x => `<span class="p">${face(x.name)}<span class="m">${esc(x.mind.text)}</span></span>`).join(''), t: mindList(s, 4).map(x => `${x.name}: ${x.mind.text}`).join(' · ') }) },
+    mind: { name: '속마음', w: 2, on: (d) => (settings().mindMode ?? 'off') !== 'off' && !!app.current && mindList(app.current.state).length > 0, f: (s, L) => ({ h: mindList(s, L ? 4 : 2).map(x => `<span class="p">${face(x.name)}<span class="m">${esc(mindShown(x))}</span></span>`).join(''), t: mindList(s, 4).map(x => `${x.name}: ${x.mind.text}`).join(' · ') }) },
     cond: { name: '상태 이상', on: (d) => d.stats?.conds.length, f: (s, L) => ({ h: `${fi('fa-triangle-exclamation')}<span>${L ? esc(s.data.stats.conds.map(c => c.name).join(', ')) : s.data.stats.conds.length}</span>`, t: s.data.stats.conds.map(c => c.name).join(', '), alert: true }) },
     news: { name: '최신 뉴스', on: (d) => d.news?.items.length, f: (s, L) => ({ h: `${fi('fa-newspaper')}${L ? `<span>${esc(short(s.data.news.items.at(-1).title, 40))}</span>` : ''}`, t: s.data.news.items.at(-1).title }) },
     fate: { name: '저주 · 빚', on: (d) => d.fate?.curses.length || d.wallet?.loans.some(l => l.status === 'open' || l.status === 'late'), f: (s) => ({ h: `${fi('fa-hat-wizard')}<span>${(s.data.fate?.curses ?? []).length + (s.data.wallet?.loans ?? []).filter(l => l.status === 'open' || l.status === 'late').length}</span>`, t: '저주 · 빚', alert: (s.data.wallet?.loans ?? []).some(l => l.status === 'late') }) },
@@ -356,7 +356,8 @@ export function tileAct(a, rerender, attr = 'side') {
 export function mindList(s, max = 4) {
     return (s.data.rel?.user ?? []).filter(x => x.mind?.text && !x.out && x.mind.turn >= (s.turn ?? 0) - 2).sort((a, b) => b.mind.turn - a.mind.turn).slice(0, max);
 }
-export const mindBub = (x) => `<span class="ss-mind-bub" title="${esc(x.name)}">${avatar(x.name, 'xs')}<em>${esc(x.mind.text)}</em></span>`;
+export const mindShown = (x) => (mindCovered(x) ? '· · ·' : x.mind.text); // 👁 눈치를 켰으면 프로필 › 속마음에서 눌러 보기 전까지 가려 둔다
+export const mindBub = (x) => `<span class="ss-mind-bub" title="${esc(x.name)}">${avatar(x.name, 'xs')}<em>${esc(mindShown(x))}</em></span>`;
 // 미니 관계 칸: 무엇을 보일지 · 누구 순으로 · 몇 명 — 꾸미기에서 고름 (settings.miniRel)
 export const MINI_REL_VALS = { aff: '💗 애정', trust: '🤝 우정', stage: '단계', jealous: '질투' };
 export const MINI_REL_SORT = { aff: '애정 높은 순', trust: '우정 높은 순', sum: '둘 다 합쳐서' };

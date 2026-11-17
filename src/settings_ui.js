@@ -17,7 +17,7 @@ import { hintSetting } from './tips.js';
 // 바꾸면 화면을 바로 다시 그려야 하는 스위치 (v2.7.3)
 const VIEW_KEYS = new Set(['hompyFull', 'hpLite', 'hpSkinHud', 'loopMode', 'swipeGhost', 'fateDebt', 'tensionOn', 'realGap', 'glitchView', 'ledgerKnow', 'ledgerPromise', 'guideOn', 'peekCost', 'relScar', 'memoryDrift', 'meddleOn', 'tasteBook', 'crossMail', 'groupChat', 'extraJudge', 'questExpire', 'memoOn', 'albumOn', 'peekOn', 'recordOn', 'freshDot', 'pipCheck', 'questJudge', 'msgCard', 'chipOutside', 'contactSimple', 'contactSimpleReflect', 'relStagesOn', 'relShowMemo', 'relShowWants', 'relShowLife', 'relShowPairs', 'relShowBtns', 'relShowNext', 'relShowUnlock']);
 // 「부가 기능 한 번에 끄기」 — 상태 계산 · 본편 롤플에 꼭 필요하지 않은 것만
-const LIGHT_OFF = { memoOn: false, albumOn: false, peekOn: false, recordOn: false, daySummary: false, featureTips: false, showMascot: false, mascotBuddy: false, musicToast: false };
+const LIGHT_OFF = { memoOn: false, albumOn: false, mindMode: 'off', recordOn: false, daySummary: false, featureTips: false, showMascot: false, mascotBuddy: false, musicToast: false };
 const ADDON_SET = new Set(['gearOn', 'ambientOn', 'giftTaste', 'promiseClock', 'mergeContact', 'guestbook', 'hpWave', 'socialAff']); // index.js의 ADDON_KEYS와 같은 목록
 // 🟢 켜 둔 선택 기능: 이름(굵은 글씨)이 붙은 체크 칸 가운데 켜진 것을 설정 맨 위에 한 줄로 — 누르면 그 칸으로 간다. 자리는 하나도 옮기지 않는다
 function onLine(el) {
@@ -167,11 +167,9 @@ export function renderSettings() {
             <label class="checkbox_label"><input type="checkbox" data-s="stageLock" ${s.stageLock ? 'checked' : ''}> 관계 단계를 넘는 행동 막기 — 「아직 이 단계 이상은 하지 마」라고 본편 AI에게 알려 줘요 (천천히 가까워지는 연애용 · 끄면 단계만 알려 줌)</label>
             <label class="checkbox_label"><input type="checkbox" data-s="jealousy" ${s.jealousy ? 'checked' : ''}> 질투 — 다른 사람과 가까워지면 애정이 높은 사람의 질투가 올라요 (날이 지나면 식음)</label>
             <label class="checkbox_label"><input type="checkbox" data-s="offscreen" ${s.offscreen ? 'checked' : ''}> 화면 밖 생활 — 날이 지나면 본편 AI가 가끔 다른 사람 근황을 적어요</label>
-            <label class="checkbox_label"><input type="checkbox" data-s="peekOn" ${s.peekOn !== false ? 'checked' : ''}> 💗 속마음 엿보기 — 관계 카드의 💗? 단추로 그 사람의 속마음을 봐요 <small>(누를 때만 AI 1회 · 끄면 단추가 사라져요)</small></label>
-            <label>속마음 엿보기 하루 횟수 (0 = 무제한)<input type="number" min="0" max="20" class="text_pole" data-s="peekPerDay" value="${s.peekPerDay}"></label>
             <small>아래는 선택 기능이에요 (기본 끔). 켜면 관계 탭 아래에 칸이 생겨요.</small>
             <label class="checkbox_label"><input type="checkbox" data-s="guideOn" ${s.guideOn !== false ? 'checked' : ''}> <b>🗝 공략 탭</b> <small>(「사람」 묶음에 탭이 생겨요: 인물이 직접 일러 주는 조언 · 비밀 게이지 · 눈치 지수. 누를 때만 AI 1회 · 비밀을 만들면 매 턴 몇 줄)</small></label>
-            <label class="checkbox_label"><input type="checkbox" data-s="peekCost" ${s.peekCost === true ? 'checked' : ''}> <b>👁 엿보기엔 대가가 있다</b> <small>(속마음을 자주 엿보면 눈치가 쌓여 인물이 의심해요 · 토큰 0~1줄)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="peekCost" ${s.peekCost === true ? 'checked' : ''}> <b>👁 속마음을 볼 때마다 눈치가 올라요</b> <small>(프로필 › 속마음에서 가려진 채로 오고, 눌러 보면 눈치 +1 — 쌓이면 인물이 의심해요 · 토큰 0~1줄)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="relScar" ${s.relScar === true ? 'checked' : ''}> <b>🩹 관계의 흉터</b> <small>(한 번에 10 넘게 깎였던 일이 흉터로 남아 비슷한 상황에서 더 예민해져요 · 매 턴 1~3줄)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="memoryDrift" ${s.memoryDrift === true ? 'checked' : ''}> <b>🕳 기억 왜곡</b> <small>(인물이 지난 일을 자기 식으로 기억하고 본편에서도 그렇게 말해요 · AI 1회 + 매 턴 몇 줄)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="meddleOn" ${s.meddleOn === true ? 'checked' : ''}> <b>✍ 인물이 내 상태창에 손댄다</b> <small>(질투 50↑ · 애정 75↑인 인물이 가끔 낙서 · 이름 바꾸기 · 차단을 해 놔요 (관계 탭에서 되돌려요) · 토큰 0~1줄)</small></label>

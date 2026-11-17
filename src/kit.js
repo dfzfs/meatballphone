@@ -69,6 +69,8 @@ export const AVA_EMOJI = ['🐱', '🐶', '🦊', '🐻', '🐰', '🐼', '🐸'
 export function emojiOf(name) {
     const r = (app.current?.state?.data?.rel?.user ?? []).find(x => x.name === name);
     if (r?.emoji) return r.emoji;
+    const p = (app.current?.state?.data?.profile?.list ?? []).find(x => x.name === name); // v2.9: 프로필에서 고른 얼굴 (관계에 없는 사람 · 나 자신)
+    if (p?.emoji) return p.emoji;
     if (settings().avaEmoji === false) return '';
     let h = 0; for (const ch of String(name)) h = (h * 31 + ch.codePointAt(0)) % 9973;
     return AVA_EMOJI[h % AVA_EMOJI.length];

@@ -1,0 +1,13 @@
+/* 💭 프로필 탭 안의 「속마음」 칸 (v2.9 · src/mind.js) */
+.ss-scope .ss-ptabs { margin: 0 0 10px; }
+.ss-scope .ss-mindbar.ss-mindset { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-bottom: 10px; }
+.ss-scope .ss-mind-sus { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.ss-scope .ss-mind-sus > .ss-pill { min-height: 36px; }
+.ss-scope .ss-mind-sus small { color: var(--ss-dim); font-size: .82em; }
+.ss-scope .ss-mindc { display: flex; flex-direction: column; gap: 8px; }
+.ss-scope .ss-mind.big { font-size: 1.08em; margin: 0; }
+.ss-scope .ss-mind-cover { align-self: flex-start; min-height: 40px; }
+.ss-scope .ss-mind-cover small { color: var(--ss-dim); margin-left: 6px; }
+.ss-scope .ss-mind-log { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.ss-scope .ss-mind-log li { display: flex; justify-content: space-between; gap: 10px; }
+.ss-scope .ss-mind-log small { color: var(--ss-dim); flex: none; }

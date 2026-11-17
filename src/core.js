@@ -200,7 +200,6 @@ export const DEFAULTS = Object.freeze({
     deltaEvery: 4,
     injEvery: {},            // 칸별 보내는 때: { news: 'kw', ... } — always(기본) | kw(관련 말이 나올 때만) | n3 | n5
     retryJSON: true,         // 확장 AI 답이 깨지면 고쳐 보고, 안 되면 1번 더
-    peekPerDay: 3,           // 속마음 엿보기 하루 횟수 (0 = 무제한)
     jealousy: true,          // 질투 게이지
     stageLock: false,        // 관계 단계를 넘는 행동을 본편 AI에게 막기 (끄면 단계만 알려 줌)
     // ── v2.7.18: 관계 화면 하나하나 켜고 끄기 (다 끄면 이름 · 애정 · 우정 숫자만) ──
@@ -216,7 +215,7 @@ export const DEFAULTS = Object.freeze({
     relShowBtns: true,       // 카드 오른쪽 단추 (속마음 · 연락 · 이야기에서 빠짐 · 애정 끄기)
     trLlmFallback: true,     // 🌐 실리 번역기가 못 바꾼 글은 묻지 않고 번역 모델로 (v2.7.19)
     mindMode: 'off',         // 💭 속마음 (v2.7.21): off | thought(속마음 한 줄) | emoji(이모티콘) | kaomoji(카모지) — 본편 AI가 <meatball>에 같이 적음 (추가 호출 0)
-    mindFreq: 'random',      // always(매 턴) | random(mindPct% 턴만)
+    mindFreq: 'random',      // always(매 턴) | random(mindPct% 턴만) | tab(프로필 › 속마음 탭에 들어올 때 · 그 턴에 한 번 AI 1회 — v2.9)
     mindPct: 35,
     partsOff: {},            // 👁 보일 것 (v2.7.19): { 탭: [숨긴 것 키, …] } — 화면에서만 숨김 · 모든 채팅 공통
     // ── 로맨스 보정 (v2.6 · 전부 선택 · 기본 꺼짐) ──
@@ -252,7 +251,6 @@ export const DEFAULTS = Object.freeze({
     // ── v2.7.3: 기능 켜고 끄기 (모든 채팅) ──
     memoOn: true,            // 📝 메모 칸 — 끄면 모든 채팅에서 메모 탭 · 메모 주입 · AI의 memo 키가 빠져요
     albumOn: true,           // 🖼 추억 앨범 — 끄면 답마다 붙던 앨범 버튼 · 앨범 탭이 사라져요 (담아 둔 건 지우지 않음)
-    peekOn: true,            // 💗 속마음 엿보기 버튼 (관계 카드 · AI 1회)
     recordOn: true,          // 📊 플레이 기록 탭
     pipCheck: true,          // 🔍 칩 점검: 마지막 AI 답에 칩이 안 보이면 작은 🔍 표시 → 눌러서 「씹혔나 / 안 보이나」 확인 · 다시 읽기
     freshDot: true,          // 🔴 방금 AI 답에서 바뀐 칸 · 줄에 작은 빨간 점
@@ -393,6 +391,8 @@ export const SIMPLE_EXTRA = ['quest', 'news', 'fate', 'music', 'custom'];
 export const SIMPLE_TILES = ['date', 'loc', 'bars', 'rel', 'cash', 'cond', 'quest', 'news', 'fate', 'music', 'custom'];
 export const simpleOk = (id) => REC_MODS.includes(id) || SIMPLE_EXTRA.includes(id);
 export const isSimple = (meta = getMeta()) => meta?.simple === true;
+// 💭 속마음이 아직 가려져 있나 (v2.9): 「볼 때마다 눈치」(peekCost)를 켰고, 이 사람의 지금 속마음을 아직 눌러 보지 않았을 때 — 화면에서만 가린다 (mind.js)
+export const mindCovered = (r, meta = getMeta()) => settings().peekCost === true && !!r?.mind?.text && !(Number(meta?.mindSeen?.[r.name] ?? -1) >= r.mind.turn);
 export const MOD_IDS = MODS.map(m => m.id);
 
 export const DIFFS = {
@@ -747,6 +747,7 @@ export const NORM = {
             name: str(p.name), role: ['user', 'main', 'npc'].includes(p.role) ? p.role : 'npc', summary: str(p.summary),
             fields: arr(p.fields).filter(f => f && (f.k || f.v)).map(f => ({ k: str(f.k), v: str(f.v) })),
             home: str(p.home), sched: str(p.sched),
+            ...(str(p.emoji).trim() ? { emoji: str(p.emoji).trim().slice(0, 8) } : {}), // 얼굴 이모지 (v2.9 · 프로필 카드의 얼굴을 눌러 바꿈 — 관계에 없는 사람 · 나 자신도)
         })),
     }),
     stats: (d) => ({

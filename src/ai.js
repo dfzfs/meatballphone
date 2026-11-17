@@ -2,7 +2,7 @@
 import { letterMode, instantLetter, contactSimple, app, ctx, settings, getMeta, MOD, NORM, normalize, ensureLove, LOVE_AXES, relAxes, fixLoveLadder, short, findBy, norm, dateStr, stamp, MODULE, LOG, DIFFS, diffOf, CONTACT_MODES, uid, msgText, fmtNum, playOf, normPlay, ssWarn, dayIndex, heroIsUser } from './core.js';
 import { P, aiGenerate, parseJSON, aiJSON } from './prompts.js';
 import { SCHEMA, modOn, parseNum } from './core.js';
-import { compute, buildInjection, tagKeysFor, extractOps, stripStatus, recentChat, chatCharacters, setDrawer } from './engine.js';
+import { compute, buildInjection, tagKeysFor, extractOps, stripStatus, recentChat, chatCharacters, setDrawer, MIND_FMT } from './engine.js';
 import { finJSON, finText, finLines } from './translate.js';
 
 const tasteLine = () => { const t = app.current?.state?.data?.music?.taste || settings().musicTaste; return t ? ` (the user likes: ${t})` : ''; };
@@ -363,11 +363,18 @@ export async function musicPicks(state) {
     const o = await aiJSON('music', P('ai.music', { taste: tasteLine() }), L.join('\n\n'), 500);
     return (Array.isArray(o.songs) ? o.songs : []).filter(x => x?.title).slice(0, 3).map(x => ({ title: String(x.title), artist: String(x.artist ?? ''), mood: String(x.mood ?? ''), why: String(x.why ?? '') }));
 }
-export async function peekMind(who, state) {
-    const rl = state.data.rel; const r = rl ? findBy(rl.user, who) : null;
-    const st = r && rl.stages?.length ? rl.stages[Math.max(0, Math.min(rl.stages.length - 1, r.stage ?? 0))] : null;
-    const out = await aiGenerate('peek', P('ai.peek', { who }), [...aboutPerson(who, state), st ? `Relationship stage: ${st.name}${r.jealous >= 30 ? ` · jealous ${r.jealous}/100` : ''}` : ''].filter(Boolean).join('\n\n'), 300);
-    return finText(stripStatus(out).replace(/^["“]|["”]$/g, '').trim());
+// 💭 속마음 받기 (v2.9 · mind.js): 여러 사람 것을 한 번에 — 「이름 | 속마음」 한 줄씩. 보는 방식(글 · 이모티콘 · 카모지)은 본편 AI에게 시킬 때와 같은 틀
+export async function fetchMinds(names, state) {
+    const fmt = MIND_FMT[settings().mindMode]; if (!fmt || !names?.length) return [];
+    const about = names.map(n => aboutPerson(n, state).filter(Boolean).join('\n')).join('\n\n———\n\n');
+    const out = stripStatus(await aiGenerate('peek', P('ai.minds', { who: names.join(', '), fmt }), about, 300));
+    const got = [];
+    for (const line of String(out).split('\n')) {
+        const m = line.match(/^\s*(?:[-*•]\s*)?(?:mind\s*:\s*)?(.+?)\s*[|｜]\s*(.+?)\s*$/i); if (!m) continue;
+        const name = names.find(n => norm(n) === norm(m[1].replace(/[*_`]/g, ''))); if (!name || got.some(x => x.name === name)) continue;
+        got.push({ name, text: await finText(m[2]) });
+    }
+    return got;
 }
 export async function newNews(state) {
     const o = normalize('news', await freshItems('news', 'news', state));

@@ -16,6 +16,10 @@ import { slotsHTML, cardPack, carryFor } from './safe.js';
 import { presetHTML } from './extra.js';
 import { detectPlay, instructModule } from './ai.js';
 import { PLAY_MODES, normPlay, playOf, REC_MODS, isSimple } from './core.js';
+import { mindView, MIND_ACTIONS } from './mind.js';
+// 💭 프로필 탭 안의 두 칸 (v2.9): 프로필 · 속마음 — 고른 칸은 그 창에서만 기억 (ui.ptab)
+const ptabStrip = (cur) => `<div class="ss-seg ss-ptabs" role="tablist"><button class="${cur === 'sheet' ? 'on' : ''}" data-act="ptab" data-arg="sheet" role="tab"><i class="fa-solid fa-id-card"></i> 프로필</button><button class="${cur === 'mind' ? 'on' : ''}" data-act="ptab" data-arg="mind" role="tab"><i class="fa-solid fa-comment-dots"></i> 속마음</button></div>`;
+const profileSheet = (s, d, ui) => VIEW._profileSheet(s, d, ui);
 import { DEVICES as STORY_DEVICES, KEY as STORY_KEY } from './story.js';
 import { busyBtn, confirmPopup, mascot } from './kit.js';
 import { freshDot, usedPrice, placeIcon, miniWidgets } from './tiles.js';
@@ -51,9 +55,10 @@ function haggleMul(s, i, j) { const day = s.data.calendar ? dayIndex(s.data.cale
 // ───── 칸별 화면 ─────
 export const VIEW = {
     home: (s, d, ui) => homeView(s, ui),
-    profile: (s, d, ui) => `<div class="ss-hint">프로필 모드: <b>${d.mode === 'detailed' ? '상세' : '최소'}</b> — ${d.mode === 'detailed' ? '이 시트가 AI에게 전달돼요' : '카드·로어북을 쓰고, 새 NPC만 전달돼요'}</div>
+    profile: (s, d, ui) => (ui.ptab === 'mind' ? `${ptabStrip('mind')}${mindView(s)}` : `${ptabStrip('sheet')}${profileSheet(s, d, ui)}`),
+    _profileSheet: (s, d, ui) => `<div class="ss-hint">프로필 모드: <b>${d.mode === 'detailed' ? '상세' : '최소'}</b> — ${d.mode === 'detailed' ? '이 시트가 AI에게 전달돼요' : '카드·로어북을 쓰고, 새 NPC만 전달돼요'}</div>
         <div class="ss-stack">${d.list.map((p, i) => `<details class="ss-prof" ${ui.open === i || d.list.length === 1 ? 'open' : ''}>
-            <summary>${avatar(p.name)}<div class="ss-ct-b"><b>${freshDot('profile', 'list', p.name)}${esc(p.name)} <span class="ss-role ${p.role}">${roleName[p.role]}</span></b><small>${esc(short(p.summary, 60))}</small></div><i class="fa-solid fa-chevron-down ss-chev"></i></summary>
+            <summary><button class="ss-ava-btn" data-act="relemoji" data-arg="${esc(p.name)}" title="얼굴 이모지 바꾸기">${avatar(p.name)}</button><div class="ss-ct-b"><b>${freshDot('profile', 'list', p.name)}${esc(p.name)} <span class="ss-role ${p.role}">${roleName[p.role]}</span></b><small>${esc(short(p.summary, 60))}</small></div><i class="fa-solid fa-chevron-down ss-chev"></i></summary>
             <div class="ss-prof-b"><p class="ss-pre">${esc(p.summary)}</p>
             ${p.home || p.sched ? `<p class="ss-dim ss-where">${p.home ? `🏠 ${esc(p.home)}` : ''}${p.sched ? ` · 🕐 ${esc(p.sched)}` : ''}${s.data.calendar && whereNow(p, s.data.calendar) ? ` · <b>지금: ${esc(whereNow(p, s.data.calendar))}</b>` : ''}</p>` : ''}
             ${p.fields.length ? `<dl class="ss-dl">${p.fields.map(f => `<dt>${esc(f.k)}</dt><dd class="ss-pre">${esc(f.v)}</dd>`).join('')}</dl>` : ''}
@@ -426,7 +431,7 @@ export function manageHTML(s, ui = {}, extra = '') {
 }
 
 // 편집 기록 이름: 라벨이 없는 조용한 기록(주사위 · 좋아요 · 읽음 같은 것)도 무엇인지 알 수 있게 (v2.7.18)
-const OP_NAME = { _merge: '🔗 인물 합치기', _roll: '🎲 주사위 굴림', _read: '💬 읽음 표시', _nread: '📰 기사 읽음', _peekday: '💗 속마음 엿보기', _memo: '📝 메모', _achtog: '🏆 업적', _travel: '🗺 이동', _trash: '🗑 버림', _purge: '🗑 완전 삭제', _restore: '↩ 되살림', _tostore: '📦 보관', _tobag: '🎒 꺼냄', _unplace: '🪑 치움', _sellused: '💸 중고 판매', _loan: '🏦 대출', _repay: '🏦 상환', _questpay: '📜 보상', _draw: '🃏 카드', _effect: '✨ 효과', _bond: '💍 연인 확정', _unbond: '💔 확정 취소', _nolove: '💗 애정 끔', _love: '💗 애정 켬', _leave: '🕊 빠짐' };
+const OP_NAME = { _merge: '🔗 인물 합치기', _roll: '🎲 주사위 굴림', _read: '💬 읽음 표시', _nread: '📰 기사 읽음', _peekday: '💗 속마음 엿보기 (예전)', _memo: '📝 메모', _achtog: '🏆 업적', _travel: '🗺 이동', _trash: '🗑 버림', _purge: '🗑 완전 삭제', _restore: '↩ 되살림', _tostore: '📦 보관', _tobag: '🎒 꺼냄', _unplace: '🪑 치움', _sellused: '💸 중고 판매', _loan: '🏦 대출', _repay: '🏦 상환', _questpay: '📜 보상', _draw: '🃏 카드', _effect: '✨ 효과', _bond: '💍 연인 확정', _unbond: '💔 확정 취소', _nolove: '💗 애정 끔', _love: '💗 애정 켬', _leave: '🕊 빠짐' };
 function adjName(a) {
     if (a.label) return a.label;
     if (a.set) return `${MOD[a.set.mod]?.name ?? a.set.mod} 칸 바뀜`;
@@ -633,7 +638,7 @@ export const VIEW_ACTIONS = {
     },
     helpcardoff: () => { settings().helpCardOff = true; saveSettings(); app.rerenderPanels?.(true); },
     newv5off: async () => { const meta = getMeta(); if (meta) { delete meta.newV5; await saveMeta(); app.refreshNow(); } },
-    ...SNS_ACTIONS, ...MUSIC_ACTIONS, ...CUSTOM_ACTIONS, ...REL_ACTIONS, ...ACH_ACTIONS, ...ALBUM_ACTIONS,
+    ...SNS_ACTIONS, ...MUSIC_ACTIONS, ...CUSTOM_ACTIONS, ...REL_ACTIONS, ...ACH_ACTIONS, ...ALBUM_ACTIONS, ...MIND_ACTIONS,
 };
 export const VIEW_CHANGES = {
     place: (el, t, s) => { if (!t.value) return; const nm = s.data.home.storage[Number(t.dataset.arg)]; return addAdjust({ ops: [['decor', `+${nm} | ${t.value}`]], label: `${t.value}에 ${nm} 배치` }); },
