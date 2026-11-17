@@ -46,6 +46,15 @@ try {
         await say('quest: 잃어버린 반지 | 새 | 반지 찾기'); await say('quest: 잃어버린 반지 완료');
         const q = st().data.quest.list.find(x => x.title === '잃어버린 반지'); out.questNoPipe = !!q && ['done', 'active'].includes(q.status) && q.status !== 'open';
         await say('quest: +새 의뢰'); out.questPlus = !!st().data.quest.list.find(x => x.title === '새 의뢰') && !st().data.quest.list.some(x => x.title.startsWith('+'));
+        await say('quest: 편지 전달 (완료)\nquest: 새 임무 - 진행 중\nquest: -새 의뢰'); { const L = st().data.quest.list;
+          out.questSepStatus = L.find(x => x.title === '편지 전달')?.status === 'done' && L.find(x => x.title === '새 임무')?.status === 'active' && !L.some(x => /[()]|진행 중|^-/.test(x.title)) && !!L.find(x => x.title === '새 의뢰'); }
+        // 일정 · 날짜: 상대 날짜 · 「-이름」 지우기 · 「14일」
+        { const c = cal(), y = c.y, m = c.m, d = c.d; await say('event: 내일 | 소풍\nevent: 3일 뒤 | 시험\nevent: tomorrow | Dinner'); const E = cal().events, on = (t) => E.find(e => e.title === t);
+          const t1 = { y, m, d, months: c.months }; const ut = await import('/ext/src/util.js'); ut.addDays(t1, 1); const t3 = { y, m, d, months: c.months }; ut.addDays(t3, 3);
+          out.eventRel = on('소풍')?.d === t1.d && on('소풍')?.m === t1.m && on('시험')?.d === t3.d && on('Dinner')?.d === t1.d;
+          await say('event: -소풍'); out.eventRm = !cal().events.find(e => e.title === '소풍');
+          await say('event: 파티'); out.eventMiss = /event: 파티/.test(missOf());
+          const i0 = ut.dayIndex(cal()); await say('date: 내일'); out.dateRel = ut.dayIndex(cal()) === i0 + 1; }
         // 연락 · 속마음: 「이름: 글」
         await say('msg: Leon: 내일 보자'); out.msgColon = (st().data.contact.threads.Leon ?? []).some(m => m.text === '내일 보자');
         await say('msg: Leon'); out.msgNoTextMiss = /msg: Leon/.test(missOf());

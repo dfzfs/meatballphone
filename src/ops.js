@@ -49,7 +49,7 @@ function ensure(s, mod) {
     if (!s.data[mod]) s.data[mod] = EMPTY[mod]();
     return s.data[mod];
 }
-const QSTATUS = { open: 'open', new: 'open', '새': 'open', '등록': 'open', '공고': 'open', active: 'active', accept: 'active', accepted: 'active', 'in progress': 'active', '수락': 'active', '진행': 'active', '진행중': 'active', '시작': 'active', done: 'done', complete: 'done', completed: 'done', finished: 'done', '완료': 'done', '성공': 'done', '달성': 'done', failed: 'failed', fail: 'failed', '실패': 'failed', '포기': 'failed' };
+const QSTATUS = { open: 'open', new: 'open', '새': 'open', '등록': 'open', '공고': 'open', active: 'active', accept: 'active', accepted: 'active', 'in progress': 'active', '수락': 'active', '진행': 'active', '진행중': 'active', inprogress: 'active', '시작': 'active', done: 'done', complete: 'done', completed: 'done', finished: 'done', '완료': 'done', '성공': 'done', '달성': 'done', failed: 'failed', fail: 'failed', '실패': 'failed', '포기': 'failed' };
 const QNAME = { open: '새 의뢰', active: '진행', done: '완료', failed: '실패' };
 
 // ───── 운명 · 돈: 효과 계산 ─────
@@ -1000,7 +1000,9 @@ function opDate(s, val, info, L, T, key, rawKey) {
     const daysKey = /^(days|날짜이동)$/i.test(String(rawKey).trim());
     const p = /^[+\-−]\s*\d/.test(val) ? parseNum(val.replace(/일.*$/, '')) : daysKey && /^\d{1,3}\s*(일|days?)?$/i.test(val) ? parseNum(`+${parseInt(val, 10)}`) : null;
     const before = dayIndex(cal);
+    const rd = p ? null : relDays(val); // 「date: 내일」 「date: 3일 뒤」 (검수)
     if (p) addDays(cal, p.v);
+    else if (rd !== null) addDays(cal, rd);
     else {
         const dt = parseDate(cal, val); if (!dt) return miss(info, rawKey, val); // 「date: 14」처럼 못 읽으면 ⚠ (예전엔 조용히 넘어감)
         cal.y = dt.y ?? cal.y;
@@ -1026,11 +1028,32 @@ function opTime(s, val, info, L, T, key, rawKey) {
     if (val !== cal.time) { cal.time = val; L(`🕐 ${val}`); }
     return;
 }
+// 상대 날짜 → 오늘부터 며칠 뒤 (못 읽으면 null)
+function relDays(w) {
+    const t = String(w ?? '').trim().toLowerCase();
+    if (/^(오늘|today|tonight|오늘\s*밤|오늘\s*저녁)$/.test(t)) return 0;
+    if (/^(내일|tomorrow)/.test(t)) return 1;
+    if (/^(모레|day after tomorrow)/.test(t)) return 2;
+    if (/^글피/.test(t)) return 3;
+    if (/^(다음\s*주|next week)$/.test(t)) return 7;
+    let x = t.match(/^\+?\s*(\d{1,3})\s*(?:일|days?)\s*(?:후|뒤|later|from now)$/) || t.match(/^\+\s*(\d{1,3})\s*(?:일|days?)$/) || t.match(/^in\s+(\d{1,3})\s*days?$/) || t.match(/^\+\s*(\d{1,3})$/);
+    if (x) return parseInt(x[1], 10);
+    x = t.match(/^(\d{1,2})\s*주\s*(?:후|뒤)$/) || t.match(/^in\s+(\d{1,2})\s*weeks?$/);
+    if (x) return parseInt(x[1], 10) * 7;
+    return null;
+}
 function opEvent(s, val, info, L, T, key, rawKey) {
     const cal = ensure(s, 'calendar');
     const [when, title, desc] = splitBar(val);
-    const dt = parseDate(cal, when);
-    if (!dt || !title) return;
+    // 「event: -파티」 = 이름만으로 지우기 (검수: 날짜 칸에 이름이 들어가 그냥 넘어갔다)
+    if (!title && /^[-−]\s*\S/.test(when)) { const n = when.replace(/^[-−]\s*/, ''); const k = cal.events.findIndex(e => norm(e.title) === norm(n)); if (k >= 0) { cal.events.splice(k, 1); L(`📅 일정 취소: ${n}`); } return; }
+    // 「내일 · 모레 · 3일 뒤 · tomorrow · in 3 days · 다음 주」 같은 상대 날짜도 (검수: 예전엔 조용히 버려졌다)
+    const rel = relDays(when);
+    let dt = rel === null ? parseDate(cal, when) : null;
+    const dOnly = rel === null && !dt && String(when).trim().match(/^(\d{1,2})\s*일$/); // 「14일」 = 이번 달 14일 (지났으면 다음 달)
+    if (dOnly) { let m = cal.m, y = cal.y; if (+dOnly[1] < cal.d) { m++; if (m > cal.months.length) { m = 1; y++; } } if (+dOnly[1] <= (cal.months[m - 1]?.days ?? 31)) dt = { y, m, d: +dOnly[1] }; }
+    if (rel !== null) { const t = { y: cal.y, m: cal.m, d: cal.d, months: cal.months }; addDays(t, rel); dt = { y: t.y, m: t.m, d: t.d }; }
+    if (!dt || !title) return miss(info, rawKey, val);
     const rm = /^[-−]/.test(title); const tt = title.replace(/^[+\-−]\s*/, '');
     const k = cal.events.findIndex(e => norm(e.title) === norm(tt));
     if (rm) { if (k >= 0) cal.events.splice(k, 1); return; }
@@ -1117,7 +1140,15 @@ function opXRoll(s, val, info, L, T, key, rawKey) {
 function opQuest(s, val, info, L, T, key, rawKey) {
     const qs = ensure(s, 'quest');
     // 검수: 「잃어버린 반지 완료」처럼 「|」 없이 상태를 붙인 줄 (있는 퀘스트일 때만) · 「+새 의뢰」의 + 떼기 · 「「제목」」 괄호 떼기
-    if (!val.includes('|')) { const m = val.match(/^(.+?)\s*[-—:：]?\s*(완료|성공|실패|수락|포기|done|completed?|failed|accepted)$/i); if (m && findBy(qs.list, unquote(m[1]), 'title')) val = `${unquote(m[1])} | ${m[2]}`; }
+    if (!val.includes('|')) {
+        const W = '완료|성공|실패|수락|포기|진행\\s*중|진행|done|completed?|finished|failed|accepted|active|in progress';
+        // 「편지 전달 (완료)」 「새 임무 - 진행 중」 「편지 전달: 완료」 — 떼는 표시가 있으면 새 퀘스트에도 (검수: 「(완료)」까지 제목이 됐다)
+        const sep = val.match(new RegExp(`^(.+?)\\s*(?:[(（\\[]\\s*(${W})\\s*[)）\\]]|\\s[-—]\\s*(${W})|[:：]\\s*(${W}))$`, 'i'));
+        const m = sep ? null : val.match(new RegExp(`^(.+?)\\s+(${W})$`, 'i'));
+        if (sep) val = `${unquote(sep[1])} | ${(sep[2] ?? sep[3] ?? sep[4]).replace(/\s+/g, '')}`;
+        else if (m && findBy(qs.list, unquote(m[1]), 'title')) val = `${unquote(m[1])} | ${m[2].replace(/\s+/g, '')}`;
+    }
+    if (/^[-−]\s*\S/.test(val) && !val.includes('|')) return; // 「quest: -약초 캐기」 — AI가 지우려는 줄: 퀘스트는 사용자만 지운다 (「-약초 캐기」라는 새 퀘스트가 생기지 않게)
     let [title, st0, desc] = splitBar(val);
     title = unquote(String(title ?? '').replace(/^\+\s*/, ''));
     if (!title) return;
