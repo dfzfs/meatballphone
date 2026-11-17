@@ -15,8 +15,11 @@ try {
     check(await ev(() => !document.querySelector('dialog [data-act="lifeset"]') && !!document.querySelector('dialog [data-act="lifetab"][data-arg="needs"]') && ![...document.querySelectorAll('dialog .ss-tabs button')].some(b => /욕구|옷차림/.test(b.textContent))), '처음엔 욕구 · 옷차림 탭이 없다 — 수치 탭에 「욕구 탭 켜기」만');
     await page.click('dialog [data-act="lifetab"][data-arg="needs"]'); await sleep(400);
     check(await ev(() => [...document.querySelectorAll('dialog .ss-tabs button')].some(b => /욕구/.test(b.textContent))), '켜면 「욕구」 탭이 생긴다 (이 채팅만)');
-    await panel('needs');
-    check(await ev(() => document.querySelectorAll('dialog [data-act="lifeset"]').length === 4 && !!document.querySelector('dialog .ss-tama .ss-px')), '욕구 탭: 다마고치 화면(도트 인형) · 추천 세트 4개');
+    await panel('needs'); await sleep(600); await panel('needs'); // 도트 인형 그림은 처음 그릴 때 불러온다
+    check(await ev(() => document.querySelectorAll('dialog [data-act="lifeset"]').length === 4 && !!document.querySelector('dialog .ss-tama svg.ss-px')), '욕구 탭: 다마고치 화면(도트 인형) · 추천 세트 4개');
+    const dl = await ev(async () => { const D = await import('/ext/src/doll.js'); return { hairs: Object.keys(D.HAIRS).length, faces: Object.keys(D.FACES).length, kinds: Object.fromEntries(Object.entries(D.SHAPES).map(([k, o]) => [k, Object.keys(o).length])), bad: [...Object.values(D.HAIRS).flatMap(h => [h.f, h.b]), ...Object.values(D.SHAPES).flatMap(o => Object.values(o).flatMap(x => [x.f, x.b]))].filter(Boolean).filter(mp => mp.length !== D.H || mp.some(r => r.length !== D.W)).length, hurt: D.hurtParts(['왼팔 부상', 'Broken leg', '배고픔']).sort().join(), red: /ss-px-hurt/.test(D.dollSVG({}, [], 3, '', ['arms'])) && !/ss-px-hurt/.test(D.dollSVG({}, [], 3)) }; });
+    check(dl.bad === 0 && dl.hairs >= 20 && dl.faces >= 12 && Object.values(dl.kinds).every(n => n >= 16), '도트 인형: 머리 20+ · 표정 12+ · 옷 종류마다 16+ · 그림 줄 길이가 모두 맞음', JSON.stringify(dl));
+    check(dl.hurt === 'arms,legs' && dl.red, '「왼팔 부상」 · 「Broken leg」 → 팔 · 다리가 빨갛게 (배고픔은 아님)', JSON.stringify(dl));
     await page.click('dialog [data-act="lifeset"][data-arg="sims"]'); await sleep(500);
     const h0 = await bar('hunger'), hp0 = await bar('hp');
     check(h0 && h0.decay === 90 && h0.cur === 100 && /:/.test(h0.stages) && /-12$/.test(h0.zero ?? '') && !!(await bar('hygiene')) && !!(await bar('fun')), '심즈풍 세트: 허기 · 에너지 · 위생 · 재미 · 사교가 규칙과 함께 들어감', JSON.stringify(h0));
