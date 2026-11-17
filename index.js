@@ -22,7 +22,7 @@ import { toggleStar, PRESETS } from './src/extra.js';
 import { setBase } from './src/shell.js';
 import { initMascot } from './src/mascot.js';
 import { startErrorCapture } from './src/report.js';
-import { openPip, pipWanted, markSkip } from './src/pip.js';
+import { openPip, pipWanted, markSkip, seriousList } from './src/pip.js';
 import { maybeTip, maybeLaterWarn } from './src/tips.js';
 import { registerCommands } from './src/commands.js';
 import { renderSettings } from './src/settings_ui.js';
@@ -163,8 +163,9 @@ function decorateAll() {
             const rollBtn = snap.roll && i === lastAI ? `<button class="ss-mchip roll" data-roll="${esc(snap.roll.label)}|${snap.roll.dc}"><i class="fa-solid fa-dice-d20"></i> ${esc(snap.roll.label)} 굴리기</button>` : '';
             // 칩 내용이 그대로면 다시 그리지 않는다 (긴 채팅에서 갱신마다 모든 답의 칩을 새로 그리던 것이 렉의 큰 원인)
             // ⚠ 못 읽은 줄 (v2.7.23): 누르면 칩 점검이 어떤 줄인지 보여 준다
-            const missBtn = snap.miss?.length ? `<button class="ss-mchip pip" data-ss-pip="${i}" title="못 읽고 넘어간 줄 ${snap.miss.length}개 — 눌러서 확인">⚠ ${snap.miss.length}</button>` : '';
-            const key = `${snap.labels.join('\u0001')}|${rollBtn ? 1 : 0}|${editBtn ? 1 : 0}|${snap.miss?.length ?? 0}`;
+            const nMiss = seriousList(snap).length; // 「mood: 좋음」 같은 꾸밈 키는 ⚠ 수에서 뺀다
+            const missBtn = nMiss ? `<button class="ss-mchip pip" data-ss-pip="${i}" title="못 읽고 넘어간 줄 ${nMiss}개 — 눌러서 확인">⚠ ${nMiss}</button>` : '';
+            const key = `${snap.labels.join('\u0001')}|${rollBtn ? 1 : 0}|${editBtn ? 1 : 0}|${nMiss}`;
             if (slot.dataset.ssk === key && slot.firstChild) continue;
             slot.dataset.ssk = key;
             slot.style.display = '';

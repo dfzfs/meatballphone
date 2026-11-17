@@ -16,7 +16,8 @@ const SKIP_NAME = { ooc: 'OOC로 보낸 턴', pause: '⏸ 일시정지 중', ski
 
 // 놓친 줄 중 진짜 놓친 것: 아는 키의 값이 이상함 · 또는 모르는 키인데 숫자 변화(「hunger: -10」 — 없는 게이지일 수 있음)
 //   「mood: 좋음」처럼 모르는 꾸밈 키만 있으면 🔍를 붙이지 않는다 (검수: 그런 키를 매 턴 적는 모델이면 🔍가 매 턴 떴다)
-const seriousMiss = (snap) => (snap?.miss ?? []).some(x => !(snap.missKey ?? []).includes(x) || /[+\-−]\s*\d/.test(x.slice(x.indexOf(':') + 1)));
+export const seriousList = (snap) => (snap?.miss ?? []).filter(x => !(snap.missKey ?? []).includes(x) || /[+\-−]\s*\d/.test(x.slice(x.indexOf(':') + 1)));
+const seriousMiss = (snap) => seriousList(snap).length > 0;
 // 답 i의 칩 상태 — code: shown · hidden · detached · cardoff · nochange · unknown · notag · malformed · running · failed · skipped · baked · syncoff · none
 export function pipDiag(i) {
     const c = ctx(), chat = c.chat ?? [], m = chat[i];
@@ -67,7 +68,7 @@ export function pipDiag(i) {
     for (let p = card; p && p !== mesEl; p = p.parentElement) { const st = getComputedStyle(p); if (st.display === 'none' || st.visibility === 'hidden' || Number(st.opacity) === 0) { hiddenBy = p.className || p.tagName; break; } }
     if (hiddenBy || !r.width || !r.height || cs.display === 'none') return { code: 'hidden', title: '읽었는데 화면에 안 보여요 — 안 보이는 것', text: `변화 ${labels.length}개는 숫자에 반영됐어요 (${labels.slice(0, 4).join(' · ')}). 칩은 있는데 가려져 있어요${hiddenBy ? ` (가린 곳: ${String(hiddenBy).slice(0, 60)})` : ''}. 번역 확장이 원문을 숨기는 경우가 많아요 → 「칩을 본문 밖에 붙이기」.`, acts: ['outside', 'redraw'] };
     if (snap?.miss?.length && !seriousMiss(snap)) return { code: 'shown', title: '칩이 잘 보이고 있어요', text: `변화 ${labels.length}개: ${labels.slice(0, 6).join(' · ')}\n(미트볼이 쓰지 않는 줄은 넘어갔어요: ${snap.miss.slice(0, 4).join(' / ')})` };
-    if (snap?.miss?.length) return { code: 'unknown', title: `일부 줄을 못 읽었어요 (${snap.miss.length}개)`, text: `변화 ${labels.length}개는 반영됐어요 (${labels.slice(0, 4).join(' · ')}).\n아래 줄은 키를 모르거나 값 모양이 달라서 넘어갔어요. 맞는 변화면 「직접 고치기」로 적어 주세요.\n\n${snap.miss.slice(0, 8).join('\n')}`, acts: ['edit'] };
+    if (snap?.miss?.length) { const sl = seriousList(snap); return { code: 'unknown', title: `일부 줄을 못 읽었어요 (${sl.length}개)`, text: `변화 ${labels.length}개는 반영됐어요 (${labels.slice(0, 4).join(' · ')}).\n아래 줄은 키를 모르거나 값 모양이 달라서 넘어갔어요. 맞는 변화면 「직접 고치기」로 적어 주세요.\n\n${sl.slice(0, 8).join('\n')}`, acts: ['edit'] }; }
     return { code: 'shown', title: '칩이 잘 보이고 있어요', text: `변화 ${labels.length}개: ${labels.slice(0, 6).join(' · ')}` };
 }
 

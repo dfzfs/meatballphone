@@ -18,7 +18,7 @@ try {
         const m0 = core.getMeta(true); m0.mods.rel = false; await core.saveMeta();
         for (const [k, body] of [['flavor', 's\n<meatball>\nmood: 좋음\n</meatball>'], ['flavorPlus', 's\n<meatball>\ncash: +1\nmood: 좋음\n</meatball>'], ['offmod', 's\n<meatball>\naff: Leon +2\n</meatball>'], ['unkNum', 's\n<meatball>\nhunger: -10\n</meatball>'], ['badVal', 's\n<meatball>\ncash: +1\nstat: -5\n</meatball>']]) {
             await window.__addUser('u'); await window.__addAI(body); await wait(400);
-            const i = app.current.lastAI; out[k] = { code: app.pipDiag(i)?.code, badge: !!pip.pipWanted(i, window.__st.chat[i]) };
+            const i = app.current.lastAI; out[k] = { code: app.pipDiag(i)?.code, badge: !!pip.pipWanted(i, window.__st.chat[i]), warn: !![...document.querySelectorAll('#chat .mes')].at(-1).querySelector('[data-ss-pip]') };
         }
         return out;
     });
@@ -31,6 +31,7 @@ try {
     check(r['tagPlus:broken'].ai === 1, '[A+B] 깨진 블록은 따로 분석 (AI 1회)', JSON.stringify(r['tagPlus:broken']));
     check(r['tag:notag'].code === 'notag' && r['tag:notag'].badge, '[태그만] 블록을 안 쓴 답은 🔍로 알림', JSON.stringify(r['tag:notag']));
     check(!r.flavor.badge && !r.flavorPlus.badge && !r.offmod.badge, '모르는 꾸밈 키(mood) · 꺼 둔 칸의 변화엔 🔍 없음', JSON.stringify([r.flavor, r.flavorPlus, r.offmod]));
+    check(!r.flavorPlus.warn && r.badVal.warn, '칩의 ⚠ 수: 꾸밈 키는 빼고 · 이상한 값은 센다', JSON.stringify([r.flavorPlus, r.badVal]));
     check(r.unkNum.badge && r.badVal.badge, '모르는 키의 숫자 변화(hunger -10) · 아는 키의 이상한 값(stat: -5)은 🔍', JSON.stringify([r.unkNum, r.badVal]));
     const pe = logs.filter(l => /pageerror|TypeError/.test(l)); check(!pe.length, 'no page errors', pe.join('\n').slice(0, 300));
 } finally { await close(); }

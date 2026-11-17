@@ -29,7 +29,7 @@ try {
     // v2.7.15: 스트리밍 중엔 마지막 답에 칩이 없다가 끝나면 붙는다 · 인물 줄에 「등장 강요 안 함」
     const sm = await page.evaluate(async () => {
         document.body.dataset.generating = 'true';
-        await window.__addUser('go'); await window.__addAI('walk\n<meatball>\ncash: -1\n</meatball>');
+        await window.__addUser('go'); await window.__addAI('walk\n<meatball>\naff: Leon +5\n</meatball>');
         await new Promise(r => setTimeout(r, 200));
         const last = () => [...document.querySelectorAll('#chat .mes')].at(-1);
         const during = !!last().querySelector('.ss-slot')?.firstChild;
