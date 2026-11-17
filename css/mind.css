@@ -1,10 +1,14 @@
 /* 💭 프로필 탭 안의 「속마음」 칸 (v2.9 · src/mind.js) */
-.ss-scope .ss-ptabs { margin: 0 0 10px; }
+.ss-scope .ss-mindopt { margin: 0 0 8px; }
+.ss-scope .ss-mind-get { margin-bottom: 8px; }
+.ss-scope .ss-mind.sm { display: block; margin-top: 2px; font-size: .86em; }
+.ss-scope .ss-mindc-h { display: flex; align-items: center; gap: 8px; }
+.ss-scope .ss-mindc-h small { color: var(--ss-dim); flex: 1; }
 .ss-scope .ss-mindbar.ss-mindset { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-bottom: 10px; }
 .ss-scope .ss-mind-sus { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .ss-scope .ss-mind-sus > .ss-pill { min-height: 36px; }
 .ss-scope .ss-mind-sus small { color: var(--ss-dim); font-size: .82em; }
-.ss-scope .ss-mindc { display: flex; flex-direction: column; gap: 8px; }
+.ss-scope .ss-mindc { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--ss-line, rgba(127,127,127,.3)); }
 .ss-scope .ss-mind.big { font-size: 1.08em; margin: 0; }
 .ss-scope .ss-mind-cover { align-self: flex-start; min-height: 40px; }
 .ss-scope .ss-mind-cover small { color: var(--ss-dim); margin-left: 6px; }
@@ -23,5 +27,3 @@
 .ss-scope .ss-good-fx { color: var(--ss-acc); white-space: nowrap; }
 .ss-scope .ss-qask { align-items: center; margin: 6px 0; }
 .ss-scope.ss-gearpick .ss-stack > .ss-btn { justify-content: flex-start; min-height: 40px; height: auto; white-space: normal; text-align: left; }
-/* 속마음 칸에서는 프로필의 「보일 것」 막대를 숨긴다 (프로필 칸의 것이라) */
-.ss-scope .ss-body:has(.ss-mindset) > .ss-partbar { display: none; }

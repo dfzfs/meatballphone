@@ -354,7 +354,8 @@ export function tileAct(a, rerender, attr = 'side') {
 }
 // 💭 속마음 공통 (미니창 · HUD): 최근 3턴 안의 것 · 장면에서 빠진 사람 빼고
 export function mindList(s, max = 4) {
-    return (s.data.rel?.user ?? []).filter(x => x.mind?.text && !x.out && x.mind.turn >= (s.turn ?? 0) - 2).sort((a, b) => b.mind.turn - a.mind.turn).slice(0, max);
+    const rel = s.data.rel?.user ?? [], all = [...rel, ...(s.data.profile?.list ?? []).filter(p => p.role !== 'user' && !rel.some(r => r.name === p.name))]; // v2.9: 프로필에만 있는 인물의 속마음도
+    return all.filter(x => x.mind?.text && !x.out && x.mind.turn >= (s.turn ?? 0) - 2).sort((a, b) => b.mind.turn - a.mind.turn).slice(0, max);
 }
 export const mindShown = (x) => (mindCovered(x) ? '· · ·' : x.mind.text); // 👁 눈치를 켰으면 프로필 › 속마음에서 눌러 보기 전까지 가려 둔다
 export const mindBub = (x) => `<span class="ss-mind-bub" title="${esc(x.name)}">${avatar(x.name, 'xs')}<em>${esc(mindShown(x))}</em></span>`;

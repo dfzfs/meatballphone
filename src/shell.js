@@ -311,7 +311,7 @@ async function onPanelAction(el, act, arg, btn) {
         case 'cardload': return loadFromCard(setBase, false);
         case 'carrystart': return startCarry(setBase);
         case 'filerestore': return restoreFile(setBase);
-        case 'tab': st.tab = arg === 'mind' ? (modOn('profile') ? 'profile' : 'rel') : arg; st.mode = 'view'; st.ui = arg === 'mind' ? { ptab: 'mind' } : {}; if (el.classList.contains('ss-panel-side') && settings().sideState !== 'full') { settings().sideState = 'full'; saveSettings(); ensureUI(); } return rr();
+        case 'tab': st.tab = arg === 'mind' ? (modOn('profile') ? 'profile' : 'rel') : arg; st.mode = 'view'; st.ui = {}; if (el.classList.contains('ss-panel-side') && settings().sideState !== 'full') { settings().sideState = 'full'; saveSettings(); ensureUI(); } return rr();
         case 'instructtog': st.ui.instructOpen = !st.ui.instructOpen; return rr();
         case 'edit': st.work = clone((mod === 'core' ? s.core : s.data[mod]) ?? EMPTY[mod]()); st.mode = 'edit'; return rr();
         case 'json': st.mode = 'json'; return rr();
@@ -431,8 +431,8 @@ export function rerenderPanels(force = false) {
 export async function openSheet(tab, opt = {}) {
     const el = document.createElement('div');
     el.className = 'ss-panel ss-panel-pop';
-    const toMind = tab === 'mind'; if (toMind) tab = modOn('profile') ? 'profile' : 'rel'; // 💭 속마음 칸 = 프로필 탭 안의 둘째 칸 (프로필을 꺼 뒀으면 관계 탭으로)
-    el._ss = { tab: tab ?? 'home', mode: 'view', work: null, ui: toMind ? { ptab: 'mind' } : {} };
+    if (tab === 'mind') tab = modOn('profile') ? 'profile' : 'rel'; // 💭 속마음은 프로필 탭에서 인물마다 뜬다 (프로필을 꺼 뒀으면 관계 탭으로)
+    el._ss = { tab: tab ?? 'home', mode: 'view', work: null, ui: {} };
     const full = opt.full ?? settings().sheetFull;
     if (opt.full) settings().sheetFull = true;
     el._ss.full = !!full;

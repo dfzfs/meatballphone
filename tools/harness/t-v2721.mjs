@@ -104,7 +104,7 @@ try {
         const main = () => { window.__SS_TEST__.api.refreshNow(); return E.buildInjection(app.current).main; };
         Object.assign(st, { mindMode: 'off', mindFreq: 'always', sync: 'tag' });
         const off = /mind: Name/.test(main());
-        const el = document.querySelector('.ss-panel'); el._ss.tab = 'profile'; el._ss.mode = 'view'; el._ss.ui = { ptab: 'mind' }; app.renderPanel(el); // v2.9: 속마음 설정은 프로필 › 속마음 칸에
+        const el = document.querySelector('.ss-panel'); el._ss.tab = 'profile'; el._ss.mode = 'view'; el._ss.ui = {}; app.renderPanel(el); // v2.9: 속마음 설정은 프로필 탭 맨 위에
         el.querySelector('[data-act="mindset"][data-arg="mode:kaomoji"]').click(); await new Promise(r => setTimeout(r, 200));
         const inj = main();
         return { off, on: /mind: Name/.test(inj) && /kaomoji/.test(inj), side: st.sideMini.includes('mind'), mode: st.mindMode };
@@ -113,7 +113,7 @@ try {
     await S((u) => window.__addUser(u), 'Leon hi'); await S((b) => window.__addAI(b), 'Leon smiles.\n<meatball>\nmind: Leon | (⁄ ⁄•⁄ω⁄•⁄ ⁄)\n</meatball>'); await sleep(150);
     const shown = await S(async () => {
         const app = window.__SS_TEST__.api.app; window.__SS_TEST__.api.refreshNow();
-        const el = document.querySelector('.ss-panel'); el._ss.tab = 'profile'; el._ss.mode = 'view'; el._ss.ui = { ptab: 'mind' }; app.renderPanel(el);
+        const el = document.querySelector('.ss-panel'); el._ss.tab = 'profile'; el._ss.mode = 'view'; el._ss.ui = {}; app.renderPanel(el);
         const { miniWidgets } = await import('/ext/src/views.js');
         const box = document.createElement('div'); box.innerHTML = miniWidgets(app.current.state, ['mind'], false); document.body.appendChild(box);
         const { renderHud } = await import('/ext/src/shell.js'); renderHud();

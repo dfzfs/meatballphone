@@ -16,11 +16,8 @@ import { slotsHTML, cardPack, carryFor } from './safe.js';
 import { presetHTML } from './extra.js';
 import { detectPlay, instructModule } from './ai.js';
 import { PLAY_MODES, normPlay, playOf, REC_MODS, isSimple } from './core.js';
-import { mindView, MIND_ACTIONS } from './mind.js';
+import { mindBar, mindPeek, mindBlock, MIND_ACTIONS } from './mind.js'; // 💭 속마음: 프로필 탭에서 인물마다 프로필 밑에 (v2.9)
 import { needLine, lifeSection, gearSection, LIFE_ACTIONS } from './life.js';
-// 💭 프로필 탭 안의 두 칸 (v2.9): 프로필 · 속마음 — 고른 칸은 그 창에서만 기억 (ui.ptab)
-const ptabStrip = (cur) => `<div class="ss-seg ss-ptabs" role="tablist"><button class="${cur === 'sheet' ? 'on' : ''}" data-act="ptab" data-arg="sheet" role="tab"><i class="fa-solid fa-id-card"></i> 프로필</button><button class="${cur === 'mind' ? 'on' : ''}" data-act="ptab" data-arg="mind" role="tab"><i class="fa-solid fa-comment-dots"></i> 속마음</button></div>`;
-const profileSheet = (s, d, ui) => VIEW._profileSheet(s, d, ui);
 import { DEVICES as STORY_DEVICES, KEY as STORY_KEY } from './story.js';
 import { busyBtn, confirmPopup, mascot } from './kit.js';
 import { freshDot, usedPrice, placeIcon, miniWidgets } from './tiles.js';
@@ -56,14 +53,13 @@ function haggleMul(s, i, j) { const day = s.data.calendar ? dayIndex(s.data.cale
 // ───── 칸별 화면 ─────
 export const VIEW = {
     home: (s, d, ui) => homeView(s, ui),
-    profile: (s, d, ui) => (ui.ptab === 'mind' ? `${ptabStrip('mind')}${mindView(s)}` : `${ptabStrip('sheet')}${profileSheet(s, d, ui)}`),
-    _profileSheet: (s, d, ui) => `<div class="ss-hint">프로필 모드: <b>${d.mode === 'detailed' ? '상세' : '최소'}</b> — ${d.mode === 'detailed' ? '이 시트가 AI에게 전달돼요' : '카드·로어북을 쓰고, 새 NPC만 전달돼요'}</div>
+    profile: (s, d, ui) => `${mindBar(s, ui)}<div class="ss-hint">프로필 모드: <b>${d.mode === 'detailed' ? '상세' : '최소'}</b> — ${d.mode === 'detailed' ? '이 시트가 AI에게 전달돼요' : '카드·로어북을 쓰고, 새 NPC만 전달돼요'}</div>
         <div class="ss-stack">${d.list.map((p, i) => `<details class="ss-prof" ${ui.open === i || d.list.length === 1 ? 'open' : ''}>
-            <summary><button class="ss-ava-btn" data-act="relemoji" data-arg="${esc(p.name)}" title="얼굴 이모지 바꾸기">${avatar(p.name)}</button><div class="ss-ct-b"><b>${freshDot('profile', 'list', p.name)}${esc(p.name)} <span class="ss-role ${p.role}">${roleName[p.role]}</span></b><small>${esc(short(p.summary, 60))}</small></div><i class="fa-solid fa-chevron-down ss-chev"></i></summary>
+            <summary><button class="ss-ava-btn" data-act="relemoji" data-arg="${esc(p.name)}" title="얼굴 이모지 바꾸기">${avatar(p.name)}</button><div class="ss-ct-b"><b>${freshDot('profile', 'list', p.name)}${esc(p.name)} <span class="ss-role ${p.role}">${roleName[p.role]}</span></b><small>${esc(short(p.summary, 60))}</small>${mindPeek(s, p.name)}</div><i class="fa-solid fa-chevron-down ss-chev"></i></summary>
             <div class="ss-prof-b"><p class="ss-pre">${esc(p.summary)}</p>
             ${p.home || p.sched ? `<p class="ss-dim ss-where">${p.home ? `🏠 ${esc(p.home)}` : ''}${p.sched ? ` · 🕐 ${esc(p.sched)}` : ''}${s.data.calendar && whereNow(p, s.data.calendar) ? ` · <b>지금: ${esc(whereNow(p, s.data.calendar))}</b>` : ''}</p>` : ''}
             ${p.fields.length ? `<dl class="ss-dl">${p.fields.map(f => `<dt>${esc(f.k)}</dt><dd class="ss-pre">${esc(f.v)}</dd>`).join('')}</dl>` : ''}
-            ${modOn('contact') && p.role !== 'user' ? `<button class="ss-btn sm ghost" data-act="talk" data-arg="${esc(p.name)}"><i class="fa-solid fa-envelope"></i> 연락하기</button>` : ''}</div>
+            ${modOn('contact') && p.role !== 'user' ? `<button class="ss-btn sm ghost" data-act="talk" data-arg="${esc(p.name)}"><i class="fa-solid fa-envelope"></i> 연락하기</button>` : ''}${mindBlock(s, p.name)}</div>
         </details>`).join('') || emptyBox('인물이 없어요', 'fa-id-card')}</div>`,
     stats: (s, d) => `${sec('게이지', `<div class="ss-stack">${d.bars.map(b => `<div class="ss-card ss-gcard">${gauge(b, false, freshDot('stats', 'bars', b.name))}
             <div class="ss-gbtns"><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|-10">−10</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|-1">−1</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|+1">+1</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|+10">+10</button>${b.desc ? `<small class="ss-dim">${esc(b.desc)}</small>` : ''}</div>${needLine(b, d)}</div>`).join('') || emptyBox('게이지가 없어요')}</div>`)}

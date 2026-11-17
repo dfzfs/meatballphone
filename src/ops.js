@@ -483,9 +483,11 @@ function opLife(s, val, info, L, T, key, rawKey) {
     return;
 }
 function opMind(s, val, info, L, T, key, rawKey) { // 💭 속마음 · 이모티콘 · 카모지 (이름 | 내용) — 마지막 것만 둠
-    const rl = s.data.rel; if (!rl) return;
     const [nm, ...rest] = splitBar(val); const text = rest.join(' | ').trim();
-    const r = findBy(rl.user, nm); if (!r || !text) return;
+    // v2.9: 관계에 없는 인물도 프로필에 있으면 거기에 적는다 (나 자신은 빼고)
+    let r = s.data.rel ? findBy(s.data.rel.user, nm) : null;
+    if (!r) { const p = findBy(s.data.profile?.list ?? [], nm); if (p && p.role !== 'user') r = p; }
+    if (!r || !text) return;
     const t = cleanMind(text); if (!t) return;
     r.mind = { text: t, turn: s.turn };
     // v2.9: 지난 것도 5개까지 남긴다 (프로필 › 속마음 탭의 기록) — 같은 턴에 다시 오면 바꿔 적는다

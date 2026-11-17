@@ -1076,7 +1076,7 @@ export function tagKeysFor(meta) {
     if (on('profile')) K.push('npc (이름 | 한 줄 소개 — a new named character who will matter)');
     if (on('dice')) K.push('roll (판정 이름 | 난이도 — ask {{user}} to roll instead of deciding a risky outcome yourself)');
     if (on('fate')) K.push('curse (이름 | 효과1, 효과2 | 일수 | 풀리는 조건 — only when the story truly curses or blesses {{user}}; -이름 lifts it)');
-    if (on('rel') && (settings().mindMode ?? 'off') !== 'off' && mindActive(app.current?.state?.turn ?? 0)) K.push('mind (이름 | 속마음 — hidden inner feeling, only this turn; NOT msg: msg is a real message sent to {{user}})');
+    if ((on('rel') || on('profile')) && (settings().mindMode ?? 'off') !== 'off' && mindActive(app.current?.state?.turn ?? 0)) K.push('mind (이름 | 속마음 — hidden inner feeling, only this turn; NOT msg: msg is a real message sent to {{user}})');
     if (on('rel') && settings().jealousy) K.push('jealous (이름 ±N — someone gets jealous of {{user}} with another, or is reassured)');
     if (on('rel') && settings().romBond) K.push('confess (이름 — ONLY right after a real confession was made AND accepted in this reply; the user confirms it. Never for closeness or time spent together)');
     if (on('rel') && settings().romDrive) K.push('concern (이름 | 요즘 신경 쓰는 것 — when what they are preoccupied with changes or gets resolved; 이름 | 없음 clears) · taste (이름 | 끌리는 것 | 싫어하는 것 — fill once if blank)');
@@ -1426,9 +1426,12 @@ export function mindActive(turn, set = settings()) {
 }
 function mindLine(r) {
     const set = settings(), s = r?.state, meta = getMeta();
-    if (!s?.data?.rel || !modOn('rel', meta) || !(set.sync === 'tag' || set.sync === 'tagPlus') || !mindActive(s.turn, set)) return '';
+    const relOk = !!s?.data?.rel && modOn('rel', meta), profOk = !!s?.data?.profile && modOn('profile', meta);
+    if (!(relOk || profOk) || !(set.sync === 'tag' || set.sync === 'tagPlus') || !mindActive(s.turn, set)) return '';
     const inScene = sceneTester(set, s);
-    const who = s.data.rel.user.filter(x => !x.out && inScene(x.name)).slice(0, 4).map(x => x.name);
+    const rel = relOk ? s.data.rel.user : [], who = rel.filter(x => !x.out && inScene(x.name)).map(x => x.name);
+    if (profOk) for (const p of s.data.profile.list) if (p.role !== 'user' && !rel.some(r => r.name === p.name) && inScene(p.name)) who.push(p.name); // v2.9: 프로필에만 있는 인물도
+    who.splice(4);
     if (!who.length) return '';
     return `This turn, inside <meatball>, add one line per character in the scene (${who.join(', ')}) with the key mind (not msg — msg is a real message): mind: Name | ${MIND_FMT[set.mindMode]}. It is hidden from {{user}} — do not reveal it in the story.`;
 }

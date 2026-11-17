@@ -228,6 +228,7 @@ export const REL_ACTIONS = {
         if (k === 'mode' && MIND_NAMES[v]) { set.mindMode = v; if (v !== 'off' && Array.isArray(set.sideMini) && !set.sideMini.includes('mind')) set.sideMini = [...set.sideMini, 'mind']; } // 켜면 사이드 미니창에도
         if (k === 'freq' && MIND_FREQ[v]) set.mindFreq = v;
         if (k === 'sus') set.peekCost = set.peekCost !== true; // 👁 볼 때마다 눈치 (이야기 장치 「엿보기엔 대가가 있다」와 같은 설정)
+        if (el?._ss?.ui) el._ss.ui.mindOpen = true; // 설정을 누른 뒤에도 막대가 열려 있게
         saveSettings(); app.refreshNow?.(); app.rerenderPanels?.(true); app.renderPanel(el);
     },
     relopt: (el, arg) => {
