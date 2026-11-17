@@ -4,7 +4,7 @@ import {
     fmtNum, clone, splitBar, parseNum, dateStr, dayIndex, eventsOn, nextTime, nextTimeWraps, CLOCK_STYLES, timeWords, upcoming, userName, TITLE, VERSION, EMPTY, CONTACT_MODES, stamp, weekday, viewTr, GLOBAL_OFF,
 } from './core.js';
 import { tagKeysFor, buildInjection } from './engine.js';
-import { autoOf, fillTodo, fillChosen, fillWorld, goMods } from './autostart.js';
+import { autoOf, fillTodo, fillChosen, fillWorld, fillCalls, goMods } from './autostart.js';
 import { addAdjust, commit, dueLetters, priceMul, peopleAt, hopsBetween, whereNow, seasonOf, SEASON_NAME, purgeTrash, undoAt, skillRoll, SOCIAL_RE } from './engine.js';
 import { trString } from './translate.js';
 import { walletView, fxText } from './money.js';
@@ -570,7 +570,7 @@ function pkSub(id, s, st) { // 켠 칸 밑의 딸린 옵션
     if (det.length) parts.push(`<details class="ss-pk-more"><summary>세부 설정 ${det.length}개 <small>모든 채팅에 걸려요 · 확장 설정의 같은 칸과 한 값</small></summary><div class="ss-pk-det">${det.join('')}</div></details>`);
     return parts.join('');
 }
-function pickerHTML(s, meta, st) {
+function pickerHTML(s, meta, st, ui = {}) {
     const live = mgCur() === 'mods'; // 다른 탭을 보고 있을 땐 세지 않는다 (숨겨진 채 그려지므로)
     const cost = live ? pkCosts(meta) : {}, total = live ? pkTotal() : null;
     const isOn = (m) => meta.mods?.[m.id] !== false && !(GLOBAL_OFF[m.id] && st[GLOBAL_OFF[m.id]] === false);
@@ -592,7 +592,7 @@ function pickerHTML(s, meta, st) {
     const auto = autoOf(meta), todo = live ? fillTodo(s, meta) : [], needWorld = !!auto && !auto.world;
     const fillBox = auto || todo.length ? `<div class="ss-pk-fill">
             <div><b>${auto ? '🧆 지금은 틀만 있어요' : '🧆 비어 있는 칸이 있어요'}</b><small>${auto ? '아래에서 쓸 칸을 고른 뒤 누르면, 켜 둔 칸만 이 이야기(카드 · 로어북 · 지금까지의 채팅)에 맞게 채워요.' : '켜 둔 칸 중 비어 있는 칸을 이 이야기에 맞게 채워요.'}${todo.length ? ` 채울 칸: ${todo.map(id => MOD[id].name).join(' · ')}` : ''}</small></div>
-            <div class="ss-row-btns">${needWorld ? `<button class="ss-btn sm" data-act="fillworld" title="카드 · 로어북 · 이야기를 읽고 세계 핵심(제목 · 장르 · 줄거리 · 규칙)만 맞춰요">${ai1} 세계관만 맞추기</button>` : ''}<button class="ss-btn pri" data-act="fillchosen">${ai1} 고른 대로 채우기</button></div></div>` : '';
+            <div class="ss-row-btns">${needWorld ? `<button class="ss-btn sm" data-act="fillworld" title="카드 · 로어북 · 이야기를 읽고 세계 핵심(제목 · 장르 · 줄거리 · 규칙)만 맞춰요">${ai1} 세계관만 맞추기</button>` : ''}${ui.fillAsk ? `<span class="ss-pk-ask">AI ${fillCalls(todo, needWorld)}회 · 틀의 내용은 새로 채운 것으로 바뀌어요</span><button class="ss-btn pri" data-act="fillgo"><i class="fa-solid fa-check"></i> 진행</button><button class="ss-btn ghost" data-act="fillno">취소</button>` : `<button class="ss-btn pri" data-act="fillchosen">${ai1} 고른 대로 채우기</button>`}</div></div>` : '';
     const common = PK_COMMON.map(([id, name, keys]) => { const list = live ? pkOpts(keys) : []; if (!list.length) return ''; const o = mgIsOpen(`cm-${id}`); return `<div class="ss-modgrp ss-fold ${o ? 'open' : ''}"><button type="button" class="ss-mg-h" data-act="mgfold" data-arg="cm-${id}" aria-expanded="${o}"><b>${name}</b><small>세부 설정 ${list.length}개 · 모든 채팅에 걸려요</small><i class="fa-solid fa-chevron-down ss-mg-chev"></i></button><div class="ss-mg-b"${o ? '' : ' hidden'}><div class="ss-pk-det">${list.join('')}</div></div></div>`; }).join('');
     return `${sec('🎛 기능 고르기 <small>이 채팅만 · 끈 칸은 내용은 남고 AI에게만 안 보내요</small>', `${fillBox}
             <div class="ss-pk-sum"><span><i class="fa-solid fa-gauge-high"></i> 켠 칸 <b>${onIds.length}</b>개</span>${total !== null ? `<span>지금 매 턴 AI에게 가는 글 <b>약 ${fmtNum(total)} 토큰</b></span>` : ''}</div>
@@ -628,7 +628,7 @@ export function manageHTML(s, ui = {}, extra = '') {
         ${modOn('profile') ? sec('AI가 인물을 무엇으로 알게 할까요 <small>프로필 모드</small>', `${seg([['minimal', '카드 · 로어북대로 (최소)'], ['detailed', '이 상태창 프로필대로 (상세)']], s.data.profile?.mode ?? 'minimal', 'pmode', 'class="ss-seg wrap"')}<p class="ss-hint">${(s.data.profile?.mode ?? 'minimal') === 'detailed' ? '<b>상세</b>: 프로필 탭에 적힌 외모 · 성격 · 말투까지 AI에게 보내요. 캐릭터 카드가 부실하거나 프로필을 직접 다듬었을 때 좋아요 (토큰이 더 들어요).' : '<b>최소</b>: 인물 설명은 캐릭터 카드 · 로어북에 맡기고, 프로필은 한 줄 소개만 보내요. 카드가 이미 자세하면 이쪽이 가볍고 겹치지 않아요.'}</p>`) : ''}`)}
         ${mg('mods', 'fa-puzzle-piece', '쓸 기능', `${nOn}칸 켬`, `
         ${lifeBox()}
-        ${pickerHTML(s, meta, st)}`)}
+        ${pickerHTML(s, meta, st, ui)}`)}
         ${mg('save', 'fa-floppy-disk', '저장 · 되돌리기', `세이브 ${meta.saves?.length ?? 0} · ${meta.lastBackup ? `백업 ${new Date(meta.lastBackup).toLocaleDateString('ko-KR')}` : '백업 없음'}`, `
         ${sec('되돌리기', `<div class="ss-row-btns"><button class="ss-btn" data-act="undo" ${meta.adjust?.length ? '' : 'disabled'}><i class="fa-solid fa-rotate-left"></i> 마지막 편집 되돌리기</button><button class="ss-btn ghost" data-act="undoall" ${meta.adjust?.length ? '' : 'disabled'} title="편집 기록을 한 번에 전부 지워요 — 직접 한 편집이 모두 없던 일이 돼요"><i class="fa-solid fa-trash-can"></i> 편집 기록 싹 지우기</button>${clearedAdj && clearedAdj.key === chatKey() ? `<button class="ss-btn pri" data-act="undoallback"><i class="fa-solid fa-clock-rotate-left"></i> 방금 지운 기록 되살리기 (${clearedAdj.list.length}개)</button>` : ''}</div><p class="ss-hint">${meta.adjust?.length ? `마지막: ${esc(meta.adjust.at(-1).label || '(이름 없는 편집)')}` : '되돌릴 편집이 없어요.'} · 상태창에서 직접 한 편집·구매·연락만 되돌려요 (AI 답의 변화는 ✏️ 칩으로).</p><details class="ss-more ss-undolist" ${ui?.undoOpen ? 'open' : ''}><summary>편집 기록 — 골라서 지우기 <small>(최근 ${Math.min(40, (meta.adjust ?? []).length)}개 · 버튼 하나 누른 것까지 모두)</small></summary>${(meta.adjust ?? []).slice(-40).reverse().map(a => `<div class="ss-undo-row"><span>${esc(short(adjName(a), 60))}${a.silent || !a.label ? ' <small class="ss-dim">(조용한 기록)</small>' : ''}</span><small class="ss-dim">${a.at}번 뒤</small><button class="ss-btn sm ghost" data-act="undoat" data-arg="${a.t}" title="이 기록 하나만 지우기 — 그 편집이 없던 일이 돼요"><i class="fa-solid fa-trash-can"></i></button></div>`).join('') || '<p class="ss-hint">지울 기록이 없어요.</p>'}<p class="ss-hint">지우면 그 편집이 <b>없던 일</b>이 돼요 (상태 · 알림 · AI에게 가는 「방금 한 일」 줄까지 · 찌꺼기 없이). 그 뒤의 기록은 그대로 다시 계산돼요. AI 답에서 바뀐 건 여기 없어요 — 그 답 밑 칩의 ✏️로 고쳐요. 칸 하나를 통째로 비우려면 그 탭 위의 🧹.</p></details>`)}
         ${sec('<i class="fa-solid fa-floppy-disk"></i> 세이브', slotsHTML(meta))}
@@ -790,8 +790,15 @@ export const VIEW_ACTIONS = {
         await saveMeta(); app.refreshNow(); app.rerenderPanels?.(true); app.renderPanel(el);
         toastr.info(arg === 'rec' ? '추천 6칸만 켰어요 (부가 기능은 공략만). 끈 칸의 내용은 그대로 남아 있어요.' : arg === 'all' ? '칸을 전부 켰어요. 부가 기능은 그대로 뒀어요 — 아래 「부가 기능」에서 골라 켜요.' : '칸과 부가 기능을 전부 껐어요. 내용은 그대로 남아 있어요.', TITLE);
     },
-    gomods: () => goMods(), // 🧆 홈의 「틀만 있어요」 → 관리 › 쓸 기능
-    fillchosen: async (el, arg, btn) => { await fillChosen(btn); app.renderPanel(el); },
+    gomods: (el) => { // 🧆 홈의 「틀만 있어요」 → 관리 › 쓸 기능 (이 창 안에서 탭만 바꾼다 — 예전엔 창을 하나 더 띄워서 창이 두 겹이 됐다)
+        settings().mgTab = 'mods'; saveSettings();
+        const st = el._ss; if (!st) return goMods();
+        st.tab = 'manage'; st.group = null; st.mode = 'view'; st.ui = {}; app.renderPanel(el);
+    },
+    // 🧆 고른 대로 채우기 — 확인은 창을 따로 띄우지 않고 이 상자 안에서 (한 번 누르면 「AI N회 — 진행 · 취소」로 바뀐다). 창을 닫아도 채우기는 끝까지 가고 알림으로 알려 준다
+    fillchosen: (el) => { el._ss.ui.fillAsk = true; app.renderPanel(el); },
+    fillno: (el) => { el._ss.ui.fillAsk = false; app.renderPanel(el); },
+    fillgo: async (el, arg, btn) => { el._ss.ui.fillAsk = false; await fillChosen(btn, { asked: true }); if (el.isConnected) app.renderPanel(el); },
     fillworld: async (el, arg, btn) => { if (await fillWorld(btn)) toastr.success('세계관을 이 이야기에 맞췄어요.', TITLE); app.refreshNow(); app.renderPanel(el); },
     pkset: async (el, arg) => { // 🎛 묶음: 추천 6칸 + 그 묶음의 칸 (부가 기능 스위치는 그대로)
         const set = PK_SETS.find(x => x[0] === arg); if (!set) return;

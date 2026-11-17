@@ -50,6 +50,9 @@ export function fillGroups(ids, GEN_GROUPS) {
     const gs = GEN_GROUPS.map(g => g.filter(id => ids.includes(id))).filter(g => g.length), left = ids.filter(id => !GEN_GROUPS.flat().includes(id));
     return left.length ? [...gs, left] : gs;
 }
+// 「고른 대로 채우기」가 AI를 몇 번 부르나 (화면에 미리 보여 준다 · 묶음 수 + 세계관) — ai.js를 부르지 않게 묶음을 여기 적어 둔다 (ai.js GEN_GROUPS와 같아야 한다)
+const GROUPS0 = [['profile', 'rel', 'contact'], ['wallet', 'shop', 'home'], ['map', 'calendar', 'quest'], ['stats', 'dice', 'custom'], ['ach', 'memo', 'fate'], ['news', 'gossip', 'board', 'sns']];
+export const fillCalls = (todo, needWorld) => fillGroups(todo, GROUPS0).length + (needWorld ? 1 : 0);
 // 🧆 세계관 맞추기 (AI 1회): 카드 · 로어북 · 지금까지의 이야기를 읽고 미트볼용 세계 핵심만 다시 쓴다
 export async function fillWorld(btn) {
     const s = app.current?.state; if (!s) return false;
@@ -64,14 +67,15 @@ export async function fillWorld(btn) {
     } catch (e) { ssErr(LOG, 'fill world', e); toastr.error(`세계관을 맞추지 못했어요: ${esc(e.message)}`, TITLE); return false; } finally { busyBtn(btn, false); }
 }
 // 🧆 고른 대로 채우기: 켜 둔 칸 중 틀뿐이거나 비어 있는 칸을 AI로 채운다 (세계관을 아직 안 맞췄으면 그것부터)
-export async function fillChosen(btn) {
+export async function fillChosen(btn, { asked = false } = {}) {
     const s0 = app.current?.state; if (!s0) return;
     const meta0 = getMeta(), todo = fillTodo(s0, meta0), a = autoOf(meta0);
     const needWorld = !!a && !a.world;
     if (!todo.length && !needWorld) { toastr.info('채울 칸이 없어요 — 켜 둔 칸은 모두 채워져 있어요.', TITLE); return; }
     const { genModule, genGroup, GEN_GROUPS } = await import('./ai.js');
     const groups = fillGroups(todo, GEN_GROUPS), calls = groups.length + (needWorld ? 1 : 0);
-    if (!(await askConfirm(`켜 둔 칸을 이 이야기에 맞게 채울까요?<br><b>${needWorld ? '세계관 + ' : ''}${todo.map(id => esc(MOD[id].name)).join(' · ') || '세계관만'}</b><br><small>AI ${calls}회 · 틀에 적혀 있던 내용은 새로 채운 것으로 바뀌어요 (직접 고친 칸은 먼저 꺼 두면 안 건드려요).</small>`))) return;
+    if (!asked && !(await askConfirm(`켜 둔 칸을 이 이야기에 맞게 채울까요?<br><b>${needWorld ? '세계관 + ' : ''}${todo.map(id => esc(MOD[id].name)).join(' · ') || '세계관만'}</b><br><small>AI ${calls}회 · 틀에 적혀 있던 내용은 새로 채운 것으로 바뀌어요 (직접 고친 칸은 먼저 꺼 두면 안 건드려요).</small>`))) return;
+    toastr.info(`채우는 중이에요 (AI ${calls}회) — 창을 닫아도 끝까지 가요. 다 되면 알려 드릴게요.`, TITLE, { timeOut: 6000 });
     if (needWorld && !(await fillWorld(btn))) return;
     let k = 0, fail = 0; const total = groups.length;
     busyBtn(btn, true, `0/${total}`);

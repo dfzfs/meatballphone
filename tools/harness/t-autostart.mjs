@@ -15,6 +15,7 @@ try {
     await Q(() => { window.__SS_TEST__.api.app.openSheet('home'); }); await sleep(400);
     check(await Q(() => !!document.querySelector('dialog .ss-panel .ss-callout[data-act="gomods"]')), '홈 맨 위에 「지금은 틀만 있어요」 안내');
     await Q(() => document.querySelector('dialog .ss-panel .ss-callout[data-act="gomods"]').click()); await sleep(600);
+    check(await Q(() => document.querySelectorAll('dialog[open] .ss-panel').length) === 1, '창을 하나 더 띄우지 않고 그 창 안에서 탭만 바뀜');
     check(await Q(async () => (await import('/ext/src/core.js')).settings().mgTab === 'mods' && !!document.querySelector('dialog .ss-mg[data-mg="mods"]:not([hidden]) .ss-pk-fill [data-act="fillchosen"]')), '누르면 관리 › 쓸 기능 — 「고른 대로 채우기」 단추');
     check(await Q(() => { const S = document.querySelector('dialog .ss-mg[data-mg="mods"]'); return !!S.querySelector('[data-act="fillworld"]') && [...S.querySelectorAll('.ss-pk .ss-mod em')].filter(e => e.textContent === '틀만').length === 6; }), '틀뿐인 칸에 「틀만」 표시 · 「세계관만 맞추기」 단추');
     // 세부 설정: 칸 밑 · 서랍과 한 값
@@ -26,14 +27,15 @@ try {
     check(await Q(async () => (await import('/ext/src/core.js')).settings().injectMode) === 'ultra', '고르는 칸(규칙 주입)도 반영');
     // 고른 대로 채우기: 퀘스트를 켰으니 세계관 + 7칸
     const before = await calls();
-    await Q(() => { document.querySelector('dialog .ss-pk-fill [data-act="fillchosen"]').click(); }); await sleep(500);
-    await Q(() => { document.querySelector('dialog.popup[open] .popup-button-ok, dialog[open]:last-of-type .popup-button-ok')?.click(); });
+    await Q(() => { document.querySelector('dialog .ss-pk-fill [data-act="fillchosen"]').click(); }); await sleep(400);
+    check(await Q(() => /AI \d+회/.test(document.querySelector('dialog .ss-pk-fill .ss-pk-ask')?.textContent ?? '') && !!document.querySelector('dialog .ss-pk-fill [data-act="fillno"]')) && (await calls()) === before, '한 번 누르면 상자 안에서 「AI N회 — 진행 · 취소」 (확인 창을 따로 안 띄움 · 아직 AI 0회)');
+    await Q(() => { document.querySelector('dialog .ss-pk-fill [data-act="fillgo"]').click(); });
     await page.waitForFunction(async () => { const core = await import('/ext/src/core.js'); return !core.getMeta()?.auto; }, null, { timeout: 60000 }).catch(() => {});
     await sleep(500);
     const m1 = await meta(), used = (await calls()) - before;
     check(!m1.auto, '다 채우면 「틀만」 표시가 사라짐', JSON.stringify(m1.auto));
     check(used >= 2, `AI는 「고른 대로 채우기」를 눌렀을 때만 (${used}회)`);
-    check(await Q(() => !document.querySelector('dialog .ss-panel .ss-pk-fill')), '채울 게 없으면 채우기 상자도 사라짐');
+    check(await Q(() => document.querySelectorAll('dialog[open] .ss-panel').length === 1 && !document.querySelector('dialog[open] .ss-panel .ss-pk-fill')), '채우는 동안 창이 그대로 열려 있음 (한 겹) · 채울 게 없으면 채우기 상자가 사라짐');
     // 끄기: 설정 autoStart = false 면 새 채팅에 안 만든다
     await Q(async () => { const core = await import('/ext/src/core.js'); core.settings().autoStart = false; core.saveSettings(); document.querySelectorAll('dialog[open]').forEach(d => d.close()); await window.__changeChat('c2'); }); await sleep(1200);
     check(!(await meta()).base, '「바로 만들기」를 끄면 새 채팅에 안 만듦');

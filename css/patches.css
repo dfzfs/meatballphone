@@ -703,3 +703,4 @@ dialog.popup.ss-dlg.ss-full .popup-content { max-height: none; }
 .ss-elev .earth { fill: color-mix(in srgb, #8a6f4d 22%, var(--ss-surface)); }
 .ss-elev .lv text { text-anchor: end; font-size: 3.6px; font-weight: 700; fill: var(--ss-dim); }
 .ss-elev .lv.on text { fill: var(--ss-hi); }
+.ss-pk-fill .ss-pk-ask { font-size: .86em; color: var(--ss-dim); align-self: center; }
