@@ -23,9 +23,10 @@
     const POPUP_TYPE = { TEXT: 1, CONFIRM: 2, INPUT: 3, DISPLAY: 4 };
     const POPUP_RESULT = { AFFIRMATIVE: 1, NEGATIVE: 0, CANCELLED: null };
     class Popup {
-        constructor(content, type, inputValue = '', opts = {}) { this.content = content; this.type = type; this.inputValue = inputValue; this.opts = opts; }
+        // 실리태번처럼 창(dlg)은 만들 때 바로 생긴다 — 미트볼이 show() 전에 p.dlg에 클래스 · 뒤로 가기 추적을 건다
+        constructor(content, type, inputValue = '', opts = {}) { this.content = content; this.type = type; this.inputValue = inputValue; this.opts = opts; this.dlg = document.createElement('dialog'); }
         show() {
-            const dlg = document.createElement('dialog');
+            const dlg = this.dlg;
             dlg.className = 'popup';
             const body = document.createElement('div'); body.className = 'popup-content';
             if (typeof this.content === 'string') body.innerHTML = this.content; else if (this.content) body.appendChild(this.content);
