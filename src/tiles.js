@@ -1,6 +1,6 @@
 // 미니 위젯 · 타일 판 (HUD · 사이드 미니창 공통) — views.js에서 떼어 냄
-import { app, settings, saveSettings, getMeta, modOn, DIFFS, diffOf, esc, short, clamp, norm, fmtNum, dateShort, mascotUrl, eventsOn, TITLE, relAxes, DEFAULT_STAGES, viewTr, isSimple, SIMPLE_TILES, mindCovered } from './core.js';
-import { unreadCount, inTransit, stageIndex, isFresh } from './engine.js';
+import { app, settings, saveSettings, getMeta, modOn, findBy, DIFFS, diffOf, esc, short, clamp, norm, fmtNum, dateShort, mascotUrl, eventsOn, TITLE, relAxes, DEFAULT_STAGES, viewTr, isSimple, SIMPLE_TILES, mindCovered } from './core.js';
+import { unreadCount, inTransit, stageIndex, isFresh, addAdjust, peopleAt } from './engine.js';
 import { trString } from './translate.js';
 import { gauge, chip, avatar, emojiOf } from './kit.js';
 import { songLink } from './notify.js';
@@ -105,6 +105,75 @@ export function layoutOf(attr, keys, fixed = null, plain = false) {
     return out;
 }
 const saveLayout = (attr, lay) => { const set = settings(), g = gridOf(attr); set.tileLayout = { ...(set.tileLayout ?? {}), [g.key]: lay }; saveSettings(); };
+// ───── 🗺 이동 (v2.9): 가는 길 · 도착 시간 · 요금 — 지도 탭과 위치 칸(미니 이동판)이 같이 쓴다 (AI 0회 · 토큰 0) ─────
+// 지금 위치에서 그곳까지 이어진 길 (장소 이름 줄 · 길이 없으면 null) — ops.js의 hopsBetween과 같은 기준 (이어진 곳을 양쪽으로 · 30칸까지)
+export function pathTo(mp, to) {
+    const from = mp?.here; if (!mp || !from || !to) return null;
+    const adj = new Map(), nameOf = new Map();
+    const link = (x, y) => { (adj.get(x) ?? adj.set(x, new Set()).get(x)).add(y); };
+    for (const p of mp.places) { nameOf.set(norm(p.name), p.name); for (const l of p.links) { link(norm(p.name), norm(l)); link(norm(l), norm(p.name)); } }
+    const a = norm(from), b = norm(to);
+    if (a === b) return [from];
+    const prev = new Map([[a, null]]); let q = [a], d = 0;
+    while (q.length && d < 30) {
+        d++; const nq = [];
+        for (const x of q) for (const y of adj.get(x) ?? []) {
+            if (prev.has(y)) continue;
+            prev.set(y, x);
+            if (y === b) { const out = []; for (let c = b; c != null; c = prev.get(c)) out.unshift(nameOf.get(c) ?? (c === a ? from : to)); return out; }
+            nq.push(y);
+        }
+        q = nq;
+    }
+    return null;
+}
+// 그곳까지: 몇 칸 · 언제 도착 · 요금 · 돈이 모자란가 (ops.js의 _travel과 같은 셈 — 길이 없으면 한 칸으로 친다)
+export function tripInfo(s, name) {
+    const mp = s.data.map, p = findBy(mp?.places, name);
+    const path = pathTo(mp, p?.name ?? name), hops = path ? path.length - 1 : 1;
+    const cal = modOn('calendar') ? s.data.calendar : null;
+    let arrive = '';
+    if (cal?.times?.length && hops > 0) {
+        let i = Math.max(0, cal.times.indexOf(cal.time)), days = 0;
+        for (let k = 0; k < hops; k++) { i++; if (i >= cal.times.length) { i = 0; days++; } }
+        arrive = `${days === 1 ? '다음 날 ' : days ? `${days}일 뒤 ` : ''}${cal.times[i]}`;
+    }
+    const w = s.data.wallet, fare = p?.fare || 0;
+    return { path, hops, arrive, fare, cur: w?.currency ?? '', poor: !!(fare && w && w.cash < fare) };
+}
+// 지금 위치와 바로 이어진 곳 (어느 쪽에 적혀 있든)
+export function nearPlaces(mp) {
+    const h = norm(mp?.here); if (!h) return [];
+    const here = mp.places.find(p => norm(p.name) === h);
+    return mp.places.filter(p => norm(p.name) !== h && (p.links.some(l => norm(l) === h) || !!here?.links.some(l => norm(l) === norm(p.name))));
+}
+const placeLabel = (p) => (p.known ? (viewTr() ? trString(p.name) : p.name) : '???');
+// 위치 칸을 펼쳤을 때: 지금 있는 곳 · 여기 있는 사람 · 이어진 곳(누르면 바로 이동)
+function locDet(s, A) {
+    const mp = s.data.map, meta = getMeta(), h = norm(mp.here);
+    const here = mp.places.find(p => norm(p.name) === h);
+    const ppl = modOn('profile', meta) && s.data.profile ? peopleAt(s, mp.here).now : [];
+    const near = nearPlaces(mp), MAX = 8;
+    const go = near.slice(0, MAX).map(p => {
+        const t = tripInfo(s, p.name);
+        const sub = [t.arrive, t.fare ? `${fmtNum(t.fare)} ${t.cur}` : ''].filter(Boolean).join(' · ');
+        return `<span class="ss-loc-go${t.poor ? ' poor' : ''}" role="button" tabindex="0" ${A(`mv:${esc(p.name)}`)} title="${esc(`${placeLabel(p)}(으)로 이동${t.arrive ? ` · 도착 ${t.arrive}` : ''}${t.fare ? ` · 요금 ${fmtNum(t.fare)} ${t.cur}` : ''}${t.poor ? ' — 요금이 모자라요' : ''}`)}"><span class="e">${esc(p.known ? placeIcon(p) : '❔')}</span><b>${esc(short(placeLabel(p), 14))}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</span>`;
+    }).join('');
+    return `<div class="ss-mini-line"><i class="fa-solid fa-location-dot"></i><span><b>${esc(viewTr() ? trString(mp.here) : mp.here)}</b>${here?.desc ? ` — ${esc(short(here.desc, 60))}` : ''}</span></div>
+        ${ppl.length ? `<div class="ss-loc-row"><small>지금 여기</small><span>${ppl.slice(0, 6).map(n => esc(n)).join(' · ')}${ppl.length > 6 ? ` 외 ${ppl.length - 6}명` : ''}</span></div>` : ''}
+        <div class="ss-loc-row"><small>갈 곳</small>${go ? `<span class="ss-loc-gos">${go}${near.length > MAX ? `<small>+${near.length - MAX}곳</small>` : ''}</span>` : '<span class="ss-dim">이어진 곳이 없어요 — 지도에서 골라요</span>'}</div>`;
+}
+let moving = false;
+async function moveTo(name, rerender) {
+    const s = app.current?.state, p = s?.data.map?.places.find(x => norm(x.name) === norm(name));
+    if (!p || moving || norm(p.name) === norm(s.data.map.here)) return;
+    const t = tripInfo(s, p.name);
+    if (t.poor) { toastr.warning('요금이 모자라요.', TITLE); return; }
+    moving = true;
+    try { await addAdjust({ ops: [['_travel', p.name]], label: `${p.name}(으)로 이동했다${t.fare ? ` (−${fmtNum(t.fare)} ${t.cur})` : ''}` }); }
+    catch (e) { console.warn('[meatball] travel', e); toastr.error('이동하지 못했어요. 다시 눌러 주세요.', TITLE); }
+    finally { moving = false; rerender?.(); }
+}
 export function tileBoard(s, attr, extra = '', lead = '') {
     const set = settings(), meta = getMeta(), d = s.data, fr = app.current?.fresh, simple = isSimple(meta), edit = !simple && !!app.tileEdit, open = attr === 'hud' ? app.hudExp : app.sideExp;
     const g = gridOf(attr);
@@ -138,7 +207,7 @@ export function tileBoard(s, attr, extra = '', lead = '') {
             ${app.colMenu ? `<div class="ss-t-menu col">${Object.entries(BOARD_BG).map(([k, x]) => `<span class="ss-bgp${(set.boardPreset ?? 'daisy') === k ? ' on' : ''}" role="button" ${A(`bgp:${k}`)} title="${esc(x.name)}" style="background-color:${x.bg ?? 'var(--ss-bg)'};${x.img ? `background-image:${x.img.replace(/"/g, '&quot;')};background-size:${x.size}` : ''}"></span>`).join('')}${col('board:bg', bs.bg, '#f6f1e7', '판 배경')}${col('board:bd', bs.bd, '#e3d9c6', '판 테두리')}<label class="ss-t up" title="판 배경 그림 (작게 줄여서 저장)"><input type="file" accept="image/*" data-bgup="${attr}" hidden>${set.tileDeco?.[`${attr}Bg`] ? '배경 그림 바꾸기' : '배경 그림'}</label>${set.tileDeco?.[`${attr}Bg`] ? `<span class="ss-t" role="button" ${A('bgdel')}>배경 그림 빼기</span>` : ''}${sel ? `<b>${esc(TILES[sel]?.name ?? sel)}</b>${col(`tile:${sel}:bg`, ts.bg, '#efe7d8', '칸 배경')}${col(`tile:${sel}:bd`, ts.bd, '#e3d9c6', '칸 테두리')}${col(`tile:${sel}:ink`, ts.ink, '#2a2218', '글자')}<span class="ss-t" role="button" ${A(`colreset:${sel}`)}>이 칸 처음대로</span>` : '<small>칸을 누르면 그 칸의 색도 바꿔요</small>'}<span class="ss-t" role="button" ${A('colreset:board')}>판 처음대로</span></div>` : ''}
             </div>`;
     }
-    const det = !edit && open && live.includes(open) && MINI[open] ? `<div class="ss-t-det">${MINI[open].html(s)}<span role="button" class="go" ${A(`go:${MINI[open].tab}`)} title="${simple ? '자세히 보고 직접 고쳐요' : '이 칸의 탭을 열어요'}">${simple ? '자세히 · 고치기 ›' : '이 탭 열기 ›'}</span></div>` : '';
+    const det = !edit && open && live.includes(open) && MINI[open] ? `<div class="ss-t-det${open === 'loc' ? ' loc' : ''}">${open === 'loc' ? locDet(s, A) : MINI[open].html(s)}<span role="button" class="go" ${A(`go:${MINI[open].tab}`)} title="${simple ? '자세히 보고 직접 고쳐요' : '이 칸의 탭을 열어요'}">${simple ? '자세히 · 고치기 ›' : '이 탭 열기 ›'}</span></div>` : '';
     const bgImg = set.tileDeco?.[`${attr}Bg`];
     return `<div class="ss-tb ${attr}${edit ? ' editing' : ''}" data-tb="${attr}"><div class="ss-tb-row"><div class="ss-tg" style="--cols:${g.cols}">${ghost}${tiles}${stk}</div>${extra || lead ? `<div class="ss-tb-acts">${lead}${extra}</div>` : ''}</div>${tools}${det}</div>`;
 }
@@ -331,6 +400,7 @@ export function bindTileDrag(root, after) {
 // 타일 판 단추 (HUD · 사이드 공통) → 처리했으면 true
 export function tileAct(a, rerender, attr = 'side') {
     const set = settings();
+    if (a.startsWith('mv:')) { moveTo(a.slice(3), rerender); return true; } // 🗺 위치 칸 › 이어진 곳을 눌러 바로 이동
     if (a === 'edit') { app.tileEdit = !app.tileEdit; app.tileAdd = app.stkMenu = app.colMenu = false; app.tileSel = app.stkSel = null; app.hudExp = app.sideExp = null; rerender(); return true; }
     if (a === 'addmenu') { app.tileAdd = !app.tileAdd; app.stkMenu = app.colMenu = false; rerender(); return true; }
     if (a === 'stkmenu') { app.stkMenu = !app.stkMenu; app.tileAdd = app.colMenu = false; rerender(); return true; }
