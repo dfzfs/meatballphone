@@ -24,7 +24,7 @@ export function rand(n) { // 1..n
 }
 export const randInt = (a, b) => (b <= a ? a : a + rand(b - a + 1) - 1);
 export function parseNum(raw) {
-    const t = String(raw ?? '').trim().replace(/[−–—]/g, '-').replace(/[,\s]/g, '');
+    const t = String(raw ?? '').trim().replace(/[−–—]/g, '-').replace(/[,\s]/g, '').replace(/^([=+-]?)[$€£¥₩￦]/, '$1'); // 「+$20」 「-₩500」
     const m = t.match(/^([=+-]?)(\d+(?:\.\d+)?)(억|만|천|k|m)?/i);
     if (!m) return null;
     let v = parseFloat(m[2]);

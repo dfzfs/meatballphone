@@ -1,6 +1,6 @@
 // 규칙 · 변화량 처리 — <meatball> 한 줄(키=값)을 상태에 반영 (engine.js에서 떼어 냄)
 import { setAlias } from './core.js';
-import { letterMode, ctx, settings, EMPTY, DIFFS, GLOBAL_OFF, clamp, num, norm, findBy, parseNum, splitBar, signed, fmtNum, short, dayIndex, addDays, dateStr, eventsOn, parseDate, nowTick, wholeTick, useDays, stamp, viewTr, diffOf, loveIndex, touchContact, THREAD_MAX, dateShort, DEFAULT_STAGES, relAxes, romanceStart, ssNote, parseClock, toClockStyle, fmtClock } from './core.js';
+import { letterMode, ctx, settings, EMPTY, DIFFS, GLOBAL_OFF, clamp, num, norm, findBy, parseNum, splitBar, signed, fmtNum, short, dayIndex, addDays, dateStr, eventsOn, parseDate, nowTick, wholeTick, useDays, stamp, viewTr, diffOf, loveIndex, touchContact, THREAD_MAX, dateShort, DEFAULT_STAGES, relAxes, romanceStart, ssNote, parseClock, toClockStyle, fmtClock, nextTime, nextTimeWraps } from './core.js';
 import { enStr } from './skeleton_en.js';
 
 export const KEYMAP = {
@@ -49,7 +49,7 @@ function ensure(s, mod) {
     if (!s.data[mod]) s.data[mod] = EMPTY[mod]();
     return s.data[mod];
 }
-const QSTATUS = { open: 'open', new: 'open', '새': 'open', '등록': 'open', '공고': 'open', active: 'active', '수락': 'active', '진행': 'active', '진행중': 'active', '시작': 'active', done: 'done', '완료': 'done', '성공': 'done', '달성': 'done', failed: 'failed', fail: 'failed', '실패': 'failed', '포기': 'failed' };
+const QSTATUS = { open: 'open', new: 'open', '새': 'open', '등록': 'open', '공고': 'open', active: 'active', accept: 'active', accepted: 'active', 'in progress': 'active', '수락': 'active', '진행': 'active', '진행중': 'active', '시작': 'active', done: 'done', complete: 'done', completed: 'done', finished: 'done', '완료': 'done', '성공': 'done', '달성': 'done', failed: 'failed', fail: 'failed', '실패': 'failed', '포기': 'failed' };
 const QNAME = { open: '새 의뢰', active: '진행', done: '완료', failed: '실패' };
 
 // ───── 운명 · 돈: 효과 계산 ─────
@@ -116,8 +116,11 @@ function aliasBar(bars, name) {
 }
 export function applyLines(s, text, info) {
     for (const raw0 of String(text ?? '').split(/\s*[;\n]\s*/)) {
-        const line0 = raw0.trim();
+        let line0 = raw0.trim();
         if (!line0) continue;
+        // 마크다운으로 적은 줄 (검수): 「- cash: +10」 「* item: …」 「1. loc: …」 「**cash**: +10」 「**cash:** +10」 → 키 줄로 (예전엔 ⚠ 못 읽은 줄)
+        { const md = line0.replace(/^(?:[-*•·]\s+|\d{1,2}[.)]\s+)/, '').replace(/^(\*\*|__)([^*_:：]{1,24}?)\1\s*([:：])/, '$2$3').replace(/^(\*\*|__)([^*_:：]{1,24}?)([:：])\1/, '$2$3');
+          if (md !== line0 && /^[^:：]{1,24}[:：]\s*\S/.test(md)) line0 = md; }
         const kv = line0.match(/^([^:：]{1,24})\s*[:：]\s*(.+)$/);
         if (kv) { applyOp(s, kv[1].trim(), kv[2], info); continue; }
         // 키 없이 「Stamina +30, Stress -5」 → 하나씩 (v2.7.19 · 아이템 · 일거리 효과)
@@ -484,6 +487,7 @@ function opLife(s, val, info, L, T, key, rawKey) {
     return;
 }
 function opMind(s, val, info, L, T, key, rawKey) { // 💭 속마음 · 이모티콘 · 카모지 (이름 | 내용) — 마지막 것만 둠
+    val = nameSplit(s, val);
     const [nm, ...rest] = splitBar(val); const text = rest.join(' | ').trim();
     // v2.9: 관계에 없는 인물도 프로필에 있으면 거기에 적는다 (나 자신은 빼고)
     let r = s.data.rel ? findBy(s.data.rel.user, nm) : null;
@@ -565,7 +569,7 @@ function opCurse(s, val, info, L, T, key, rawKey) {
     return;
 }
 function opXEffect(s, val, info, L, T, key, rawKey) { applyLines(s, val, info); return; }
-function opWeather(s, val, info, L, T, key, rawKey) { const cal = ensure(s, 'calendar'); if (val !== cal.weather) { cal.weather = val; L(`날씨: ${val}`); } return; }
+function opWeather(s, val, info, L, T, key, rawKey) { const cal = ensure(s, 'calendar'); val = String(val).split(/\s*(?:→|->|=>|⇒|➡)\s*/).pop().trim(); if (!val) return; if (val !== cal.weather) { cal.weather = val; L(`날씨: ${val}`); } return; }
 // 🕐 시간 적는 법 바꾸기 (달력 탭) — '' 시간대 · '24' · '12' · 'both'. 지금 적힌 시간도 그 모양으로 옮긴다
 function opXClock(s, val, info, L) {
     const cal = s.data.calendar; if (!cal) return;
@@ -708,12 +712,34 @@ function opXRepay(s, val, info, L, T, key, rawKey) {
 }
 // 「스태미나 +10 | 난로 옆에서 쉼」처럼 숫자 뒤에 「| 이유」를 붙이면 줄이 통째로 버려졌다 (칩 점검 「일부 줄을 못 읽었어요」)
 // stat · attr에는 「|」 뒤에 들어갈 칸이 없으니, 「|」 앞이 숫자로 끝나면 뒤는 이유로 보고 뗀다 (쉼표가 든 이유도 여러 개로 쪼개지지 않게 먼저)
+// 숫자 모양 다듬기 (검수): 「120 → 90」 = 90으로 · 「= 50」(= 뒤 띄어쓰기)도 정하기
+//   예전엔 「체력 = 50」이 +50으로, 「힘 = 12」는 「힘 =」이라는 능력치가 생겼다
+const ARROW_RE = /^(.*?)[=+\-−]?\s*[\d.,]+\s*(?:→|->|=>|⇒|➡)\s*([\d.,]+)\s*$/;
+// 이름을 감싼 따옴표 · 괄호 떼기 (검수): 「loc: 「항구」」 「item: +"마법 반지"」 — 예전엔 따옴표째 새 장소 · 물건이 생겼다
+const unquote = (t) => { const x = String(t ?? '').trim(); const m = x.match(/^(["“”'‘’「『《〈【\[])(.+)(["“”'‘’」』》〉】\]])$/); return m ? m[2].trim() : x; };
+// 「Leon: 안녕」 「Leon - 안녕」처럼 「|」 대신 쌍점 · 줄표로 이름과 글을 나눈 줄 (검수) — 아는 사람 이름일 때만 「이름 | 글」로 (예전엔 조용히 버려졌다)
+function nameSplit(s, val, any = false) { // any: 모르는 이름도 나눈다 (msg는 늘 「이름 | 글」이라)
+    if (String(val).includes('|')) return val;
+    const m = String(val).match(/^([^:：\-—–]{1,24}?)\s*(?:[:：]|\s[-—–]\s)\s*(.+)$/); if (!m) return val;
+    const nm = m[1].trim(), known = [s.data.contact?.contacts, s.data.rel?.user, s.data.profile?.list].some(list => findBy(list ?? [], nm));
+    return known || any ? `${nm} | ${m[2].trim()}` : val;
+}
+function numShape(val) {
+    let v = String(val).replace(/([=+\-−])\s+(?=\d)/g, '$1'); // 「= 50」 「+ 5」
+    const a = v.match(ARROW_RE); if (a) v = `${a[1]}=${a[2]}`;
+    return v;
+}
 const dropPipeNote = (val) => { const i = val.indexOf('|'); return i > 0 && /\d\s*$/.test(val.slice(0, i)) ? val.slice(0, i).trim() : val; };
 function opStat(s, val, info, L, T, key, rawKey) {
     val = dropPipeNote(val);
     // v2.7.19: 「Stamina +30, Stress -5」처럼 쉼표로 여러 개 — 예전엔 통째로 「Stamina +30, Stress」 게이지 -5로 읽어서 Stamina가 깎였음
     if (MULTI_RE.test(val)) { for (const part of val.split(MULTI_RE)) if (part.trim()) applyPart(s, 'stat', part.trim(), info); return; }
+    val = numShape(val);
+    // 「체력 85/100」 = 85로 (부호가 있으면 「+5/100」 = +5 · 뒤는 최대라 안 씀) · 「체력 -12%」 = 최대의 12% (예전엔 둘 다 그냥 넘어갔다)
+    const frac = val.match(/^(.+?)\s+([=+\-−]?)([\d.,]+)\s*\/\s*[\d.,]+\s*$/); if (frac) val = `${frac[1]} ${frac[2] || '='}${frac[3]}`;
+    const pct = val.match(/^(.+?)\s+([+\-−])\s*([\d.]+)\s*%$/);
     const st = ensure(s, 'stats');
+    if (pct) { const b0 = findBy(st.bars, pct[1]) ?? aliasBar(st.bars, pct[1]); if (!b0) return miss(info, key, val); val = `${b0.name} ${pct[2]}${Math.max(1, Math.round(b0.max * parseFloat(pct[3]) / 100))}`; }
     // 「hp: −5」처럼 키가 곧 게이지 이름이고 값이 숫자뿐이면 그 이름으로 읽는다 (예전엔 「−」라는 게이지가 생겼음)
     if (/^[=+\-−]?\s*[\d.,]+$/.test(val) && !['stat', '수치', '게이지', 'gauge'].includes(norm(rawKey))) val = `${String(rawKey).trim()} ${val}`;
     const m = val.match(/^(.+?)\s*(max|최대)?\s*([=+\-−][\d.,]+|\d[\d.,]*)\s*$/i);
@@ -734,6 +760,7 @@ function opStat(s, val, info, L, T, key, rawKey) {
 function opAttr(s, val, info, L, T, key, rawKey) {
     val = dropPipeNote(val);
     if (MULTI_RE.test(val)) { for (const part of val.split(MULTI_RE)) if (part.trim()) applyPart(s, 'attr', part.trim(), info); return; }
+    val = numShape(val);
     const st = ensure(s, 'stats');
     const m = val.match(/^(.+?)\s*([=+\-−][\d.]+|\d[\d.]*)\s*$/);
     if (!m) return miss(info, key, val);
@@ -760,7 +787,8 @@ function opCond(s, val, info, L, T, key, rawKey) {
 }
 function opCash(s, val, info, L, T, key, rawKey) {
     const w = ensure(s, 'wallet');
-    const p = bareFix(parseNum(val), w.cash, info); if (!p) return;
+    val = numShape(val);
+    const p = bareFix(parseNum(val), w.cash, info); if (!p) return /\d/.test(val) ? miss(info, rawKey, val) : undefined; // 숫자는 있는데 못 읽음 = ⚠
     if (!Number.isFinite(p.v) || Math.abs(p.v) > 1e15) return miss(info, rawKey, val); // 터무니없이 큰 숫자(AI 실수)는 반영하지 않고 ⚠ 못 읽은 줄로 (v2.8)
     const b = w.cash; w.cash = Math.max(0, p.mode === 'add' ? w.cash + p.v : p.v);
     if (w.cash > b) T.earn += w.cash - b; else T.spend += b - w.cash;
@@ -776,7 +804,7 @@ function opItem(s, val, info, L, T, key, rawKey) {
         const m = head.match(/^([+\-−]?)\s*(.+?)(?:(?:\s+[x×*]?|\s*[x×*])\s*(\d{1,3})\s*(?:개|장|병|권|통)?)?$/);
         if (!m) continue;
         const rm = m[1] === '-' || m[1] === '−';
-        const name = m[2].trim(); const q = Math.max(1, parseInt(m[3] || '1', 10));
+        const name = unquote(m[2]); const q = Math.max(1, parseInt(m[3] || '1', 10));
         if (!name) continue;
         const ex = findBy(w.items, name);
         if (rm) {
@@ -854,6 +882,7 @@ function opRoom(s, val, info, L, T, key, rawKey) {
 function opLoc(s, val, info, L, T, key, rawKey) {
     const mp = ensure(s, 'map');
     let [nm, desc] = splitBar(val), inner = '';
+    nm = unquote(nm);
     if (!nm) return;
     // 🏢 「loc: 학교 > 옥상」 — 건물 안에서 층 · 방을 옮김 (이름이 글자 그대로 「학교 > 옥상」인 장소가 따로 없을 때만 나눈다 · 예전엔 뒤쪽을 그냥 버렸다)
     if (!mp.places.some(q => norm(q.name) === norm(nm))) { const m = nm.match(/^(.+?)\s*[>›»]\s*(.+)$/); if (m) { nm = m[1].trim(); inner = m[2].trim().slice(0, 40); } }
@@ -877,7 +906,7 @@ function opLoc(s, val, info, L, T, key, rawKey) {
 }
 function opPlace(s, val, info, L, T, key, rawKey) {
     const mp = ensure(s, 'map');
-    const [nm, desc, links] = splitBar(val);
+    const [nm0, desc, links] = splitBar(val), nm = unquote(nm0);
     if (!nm) return;
     let p = findBy(mp.places, nm);
     const lk = String(links ?? '').split(/\s*[,，]\s*/).filter(Boolean);
@@ -963,7 +992,7 @@ function opDate(s, val, info, L, T, key, rawKey) {
     const before = dayIndex(cal);
     if (p) addDays(cal, p.v);
     else {
-        const dt = parseDate(cal, val); if (!dt) return;
+        const dt = parseDate(cal, val); if (!dt) return miss(info, rawKey, val); // 「date: 14」처럼 못 읽으면 ⚠ (예전엔 조용히 넘어감)
         cal.y = dt.y ?? cal.y;
         if (dt.y === null && (dt.m < cal.m || (dt.m === cal.m && dt.d < cal.d))) cal.y++;
         cal.m = clamp(dt.m, 1, cal.months.length); cal.d = clamp(dt.d, 1, cal.months[cal.m - 1].days);
@@ -980,6 +1009,9 @@ function opDate(s, val, info, L, T, key, rawKey) {
 function opTime(s, val, info, L, T, key, rawKey) {
     const cal = ensure(s, 'calendar');
     // 🕐 시각으로 적는 달력: AI가 「오후 2시 반」 「14:30」 「저녁」 어느 쪽으로 적어도 고른 모양 하나로 맞춘다 (시간대 달력은 예전 그대로 — 적힌 글 그대로)
+    // 「time: +1」 「period: +2」 = 시간대(시각 달력이면 시간)를 그만큼 넘김 · 자정을 넘기면 날짜도 (검수: 예전엔 시간 칸에 「+1」이 글자 그대로 적혔다)
+    const adv = String(val).match(/^\+\s*(\d{1,2})\s*(?:시간|칸|slots?|hours?|h)?$/i);
+    if (adv) { let n = Math.min(24, parseInt(adv[1], 10)), wraps = 0; const t0 = cal.time; while (n-- > 0) { if (nextTimeWraps(cal)) wraps++; cal.time = nextTime(cal, viewTr()); } if (wraps) applyOp(s, 'date', `+${wraps}`, info); if (cal.time !== t0) L(`🕐 ${cal.time}`); return; }
     if (cal.clock) val = toClockStyle(val, cal.clock, cal.times, viewTr());
     if (val !== cal.time) { cal.time = val; L(`🕐 ${val}`); }
     return;
@@ -1018,9 +1050,10 @@ function opMemo(s, val, info, L, T, key, rawKey) {
     return;
 }
 function opMsg(s, val, info, L, T, key, rawKey) {
+    val = nameSplit(s, val, true);
     const [nm, ...rest] = splitBar(val);
     const text = rest.join(' | ');
-    if (!nm || !text) return;
+    if (!nm || !text) return miss(info, rawKey, val); // 「msg: Leon」처럼 글이 없으면 ⚠
     // v2.7.21: 속마음(이모티콘 · 카모지)을 msg 키로 적은 답 — 글자 없이 그림 · 기호뿐이고 관계에 있는 사람이면 속마음으로 (연락 대화방에 「(￣ヘ￣)」가 쌓이지 않게)
     const mm = settings().mindMode;
     if ((mm === 'emoji' || mm === 'kaomoji') && !/[A-Za-z0-9가-힣]/.test(text) && findBy(s.data.rel?.user ?? [], nm)) { applyOp(s, 'mind', val, info); return; }
@@ -1073,7 +1106,10 @@ function opXRoll(s, val, info, L, T, key, rawKey) {
 }
 function opQuest(s, val, info, L, T, key, rawKey) {
     const qs = ensure(s, 'quest');
-    const [title, st0, desc] = splitBar(val);
+    // 검수: 「잃어버린 반지 완료」처럼 「|」 없이 상태를 붙인 줄 (있는 퀘스트일 때만) · 「+새 의뢰」의 + 떼기 · 「「제목」」 괄호 떼기
+    if (!val.includes('|')) { const m = val.match(/^(.+?)\s*[-—:：]?\s*(완료|성공|실패|수락|포기|done|completed?|failed|accepted)$/i); if (m && findBy(qs.list, unquote(m[1]), 'title')) val = `${unquote(m[1])} | ${m[2]}`; }
+    let [title, st0, desc] = splitBar(val);
+    title = unquote(String(title ?? '').replace(/^\+\s*/, ''));
     if (!title) return;
     const st = QSTATUS[norm(st0)] ?? (st0 ? null : 'open');
     let q = findBy(qs.list, title, 'title');

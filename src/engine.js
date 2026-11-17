@@ -64,7 +64,8 @@ export function extractOps(text) {
         const mine = [];
         for (const line of m[2].split(/\r?\n/)) {
             // 가벼운 모델이 붙이는 꾸밈(**굵게**, `코드`, 번호)을 벗겨 낸다
-            const clean = line.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, '').replace(/\*\*|__|`/g, '');
+            // 굵게를 먼저 벗기고 나서 글머리표(「- 」 「* 」 「1. 」) — 예전엔 「**cash**」의 첫 *를 글머리표로 떼서 「*cash」라는 모르는 키가 됐다 (검수)
+            const clean = line.replace(/\*\*|__|`/g, '').replace(/^\s*(?:[-*•·]\s*(?=[^\d\s])|\d{1,2}[.)]\s+)/, '');
             const lm = clean.match(/^\s*([^:：\n]{1,24}?)\s*[:：]\s*(.+?)\s*$/);
             if (lm && !/^```/.test(lm[1])) { const k = `${norm(lm[1])}\u0000${norm(lm[2])}`; if (!seen.has(k)) { ops.push([lm[1].trim(), lm[2]]); mine.push(k); } }
         }
