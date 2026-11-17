@@ -17,7 +17,7 @@ import { presetHTML } from './extra.js';
 import { detectPlay, instructModule } from './ai.js';
 import { PLAY_MODES, normPlay, playOf, REC_MODS, isSimple } from './core.js';
 import { mindBar, mindPeek, mindBlock, MIND_ACTIONS } from './mind.js'; // 💭 속마음: 프로필 탭에서 인물마다 프로필 밑에 (v2.9)
-import { needLine, lifeSection, gearSection, LIFE_ACTIONS, needPanel, inNeedPanel, goodIcon, isMeatShop } from './life.js';
+import { needLine, LIFE_ACTIONS, inNeedPanel, goodIcon, isMeatShop, needsTab, wearTab, shopExtra, walletExtra, lifeBox, needsTabOn, wearTabOn, dollNow } from './life.js';
 import { DEVICES as STORY_DEVICES, KEY as STORY_KEY } from './story.js';
 import { busyBtn, confirmPopup, mascot } from './kit.js';
 import { freshDot, usedPrice, placeIcon, miniWidgets } from './tiles.js';
@@ -56,18 +56,20 @@ export const VIEW = {
     profile: (s, d, ui) => `${mindBar(s, ui)}<div class="ss-hint">프로필 모드: <b>${d.mode === 'detailed' ? '상세' : '최소'}</b> — ${d.mode === 'detailed' ? '이 시트가 AI에게 전달돼요' : '카드·로어북을 쓰고, 새 NPC만 전달돼요'}</div>
         <div class="ss-stack">${d.list.map((p, i) => `<details class="ss-prof" ${ui.open === i || d.list.length === 1 ? 'open' : ''}>
             <summary><button class="ss-ava-btn" data-act="relemoji" data-arg="${esc(p.name)}" title="얼굴 이모지 바꾸기">${avatar(p.name)}</button><div class="ss-ct-b"><b>${freshDot('profile', 'list', p.name)}${esc(p.name)} <span class="ss-role ${p.role}">${roleName[p.role]}</span></b><small>${esc(short(p.summary, 60))}</small>${mindPeek(s, p.name)}</div><i class="fa-solid fa-chevron-down ss-chev"></i></summary>
-            <div class="ss-prof-b"><p class="ss-pre">${esc(p.summary)}</p>
+            <div class="ss-prof-b">${p.role === 'user' && wearTabOn() ? `<div class="ss-prof-doll">${dollNow(s, 'big')}</div>` : ''}<p class="ss-pre">${esc(p.summary)}</p>
             ${p.home || p.sched ? `<p class="ss-dim ss-where">${p.home ? `🏠 ${esc(p.home)}` : ''}${p.sched ? ` · 🕐 ${esc(p.sched)}` : ''}${s.data.calendar && whereNow(p, s.data.calendar) ? ` · <b>지금: ${esc(whereNow(p, s.data.calendar))}</b>` : ''}</p>` : ''}
             ${p.fields.length ? `<dl class="ss-dl">${p.fields.map(f => `<dt>${esc(f.k)}</dt><dd class="ss-pre">${esc(f.v)}</dd>`).join('')}</dl>` : ''}
             ${modOn('contact') && p.role !== 'user' ? `<button class="ss-btn sm ghost" data-act="talk" data-arg="${esc(p.name)}"><i class="fa-solid fa-envelope"></i> 연락하기</button>` : ''}${mindBlock(s, p.name)}</div>
         </details>`).join('') || emptyBox('인물이 없어요', 'fa-id-card')}</div>`,
-    stats: (s, d, ui) => `${needPanel(s, d, ui)}${sec('게이지', `<div class="ss-stack">${d.bars.filter(b => !inNeedPanel(b, d)).map(b => `<div class="ss-card ss-gcard">${gauge(b, false, freshDot('stats', 'bars', b.name))}
-            <div class="ss-gbtns"><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|-10">−10</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|-1">−1</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|+1">+1</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|+10">+10</button>${b.desc ? `<small class="ss-dim">${esc(b.desc)}</small>` : ''}</div>${needLine(b, d)}</div>`).join('') || (d.bars.length ? '<p class="ss-hint">게이지는 모두 위의 생활 판에 있어요. 타일을 누르면 채우는 법이 나와요.</p>' : emptyBox('게이지가 없어요'))}</div>`)}
+    stats: (s, d, ui) => `${sec('게이지', `<div class="ss-stack">${d.bars.filter(b => !inNeedPanel(b, d)).map(b => `<div class="ss-card ss-gcard">${gauge(b, false, freshDot('stats', 'bars', b.name))}
+            <div class="ss-gbtns"><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|-10">−10</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|-1">−1</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|+1">+1</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|+10">+10</button>${b.desc ? `<small class="ss-dim">${esc(b.desc)}</small>` : ''}</div>${needLine(b, d)}</div>`).join('') || (d.bars.length ? '<p class="ss-hint">욕구 게이지는 「욕구」 탭에 있어요.</p>' : emptyBox('게이지가 없어요'))}</div>`)}
         ${sec('능력치', `<div class="ss-attrs">${d.attrs.map(a => `<div class="ss-attr" title="${esc(a.desc)}"><span>${esc(a.name)}${freshDot('stats', 'attrs', a.name)}</span><b>${a.val >= 0 ? '+' : ''}${a.val}</b></div>`).join('') || emptyBox('능력치가 없어요')}</div>`)}
         ${sec('상태 이상 · 버프', `<div class="ss-chips">${d.conds.map(c => `<span class="ss-chip warn" title="${esc(c.desc)}">${freshDot('stats', 'conds', c.name)}${esc(c.name)}<button class="ss-x" data-act="uncond" data-arg="${esc(c.name)}">×</button></span>`).join('') || '<span class="ss-hint">없음</span>'}</div>`)}
-        ${lifeSection(s, d)}`,
+        ${needsTabOn() ? '' : '<div class="ss-row-btns ss-life-x"><button class="ss-btn sm ghost" data-act="lifetab" data-arg="needs" title="심즈 · 좀보이드처럼 저절로 줄어드는 욕구 게이지 — 다마고치 화면이 있는 탭이 생겨요 (이 채팅만)">🍞 욕구 탭 켜기</button></div>'}`,
+    needs: needsTab,
+    wear: wearTab,
     dice: diceView,
-    wallet: (s, d, ui) => `${walletView(s, d, ui)}${gearSection(s)}`,
+    wallet: (s, d, ui) => `${walletView(s, d, ui)}${walletExtra(s)}${wearTabOn() ? '' : '<div class="ss-row-btns ss-life-x"><button class="ss-btn sm ghost" data-act="lifetab" data-arg="wear" title="도트 인형에 소지품을 입혀요 (이 채팅만)">👕 옷차림 탭 켜기</button></div>'}`,
     fate: fateView,
     shop: (s, d, ui) => {
         const w = s.data.wallet;
@@ -298,9 +300,11 @@ export function sellPrice(s, name) {
 }
 
 // ───── 관리 ─────
+// 🏪 상점 탭 아래에 「미트볼 상점 넣기」 (v2.9)
+{ const shopView = VIEW.shop; VIEW.shop = (s, d, ui) => `${shopView(s, d, ui)}${shopExtra(s)}`; }
 export const GROUPS = [
     { id: 'home', name: '홈', icon: 'fa-house', tabs: ['home', 'music', 'album', 'record'] },
-    { id: 'me', name: '나', icon: 'fa-user', tabs: ['profile', 'stats', 'dice', 'wallet', 'fate', 'ach', 'memo', 'custom'] },
+    { id: 'me', name: '나', icon: 'fa-user', tabs: ['profile', 'needs', 'wear', 'stats', 'dice', 'wallet', 'fate', 'ach', 'memo', 'custom'] },
     { id: 'world', name: '세계', icon: 'fa-earth-asia', tabs: ['map', 'calendar', 'shop', 'base'] },
     { id: 'people', name: '사람', icon: 'fa-user-group', tabs: ['rel', 'contact', 'guest'] }, // guest = 📝 방명록 (파도타기 + 방명록을 켰을 때만 보임 · minihome_ui.js)
     { id: 'feed', name: '소식', icon: 'fa-bullhorn', tabs: ['quest', 'news', 'gossip', 'board', 'sns'] },
@@ -308,8 +312,8 @@ export const GROUPS = [
     { id: 'extra', name: '부가 기능', icon: 'fa-puzzle-piece', tabs: ['extra'] }, // 🧩 관리 옆의 묶음 — 켠 부가 기능의 화면 (칸이 아니라 쓸 기능 목록에는 안 나온다)
 ];
 // 칸(데이터)이 아닌 탭 — 늘 켜져 있고 편집 도구가 없다
-export const PSEUDO = new Set(['home', 'manage', 'album', 'record', 'guide', 'extra', 'guest']);
-const PSEUDO_INFO = { home: { name: '홈', icon: 'fa-house' }, manage: { name: '관리', icon: 'fa-sliders' }, album: { name: '추억 앨범', icon: 'fa-star' }, record: { name: '플레이 기록', icon: 'fa-chart-simple' }, guide: { name: '공략', icon: 'fa-key' }, extra: { name: '부가 기능', icon: 'fa-puzzle-piece' }, guest: { name: '방명록', icon: 'fa-pen-to-square' } };
+export const PSEUDO = new Set(['home', 'manage', 'album', 'record', 'guide', 'extra', 'guest', 'needs', 'wear']); // needs · wear = 🍞 욕구 · 👕 옷차림 (v2.9 · 이 채팅에서 켠 것만 — life.js)
+const PSEUDO_INFO = { home: { name: '홈', icon: 'fa-house' }, manage: { name: '관리', icon: 'fa-sliders' }, album: { name: '추억 앨범', icon: 'fa-star' }, record: { name: '플레이 기록', icon: 'fa-chart-simple' }, guide: { name: '공략', icon: 'fa-key' }, extra: { name: '부가 기능', icon: 'fa-puzzle-piece' }, guest: { name: '방명록', icon: 'fa-pen-to-square' }, needs: { name: '욕구', icon: 'fa-bowl-food' }, wear: { name: '옷차림', icon: 'fa-shirt' } };
 export const TAB_MOD = (tab) => (tab === 'base' ? 'home' : tab === 'home' ? 'core' : tab);
 export const TAB_INFO = (tab) => (PSEUDO_INFO[tab] ?? (tab === 'base' ? MOD.home : MOD[tab]) ?? { name: tab, icon: 'fa-circle' });
 
@@ -395,6 +399,7 @@ export function manageHTML(s, ui = {}, extra = '') {
             <div class="ss-row-btns"><button class="ss-btn sm" data-act="playauto">${ai1} 자동으로 알아보고 맞추기</button></div>`); })()}
         ${modOn('profile') ? sec('AI가 인물을 무엇으로 알게 할까요 <small>프로필 모드</small>', `${seg([['minimal', '카드 · 로어북대로 (최소)'], ['detailed', '이 상태창 프로필대로 (상세)']], s.data.profile?.mode ?? 'minimal', 'pmode', 'class="ss-seg wrap"')}<p class="ss-hint">${(s.data.profile?.mode ?? 'minimal') === 'detailed' ? '<b>상세</b>: 프로필 탭에 적힌 외모 · 성격 · 말투까지 AI에게 보내요. 캐릭터 카드가 부실하거나 프로필을 직접 다듬었을 때 좋아요 (토큰이 더 들어요).' : '<b>최소</b>: 인물 설명은 캐릭터 카드 · 로어북에 맡기고, 프로필은 한 줄 소개만 보내요. 카드가 이미 자세하면 이쪽이 가볍고 겹치지 않아요.'}</p>`) : ''}`)}
         ${mg('mods', 'fa-puzzle-piece', '쓸 기능', `${nOn}칸 켬`, `
+        ${lifeBox()}
         ${sec('쓸 기능 <small>끈 기능은 데이터는 남고 AI에게만 안 보내요</small>', GROUPS.filter(g => g.id !== 'manage').map(g => ({ ...g, tabs: g.tabs.filter(t => !PSEUDO.has(t) && MOD[TAB_MOD(t)]) })).filter(g => g.tabs.length).map(g => { const o = mgIsOpen(`mods-${g.id}`), ms = g.tabs.map(t => MOD[TAB_MOD(t)]), nOn = ms.filter(m => meta.mods?.[m.id] !== false && !(GLOBAL_OFF[m.id] && st[GLOBAL_OFF[m.id]] === false)).length; return `<div class="ss-modgrp ss-fold ${o ? 'open' : ''}"><button type="button" class="ss-mg-h" data-act="mgfold" data-arg="mods-${g.id}" aria-expanded="${o}"><b>${g.name}</b><small>${nOn}/${ms.length} 켬</small><i class="fa-solid fa-chevron-down ss-mg-chev"></i></button><div class="ss-mods"${o ? '' : ' hidden'}>${ms.map(m => { const gOff = GLOBAL_OFF[m.id] && st[GLOBAL_OFF[m.id]] === false; return `<label class="ss-mod ${meta.mods?.[m.id] === false || gOff ? '' : 'on'}" ${gOff ? 'title="확장 설정 › 기능 켜고 끄기에서 모든 채팅에 꺼 둔 칸이에요"' : ''}><input type="checkbox" class="ss-switch" data-chg="mod" data-arg="${m.id}" ${meta.mods?.[m.id] === false || gOff ? '' : 'checked'} ${gOff ? 'disabled' : ''}>
             <i class="fa-solid ${m.icon}"></i><span><b>${m.name}</b><small>${gOff ? '모든 채팅에서 꺼 둠 — 확장 설정 › 기능 켜고 끄기' : m.desc}</small></span>${gOff ? '' : s.data[m.id] ? '' : '<em>비어 있음</em>'}</label>`; }).join('')}</div></div>`; }).join(''), MODSET_BTNS)}
         ${sec('부가 기능 <small>전부 선택 · 모든 채팅에 걸려요 (확장 설정의 같은 칸과 한 값) · 켠 것의 화면은 「부가 기능」 탭에</small>', EXTRA_GROUPS.map(([id, name, flags]) => { const o = mgIsOpen(`ex-${id}`), nOn = flags.filter(f => flagOn(st, f)).length; return `<div class="ss-modgrp ss-fold ${o ? 'open' : ''}"><button type="button" class="ss-mg-h" data-act="mgfold" data-arg="ex-${id}" aria-expanded="${o}"><b>${name}</b><small>${nOn}/${flags.length} 켬</small><i class="fa-solid fa-chevron-down ss-mg-chev"></i></button><div class="ss-mg-b"${o ? '' : ' hidden'}>${flagList(st, flags)}</div></div>`; }).join(''), FLAGSET_BTNS)}`)}

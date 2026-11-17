@@ -8,6 +8,7 @@ import { GEN_MODES, HYBRID_TPL, skeleton, skeletonCore, skeletonHint } from './s
 import { REC_MODS, defaultModOn } from './core.js';
 
 // ───── 처음 만들기 ─────
+const LIFE_STARTS = ['life', 'fusion', 'apoc'], START_IDS = ['simple', 'basic', ...LIFE_STARTS]; // 만들기 창 「어떻게 쓸까요」 (v2.9: 게임 모드)
 export async function openWizard() {
     const c = ctx();
     const chars = chatCharacters();
@@ -19,7 +20,7 @@ export async function openWizard() {
     const curMods = meta?.mods ?? Object.fromEntries(MOD_IDS.map(id => [id, defaultModOn(id)]));
     const W = { base: hasSrc ? 'auto' : 'new', pmode: 'minimal' /* 기본은 늘 최소 (토큰 절약) — 상세는 직접 고를 때만 */, diff: meta?.difficulty ?? settings().difficulty, genre: '', cmode: 'auto', play: meta?.play ? playOf(meta).mode : 'auto', gm: GEN_MODES[settings().genMode] ? settings().genMode : 'hybrid' };
     // 🍙 시작 방식: 이 채팅이 이미 심플이면 심플 · 아니면 지난번에 고른 것 · 처음 만드는 사람은 심플부터 (써 온 사람 = 모양 고르기 창을 봤거나 미니홈피를 켠 사람은 기본)
-    W.start = meta?.simple === true ? 'simple' : meta?.base ? 'basic' : ['simple', 'basic'].includes(settings().startMode) ? settings().startMode : settings().themeAsked === true || settings().hompyFull === true ? 'basic' : 'simple';
+    W.start = meta?.simple === true ? 'simple' : meta?.base ? (LIFE_STARTS.includes(meta.mode) ? meta.mode : 'basic') : START_IDS.includes(settings().startMode) ? settings().startMode : settings().themeAsked === true || settings().hompyFull === true ? 'basic' : 'simple';
     // v2.7.1 상태창 언어: 채팅이 거의 영어면 「영어로 저장 · 화면은 한국어」를 먼저 권한다
     const recentTxt = (ctx().chat ?? []).slice(-12).map(m => String(m?.mes ?? '')).join(' ').replace(/<[^>]+>/g, ' ');
     const latin = (recentTxt.match(/[A-Za-z]/g) ?? []).length, hangul = (recentTxt.match(/[가-힣]/g) ?? []).length;
@@ -40,7 +41,7 @@ export async function openWizard() {
                 <label class="ss-tog"><input type="checkbox" class="ss-switch ss-w-long" checked><span>앞 이야기도 훑어보기 <small>AI 호출 수는 그대로 · 보내는 글만 조금 늘어요</small></span></label>
                 <small class="ss-hint">읽는 것: 요약 확장의 요약 ${sf.summary ? '있음' : '없음'} · 작가 노트 ${sf.note ? '있음' : '없음'} · 앞 이야기 띄엄띄엄 ${sf.lines}줄 · 최근 채팅 ${settings().recentForGen}개. 「기본 틀만」은 AI를 안 써서 이야기를 읽지 못해요. 만든 뒤 숫자가 다르면 그 칸에서 바로 고치면 돼요.</small></div>`; })()}
         <section class="ss-sec"><div class="ss-sec-h"><h4>어떻게 쓸까요</h4></div>
-            <div class="ss-seg wrap stack" data-w="start"><button data-v="simple" class="${W.start === 'simple' ? 'on' : ''}">🍙 심플<small>탭 없이 타일 판 하나 · 날짜 · 위치 · 수치 · 돈 · 관계만 · 팁 · 추천 · 알림 창 없음 — 처음이면 이쪽</small></button><button data-v="basic" class="${W.start === 'basic' ? 'on' : ''}">🍱 기본<small>탭이 있는 상태창 · 연락 · 상점 · 퀘스트 · 꾸미기까지 골라 켜요</small></button></div>
+            <div class="ss-seg wrap stack" data-w="start"><button data-v="simple" class="${W.start === 'simple' ? 'on' : ''}">🍙 심플<small>탭 없이 타일 판 하나 · 날짜 · 위치 · 수치 · 돈 · 관계만 · 팁 · 추천 · 알림 창 없음 — 처음이면 이쪽</small></button><button data-v="basic" class="${W.start === 'basic' ? 'on' : ''}">🍱 롤플<small>탭이 있는 상태창 · 상태만 계산해요 · 연락 · 상점 · 퀘스트 · 꾸미기까지 골라 켜요</small></button><button data-v="life" class="${W.start === 'life' ? 'on' : ''}">🏡 생활<small>심즈 · 스타듀 · 동숲처럼 — 저절로 줄어드는 욕구 · 도트 인형 옷 입히기 · 미트볼 상점 · 생활비</small></button><button data-v="fusion" class="${W.start === 'fusion' ? 'on' : ''}">🌀 융합<small>생활 + 생존 조금 — 수분 · 체온까지 챙겨야 해요</small></button><button data-v="apoc" class="${W.start === 'apoc' ? 'on' : ''}">🧟 아포칼립스<small>좀보이드처럼 — 욕구가 빠르게 줄고, 가게는 비싸고 물건이 적어요</small></button></div>
             <p class="ss-hint">이 채팅만 정해요. 나중에 언제든 넓히거나 줄일 수 있고, 그때 내용은 지워지지 않아요.</p>
             <button class="ss-btn sm ghost ss-wz-more"><i class="fa-solid fa-sliders"></i> <span>자세히 설정</span></button>
         </section>
@@ -119,6 +120,7 @@ export async function openWizard() {
         const boxes = [...el.querySelectorAll('[data-mod]')];
         if (simple) { modsWas ??= Object.fromEntries(boxes.map(i => [i.dataset.mod, i.checked])); for (const i of boxes) { i.checked = REC_MODS.includes(i.dataset.mod); i.closest('.ss-mod').classList.toggle('on', i.checked); } if (W.set) { W.set = ''; el.querySelectorAll('[data-set]').forEach(x => x.classList.remove('pri')); el.querySelector('.ss-set-note').classList.add('ss-hide'); } }
         else if (modsWas) { for (const i of boxes) { i.checked = !!modsWas[i.dataset.mod]; i.closest('.ss-mod').classList.toggle('on', i.checked); } modsWas = null; }
+        if (LIFE_STARTS.includes(W.start)) for (const i of boxes) if (['stats', 'wallet', 'shop', 'calendar', 'profile'].includes(i.dataset.mod) && !i.checked) { i.checked = true; i.closest('.ss-mod').classList.add('on'); } // 🏡 생활 모드에 꼭 있어야 하는 칸
         cost();
     };
     syncStart();
@@ -222,6 +224,7 @@ export async function openWizard() {
             applied = true;
             const simple = W.start === 'simple';
             try { settings().startMode = W.start; saveSettings(); await (await import('./simple.js')).startSimple(simple); } catch (e2) { ssWarn(LOG, 'simple start', e2); }
+            if (LIFE_STARTS.includes(W.start)) { try { await (await import('./life.js')).applyMode(W.start); } catch (e2) { ssWarn(LOG, 'life mode', e2); } } // 🏡 🌀 🧟 욕구 · 옷차림 탭 · 게이지 · 가게를 한 번에 (AI 0회)
             toastr.success(simple ? '상태창을 만들었어요! 타일을 누르면 자세히 보여요.' : '상태창을 만들었어요!', TITLE);
             if (simple) { el.closest('dialog')?.querySelector('.popup-button-ok')?.click(); app.rerenderPanels?.(true); return; } // 🍙 모양 고르기 창도 · 상태창 창도 띄우지 않는다 — 타일 판이 바로 보인다
             if (settings().themeAsked !== true) setTimeout(() => import('./themeask.js').then(m => m.askTheme('made')).catch(() => {}), 900); // 🎨 처음 만들었을 때 한 번: 모양 고르기

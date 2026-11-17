@@ -4,10 +4,11 @@
 //   ③ 생활비 틀: 월세 · 관리비 · 통신비 · 구독료를 재산의 「정기 수입 · 지출」에 넣는다
 //   ④ 👕 옷차림 · 장비 화면: addons.js(장비 착용)의 단추 — 재산 탭 아래. 효과 글의 「체온 -30%」는 그 욕구가 30% 덜 줄게 한다
 // 값은 이 채팅의 물가(재산 › 물가 · 상점 가격의 아래쪽 4분의 1)를 한 단위로 삼아 맞춘다.
-import { app, ctx, settings, saveSettings, getMeta, modOn, esc, fmtNum, norm, clone, findBy, EMPTY, TITLE, LOG, ssWarn, isSimple } from './core.js';
+import { app, ctx, settings, saveSettings, getMeta, saveMeta, stamp, modOn, esc, fmtNum, norm, clone, findBy, EMPTY, TITLE, LOG, ssWarn, isSimple } from './core.js';
 import { commit, addAdjust } from './engine.js';
 import { parseStages, stageOf } from './ops.js';
 import { kindOf, RISING, svg, needIcon, goodOf, clamp01, lvOf } from './needicons.js';
+import { dollSVG, slotKind, guessShape, guessColor, SHAPES, SHAPE_NAMES, HAIRS, HAIR_NAMES, SKINS, HAIR_COLORS, COLORS } from './doll.js';
 export { kindOf, needIcon } from './needicons.js';
 import { sec, choosePopup } from './kit.js';
 // addons.js는 켠 사람만 불러오는 파일이라(index.js loadAddons) 여기서도 쓸 때 불러온다 — 그 전에는 「켜기」 단추만 보인다
@@ -44,8 +45,9 @@ export const NEED_SETS = [
 export const SPEEDS = [[0.5, '느긋'], [1, '보통'], [1.5, '빠듯'], [2, '혹독']];
 
 // 추천 세트를 지금 수치에 얹는다 — 같은 뜻의 게이지가 이미 있으면 그 게이지에 규칙만 붙이고(지금 값은 그대로), 없으면 새로 만든다
-export function withSet(stats, id) {
-    const set = NEED_SETS.find(x => x.id === id); if (!set) return null;
+export function withSet(stats, id) { const set = NEED_SETS.find(x => x.id === id); return set ? withBars(stats, set.bars) : null; }
+export function withBars(stats, kinds) {
+    const set = { bars: kinds };
     const nd = clone(stats ?? EMPTY.stats());
     const hpName = () => nd.bars.find(b => kindOf(b.name) === 'hp')?.name ?? '';
     for (const k of set.bars) {
@@ -93,9 +95,9 @@ const GOODS = [
 const WEARS = [['warmth', ['두꺼운 외투', 'Heavy Coat'], ['입고 있으면 체온이 덜 떨어져요', 'Worn: warmth drops slower'], -40, 6], ['energy', ['편한 운동화', 'Comfy Sneakers'], ['신고 있으면 덜 지쳐요', 'Worn: tire slower'], -15, 5], ['hygiene', ['방수 우비', 'Rain Poncho'], ['입고 있으면 덜 더러워져요', 'Worn: stay clean longer'], -20, 3]];
 export const MEAT_SHOP = () => T('미트볼 상점', 'Meatball Mart');
 export const isMeatShop = (x) => ['미트볼 상점', 'Meatball Mart'].some(n => norm(n) === norm(x?.name));
-export function meatShop(s) {
+export function meatShop(s, opt = {}) {
     const bars = s.data.stats?.bars ?? [], u = priceUnit(s), items = [], seen = new Set();
-    const add = (name, desc, effect, mul) => { if (seen.has(name)) return; seen.add(name); items.push({ name, price: nice(u * mul), desc, effect, kind: 'item', stock: -1 }); };
+    const add = (name, desc, effect, mul) => { if (seen.has(name)) return; seen.add(name); items.push({ name, price: nice(u * mul * (opt.mul ?? 1)), desc, effect, kind: 'item', stock: opt.stock ?? -1 }); };
     for (const b of bars) {
         const k = kindOf(b.name);
         for (const [kind, nm, ds, amt, mul] of GOODS) if (kind === k) add(T(...nm), T(...ds), `${b.name} ${amt > 0 ? '+' : '−'}${Math.abs(amt)}`, mul);
@@ -103,7 +105,7 @@ export function meatShop(s) {
     }
     return { name: MEAT_SHOP(), desc: T('기본 품목 · 물약은 다 있어요. 어디서든 들를 수 있어요.', 'Every basic and potion in stock. Reachable from anywhere.'), place: '', items };
 }
-export function withMeatShop(s) { const nd = clone(s.data.shop ?? EMPTY.shop()); nd.shops = [meatShop(s), ...nd.shops.filter(x => !isMeatShop(x))]; return nd; }
+export function withMeatShop(s, opt = {}) { const nd = clone(s.data.shop ?? EMPTY.shop()); nd.shops = [meatShop(s, opt), ...nd.shops.filter(x => !isMeatShop(x))]; return nd; }
 
 // 생활비 틀: [이름, 얼마마다, 값(단위 배수)]
 const BILLS = [[['월세', 'Rent'], 'month', 60], [['관리비 · 공과금', 'Utilities'], 'month', 14], [['통신비', 'Phone Bill'], 'month', 6], [['구독료', 'Subscriptions'], 'week', 2]];
@@ -130,12 +132,9 @@ export function lifeSection(s, d) {
         <div class="ss-life-sets">${NEED_SETS.map(x => `<button class="ss-btn" data-act="lifeset" data-arg="${x.id}" title="${esc(x.bars.map(k => T(BAR[k].ko, BAR[k].en)).join(' · '))}">${x.icon} ${esc(T(...x.name))}<small>${esc(x.bars.map(k => T(BAR[k].ko, BAR[k].en)).join(' · '))}</small></button>`).join('')}</div>
         ${any ? `<div class="ss-f wide"><span>줄어드는 속도</span><div class="ss-seg wrap">${SPEEDS.map(([v, n]) => `<button class="${sp === v ? 'on' : ''}" data-act="lifespeed" data-arg="${v}">${n} ×${v}</button>`).join('')}</div></div>` : ''}
         <div class="ss-row-btns">
-            <button class="ss-btn" data-act="lifeshop" ${shopOn && !simple ? '' : 'disabled'} title="지금 있는 게이지를 채워 주는 기본 품목 · 물약이 늘 있는 가게를 상점 칸에 넣어요"><i class="fa-solid fa-store"></i> ${hasShop ? '미트볼 상점 품목 다시 맞추기' : '미트볼 상점 넣기'}</button>
-            <button class="ss-btn" data-act="lifebills" ${walletOn ? '' : 'disabled'} title="월세 · 관리비 · 통신비 · 구독료를 정기 지출에 넣어요 (값은 재산 탭 편집에서 고쳐요)"><i class="fa-solid fa-file-invoice-dollar"></i> 생활비 틀 넣기</button>
             ${any ? `<button class="ss-btn ghost" data-act="lifefx" title="단계가 바뀔 때 딱지가 튀어나오고, 욕구가 바닥이면 화면 가장자리가 물들어요 (모든 채팅)"><i class="fa-solid fa-wand-sparkles"></i> 화면 연출 ${settings().lifeFx !== false ? '켬' : '끔'}</button>` : ''}
             ${any ? '<button class="ss-btn ghost" data-act="lifeoff" title="게이지는 그대로 두고, 저절로 줄기 · 단계 · 바닥 규칙만 떼요"><i class="fa-solid fa-ban"></i> 저절로 줄기 끄기</button>' : ''}
         </div>
-        ${shopOn && !simple ? '' : `<p class="ss-hint">미트볼 상점은 ${simple ? '기본 모드에서' : '상점 칸을 켜면 (관리 › 쓸 기능)'} 쓸 수 있어요.</p>`}
         <p class="ss-hint">게이지마다 줄어드는 양 · 단계 · 바닥 규칙은 편집(✏️)에서 고칠 수 있어요.</p>`);
 }
 
@@ -145,7 +144,7 @@ export function gearSection(s) {
     if (settings().gearOn !== true) return sec('👕 옷차림 · 장비', `<p class="ss-hint">소지품을 칸마다 하나씩 입거나 들어요. 효과 글의 「힘 +2」는 주사위에 더해지고, 「체온 -30%」는 그 욕구가 30% 덜 줄어요. AI에게는 「지금 입은 것」 한 줄이 가요.</p><div class="ss-row-btns"><button class="ss-btn" data-act="gearon"><i class="fa-solid fa-shirt"></i> 옷차림 · 장비 켜기</button></div>`);
     if (!AD) { loadAD().then(() => app.rerenderPanels?.(true)).catch(e => ssWarn(LOG, 'gear load', e)); return sec('👕 옷차림 · 장비', '<p class="ss-hint">불러오는 중…</p>'); }
     const eq = AD.equipped(s), by = Object.fromEntries(eq.map(e => [e.slot, e]));
-    return sec(`👕 옷차림 · 장비 <small>${eq.length}/${AD.gearSlots().length}</small>`, `${dollHTML(AD.gearSlots(), by)}
+    return sec(`👕 옷차림 · 장비 <small>${eq.length}/${AD.gearSlots().length}</small>`, `${dollHTML(AD.gearSlots(), by, `<div class="ss-doll-stage">${dollNow(s, 'big')}</div>`)}
         <p class="ss-hint">효과는 그 물건의 「효과」 글에서 읽어요 (재산 편집에서 고쳐요): 「힘 +2」 = 주사위 보정 · 「체온 -30%」 = 그 욕구가 30% 덜 줄어듦. 물건이 소지품에서 없어지면 저절로 벗겨져요.</p>
         <div class="ss-row-btns"><button class="ss-btn sm ghost" data-act="gearoff">옷차림 · 장비 끄기</button></div>`);
 }
@@ -161,8 +160,8 @@ export const LIFE_ACTIONS = {
     lifeoff: async (el, arg, btn, s) => { await commit('stats', withoutNeeds(stOf(s)), '🍞 저절로 줄기 끔'); },
     lifeshop: async (el, arg, btn, s) => {
         if (!modOn('shop') || isSimple()) return;
-        const nd = withMeatShop(s);
-        if (!nd.shops[0].items.length) { toastr.info('채울 게이지가 아직 없어요. 위에서 추천 세트를 먼저 넣어 보세요.', TITLE); return; }
+        const nd = withMeatShop(s, MODES[getMeta()?.mode]?.shop ?? {});
+        if (!nd.shops[0].items.length) { toastr.info('채울 게이지가 아직 없어요. 욕구 탭에서 추천 세트를 먼저 넣어 보세요.', TITLE); return; }
         await commit('shop', nd, `🏪 ${MEAT_SHOP()} (${nd.shops[0].items.length}개 품목)`);
         toastr.success(`${MEAT_SHOP()}을(를) 상점 칸에 넣었어요 — 품목 ${nd.shops[0].items.length}개.`, TITLE);
     },
@@ -195,7 +194,7 @@ const MOUTH = ['M8.5 16.500c1-2 6-2 7 0', 'M9 16c1-1 5-1 6 0', 'M9 15.500h6', 'M
 const MOOD = [['한계예요', 'At the limit'], ['힘들어요', 'Struggling'], ['그럭저럭', 'Getting by'], ['괜찮아요', 'Doing fine'], ['아주 좋아요', 'Feeling great']];
 const face = (lv) => svg(`<circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01" stroke-width="2.6"/><path d="${MOUTH[lv]}"/>`, 'ss-ic ss-face');
 const hasRules = (d) => d.bars.some(b => b.decay || b.stages || b.zero);
-export const inNeedPanel = (b, d) => hasRules(d) && !!(kindOf(b.name) || b.decay || b.stages || b.zero);
+export const inNeedPanel = (b, d) => needsTabOn() && hasRules(d) && !!(kindOf(b.name) || b.decay || b.stages || b.zero); // 욕구 탭을 켰을 때만 수치 탭에서 빠진다
 const reEsc = (t) => String(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // 이 물건의 효과가 이 게이지를 좋은 쪽으로 움직이나
 function helps(b, effect) {
@@ -210,8 +209,7 @@ export function goodIcon(it) {
 export function needPanel(s, d, ui = {}) {
     if (!hasRules(d)) return '';
     const bars = d.bars.filter(b => inNeedPanel(b, d)); if (!bars.length) return '';
-    const needs = bars.filter(b => b.decay || b.stages), mood = needs.length ? needs.reduce((a, b) => a + goodOf(b), 0) / needs.length : 1;
-    const worst = needs.length ? Math.min(...needs.map(goodOf)) : 1, lv = Math.max(0, Math.min(4, Math.round((mood * 0.6 + worst * 0.4) * 4)));
+    const lv = moodLv(d);
     const me = (s.data.profile?.list ?? []).find(p => p.role === 'user')?.name ?? '';
     const lets = (d.conds ?? []).filter(c => c.auto).map(c => { const b = d.bars.find(x => x.name === c.auto); return b ? `<span class="ss-mdl lv-${lvOf(goodOf(b))}" title="${esc(c.name)} — ${esc(c.desc)}">${needIcon(b.name)}<em>${esc(c.name)}</em></span>` : ''; }).join('');
     const tile = (b) => {
@@ -234,22 +232,19 @@ export function needPanel(s, d, ui = {}) {
             ${!items.length && !goods.length ? `<p class="ss-hint">${si < 0 && modOn('shop') && !isSimple() ? '아래 「미트볼 상점 넣기」를 누르면 여기서 바로 살 수 있어요. ' : ''}이야기에서 채우면 AI가 적어 줘요.</p>` : ''}
             <div class="ss-gbtns"><button class="ss-ib t" data-act="bar" data-arg="${esc(open.name)}|-10">−10</button><button class="ss-ib t" data-act="bar" data-arg="${esc(open.name)}|-1">−1</button><button class="ss-ib t" data-act="bar" data-arg="${esc(open.name)}|+1">+1</button><button class="ss-ib t" data-act="bar" data-arg="${esc(open.name)}|+10">+10</button><small class="ss-dim">직접 고치기</small></div></div>`;
     }
-    const bills = (modOn('wallet') ? s.data.wallet?.regular ?? [] : []).filter(r => r.amount < 0).slice(0, 4);
-    const EV = { day: '매일', week: '매주', month: '매달' };
     return `<section class="ss-life lv-${['low', 'low', 'mid', 'ok', 'ok'][lv]}">
         <div class="ss-life-head">${face(lv)}<div class="ss-life-who"><b>${esc(me || T('나', 'Me'))}</b><small>${esc(T(...MOOD[lv]))}</small></div>${lets ? `<div class="ss-mdls">${lets}</div>` : ''}</div>
         <div class="ss-nds">${bars.map(tile).join('')}</div>
         ${det}
-        ${bills.length ? `<div class="ss-bills" title="재산 탭의 정기 지출">${bills.map(r => `<span class="ss-bill"><b>${esc(r.name)}</b><em>−${fmtNum(Math.abs(r.amount))}</em><small>${EV[r.every] ?? ''}</small></span>`).join('')}</div>` : ''}
     </section>`;
 }
 LIFE_ACTIONS.needopen = (el, arg) => { const ui = el._ss.ui; ui.need = ui.need === arg ? null : arg; app.renderPanel(el); };
 
 // 옷 입히는 인형 (재산 탭 아래) — 가운데 사람 모양, 양옆에 칸
 const DOLL = '<svg class="ss-doll-fig" viewBox="0 0 120 220" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="60" cy="30" r="17"/><path d="M40 62c4-8 36-8 40 0l8 50-13 3-3-24v40H48V91l-3 24-13-3z"/><path d="M48 131l-4 72h14l2-48 2 48h14l-4-72"/></svg>';
-export function dollHTML(slots, by) {
+export function dollHTML(slots, by, fig = DOLL) {
     const half = Math.ceil(slots.length / 2), cell = (slot) => { const e = by[slot]; return `<button class="ss-slot ${e ? 'on' : ''}" data-act="gearpick" data-arg="${esc(slot)}"><small>${esc(slot)}</small><b>${e ? esc(e.name) : '＋'}</b>${e?.effect ? `<em>${esc(e.effect)}</em>` : ''}</button>`; };
-    return `<div class="ss-doll"><div class="ss-doll-col">${slots.slice(0, half).map(cell).join('')}</div>${DOLL}<div class="ss-doll-col">${slots.slice(half).map(cell).join('')}</div></div>`;
+    return `<div class="ss-doll"><div class="ss-doll-col">${slots.slice(0, half).map(cell).join('')}</div>${fig}<div class="ss-doll-col">${slots.slice(half).map(cell).join('')}</div></div>`;
 }
 
 // ───── ✨ 순간 연출 (v2.9 · 설정 lifeFx — 기본 켬 · 생활 틀을 넣은 채팅에서만) ─────
@@ -281,3 +276,129 @@ export function lifeFx() {
 }
 app.lifeFx = lifeFx;
 LIFE_ACTIONS.lifefx = (el) => { settings().lifeFx = settings().lifeFx === false; saveSettings(); lifeFx(); app.renderPanel(el); };
+
+// ───── 🗂 탭 나누기 · 🎮 게임 모드 (v2.9) ─────
+// 생활 기능은 탭으로 나뉘고, 탭마다 이 채팅에서 켜고 끈다 (meta.life = { needs, wear }). 게임 모드는 「무엇을 켤지」의 묶음일 뿐이다 (meta.mode).
+//   🍞 욕구 탭(needs): 다마고치 화면 + 욕구 타일 + 추천 세트 · 속도   |   👕 옷차림 탭(wear): 도트 인형 · 캐릭터 만들기 · 옷 모양
+//   미트볼 상점 넣기는 상점 탭 아래, 생활비 틀은 재산 탭 아래로 옮겼다. 수치 탭은 체력 · 능력치만 남는다 (욕구 탭을 켰을 때).
+const lifeOf = () => getMeta()?.life ?? {};
+export const needsTabOn = () => lifeOf().needs === true && modOn('stats');
+export const wearTabOn = () => lifeOf().wear === true && modOn('wallet');
+export const MODES = {
+    rp: { icon: '🍱', name: '롤플', desc: '상태만 계산해요 (욕구 · 옷차림 탭 없음)' },
+    life: { icon: '🏡', name: '생활', desc: '심즈 · 스타듀 · 동숲처럼 — 욕구 · 옷차림 · 미트볼 상점 · 생활비', bars: ['hunger', 'energy', 'hygiene', 'fun', 'social'], speed: 1, bills: true, shop: {} },
+    fusion: { icon: '🌀', name: '융합', desc: '생활 + 생존 조금 — 수분 · 체온까지', bars: ['hp', 'hunger', 'thirst', 'energy', 'hygiene', 'fun', 'social', 'warmth'], speed: 1, bills: true, shop: {} },
+    apoc: { icon: '🧟', name: '아포칼립스', desc: '좀보이드처럼 — 욕구가 빠르게 줄고, 가게는 비싸고 물건이 적어요', bars: ['hp', 'thirst', 'hunger', 'energy', 'warmth', 'stress', 'boredom'], speed: 1.5, bills: false, shop: { mul: 3, stock: 2 } },
+};
+export async function applyMode(id) {
+    const M = MODES[id], meta = getMeta(true); if (!M || !app.current?.state) return false;
+    meta.mode = id; meta.life ??= {};
+    if (!M.bars) { meta.life.needs = false; meta.life.wear = false; await saveMeta(); app.refreshNow?.(); return true; }
+    meta.life.needs = true; meta.life.wear = true; meta.mods ??= {};
+    for (const m of ['stats', 'wallet', 'shop']) meta.mods[m] = true;
+    settings().gearOn = true; saveSettings();
+    await saveMeta(); app.refreshNow?.();
+    const nd = withBars(stOf(app.current.state), M.bars); if (M.speed === 1) delete nd.speed; else nd.speed = M.speed;
+    await commit('stats', nd, `🎮 ${M.name} 모드: 욕구 게이지`);
+    const shop = withMeatShop(app.current.state, M.shop);
+    if (shop.shops[0].items.length) await commit('shop', shop, `🏪 ${MEAT_SHOP()}`);
+    if (M.bills) { const w = withBills(app.current.state); if (w) await commit('wallet', w, '🧾 생활비 틀'); }
+    try { await loadAD(); } catch (e) { ssWarn(LOG, 'mode addons', e); }
+    app.refreshNow?.(); app.rerenderPanels?.(true);
+    return true;
+}
+// 관리 › 쓸 기능 맨 위
+export function lifeBox() {
+    const meta = getMeta(), L = meta?.life ?? {}, mode = MODES[meta?.mode] ? meta.mode : (L.needs || L.wear ? '' : 'rp');
+    return sec('🎮 게임 모드 · 생활 탭 <small>이 채팅만</small>', `
+        <div class="ss-seg wrap stack">${Object.entries(MODES).map(([k, m]) => `<button class="${mode === k ? 'on' : ''}" data-act="lifemode" data-arg="${k}">${m.icon} ${m.name}<small>${m.desc}</small></button>`).join('')}</div>
+        <div class="ss-pills"><small>탭 하나씩</small>
+            <button class="ss-pill ${L.needs ? 'on' : ''}" data-act="lifetab" data-arg="needs" title="다마고치 화면 · 욕구 타일 · 추천 세트">${L.needs ? '<i class="fa-solid fa-check"></i> ' : ''}🍞 욕구 탭</button>
+            <button class="ss-pill ${L.wear ? 'on' : ''}" data-act="lifetab" data-arg="wear" title="도트 인형에 옷 입히기 · 캐릭터 만들기">${L.wear ? '<i class="fa-solid fa-check"></i> ' : ''}👕 옷차림 탭</button></div>
+        <p class="ss-hint">모드는 「무엇을 켤지」의 묶음이에요. 고르면 필요한 탭 · 게이지 · 가게가 한 번에 들어가고(AI 0회), 그 뒤에 하나씩 켜고 끌 수 있어요. 롤플로 돌려도 넣어 둔 게이지 · 가게는 지워지지 않아요 — 욕구가 저절로 줄어드는 것까지 멈추려면 욕구 탭의 「저절로 줄기 끄기」.</p>`);
+}
+LIFE_ACTIONS.lifemode = async (el, arg) => {
+    if (!MODES[arg]) return;
+    await applyMode(arg);
+    toastr.success(`${MODES[arg].icon} ${MODES[arg].name} 모드로 맞췄어요.`, TITLE);
+    app.rerenderPanels?.(true);
+};
+LIFE_ACTIONS.lifetab = async (el, arg) => {
+    if (!['needs', 'wear'].includes(arg)) return;
+    const meta = getMeta(true); meta.life ??= {}; meta.life[arg] = !meta.life[arg];
+    if (arg === 'wear' && meta.life.wear && settings().gearOn !== true) { settings().gearOn = true; saveSettings(); }
+    await saveMeta(); if (arg === 'wear' && meta.life.wear) { try { await loadAD(); } catch (e) { ssWarn(LOG, 'wear addons', e); } }
+    app.refreshNow?.(); app.rerenderPanels?.(true);
+};
+
+// 기분 0~4 (욕구 평균과 가장 나쁜 것을 섞어서 · 규칙이 없으면 3)
+export function moodLv(d) {
+    const needs = (d?.bars ?? []).filter(b => b.decay || b.stages); if (!needs.length) return 3;
+    const avg = needs.reduce((a, b) => a + goodOf(b), 0) / needs.length, worst = Math.min(...needs.map(goodOf));
+    return Math.max(0, Math.min(4, Math.round((avg * 0.6 + worst * 0.4) * 4)));
+}
+// 지금 모습의 도트 인형: 만든 얼굴(meta.doll) + 입은 것(장비 칸) + 기분 표정
+export function dollNow(s, cls = '') {
+    const meta = getMeta(), D = meta?.doll ?? {}, wear = [];
+    if (settings().gearOn === true) {
+        if (!AD) loadAD().then(() => app.rerenderPanels?.(true)).catch(e => ssWarn(LOG, 'doll load', e));
+        else for (const e of AD.equipped(s)) { const kind = slotKind(e.slot); if (wear.some(x => x.kind === kind)) continue; const lk = D.looks?.[norm(e.name)] ?? {}; wear.push({ kind, shape: SHAPES[kind]?.[lk.shape] ? lk.shape : guessShape(kind, e.name), color: lk.color || guessColor(e.name), name: e.name }); }
+    }
+    return dollSVG({ skin: D.skin, hair: D.hair, hairColor: D.hairColor, eye: D.eye }, wear, moodLv(s?.data?.stats), cls);
+}
+// 🥚 다마고치 화면 (욕구 탭 맨 위)
+function tama(s, d) {
+    const lv = moodLv(d), needs = d.bars.filter(b => b.decay || b.stages), urgent = [...needs].sort((a, b) => goodOf(a) - goodOf(b)).slice(0, 3);
+    const me = (s.data.profile?.list ?? []).find(p => p.role === 'user')?.name ?? T('나', 'Me');
+    return `<div class="ss-tama lv-${['low', 'low', 'mid', 'ok', 'ok'][lv]}">
+        <div class="ss-tama-lcd">
+            <div class="ss-tama-icons">${needs.slice(0, 7).map(b => `<span class="lv-${lvOf(goodOf(b))}" title="${esc(b.name)} ${fmtNum(b.cur)}/${fmtNum(b.max)}">${needIcon(b.name)}</span>`).join('') || `<small>${esc(T('아래에서 세트를 넣어 주세요', 'Add a set below'))}</small>`}</div>
+            <div class="ss-tama-pet ${lv <= 1 ? 'sad' : ''}">${dollNow(s)}</div>
+            <div class="ss-tama-txt"><b>${esc(me)}</b><span>${esc(T(...MOOD[lv]))}</span><small>${esc(stamp(s))}</small></div>
+        </div>
+        <div class="ss-tama-btns">${urgent.map(b => `<button class="ss-tama-btn lv-${lvOf(goodOf(b))}" data-act="needopen" data-arg="${esc(b.name)}" title="${esc(b.name)} — 채우는 법 보기">${needIcon(b.name)}</button>`).join('') || '<button class="ss-tama-btn" disabled></button><button class="ss-tama-btn" disabled></button><button class="ss-tama-btn" disabled></button>'}</div>
+    </div>`;
+}
+export function needsTab(s, _d, ui = {}) {
+    const d = s.data.stats ?? EMPTY.stats();
+    return `${tama(s, d)}${needPanel(s, d, ui)}${lifeSection(s, d)}`;
+}
+// 👕 옷차림 탭: 인형 + 칸 · 캐릭터 만들기 · 입은 옷의 모양 · 색
+const sw = (act, key, val, cur, label = '') => `<button class="ss-sw ${cur === val ? 'on' : ''}" data-act="${act}" data-arg="${esc(key)}:${esc(val)}" style="--c:${esc(val)}" title="${esc(label || val)}" aria-label="${esc(label || val)}"></button>`;
+export function wearTab(s, _d, ui = {}) {
+    if (!s?.data?.wallet) return '<p class="ss-hint">재산 칸을 켜면 소지품을 입힐 수 있어요.</p>';
+    const meta = getMeta(), D = meta?.doll ?? {};
+    const make = sec('🧸 캐릭터 만들기', `
+        <div class="ss-f wide"><span>피부</span><div class="ss-sws">${SKINS.map(c => sw('dolllook', 'skin', c, D.skin ?? SKINS[0])).join('')}</div></div>
+        <div class="ss-f wide"><span>머리 모양</span><div class="ss-seg wrap">${Object.keys(HAIRS).map(k => `<button class="${(D.hair ?? 'short') === k ? 'on' : ''}" data-act="dolllook" data-arg="hair:${k}">${HAIR_NAMES[k]}</button>`).join('')}</div></div>
+        <div class="ss-f wide"><span>머리 색</span><div class="ss-sws">${HAIR_COLORS.map(c => sw('dolllook', 'hairColor', c, D.hairColor ?? HAIR_COLORS[1])).join('')}</div></div>
+        <div class="ss-f wide"><span>눈 색</span><div class="ss-sws">${['#2f2a2a', '#5a3a26', '#3a6fd6', '#3a9a5a', '#9a5ad6', '#d24a3a'].map(c => sw('dolllook', 'eye', c, D.eye ?? '#2f2a2a')).join('')}</div></div>`);
+    if (settings().gearOn !== true) return `<div class="ss-wear-top"><div class="ss-doll-stage">${dollNow(s, 'big')}</div></div>${make}${sec('👕 옷 입히기', '<p class="ss-hint">소지품을 칸마다 하나씩 입히면 인형 위에 그 옷이 그려져요. AI에게는 「지금 입은 것」 한 줄이 가요.</p><div class="ss-row-btns"><button class="ss-btn pri" data-act="gearon"><i class="fa-solid fa-shirt"></i> 옷 입히기 켜기</button></div>')}`;
+    if (!AD) { loadAD().then(() => app.rerenderPanels?.(true)).catch(e => ssWarn(LOG, 'gear load', e)); return '<p class="ss-hint">불러오는 중…</p>'; }
+    const eq = AD.equipped(s), by = Object.fromEntries(eq.map(e => [e.slot, e]));
+    const looks = eq.map(e => { const kind = slotKind(e.slot), lk = D.looks?.[norm(e.name)] ?? {}, shape = SHAPES[kind]?.[lk.shape] ? lk.shape : guessShape(kind, e.name), color = lk.color || guessColor(e.name);
+        return `<div class="ss-card ss-look"><b>${esc(e.name)} <small>${esc(e.slot)}${e.effect ? ` · ${esc(e.effect)}` : ''}</small></b>
+            <div class="ss-seg wrap">${Object.keys(SHAPES[kind] ?? {}).map(k => `<button class="${shape === k ? 'on' : ''}" data-act="dollitem" data-arg="${esc(e.name)}|shape:${k}">${SHAPE_NAMES[k] ?? k}</button>`).join('')}</div>
+            <div class="ss-sws">${COLORS.map(c => `<button class="ss-sw ${color === c ? 'on' : ''}" data-act="dollitem" data-arg="${esc(e.name)}|color:${c}" style="--c:${c}" aria-label="${c}"></button>`).join('')}</div></div>`; }).join('');
+    return `${sec(`👕 옷 입히기 <small>${eq.length}/${AD.gearSlots().length} · 칸을 눌러 소지품에서 골라요</small>`, dollHTML(AD.gearSlots(), by, `<div class="ss-doll-stage">${dollNow(s, 'big')}</div>`))}
+        ${looks ? sec('🎨 입은 옷의 모양 · 색 <small>이름을 보고 골라 둔 것 — 틀리면 바꿔요</small>', `<div class="ss-stack">${looks}</div>`) : ''}
+        ${make}
+        <p class="ss-hint">효과는 그 물건의 「효과」 글에서 읽어요 (재산 편집에서 고쳐요): 「힘 +2」 = 주사위 보정 · 「체온 -30%」 = 그 욕구가 30% 덜 줄어듦. 물건이 소지품에서 없어지면 저절로 벗겨져요.</p>
+        <div class="ss-row-btns"><button class="ss-btn sm ghost" data-act="gearoff">옷 입히기 끄기</button></div>`;
+}
+LIFE_ACTIONS.dolllook = async (el, arg) => { const i = String(arg).indexOf(':'), k = arg.slice(0, i), v = arg.slice(i + 1); if (!['skin', 'hair', 'hairColor', 'eye'].includes(k)) return; const meta = getMeta(true); (meta.doll ??= {})[k] = v; await saveMeta(); app.rerenderPanels?.(true); };
+LIFE_ACTIONS.dollitem = async (el, arg) => { const j = String(arg).lastIndexOf('|'), name = arg.slice(0, j), kv = arg.slice(j + 1), i = kv.indexOf(':'), k = kv.slice(0, i), v = kv.slice(i + 1); if (!['shape', 'color'].includes(k)) return; const meta = getMeta(true); const L = ((meta.doll ??= {}).looks ??= {}); (L[norm(name)] ??= {})[k] = v; await saveMeta(); app.rerenderPanels?.(true); };
+// 상점 탭 아래 · 재산 탭 아래로 옮긴 단추
+export function shopExtra(s) {
+    if (isSimple()) return '';
+    const has = (s.data.shop?.shops ?? []).some(isMeatShop);
+    return `<div class="ss-row-btns ss-life-x"><button class="ss-btn sm ${has ? 'ghost' : ''}" data-act="lifeshop" title="지금 있는 게이지를 채워 주는 기본 품목 · 물약이 늘 있는 가게"><i class="fa-solid fa-store"></i> ${has ? '미트볼 상점 품목 다시 맞추기' : '미트볼 상점 넣기'}</button></div>`;
+}
+export function walletExtra(s) {
+    const bills = (s.data.wallet?.regular ?? []).filter(r => r.amount < 0).slice(0, 6), EV = { day: '매일', week: '매주', month: '매달' };
+    return sec('🧾 고지서 <small>정기 지출</small>', `${bills.length ? `<div class="ss-bills">${bills.map(r => `<span class="ss-bill"><b>${esc(r.name)}</b><em>−${fmtNum(Math.abs(r.amount))}</em><small>${EV[r.every] ?? ''}</small></span>`).join('')}</div>` : '<p class="ss-hint">아직 정기적으로 나가는 돈이 없어요.</p>'}
+        <div class="ss-row-btns"><button class="ss-btn sm" data-act="lifebills" title="월세 · 관리비 · 통신비 · 구독료를 정기 지출에 넣어요 (값은 편집에서 고쳐요)"><i class="fa-solid fa-file-invoice-dollar"></i> 생활비 틀 넣기</button></div>`);
+}
+
+// 👕 입고 있는 물건은 소지품 목록에서 빠진다 (money.js가 물어본다) — 같은 물건이 여러 개면 입은 만큼만
+app.wornCount = (name) => { try { return settings().gearOn === true && AD ? AD.equipped(app.current?.state).filter(e => norm(e.name) === norm(name)).length : 0; } catch { return 0; } };
