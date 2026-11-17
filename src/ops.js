@@ -571,7 +571,7 @@ function opCurse(s, val, info, L, T, key, rawKey) {
     return;
 }
 function opXEffect(s, val, info, L, T, key, rawKey) { applyLines(s, val, info); return; }
-function opWeather(s, val, info, L, T, key, rawKey) { const cal = ensure(s, 'calendar'); val = String(val).split(/\s*(?:→|->|=>|⇒|➡)\s*/).pop().trim(); if (!val) return; if (val !== cal.weather) { cal.weather = val; L(`날씨: ${val}`); } return; }
+function opWeather(s, val, info, L, T, key, rawKey) { const cal = ensure(s, 'calendar'); val = String(val).split(/\s*(?:→|->|=>|⇒|➡)\s*/).pop().trim(); if (!val || !/[\p{L}\p{So}]/u.test(val)) return; /* 「weather: -」 같은 빈 값은 넘김 (검수) */ if (val !== cal.weather) { cal.weather = val; L(`날씨: ${val}`); } return; }
 // 🕐 시간 적는 법 바꾸기 (달력 탭) — '' 시간대 · '24' · '12' · 'both'. 지금 적힌 시간도 그 모양으로 옮긴다
 function opXClock(s, val, info, L) {
     const cal = s.data.calendar; if (!cal) return;
@@ -1030,7 +1030,11 @@ function opTime(s, val, info, L, T, key, rawKey) {
     const cal = ensure(s, 'calendar');
     // 🕐 시각으로 적는 달력: AI가 「오후 2시 반」 「14:30」 「저녁」 어느 쪽으로 적어도 고른 모양 하나로 맞춘다 (시간대 달력은 예전 그대로 — 적힌 글 그대로)
     // 「time: +1」 「period: +2」 = 시간대(시각 달력이면 시간)를 그만큼 넘김 · 자정을 넘기면 날짜도 (검수: 예전엔 시간 칸에 「+1」이 글자 그대로 적혔다)
-    const adv = String(val).match(/^\+\s*(\d{1,2})\s*(?:시간|칸|slots?|hours?|h)?$/i);
+    val = String(val).split(/\s*(?:→|->|=>|⇒|➡)\s*/).pop().trim(); // 「밤 → 새벽」 = 새벽 (검수)
+    if (!val) return;
+    // 「다음 날 아침」 「next morning」 = 날짜 +1 · 그 시간대 (검수: 글자 그대로 적혔다)
+    { const nx = val.match(/^(?:다음\s*날|이튿날|내일|next\s+day,?|the\s+next)\s*(.*)$/i); if (nx) { applyOp(s, 'date', '+1', info); val = nx[1].trim() || (cal.times?.[0] ?? val); if (/^morning$/i.test(val) && cal.times?.length) val = cal.times.find(t => /아침|morning/i.test(t)) ?? cal.times[0]; } }
+    const adv = String(val).match(/^\+\s*(\d{1,2})\s*(?:시간|칸|slots?|hours?|h)?$/i) || String(val).match(/^\+?\s*(\d{1,2})\s*(?:시간|hours?)\s*(?:후|뒤|later|passed|지남)$/i);
     if (adv) { let n = Math.min(24, parseInt(adv[1], 10)), wraps = 0; const t0 = cal.time; while (n-- > 0) { if (nextTimeWraps(cal)) wraps++; cal.time = nextTime(cal, viewTr()); } if (wraps) applyOp(s, 'date', `+${wraps}`, info); if (cal.time !== t0) L(`🕐 ${cal.time}`); return; }
     if (cal.clock) { val = toClockStyle(val, cal.clock, cal.times, viewTr()); if (parseClock(val) === null) return miss(info, rawKey, val); } // 「25:00」처럼 못 읽는 시각은 ⚠ (검수: 글자 그대로 적혔다)
     if (val !== cal.time) { cal.time = val; L(`🕐 ${val}`); }

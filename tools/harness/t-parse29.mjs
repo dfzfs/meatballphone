@@ -30,6 +30,10 @@ try {
         const times = cal().times, d0 = cal().d;
         await say(`time: ${times[0]}`); await say('time: +1'); out.timeAdv = cal().time === times[1];
         await say(`time: ${times.at(-1)}`); await say('time: +1'); out.timeWrap = cal().time === times[0] && cal().d === d0 + 1;
+        { const ut = await import('/ext/src/util.js'); const i0 = ut.dayIndex(cal()); const ts = cal().times; const am = ts.find(t => /아침/.test(t)) ?? ts[0];
+          await say(`time: ${ts.at(-1)}`); await say(`time: 다음 날 ${am}`); out.timeNextDay = ut.dayIndex(cal()) === i0 + 1 && cal().time === am;
+          await say(`time: ${ts[0]} → ${ts[1]}`); out.timeArrow = cal().time === ts[1];
+          const w0 = cal().weather; await say('weather: -'); out.weatherDash = cal().weather === w0; }
         // 시각 달력: 못 읽는 시각은 ⚠ · noon = 12시
         await eng0.addAdjust({ ops: [['_clock', '24']], label: 'c' }); await wait(200);
         await say('time: 22:00'); await say('time: 25:00'); out.clockBad = cal().time === '22:00' && /25:00/.test(missOf());
