@@ -55,6 +55,10 @@ try {
           await say('event: -소풍'); out.eventRm = !cal().events.find(e => e.title === '소풍');
           await say('event: 파티'); out.eventMiss = /event: 파티/.test(missOf());
           const i0 = ut.dayIndex(cal()); await say('date: 내일'); out.dateRel = ut.dayIndex(cal()) === i0 + 1; }
+        { const A = (n) => st().data.rel.user.find(x => x.name === n)?.aff ?? 0; const l0 = A('Leon'), m0 = A('Mia');
+          await say('aff: +3 Leon'); out.affNumFirst = A('Leon') === l0 + 3;
+          await say('aff: Leon, Mia +2'); out.affGroup = A('Leon') === l0 + 5 && A('Mia') === m0 + 2;
+          await say('cond: 독 (3턴)'); const cd = st().data.stats.conds.find(c => c.name === '독'); out.condParen = cd?.desc === '3턴'; }
         // 연락 · 속마음: 「이름: 글」
         await say('msg: Leon: 내일 보자'); out.msgColon = (st().data.contact.threads.Leon ?? []).some(m => m.text === '내일 보자');
         await say('msg: Leon'); out.msgNoTextMiss = /msg: Leon/.test(missOf());

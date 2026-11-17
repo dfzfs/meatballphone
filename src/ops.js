@@ -781,7 +781,8 @@ function opCond(s, val, info, L, T, key, rawKey) {
     // 「+Poisoned, +Tired」 → 하나씩 (v2.7.19 · 예전엔 「Poisoned, +Tired」 상태 하나가 생겼음)
     if (!val.includes('|') && /,\s*[+\-−]/.test(val)) { for (const part of val.split(/\s*,\s*(?=[+\-−])/)) if (part.trim()) applyOp(s, 'cond', part.trim(), info); return; }
     const st = ensure(s, 'stats');
-    const [n0, desc] = splitBar(val);
+    let [n0, desc] = splitBar(val);
+    { const pm = !desc && n0.match(/^(.+?)\s*[(（]([^()（）]+)[)）]$/); if (pm) { n0 = pm[1]; desc = pm[2].trim(); } } // 「독 (3턴)」 → 이름 독 · 설명 3턴 (검수: 괄호까지 이름이 됐다)
     const rm = /^[-−]/.test(n0);
     const name = n0.replace(/^[+\-−]\s*/, '');
     if (!name) return;
@@ -928,6 +929,10 @@ function opPlace(s, val, info, L, T, key, rawKey) {
 function opAff(s, val, info, L, T, key, rawKey) {
     // 「Leon +2, Mira +3」 → 한 명씩 (v2.7.19 · 예전엔 둘 다 안 올랐음) — 「| 메모」 뒤의 쉼표는 안 나눔
     { const head = val.split('|')[0]; if (MULTI_RE.test(head) && /\d/.test(head.split(MULTI_RE)[0])) { const parts = head.split(MULTI_RE); const tail = val.slice(head.length); parts.forEach((p0, i) => p0.trim() && applyPart(s, key, p0.trim() + (i === parts.length - 1 ? tail : ''), info)); return; } }
+    // 「+5 Leon」 숫자가 앞 · 「Leon, Mia +2」 「Leon & Mia +2」 여러 명에 같은 변화 (검수: 둘 다 ⚠로 버려졌다)
+    { const rv = val.match(/^([=+\-−]\s*\d[\d.]*)\s+([^\d|][^|]*?)\s*(\|.*)?$/); if (rv) val = `${rv[2]} ${rv[1]}${rv[3] ? ` ${rv[3]}` : ''}`; }
+    { const g = val.split('|')[0].match(/^(.+?)\s*([=+\-−]\s*\d[\d.]*)\s*$/); const names = g ? g[1].split(/\s*(?:[,，&]|\band\b)\s*/).filter(Boolean) : [];
+      if (names.length > 1 && names.length <= 6 && names.every(n => !/\d/.test(n))) { const tail = val.slice(val.split('|')[0].length); for (const n of names) applyPart(s, key, `${n} ${g[2]}${tail}`, info); return; } }
     const rl = ensure(s, 'rel');
     const m = val.match(/^(.+?)\s*([=+\-−]\s*[\d.]+|\d[\d.]*)\s*(?:\|\s*(.*))?$/);
     if (!m) return miss(info, key, val);
