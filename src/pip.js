@@ -14,6 +14,9 @@ export function markSkip(m, reason) {
 }
 const SKIP_NAME = { ooc: 'OOC로 보낸 턴', pause: '⏸ 일시정지 중', skip: '「다음 1번 건너뛰기」', quiet: '조용한 생성 (/gen 등)', cont: '건너뛴 답의 이어쓰기' };
 
+// 놓친 줄 중 진짜 놓친 것: 아는 키의 값이 이상함 · 또는 모르는 키인데 숫자 변화(「hunger: -10」 — 없는 게이지일 수 있음)
+//   「mood: 좋음」처럼 모르는 꾸밈 키만 있으면 🔍를 붙이지 않는다 (검수: 그런 키를 매 턴 적는 모델이면 🔍가 매 턴 떴다)
+const seriousMiss = (snap) => (snap?.miss ?? []).some(x => !(snap.missKey ?? []).includes(x) || /[+\-−]\s*\d/.test(x.slice(x.indexOf(':') + 1)));
 // 답 i의 칩 상태 — code: shown · hidden · detached · cardoff · nochange · unknown · notag · malformed · running · failed · skipped · baked · syncoff · none
 export function pipDiag(i) {
     const c = ctx(), chat = c.chat ?? [], m = chat[i];
@@ -48,8 +51,9 @@ export function pipDiag(i) {
         const unk = [], off = [];
         for (const [k] of ops) { const o = opInfo(s, k); if (!o.key) unk.push(k); else if (o.mod && !modOn(o.mod, meta)) off.push(`${k} (${MOD[o.mod]?.name ?? o.mod})`); }
         const list = ops.slice(0, 8).map(([k, v]) => `${k}: ${v}`).join('\n');
+        if (unk.length && !off.length && !seriousMiss(snap)) return { code: 'ignored', title: '미트볼이 쓰지 않는 줄뿐이에요', text: `모르는 키라 넘어갔어요 (꾸밈 줄이면 괜찮아요): ${unk.join(', ')}\n\n${list}`, acts: ['edit'] };
         if (unk.length) return { code: 'unknown', title: '읽었지만 모르는 키예요', text: `미트볼이 모르는 키라 아무것도 안 바뀌었어요: ${unk.join(', ')}\n\n${list}`, acts: ['edit'] };
-        if (off.length) return { code: 'unknown', title: '꺼 둔 칸의 변화예요', text: `쓸 기능에서 꺼 둔 칸이라 반영하지 않았어요: ${off.join(', ')}`, acts: ['edit'] };
+        if (off.length) return { code: 'ignored', title: '꺼 둔 칸의 변화예요', text: `쓸 기능에서 꺼 둔 칸이라 반영하지 않았어요: ${off.join(', ')}`, acts: ['edit'] };
         if (snap?.miss?.length) return { code: 'unknown', title: '읽었지만 값 모양이 달라 못 썼어요', text: `아래 줄은 값 모양이 달라서(이름이 없거나 · 숫자가 없거나) 반영하지 못했어요. 맞는 변화면 「직접 고치기」로 적어 주세요.\n\n${snap.miss.slice(0, 8).join('\n')}`, acts: ['edit'] };
         return { code: 'nochange', title: '읽었지만 바뀐 게 없어요', text: `변화 줄 ${ops.length}개를 읽었는데 바뀐 게 없어요. 지금 값과 같거나, 값 모양이 달라서 못 읽었을 수 있어요 (이름이 틀렸는지 · 숫자 뒤에 다른 글이 붙었는지 봐 주세요). 틀렸으면 「직접 고치기」로 적어요.\n\n${list}`, acts: ['edit'] };
     }
@@ -62,6 +66,7 @@ export function pipDiag(i) {
     let hiddenBy = '';
     for (let p = card; p && p !== mesEl; p = p.parentElement) { const st = getComputedStyle(p); if (st.display === 'none' || st.visibility === 'hidden' || Number(st.opacity) === 0) { hiddenBy = p.className || p.tagName; break; } }
     if (hiddenBy || !r.width || !r.height || cs.display === 'none') return { code: 'hidden', title: '읽었는데 화면에 안 보여요 — 안 보이는 것', text: `변화 ${labels.length}개는 숫자에 반영됐어요 (${labels.slice(0, 4).join(' · ')}). 칩은 있는데 가려져 있어요${hiddenBy ? ` (가린 곳: ${String(hiddenBy).slice(0, 60)})` : ''}. 번역 확장이 원문을 숨기는 경우가 많아요 → 「칩을 본문 밖에 붙이기」.`, acts: ['outside', 'redraw'] };
+    if (snap?.miss?.length && !seriousMiss(snap)) return { code: 'shown', title: '칩이 잘 보이고 있어요', text: `변화 ${labels.length}개: ${labels.slice(0, 6).join(' · ')}\n(미트볼이 쓰지 않는 줄은 넘어갔어요: ${snap.miss.slice(0, 4).join(' / ')})` };
     if (snap?.miss?.length) return { code: 'unknown', title: `일부 줄을 못 읽었어요 (${snap.miss.length}개)`, text: `변화 ${labels.length}개는 반영됐어요 (${labels.slice(0, 4).join(' · ')}).\n아래 줄은 키를 모르거나 값 모양이 달라서 넘어갔어요. 맞는 변화면 「직접 고치기」로 적어 주세요.\n\n${snap.miss.slice(0, 8).join('\n')}`, acts: ['edit'] };
     return { code: 'shown', title: '칩이 잘 보이고 있어요', text: `변화 ${labels.length}개: ${labels.slice(0, 6).join(' · ')}` };
 }
@@ -82,7 +87,7 @@ export async function openPip(i) {
     const d = pipDiag(i);
     const box = document.createElement('div');
     box.className = 'ss-root ss-scope ss-pipbox';
-    const kind = OK_CODES.has(d.code) ? 'ok' : ['detached', 'hidden'].includes(d.code) ? 'hide' : ['skipped', 'running', 'nochange', 'syncoff', 'unknown'].includes(d.code) ? 'info' : 'lost';
+    const kind = OK_CODES.has(d.code) ? 'ok' : ['detached', 'hidden'].includes(d.code) ? 'hide' : ['skipped', 'running', 'nochange', 'syncoff', 'unknown', 'ignored'].includes(d.code) ? 'info' : 'lost';
     box.innerHTML = `<div class="ss-wz-head"><i class="fa-solid fa-magnifying-glass"></i><div><b>🔍 칩 점검 — ${i}번 답</b><small>${kind === 'lost' ? '변화를 못 읽음 (씹힘)' : kind === 'hide' ? '읽었지만 화면에 안 보임' : kind === 'ok' ? '문제 없음' : '알림'}</small></div></div>
         <div class="ss-pip-res ${kind}"><b>${esc(d.title)}</b>${d.text ? `<p class="ss-pre">${esc(d.text)}</p>` : ''}</div>
         ${(d.acts ?? []).length ? `<div class="ss-row-btns">${d.acts.map(a => `<button class="ss-btn ${a === d.acts[0] ? 'pri' : ''}" data-choice="${a}">${ACT[a]}</button>`).join('')}</div>` : ''}

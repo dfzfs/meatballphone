@@ -373,7 +373,7 @@ function bareFix(p, cur, info) {
     return c !== 0 && Math.abs(p.v - c) <= Math.abs(p.v) * 0.3 ? { mode: 'set', v: p.v } : { mode: 'add', v: p.v };
 }
 // ⚠ 못 읽은 줄 (v2.7.23): AI 답의 변화 줄인데 키를 모르거나 값 모양이 달라 넘어간 것 — 칩 옆에 ⚠로 알려 준다
-const miss = (info, k, v) => { if (info?.ai) (info.miss ??= []).push(`${k}: ${v}`); };
+const miss = (info, k, v, unknownKey = false) => { if (!info?.ai) return; const t = `${k}: ${v}`; (info.miss ??= []).push(t); if (unknownKey) (info.missKey ??= []).push(t); }; // missKey = 모르는 키 (mood 같은 꾸밈 키일 수 있음)
 // 🔗 인물 합치기 (v2.7.23): 「레온 => Leon」 — 레온의 수치를 Leon에 더하고 레온을 지운 뒤, 앞으로 「레온」으로 오는 변화는 Leon에게 간다
 function opXMerge(s, val, info) {
     const [a0, b0] = String(val).split('=>').map(x => x.trim());
@@ -412,7 +412,7 @@ export function applyOp(s, rawKey, rawVal, info) {
         if (s.data.stats && (findBy(s.data.stats.bars, nm) || aliasBar(s.data.stats.bars, nm))) { key = 'stat'; val = `${nm} ${val}`; } // 「health: -5」 → 체력 (검수: 별명 키를 못 읽었다)
         else if (s.data.stats && findBy(s.data.stats.attrs, nm)) { key = 'attr'; val = `${nm} ${val}`; }
         else if (s.data.wallet && norm(nm) === norm(s.data.wallet.currency)) key = 'cash';
-        else return miss(info, nm, val);
+        else return miss(info, nm, val, true);
     }
     const mod = KEY_MOD[key];
     if (mod && info.mods && info.mods[mod] === false) return;

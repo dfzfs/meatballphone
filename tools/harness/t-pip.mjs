@@ -37,7 +37,7 @@ try {
     await page.evaluate(() => window.__addAI('Leon waves.\n<meatball>\nmood: happy\n</meatball>'));
     await sleep(200);
     d = await diag();
-    check(d.code === 'unknown', `unknown key → unknown (${d.code})`);
+    check(d.code === 'ignored' && /mood/.test(d.text), `모르는 꾸밈 키 → 넘어감 · 🔍 없이 창에만 적힘 (${d.code})`); // 검수: 예전엔 「unknown」 🔍가 매 턴 붙었다
     // 4) 읽었는데 칩 자리가 사라짐 (번역 확장이 본문을 다시 그림)
     await page.evaluate(() => window.__addUser('go'));
     await page.evaluate(() => window.__addAI('Leon buys bread.\n<meatball>\ncash: -5\n</meatball>'));

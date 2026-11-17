@@ -639,7 +639,7 @@ export function compute(limit, opts = {}) {
         if (before) fresh = freshDiff(before, s, `${seed}:${i}:${m.swipe_id ?? 0}`);
         if (s.gone.length) trackGone(s, null); // AI가 다시 얻은 물건은 「없음」 목록에서 빼기
         s.dayBuf?.labels.push(...info.labels.slice(info.cut));
-        snaps.set(i, { labels: info.labels, alerts: info.alerts, roll: info.roll, turn: s.turn, ...(info.miss ? { miss: info.miss } : {}) });
+        snaps.set(i, { labels: info.labels, alerts: info.alerts, roll: info.roll, turn: s.turn, ...(info.miss ? { miss: info.miss } : {}), ...(info.missKey ? { missKey: info.missKey } : {}) });
         opts.onStep?.(i, s); // 📈 변화 그래프 (v2.7.23)
         if (i === lastAI && info.roll) s.pendingRoll = info.roll;
     }
