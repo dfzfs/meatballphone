@@ -188,6 +188,14 @@ async function waitMainIdle(maxMs = 300000) { // 생각이 긴 모델은 답 하
 const ANY_CHAT = new Set(['wizard', 'help']); // 번역 사전은 채팅마다라 번역도 버림 (v2.7.14) // 채팅과 상관없거나 (만들기 창은) 적용할 때 고르는 것
 const chatKey = () => { try { const c = ctx(); return `${c.groupId ?? ''}|${c.getCurrentChatId?.() ?? ''}`; } catch { return ''; } };
 // 똑같은 요청이 이미 가고 있으면 또 보내지 않는다 (버튼 연타로 두 번 과금 방지)
+// 🧠 생각 과정 떼기 (검수): 추론 모델이 답 앞에 붙이는 <think>…</think> — 예전엔 JSON 칸에서만 떼서, 문자 답장 · 편지 · 최면 어플 · 번역에
+//   생각 과정이 그대로 메시지로 들어갔다. 여는 태그 없이 「…</think>」만 오는 경우(앞을 잘라 주는 연결)도 그 앞을 버린다
+export function stripThink(t) {
+    let x = String(t ?? '');
+    x = x.replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, '');
+    const close = x.search(/<\/think(?:ing)?>/i); if (close >= 0 && !/<think/i.test(x.slice(0, close))) x = x.slice(close).replace(/^<\/think(?:ing)?>/i, '');
+    return x.trim();
+}
 const inflight = new Set();
 export async function aiGenerate(feature, systemPrompt, prompt, maxTokens, opts = {}) {
     const key = `${feature}\u0000${systemPrompt}\u0000${prompt}`;
@@ -195,7 +203,7 @@ export async function aiGenerate(feature, systemPrompt, prompt, maxTokens, opts 
     inflight.add(key);
     const chat0 = chatKey();
     try {
-        const out = await aiGenerateOnce(feature, systemPrompt, prompt, maxTokens, opts);
+        const out = stripThink(await aiGenerateOnce(feature, systemPrompt, prompt, maxTokens, opts));
         // 기다리는 동안 다른 채팅으로 옮겼으면 그 결과(문자 답장 · 뉴스 · 분석 …)를 지금 채팅에 넣지 않는다 (v2.7.10)
         if (!ANY_CHAT.has(feature) && chatKey() !== chat0) throw new Error('답을 기다리는 동안 채팅이 바뀌어서, 이 결과는 넣지 않았어요.');
         return out;

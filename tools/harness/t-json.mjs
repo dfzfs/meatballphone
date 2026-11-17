@@ -21,6 +21,9 @@ const cases = [
 try {
     const r = await page.evaluate(async (cs) => { const p = await import('/ext/src/prompts.js'); return cs.map(([t]) => { try { return JSON.stringify(p.parseJSON(t)); } catch (e) { return `FAIL ${e.message}`; } }); }, cases);
     cases.forEach(([, want, label], i) => check(r[i] === JSON.stringify(want), label, r[i]));
+    // 🧠 생각 과정 떼기: 모든 AI 호출(문자 답장 같은 글 답도)
+    const th = await page.evaluate(async () => { const p = await import('/ext/src/prompts.js'); return [p.stripThink('<think>음…</think>\n안녕'), p.stripThink('생각 중…\n</think>\n안녕'), p.stripThink('<thinking>a</thinking>안녕'), p.stripThink('그냥 안녕')].join('|'); });
+    check(th === '안녕|안녕|안녕|그냥 안녕', 'stripThink', th);
     // AI가 세계 핵심을 null · 글로 돌려줘도 멈추지 않게 (예전엔 NORM.core(null)이 오류)
     const core = await page.evaluate(async () => { const c = await import('/ext/src/core.js'); try { return [c.NORM.core(null), c.NORM.core('x'), c.NORM.core({ title: 5 })].map(x => x.title).join('|'); } catch (e) { return `THROW ${e.message}`; } });
     check(core === '||5', 'NORM.core(null · 글 · 숫자 제목)', core);
