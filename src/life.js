@@ -412,7 +412,8 @@ LIFE_ACTIONS.dollpick = async (el, arg, btn, s) => {
     await loadDL();
     const meta = getMeta(true), D = (meta.doll ??= {}), look = lookOf(D), wear = wearNow(s, D), mood = moodLv(s?.data?.stats);
     let title = '', cells = [], cur = '', save = null;
-    if (arg === 'hair') { title = '머리 모양'; cur = D.hair ?? 'short'; cells = Object.entries(DL.HAIRS).map(([id, h]) => [id, h.n, DL.dollSVG({ ...look, hair: id }, wear.filter(w => w.kind !== 'acc'), mood)]); // 모자에 가리지 않게 장신구는 빼고 보여 준다 save = (id) => { D.hair = id; }; }
+    // 머리 모양 미리보기는 모자에 가리지 않게 장신구를 빼고 보여 준다
+    if (arg === 'hair') { title = '머리 모양'; cur = D.hair ?? 'short'; cells = Object.entries(DL.HAIRS).map(([id, h]) => [id, h.n, DL.dollSVG({ ...look, hair: id }, wear.filter(w => w.kind !== 'acc'), mood)]); save = (id) => { D.hair = id; }; }
     else if (arg === 'face') { title = '표정'; cur = D.face ?? 'auto'; cells = Object.entries(DL.FACES).map(([id, n]) => [id, n, DL.dollSVG({ ...look, face: id === 'auto' ? undefined : id }, wear, mood)]); save = (id) => { D.face = id; }; }
     else if (String(arg).startsWith('shape|')) {
         const name = arg.slice(6), x = wear.find(w => w.name === name); if (!x) return;
