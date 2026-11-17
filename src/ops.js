@@ -802,7 +802,8 @@ function opItem(s, val, info, L, T, key, rawKey) {
     const w = ensure(s, 'wallet');
     const parts = val.includes('|') ? [val] : val.split(/\s*[,，/]\s*/);
     for (const part of parts) {
-        const [head, desc, eff] = splitBar(part); // v2.9: 셋째 칸 = 효과 (상점에서 산 물건)
+        let [head, desc, eff] = splitBar(part); // v2.9: 셋째 칸 = 효과 (상점에서 산 물건)
+        { const t = String(head ?? '').match(/^([^+\-−].*?)\s+([+\-−])\s*(\d{1,3})\s*(?:개|장|병|권|통)?$/); if (t) head = `${t[2]}${t[1]} ${t[3]}`; } // 「사과 +2」 = 「+사과 2」 (검수: 예전엔 1개만)
         // 수량은 띄어 쓰거나 x를 붙인 1~3자리 숫자만 (「AK-47」 「S24」처럼 이름 끝 숫자를 수량으로 읽지 않게)
         const m = head.match(/^([+\-−]?)\s*(.+?)(?:(?:\s+[x×*]?|\s*[x×*])\s*(\d{1,3})\s*(?:개|장|병|권|통)?)?$/);
         if (!m) continue;
@@ -812,8 +813,9 @@ function opItem(s, val, info, L, T, key, rawKey) {
         const ex = findBy(w.items, name);
         if (rm) {
             if (!ex) continue;
+            const got = Math.min(q, ex.qty); // 칩엔 실제로 뺀 만큼 (검수: 2개뿐인데 「×5」로 보였다)
             ex.qty -= q; if (ex.qty <= 0) w.items.splice(w.items.indexOf(ex), 1);
-            L(`−${ex.name}${q > 1 ? `×${q}` : ''}`);
+            L(`−${ex.name}${got > 1 ? `×${got}` : ''}`);
         } else {
             if (ex) { ex.qty += q; if (desc) ex.desc = desc; if (eff && !ex.effect) ex.effect = eff; } else w.items.push({ name, qty: q, desc: desc ?? '', ...(eff ? { effect: eff } : {}) });
             L(`+${name}${q > 1 ? `×${q}` : ''}`);

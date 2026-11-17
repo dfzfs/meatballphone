@@ -33,6 +33,8 @@ try {
         await say('date: 14'); out.dateBareMiss = /date: 14/.test(missOf());
         // 따옴표 · 괄호
         await say('loc: 「항구」'); out.locQuote = st().data.map.here === '항구' && !st().data.map.places.some(p => /「/.test(p.name));
+        await say('item: +빵 2'); await say('item: 빵 +3'); out.itemSignAfter = st().data.wallet.items.find(i => i.name === '빵')?.qty === 5;
+        await say('item: -빵 9'); out.itemRmChip = !st().data.wallet.items.find(i => i.name === '빵') && /−빵×5/.test(JSON.stringify(app.current.snaps?.get?.(app.current.lastAI)?.labels ?? document.body.innerText));
         await say('item: +"마법 반지"'); out.itemQuote = !!st().data.wallet.items.find(i => i.name === '마법 반지');
         // 퀘스트
         await say('quest: 잃어버린 반지 | 새 | 반지 찾기'); await say('quest: 잃어버린 반지 완료');
