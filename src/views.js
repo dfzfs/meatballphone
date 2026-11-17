@@ -736,9 +736,9 @@ function pkSub(id, s, st) { // 켠 칸 밑의 딸린 옵션
         parts.push(`<div class="ss-pk-opt"><small>💭 속마음 · 모든 채팅에 걸려요</small><div class="ss-seg wrap">${Object.entries(mm).map(([k, v]) => `<button class="${cur === k ? 'on' : ''}" data-act="mindset" data-arg="mode:${k}">${v}</button>`).join('')}</div>${cur !== 'off' ? `<small>뜨는 때</small><div class="ss-seg wrap">${Object.entries(mf).map(([k, v]) => `<button class="${fq === k ? 'on' : ''}" data-act="mindset" data-arg="freq:${k}">${v}</button>`).join('')}</div>` : ''}</div>`);
     }
     if (id === 'calendar' && s.data.calendar) parts.push(`<div class="ss-pk-opt"><small>시간 적는 법</small>${seg(CLOCK_STYLES.map(([v, name, ex]) => [v, `${name} <small>${ex}</small>`]), s.data.calendar.clock ?? '', 'clockstyle', 'class="ss-seg wrap"')}</div>`);
-    if (id === 'map' && st.mapMetro === true) parts.push(`<div class="ss-pk-opt"><small>이동 모션</small>${seg([['on', '노선 따라 움직이기'], ['off', '바로 이동']], st.mapMotion === false ? 'off' : 'on', 'mapmotion', 'class="ss-seg wrap"')}</div>`);
     const flags = (PK_PARENT[id] ?? []).map(k => FLAG_BY[k]).filter(Boolean);
     if (flags.length) parts.push(`<div class="ss-pk-opt"><small>딸린 옵션 · 모든 채팅에 걸려요</small>${flagList(st, flags)}</div>`);
+    if (id === 'map' && st.mapMetro === true) parts.push(`<div class="ss-pk-opt"><small>이동 모션</small>${seg([['on', '노선 따라 움직이기'], ['off', '바로 이동']], st.mapMotion === false ? 'off' : 'on', 'mapmotion', 'class="ss-seg wrap"')}</div>`); // 새 지도 스위치 밑에 (딸린 설정이라)
     const det = pkOpts(PK_DETAIL[id] ?? []);
     if (det.length) parts.push(`<details class="ss-pk-more"><summary>세부 설정 ${det.length}개 <small>모든 채팅에 걸려요 · 확장 설정의 같은 칸과 한 값</small></summary><div class="ss-pk-det">${det.join('')}</div></details>`);
     return parts.join('');
