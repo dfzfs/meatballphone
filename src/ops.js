@@ -836,14 +836,15 @@ function opStock(s, val, info, L, T, key, rawKey) {
     let [sn, iname, price, desc] = splitBar(val);
     if (!sn || !iname) return miss(info, rawKey, val);
     if (!/\p{L}/u.test(iname)) return miss(info, rawKey, val); // 「stock: 빵 | 3」 — 가게 이름이 없다: 「빵」 가게에 「3」 물건이 생기던 것 (검수)
-    let addN = 0; { const q = iname.match(/^(.+?)\s*(?:[+x×]\s*(\d{1,4})|(\d{1,4})\s*개)$/); if (q) { iname = q[1]; addN = +(q[2] ?? q[3]); } } // 「빵 +3」 = 재고 +3
+    let addN = 0; { const q = iname.match(/^(.+?)\s+(?:([+\-−x×])\s*(\d{1,4})|(\d{1,4})\s*개)$/); if (q) { iname = q[1]; addN = (/[-−]/.test(q[2] ?? '') ? -1 : 1) * +(q[3] ?? q[4]); } } // 「빵 +3」 = 재고 +3 · 「빵 -1」 = 하나 팔림
     let shop = findBy(sh.shops, sn);
     if (!shop) { shop = { name: sn, desc: '', place: '', items: [] }; sh.shops.push(shop); }
     const rm = /^[-−]/.test(iname); const nm = iname.replace(/^[+\-−]\s*/, '');
     const ex = findBy(shop.items, nm);
     if (rm) { if (ex) { shop.items.splice(shop.items.indexOf(ex), 1); L(`🏪 ${shop.name} −${ex.name}`); } return; }
     const pr = parseNum(price)?.v;
-    if (ex) { if (pr !== undefined) ex.price = Math.abs(pr); if (desc) ex.desc = desc; if (addN && ex.stock >= 0) ex.stock += addN; }
+    if (addN < 0 && !ex) return;
+    if (ex) { if (pr !== undefined) ex.price = Math.abs(pr); if (desc) ex.desc = desc; if (addN && ex.stock >= 0) ex.stock = Math.max(0, ex.stock + addN); if (addN < 0) return; }
     else shop.items.push({ name: nm, price: Math.abs(pr ?? 0), desc: desc ?? '', kind: /가구|장식|deco/i.test(desc ?? '') ? 'deco' : 'item', stock: -1 });
     L(`🏪 ${shop.name}: ${nm}`);
     return;

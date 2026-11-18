@@ -884,7 +884,7 @@ export const VIEW_ACTIONS = {
         if (w && w.cash < price) { toastr.warning('돈이 모자라요.', TITLE); return; }
         const ops = [['cash', `-${price}`]];
         if (it.kind === 'deco' && modOn('home')) ops.push(['decor', `+${it.name}`]); else ops.push(['item', `+${it.name} 1|${it.desc ? ` ${it.desc}` : ''}${it.effect ? `|${it.effect}` : ''}`]);
-        if (it.stock > 0) { const nd = clone(s.data.shop); nd.shops[i].items[j].stock--; await addAdjust({ set: { mod: 'shop', data: nd }, silent: true }); }
+        if (it.stock > 0) ops.push(['stock', `${sh.name} | ${it.name} -1`]); // 재고도 같은 기록에 — 구매를 지우면 재고도 돌아온다 (검수: 따로 적어 재고만 줄어 있었다)
         await addAdjust({ ops, label: `${sh.name}에서 ${it.name} 구매 (−${fmtNum(price)} ${w?.currency ?? ''})` });
         toastr.success(`${esc(it.name)} 구매!`, TITLE);
     },
