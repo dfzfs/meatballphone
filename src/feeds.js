@@ -124,6 +124,7 @@ export const FEED_ACTIONS = {
         const was = q.status;
         if (to === 'failed' && !(await askConfirm(`「${esc(q.title)}」을(를) 포기할까요? 보상은 받지 못해요. (끝남 칸에서 「다시 진행」으로 되돌릴 수 있어요)`))) return;
         q.status = to;
+        if (to === 'active') delete q.judge; // 다시 진행: 지난 판정(💥 대실패 등)이 진행 중 카드에 남지 않게 (검수)
         el._ss.ui.qf = to === 'active' ? 'active' : 'end';
         await commit('quest', nd, to === 'active' ? (was === 'open' ? `퀘스트 수락: ${q.title}` : `퀘스트 다시 진행: ${q.title}`) : to === 'failed' ? `퀘스트 포기: ${q.title}` : '');
         toastr.info(to === 'failed' ? `「${esc(q.title)}」을(를) 포기했어요. 끝남 칸으로 옮겼어요.` : `「${esc(q.title)}」 진행 중`, TITLE);

@@ -31,7 +31,7 @@ const snsData = (s) => clone(s.data.sns);
 export const SNS_ACTIONS = {
     snsnew: async (el, arg, btn, s) => {
         busyBtn(btn, true, '불러오는 중…');
-        try { const o = await newSns(s); const nd = snsData(s); if (o.name && !nd.name) nd.name = o.name; nd.posts.push(...o.posts); await commit('sns', nd, ''); toastr.success(`새 게시물 ${o.posts.length}개`, TITLE); }
+        try { const o = await newSns(s); const nd = snsData(app.current?.state ?? s); /* 기다리는 동안 누른 ♥ · 댓글이 사라지지 않게 (검수) */ if (o.name && !nd.name) nd.name = o.name; nd.posts.push(...o.posts); await commit('sns', nd, ''); toastr.success(`새 게시물 ${o.posts.length}개`, TITLE); }
         catch (e) { toastr.error(`불러오지 못했어요: ${esc(e.message)}`, TITLE); busyBtn(btn, false); }
     },
     snspost: async (el, arg, btn, s) => {
@@ -56,7 +56,7 @@ export const SNS_ACTIONS = {
         busyBtn(btn, true, '반응 오는 중…');
         try {
             const r = await snsReactions(s, p0);
-            const nd = snsData(s); const p = nd.posts.find(x => x.id === arg); if (!p) return;
+            const nd = snsData(app.current?.state ?? s); const p = nd.posts.find(x => x.id === arg); if (!p) return;
             p.likes = Math.max(p.likes, r.likes); p.replies.push(...r.replies);
             await commit('sns', nd, r.replies.length ? `내 게시물에 댓글 ${r.replies.length}개 (${r.replies.map(x => x.author).slice(0, 3).join(', ')})` : '');
         } catch (e) { toastr.error(`반응을 받지 못했어요: ${esc(e.message)}`, TITLE); busyBtn(btn, false); }
@@ -104,7 +104,8 @@ export const CUSTOM_ACTIONS = {
     ctext: async (el, arg, btn, s) => { const [i, j] = arg.split('|').map(Number); const t = s.data.custom.tabs[i], f = t?.fields[j]; if (!f) return; const v = await askInput(TITLE, `${t.name} — ${f.k}`, f.v); if (v === null) return; return addAdjust({ ops: [['custom', `${t.name} | ${f.k} = ${v.replace(/\|/g, '/')}`]], label: `${t.icon} ${f.k}: ${short(v, 20)}` }); },
     ctabnew: async (el, arg, btn, s) => {
         const name = await askInput(TITLE, '새 탭 이름 (예: 명성, 요원 평가, 마력 오염도)', ''); if (!name?.trim()) return;
-        const nd = clone(s.data.custom); nd.tabs.push({ name: name.trim(), icon: '📌', note: '', inject: true, fields: [] });
+        if (s.data.custom.tabs.some(t => norm(t.name) === norm(name.trim()))) { toastr.info('같은 이름의 탭이 이미 있어요.', TITLE); return; } // 이름으로 찾아 고치므로 겹치면 뒤의 탭이 안 바뀐다 (검수)
+        const nd = clone(s.data.custom); nd.tabs.push({ name: name.trim().replace(/\|/g, '/'), icon: '📌', note: '', inject: true, fields: [] });
         await commit('custom', nd, '');
     },
     ctabdel: async (el, arg, btn, s) => { const t = s.data.custom.tabs[Number(arg)]; if (!t || !(await askConfirm(`「${esc(t.name)}」 탭을 지울까요?`))) return; const nd = clone(s.data.custom); nd.tabs.splice(Number(arg), 1); await commit('custom', nd, ''); },
@@ -112,7 +113,8 @@ export const CUSTOM_ACTIONS = {
         const t = s.data.custom.tabs[Number(arg)]; if (!t) return;
         const k = await askInput(TITLE, `「${t.name}」에 넣을 항목 이름 — 숫자로 시작하면 숫자, "게이지 이름"처럼 앞에 '게이지'를 붙이면 0~100 게이지, 아니면 글`, ''); if (!k?.trim()) return;
         const nd = clone(s.data.custom); const tb = nd.tabs[Number(arg)];
-        const bar = /^게이지\s+/.test(k.trim()); const nm = k.trim().replace(/^게이지\s+/, '');
+        const bar = /^게이지\s+/.test(k.trim()); const nm = k.trim().replace(/^게이지\s+/, '').replace(/[|=]/g, '/');
+        if (tb.fields.some(f => norm(f.k) === norm(nm))) { toastr.info('같은 이름의 항목이 이미 있어요.', TITLE); return; }
         const v = await askInput(TITLE, `「${nm}」 처음 값`, bar ? '50' : '0'); if (v === null) return;
         const isNum = bar || /^[+\-]?[\d.,]+$/.test(v.trim());
         tb.fields.push({ k: nm, type: bar ? 'bar' : isNum ? 'num' : 'text', v: isNum ? Number(v.replace(/,/g, '')) || 0 : v, max: 100, desc: '' });

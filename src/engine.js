@@ -186,7 +186,7 @@ function metric(s, lhs) {
     const t = lhs.trim();
     const w = s.data.wallet;
     if (w && (['돈', '소지금', 'cash', 'money'].includes(t) || norm(t) === norm(w.currency))) return w.cash;
-    const rm = t.match(/^(호감|신뢰|애정|우정|aff|trust)\s*[:：]\s*(.+)$/i);
+    const rm = t.match(/^(호감|신뢰|애정|우정|aff|trust)\s*[:：]\s*(.+)$/i) || (() => { const x = t.match(/^(.+?)(?:\s*의)?\s+(호감도?|신뢰도?|애정|우정|aff|trust)$/i); return x ? [x[0], x[2], x[1]] : null; })(); // 「레온 호감 >= 90」 「레온의 호감도」도 (검수)
     if (rm) { const r = findBy(s.data.rel?.user ?? [], rm[2]); return r ? r[/호감|애정|aff/i.test(rm[1]) ? 'aff' : 'trust'] : null; }
     if (t === '빚' || t === 'debt') return (w?.loans ?? []).filter(l => l.status === 'open' || l.status === 'late').reduce((a, l) => a + l.owed, 0);
     const bar = findBy(s.data.stats?.bars ?? [], t); if (bar) return bar.cur;
@@ -207,6 +207,15 @@ function metric(s, lhs) {
     return null;
 }
 export function ruleTrue(s, when) {
+    // 「호감:레온 >= 90 · 돈 >= 1000」처럼 여러 조건 (검수: 하나로 읽혀 늘 거짓 — 이런 엔딩은 절대 안 깨졌다)
+    const w = String(when ?? '').replace(/≥/g, '>=').replace(/≤/g, '<=').trim();
+    const ors = w.split(/\s*(?:\|\||\s또는\s|\sor\s)\s*/i).filter(Boolean);
+    if (ors.length > 1) return ors.some(x => ruleTrue(s, x));
+    const ands = w.split(/\s*(?:&&|[·，]|,\s+(?=\D)|\s그리고\s|\sand\s)\s*/i).filter(Boolean);
+    if (ands.length > 1) return ands.every(x => ruleOne(s, x));
+    return ruleOne(s, w);
+}
+function ruleOne(s, when) {
     const m = String(when ?? '').match(/^(.+?)\s*(<=|>=|==|=|<|>)\s*(-?[\d.,]+)\s*$/);
     if (!m) return false;
     const v = metric(s, m[1]); if (v === null || v === undefined) return false;
