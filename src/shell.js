@@ -412,7 +412,10 @@ function bindPanel(el) {
         if (b.closest('.ss-ct-row') && e.target.closest('[data-act="cmenu"]') && b.dataset.act !== 'cmenu') return;
         e.preventDefault(); e.stopPropagation();
         const act = b.dataset.act;
-        onPanelAction(el, act, b.dataset.arg, b).then(() => { if (!['tab', 'group', 'cancel', 'help', 'inbox', 'search', 'fullscreen', 'sidemini', 'copydump'].includes(act)) hintAfterAction(el._ss?.tab); }).catch(err => { ssErr(LOG, err); toastr.error(esc(err.message), TITLE); });
+        // 같은 단추를 빨리 두 번 눌러도 한 번만 (검수: 구매가 두 번 돼 돈이 모자란데도 사지거나, AI 생성이 두 번 나갔다)
+        const fk = `${act}|${b.dataset.arg ?? ''}`; const inF = (el._ssInFlight ??= new Set());
+        if (inF.has(fk)) return; inF.add(fk);
+        onPanelAction(el, act, b.dataset.arg, b).finally(() => inF.delete(fk)).then(() => { if (!['tab', 'group', 'cancel', 'help', 'inbox', 'search', 'fullscreen', 'sidemini', 'copydump'].includes(act)) hintAfterAction(el._ss?.tab); }).catch(err => { ssErr(LOG, err); toastr.error(esc(err.message), TITLE); });
     });
     el.addEventListener('change', (e) => { const t = e.target; if (t.dataset.chg) CHANGES[t.dataset.chg]?.(el, t, app.current?.state); });
     el.addEventListener('keydown', (e) => {

@@ -20,7 +20,7 @@ try {
         const hidden = (n) => getComputedStyle(n).display === 'none' || !n.offsetParent;
         const out = { noBar: [], badToggle: [], badRestore: [], allOff: [], tabs: 0, pills: 0 };
         const go = (t, ui = {}) => { el._ss.tab = t; el._ss.mode = 'view'; el._ss.ui = ui; app.renderPanel(el); };
-        const click = (arg) => el.querySelector(`.ss-partbar [data-act="partshow"][data-arg="${CSS.escape(arg)}"]`)?.click();
+        const click = async (arg) => { el.querySelector(`.ss-partbar [data-act="partshow"][data-arg="${CSS.escape(arg)}"]`)?.click(); await new Promise(r => setTimeout(r, 0)); }; // 같은 단추 연타 막기가 있어서 한 박자 쉬고
         for (const t of [...new Set(GROUPS.flatMap(g => g.tabs))]) {
             if (NO_PARTS.has(t)) continue;
             go(t, t === 'quest' ? { qf: 'active' } : {});
@@ -37,18 +37,18 @@ try {
                 const before = find(); if (!before.length) continue;
                 out.pills++;
                 if (before.every(hidden)) continue; // 원래 접혀 있는 것
-                click(k);
+                await click(k);
                 const after = find();
                 if (!after.length || !after.every(hidden)) out.badToggle.push(`${t}:${k}`);
-                click(k);
+                await click(k);
                 if (find().every(hidden)) out.badRestore.push(`${t}:${k}`);
             }
-            click('__none');
+            await click('__none');
             const vis = [...el.querySelectorAll('.ss-body > :not(.ss-partbar)')].filter(n => !hidden(n)).length;
             if (!el.querySelector('.ss-partbar')) out.allOff.push(`${t}: bar gone`);
             const offN = (window.__st.extensionSettings.statussim.partsOff?.[t] ?? []).length;
             if (offN !== keys.length) out.allOff.push(`${t}: ${offN}/${keys.length}`);
-            click('__all');
+            await click('__all');
             if (window.__st.extensionSettings.statussim.partsOff?.[t]) out.allOff.push(`${t}: not restored`);
             void vis;
         }
@@ -57,7 +57,7 @@ try {
         el._ss.tab = 'stats'; el._ss.mode = 'edit'; el._ss.work = structuredClone(app.current.state.data.stats); app.renderPanel(el); out.editNoBar = !el.querySelector('.ss-partbar');
         // 연락 대화창: 첨부 단추 끄기
         const ct = app.current.state.data.contact; const who = ct.contacts[0]?.name ?? 'Ann';
-        go('contact', { who }); click('att');
+        go('contact', { who }); await click('att');
         out.attHidden = !!el.querySelector('.ss-phone-att, .ss-enclose') && [...el.querySelectorAll('.ss-phone-att, .ss-enclose')].every(hidden);
         // 다른 채팅에서도(설정 공통) · 새로 그려도 유지
         go('contact', {}); go('contact', { who }); out.attKeep = [...el.querySelectorAll('.ss-phone-att, .ss-enclose')].every(hidden);
