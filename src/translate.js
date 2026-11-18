@@ -176,6 +176,7 @@ export async function trJSON(obj, extra, o = null) {
 // 🌐 번역 실패 알림: 저절로 번역하다 실패하면 같은 말이 계속 떴다 → 한 접속에 한 번만 · 🔕 조용히면 알림함에만 (원문은 그대로 둔다)
 let trFailTold = false;
 function trFailNote(e) {
+    if (settings().trNotice !== true) return; // 🌐 번역 알림 끔 (기본): 원문만 그대로 둔다 (켜면 그때부터 한 번 알림)
     if (trFailTold) return; trFailTold = true;
     if (settings().quiet === true) { try { app.notify?.({ kind: 'text', icon: '🌐', title: '번역하지 못해 원문으로 뒀어요', text: `${String(e?.message ?? e).slice(0, 120)} — 실리태번 확장 메뉴 › Chat Translation에서 번역기를 확인해요` }); } catch { /* 알림함이 없으면 그냥 넘어감 */ } return; }
     toastr.warning(`번역하지 못해 원문으로 둬요: ${esc(e?.message ?? e)}<br><small>이번 접속에선 다시 안 알려요</small>`, TITLE);
@@ -696,6 +697,7 @@ export function checkKorean() {
     const id = String(ctx().getCurrentChatId?.() ?? '');
     if (!id || lastKoCheck === id || !app.current?.state) return; // 상태가 계산된 뒤에 한 번
     lastKoCheck = id;
+    if (settings().trNotice !== true) return; // 🌐 번역 알림 끔 (기본): 바꾸고 싶으면 확장 설정 › 상태창 언어 · 번역의 「한국어 칸을 영어로」
     const ko = koPanels();
     if (!ko.length) return;
     const names = ko.map(x => (x === 'core' ? '세계 핵심' : MOD[x]?.name ?? x)).join(', ');

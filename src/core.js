@@ -238,6 +238,7 @@ export const DEFAULTS = Object.freeze({
     offscreen: true,         // NPC 화면 밖 생활 (날이 지나면 가끔)
     favTabs: [],             // 즐겨찾기 탭
     bottomNav: false,        // 폰: 탭 바를 아래로 (한 손 모드)
+    trNotice: false,         // 🌐 저절로 뜨는 번역 알림 (「한국어로 저장된 칸이 있어요」 · 「번역 실패」): 기본 끔 = 화면에도 알림함에도 안 띄움 — 누른 것에 대한 대답은 그대로
     quiet: false,            // 🔕 조용히: 저절로 뜨는 알림 · 안내 · 번역 경고를 화면에 띄우지 않고 알림함에만 (⚠️ 고장 알림 · 누른 것에 대한 대답은 그대로) — 새로 설치하면 켬
     tidy: null,              // 🧹 기능 정리 (stylepick.js openTidy): { mods: [숨긴 칸], flags: [숨긴 부가 기능] } — 모든 채팅에서 꺼지고 관리 창에도 안 보임 · 자료는 그대로 (다시 꺼내면 돌아옴)
     tidyAsked: false,        // 🧹 업데이트로 받은 사람에게 「기능 정리」 창을 한 번 보여 줬나 (새로 설치한 사람은 스타일로 고르기를 대신 봄)

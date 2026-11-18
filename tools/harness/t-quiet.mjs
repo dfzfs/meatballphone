@@ -19,7 +19,7 @@ try {
     const r = await Q(async () => { const core = await import('/ext/src/core.js'); return { toasts: window.__toasts.slice(0).map(t => t.msg.slice(0, 60)), shown: window.__shown, notes: (core.getMeta()?.notes ?? []).map(n => n.icon + n.title) }; });
     check(r.shown === 0, '화면에 뜬 알림 팝업 0개', String(r.shown));
     check(r.toasts.length === t0, '실리 알림(toastr)도 저절로는 0개', JSON.stringify(r.toasts));
-    check(r.notes.length >= 2 && r.notes.some(n => n.includes('번역')) && r.notes.filter(n => n.includes('번역')).length === 1, '대신 알림함에 쌓임 · 번역 실패는 한 번만', JSON.stringify(r.notes));
+    check(r.notes.length >= 2 && !r.notes.some(n => n.includes('번역')), '대신 알림함에 쌓임 · 번역 실패는 🌐 번역 알림이 꺼져 있어 알림함에도 없음 (기본)', JSON.stringify(r.notes));
     check(await Q(() => !!document.querySelector('#ss-settings input[data-s="quiet"]')?.checked), '확장 설정에 「🔕 조용히」 체크 칸');
     // ⚠️ 고장 알림은 그대로
     await Q(async () => { (await import('/ext/src/notify.js')).notify({ kind: 'text', icon: '⚠️', title: '테스트 고장', text: 'x' }); }); await sleep(300);
