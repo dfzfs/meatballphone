@@ -272,6 +272,7 @@ function renderPanel0(el) {
     el.querySelector('.ss-instruct textarea')?.addEventListener('input', (e) => { st.ui.instructText = e.target.value; });
     el.querySelector('.ss-cin')?.addEventListener('input', (e) => { st.ui.draft = e.target.value; });
     const th = el.querySelector('.ss-thread, .ss-letter-list'); if (th) th.scrollTop = th.scrollHeight;
+    { const h = el.querySelector('[data-set-host]'); if (h && !h.hidden && !h.closest('[hidden]')) app.mountSettings?.(h); } // ⚙ 관리 › 전체 설정 = 확장 설정 서랍과 같은 칸 (settings_ui.js · 그 탭을 볼 때만 그린다)
     bindPanel(el);
 }
 app.renderPanel = renderPanel;

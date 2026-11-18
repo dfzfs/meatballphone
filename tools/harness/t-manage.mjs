@@ -10,7 +10,7 @@ for (const full of [false, true]) {
             S.sheetFull = false; S.hpSkin = 'clean'; shell.openSheet('manage'); await wait(400);
             // 🗂 관리 탭 안의 탭 여섯 개: 처음엔 「플레이」만 보이고 · 다른 탭의 단추도 그대로 있고(숨기기만) · 탭을 누르면 바뀌고 기억된다 · 「쓸 기능」의 묶음은 각각 접힌다
             { const p0 = [...shell.panels].find(p => p.isConnected && p.classList.contains('ss-panel-pop')), gs = () => [...p0.querySelectorAll('.ss-body[data-tab="manage"] > .ss-sec.ss-mg')], sec = (id) => p0.querySelector(`.ss-mg[data-mg="${id}"]`), tab = (id) => p0.querySelector(`[data-act="mgtab"][data-arg="${id}"]`);
-                out.groups = gs().map(g => g.dataset.mg).join(',') === 'play,mods,save,tools,fix,danger' && p0.querySelectorAll('.ss-mg-tabs [data-act="mgtab"]').length === 6;
+                out.groups = gs().map(g => g.dataset.mg).join(',') === 'play,mods,save,tools,all,fix,danger' && p0.querySelectorAll('.ss-mg-tabs [data-act="mgtab"]').length === 7;
                 out.onlyPlayShown = !sec('play').hidden && ['mods', 'save', 'tools', 'fix', 'danger'].every(id => sec(id).hidden) && tab('play').classList.contains('on');
                 out.hiddenKeepsButtons = !!sec('save').querySelector('[data-act="fullbackup"]') && !!sec('fix').querySelector('[data-act="diagnose"]') && !!sec('danger').querySelector('[data-act="reset"]') && !!sec('tools').querySelector('[data-act="prompts"]');
                 tab('save').click(); await wait(250);
@@ -25,7 +25,7 @@ for (const full of [false, true]) {
             if (full) { el.querySelector('[data-act="fullscreen"]').click(); await wait(700); }
             const secs = () => [...el.querySelectorAll('.ss-body[data-tab="manage"] > .ss-sec')];
             const scroller = () => { let n = secs()[0]?.parentElement; while (n && n !== document.documentElement) { const cs = getComputedStyle(n); if (/(auto|scroll)/.test(cs.overflowY) && n.scrollHeight > n.clientHeight + 4) return n; n = n.parentElement; } return document.scrollingElement; };
-            out.sections = secs().length === 6 || secs().length;
+            out.sections = secs().length === 7 || secs().length;
             out.skipsOffscreen = !('contentVisibility' in document.body.style) || getComputedStyle(secs()[0]).contentVisibility === 'auto';
             const moved = [];
             for (const frac of [0.4, 0.75, 1]) {

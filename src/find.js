@@ -16,6 +16,8 @@ export function terms(q) {
     return out;
 }
 const hasTerm = (hay, x) => hay.includes(x.t) || (x.alt !== x.t && x.alt.length >= 2 && hay.includes(x.alt));
+// 글 하나에 낱말이 모두 들어 있나 (설정 찾기 같은 데서)
+export const matchText = (text, list) => { const h = norm(text); return list.every(x => hasTerm(h, x)); };
 
 // 「검 은열쇠」처럼 띄어쓰기가 달라도 원문에서 찾고 칠하게 — 글자 사이에 빈칸이 있어도 되는 정규식
 const reEsc = (c) => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -63,7 +65,7 @@ function tabNow(m, d) {
     return '';
 }
 
-export function collect(d, { on = () => true, album = [], days = [], core = null } = {}) {
+export function collect(d, { on = () => true, album = [], days = [], core = null, sets = [] } = {}) {
     d = d && typeof d === 'object' ? d : {};
     const out = [];
     const add = (tab, icon, title, ...parts) => { const it = { tab, icon, title: str(title).trim(), parts: parts.flat(3).filter(x => x !== null && x !== undefined && x !== '').map(String) }; out.push(it); return it; };
@@ -135,6 +137,8 @@ export function collect(d, { on = () => true, album = [], days = [], core = null
         for (const f of arr(t.fields)) add('custom', t.icon || '🧩', `${str(t.name)} · ${str(f.k)}`, str(f.v), f.desc);
     }
     for (const a of arr(album)) add('album', '⭐', a.who, a.text, a.note);
+    // ⚙ 설정 (확장 설정 서랍의 칸 — 누르면 관리 › 전체 설정의 그 칸으로)
+    for (const x of arr(sets)) { const it = add('manage', '⚙', x.name, x.head ? `설정 · ${x.head}` : '설정', x.text); it.key = x.key; it.kw = [x.key]; }
     return out.filter(x => x.title || x.parts.length);
 }
 
@@ -157,7 +161,7 @@ export function find(items, q, max = 80) {
         // 보여 줄 작은 글: 찾은 말이 든 줄 먼저 (제목에만 있으면 첫 줄)
         const k = np.findIndex(p => list.some(x => hasTerm(p, x)));
         const text = snippet(k >= 0 ? it.parts[k] : (it.parts[0] ?? ''), list);
-        hits.push({ icon: it.icon, title: it.title, text, tab: it.tab, score });
+        hits.push({ icon: it.icon, title: it.title, text, tab: it.tab, score: score - (it.key ? 3 : 0), ...(it.key ? { key: it.key } : {}) });
     }
     hits.sort((a, b) => b.score - a.score);
     return { list: hits.slice(0, max), total: hits.length, terms: list };

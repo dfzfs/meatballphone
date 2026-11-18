@@ -12,6 +12,7 @@ import { FREQ_MODS } from './engine.js';
 import { MASCOT_SOUNDS, playMascotSound } from './mascot.js';
 import { openReport } from './report.js';
 import { hintSetting } from './tips.js';
+import { terms, matchText } from './find.js';
 
 // ───── 확장 설정 서랍 ─────
 // 바꾸면 화면을 바로 다시 그려야 하는 스위치 (v2.7.3)
@@ -31,16 +32,11 @@ function profileOptions(sel) {
 function featOptions(sel) {
     return profileOptions(sel).replace('메인 연결 그대로', '확장 AI 모델 그대로');
 }
-export function renderSettings() {
-    if (document.getElementById('ss-settings')) return;
+// 서랍 안의 글 (설정 칸 전부) — 확장 설정 서랍과 상태창 「관리 › ⚙ 전체 설정」이 같은 것을 그린다
+function settingsBody() {
     const s = settings();
     const o = (k, v, label) => `<option value="${v}" ${String(s[k]) === String(v) ? 'selected' : ''}>${label}</option>`;
-    const el = document.createElement('div');
-    el.id = 'ss-settings';
-    el.className = 'ss-settings';
-    el.innerHTML = `<div class="inline-drawer">
-        <div class="inline-drawer-toggle inline-drawer-header"><b>😼 미트볼 상태창 <small>v${VERSION}</small></b><div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div>
-        <div class="inline-drawer-content">
+    return `
             <label class="checkbox_label"><input type="checkbox" data-s="enabled" ${s.enabled ? 'checked' : ''}> 사용</label>
             <div class="ss-set-on" data-s-on></div>
             <div class="ss-set-btns">
@@ -254,7 +250,19 @@ export function renderSettings() {
                 <button class="menu_button" data-s-act="regex">정규식 설치</button>
                 <button class="menu_button" data-s-act="unregex">정규식 제거</button>
             </div>
-        </div></div>`;
+`;
+}
+// 같은 설정 칸이 두 곳(서랍 · 상태창 관리)에 있으니, 한쪽에서 바꾸면 다른 쪽 칸도 같은 값으로
+function syncCopies(from) {
+    const set = settings();
+    document.querySelectorAll('.ss-settings').forEach(box => {
+        if (box === from) return;
+        box.querySelectorAll('[data-s]').forEach(i => { const v = set[i.dataset.s]; if (v === undefined) return; if (i.type === 'checkbox') { if (i.checked !== !!v) i.checked = !!v; } else if (String(i.value) !== String(v) && document.activeElement !== i) i.value = v; });
+        box.querySelectorAll('[data-s-every]').forEach(i => { i.value = set.injEvery?.[i.dataset.sEvery] ?? 'always'; });
+        onLine(box);
+    });
+}
+function bindSettings(el) {
     el.addEventListener('input', (e) => { if (e.target.dataset.s === 'mascotVolume') { const lb = el.querySelector('.ss-mvol'); if (lb) lb.textContent = e.target.value; } });
     el.addEventListener('change', (e) => {
         const ev = e.target.dataset.sEvery;
@@ -343,5 +351,99 @@ export function renderSettings() {
             toastr.success(`답 ${n}개의 태그를 보관했어요.`, TITLE);
         }
     });
+    el.addEventListener('change', () => setTimeout(() => syncCopies(el), 0));
+    el.addEventListener('click', (e) => { if (e.target.closest('[data-s-preset], [data-s-act="romrec"], [data-s-act="romoff"], [data-s-act="lightall"]')) setTimeout(() => syncCopies(el), 0); });
+}
+export function renderSettings() {
+    if (document.getElementById('ss-settings')) return;
+    const el = document.createElement('div');
+    el.id = 'ss-settings';
+    el.className = 'ss-settings';
+    el.innerHTML = `<div class="inline-drawer">
+        <div class="inline-drawer-toggle inline-drawer-header"><b>😼 미트볼 상태창 <small>v${VERSION}</small></b><div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div>
+        <div class="inline-drawer-content">${settingsBody()}</div></div>`;
+    bindSettings(el);
     document.getElementById('extensions_settings2')?.appendChild(el);
+}
+
+// ───── ⚙ 상태창 「관리 › 전체 설정」 ─────
+// 확장 설정 서랍과 똑같은 칸을 상태창 안에 한 벌 더 그린다 (값은 하나 · 한쪽에서 바꾸면 다른 쪽도 같은 값) + 맨 위 찾기 칸
+let lastQ = '';
+const blockText = (n) => (n.textContent ?? '').replace(/\s+/g, ' ');
+export function filterSettings(el, q) {
+    const body = el.querySelector('.ss-set-body'); if (!body) return 0;
+    const list = terms(q), all = !list.length;
+    let hits = 0, head = null, headShown = false, headHit = false;
+    const show = (n, on) => { n.hidden = !on; };
+    const closeHead = () => { if (head) show(head, all || headShown); };
+    for (const n of body.children) {
+        if (n.matches('b.ss-set-h')) { closeHead(); head = n; headShown = false; headHit = !all && matchText(blockText(n), list); continue; }
+        if (all) { show(n, true); n.querySelectorAll('[hidden][data-set-f]').forEach(x => { x.hidden = false; x.removeAttribute('data-set-f'); }); if (n.matches('details') && n.dataset.setOpened) { n.open = false; delete n.dataset.setOpened; } continue; }
+        let on = headHit || matchText(blockText(n), list);
+        // 체크 칸 여러 개가 한 줄에 든 묶음 · 접힌 「더 보기」는 안의 칸을 하나씩 거른다
+        if (on && !headHit && (n.matches('.ss-set-wrap, details'))) {
+            let any = false;
+            n.querySelectorAll(':scope > label, :scope > small').forEach(x => { const m = matchText(blockText(x), list); x.hidden = !m; if (!m) x.setAttribute('data-set-f', ''); else { x.removeAttribute('data-set-f'); any = true; } });
+            if (n.matches('details')) { if (!n.open) { n.open = true; n.dataset.setOpened = '1'; } const sm = n.querySelector(':scope > summary'); if (sm && matchText(blockText(sm), list)) n.querySelectorAll('[data-set-f]').forEach(x => { x.hidden = false; x.removeAttribute('data-set-f'); }); }
+            on = any || matchText(blockText(n.querySelector(':scope > summary') ?? document.createElement('i')), list);
+        } else n.querySelectorAll('[hidden][data-set-f]').forEach(x => { x.hidden = false; x.removeAttribute('data-set-f'); });
+        show(n, on);
+        if (on) { hits += n.matches('label') ? 1 : (n.querySelectorAll('label:not([hidden])').length || 1); headShown = true; }
+    }
+    closeHead();
+    const cnt = el.querySelector('.ss-set-n');
+    if (cnt) cnt.textContent = all ? '' : hits ? `${hits}곳` : '찾지 못했어요 — 다른 말로 (예: 토큰, 번역, 알림, 연락, 로맨스)';
+    return hits;
+}
+export function focusSetting(el, key) {
+    const inp = el.querySelector(`[data-s="${CSS.escape(key)}"], [data-s-every="${CSS.escape(key)}"]`); if (!inp) return false;
+    const q = el.querySelector('.ss-set-q');
+    if (q && inp.closest('[hidden]')) { q.value = ''; lastQ = ''; filterSettings(el, ''); }
+    const d = inp.closest('details'); if (d) d.open = true;
+    const t = inp.closest('label') ?? inp;
+    setTimeout(() => { t.scrollIntoView({ block: 'center', behavior: 'smooth' }); t.classList.add('ss-set-flash'); setTimeout(() => t.classList.remove('ss-set-flash'), 2200); }, 60);
+    return true;
+}
+export function mountSettings(host) {
+    if (!host || host.querySelector('.ss-settings')) return;
+    const el = document.createElement('div');
+    el.className = 'ss-settings ss-set-sheet';
+    el.innerHTML = `<div class="ss-set-find"><input class="ss-in ss-set-q" type="search" enterkeyhint="search" placeholder="설정 찾기 (예: 번역, 알림, 토큰, 연락, 로맨스)" value="${esc(lastQ)}"><small class="ss-hint ss-set-n"></small></div>
+        <small class="ss-hint">확장 설정 서랍(확장 메뉴 › 😼 미트볼 상태창)과 같은 칸이에요. 여기서 바꿔도 서랍에서 바꾼 것과 똑같아요 · 모든 채팅에 걸려요.</small>
+        <div class="ss-set-body">${settingsBody()}</div>`;
+    bindSettings(el);
+    host.replaceChildren(el);
+    const q = el.querySelector('.ss-set-q');
+    let timer = 0;
+    q.addEventListener('input', () => { lastQ = q.value; clearTimeout(timer); timer = setTimeout(() => filterSettings(el, q.value), 120); });
+    if (lastQ) filterSettings(el, lastQ);
+    const f = app._setFocus; app._setFocus = null;
+    if (f) focusSetting(el, f);
+}
+app.mountSettings = mountSettings;
+app.settingsIndex = () => settingsIndex();
+// 🔎 상태창 검색에 넣을 설정 목록: 서랍의 칸마다 { 이름, 묶음, 설명, 키 }
+export function settingsIndex() {
+    const box = document.createElement('div');
+    box.innerHTML = settingsBody();
+    const out = [];
+    let head = '';
+    const label = (lab) => { const c = lab.cloneNode(true); c.querySelectorAll('select, textarea, small').forEach(x => x.remove()); return c.textContent.replace(/^[\s　└]+/, '').replace(/\s+/g, ' ').trim(); };
+    const walk = (n) => {
+        for (const c of n.children) {
+            if (c.matches('b.ss-set-h')) { head = c.textContent.replace(/\s+/g, ' ').trim(); continue; }
+            if (c.matches('details')) { walk(c); continue; }
+            const inps = c.matches('[data-s], [data-s-every]') ? [c] : [...c.querySelectorAll('[data-s], [data-s-every]')];
+            for (const i of inps) {
+                const lab = i.closest('label'); if (!lab) continue;
+                const key = i.dataset.s ?? i.dataset.sEvery;
+                const name = label(lab).slice(0, 80) || key;
+                const opts = i.tagName === 'SELECT' ? [...i.options].map(o => o.textContent.trim()).join(' · ') : '';
+                const tip = [...lab.querySelectorAll('small')].map(x => x.textContent.trim()).join(' ');
+                out.push({ key, name, head, text: [tip, opts].filter(Boolean).join(' · ') });
+            }
+        }
+    };
+    walk(box);
+    return out;
 }

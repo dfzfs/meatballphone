@@ -408,16 +408,19 @@ export function recordView(s, d, ui) {
 
 // ───── 🔎 검색 (찾기는 find.js) ─────
 // 띄어 쓴 낱말은 모두 들어 있으면 찾음 · 조사 무시 · 설명 · 메모 · 댓글까지 · 꺼 둔 칸은 뺌 · 찾은 말 둘레를 칠해서 보여 줌
+let setIdx0 = null; // ⚙ 설정 목록 (검색 창을 열 때마다 새로 — 창 안에선 그대로)
+const setIdx = () => { try { return setIdx0 ??= app.settingsIndex?.() ?? []; } catch { return []; } };
 export function searchAll(s, q) {
-    const items = collect(s?.data, { on: (m) => { try { return modOn(m); } catch { return true; } }, album: settings().albumOn !== false ? (getMeta()?.album ?? []) : [], days: s?.days ?? [], core: s?.core });
+    const items = collect(s?.data, { on: (m) => { try { return modOn(m); } catch { return true; } }, album: settings().albumOn !== false ? (getMeta()?.album ?? []) : [], days: s?.days ?? [], core: s?.core, sets: setIdx() });
     return find(items, q);
 }
 export async function openSearch() {
     const s = app.current?.state; if (!s) return;
+    setIdx0 = null;
     const el = document.createElement('div');
     el.className = 'ss-root ss-scope ss-search';
-    el.innerHTML = `<div class="ss-wz-head"><i class="fa-solid fa-magnifying-glass"></i><div><b>상태창 검색</b><small>프로필 · 관계 · 메모 · 연락 · 퀘스트 · 소식 · SNS · 지도 · 소지품 · 본거지 · 일정 · 앨범 …</small></div></div>
-        <input class="ss-in ss-q" placeholder="찾을 말 (예: 열쇠, 레온, 레온 약속)" enterkeyhint="search"><small class="ss-hint ss-q-n"></small><div class="ss-results"></div>`;
+    el.innerHTML = `<div class="ss-wz-head"><i class="fa-solid fa-magnifying-glass"></i><div><b>상태창 검색</b><small>프로필 · 관계 · 메모 · 연락 · 퀘스트 · 소식 · SNS · 지도 · 소지품 · 본거지 · 일정 · 앨범 · ⚙ 설정 …</small></div></div>
+        <input class="ss-in ss-q" placeholder="찾을 말 (예: 열쇠, 레온 약속, 시간, 번역 설정)" enterkeyhint="search"><small class="ss-hint ss-q-n"></small><div class="ss-results"></div>`;
     const res = el.querySelector('.ss-results'), cnt = el.querySelector('.ss-q-n'), inp = el.querySelector('.ss-q');
     let timer = 0;
     const run = () => {
@@ -425,12 +428,16 @@ export async function openSearch() {
         if (!q.trim()) { res.innerHTML = ''; cnt.textContent = ''; return; }
         const r = searchAll(s, q);
         cnt.textContent = r.total ? `${r.total}개 찾음${r.total > r.list.length ? ` · 앞의 ${r.list.length}개만 — 낱말을 더 적으면 좁혀져요` : ''}` : '';
-        res.innerHTML = r.list.map(x => `<div class="ss-note" data-tab="${esc(x.tab)}"><span class="ss-t-ico">${esc(x.icon)}</span><div class="ss-t-b"><b>${markHtml(x.title, r.terms)}</b><small>${markHtml(x.text, r.terms)}</small></div></div>`).join('')
+        res.innerHTML = r.list.map(x => `<div class="ss-note" data-tab="${esc(x.tab)}"${x.key ? ` data-key="${esc(x.key)}"` : ''}><span class="ss-t-ico">${esc(x.icon)}</span><div class="ss-t-b"><b>${markHtml(x.title, r.terms)}</b><small>${markHtml(x.text, r.terms)}</small></div></div>`).join('')
             || `<div class="ss-hint">찾지 못했어요${r.terms.length > 1 ? ' — 낱말을 하나만 적어 보세요 (띄어 쓴 낱말은 모두 들어 있어야 나와요)' : ''}</div>`;
     };
     inp.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(run, 120); });
     inp.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) { clearTimeout(timer); run(); } });
-    res.addEventListener('click', (e) => { const n = e.target.closest('[data-tab]'); if (!n) return; el.closest('dialog')?.querySelector('.popup-button-ok')?.click(); setTimeout(() => app.openSheet?.(n.dataset.tab), 200); });
+    res.addEventListener('click', (e) => {
+        const n = e.target.closest('[data-tab]'); if (!n) return;
+        if (n.dataset.key) { settings().mgTab = 'all'; saveSettings(); app._setFocus = n.dataset.key; } // ⚙ 설정 → 관리 › 전체 설정의 그 칸
+        el.closest('dialog')?.querySelector('.popup-button-ok')?.click(); setTimeout(() => app.openSheet?.(n.dataset.tab), 200);
+    });
     setTimeout(() => inp?.focus(), 100);
     await app.popup(el, { large: true });
 }
