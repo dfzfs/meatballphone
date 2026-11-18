@@ -833,22 +833,25 @@ function opItem(s, val, info, L, T, key, rawKey) {
 }
 function opStock(s, val, info, L, T, key, rawKey) {
     const sh = ensure(s, 'shop');
-    const [sn, iname, price, desc] = splitBar(val);
-    if (!sn || !iname) return;
+    let [sn, iname, price, desc] = splitBar(val);
+    if (!sn || !iname) return miss(info, rawKey, val);
+    if (!/\p{L}/u.test(iname)) return miss(info, rawKey, val); // 「stock: 빵 | 3」 — 가게 이름이 없다: 「빵」 가게에 「3」 물건이 생기던 것 (검수)
+    let addN = 0; { const q = iname.match(/^(.+?)\s*(?:[+x×]\s*(\d{1,4})|(\d{1,4})\s*개)$/); if (q) { iname = q[1]; addN = +(q[2] ?? q[3]); } } // 「빵 +3」 = 재고 +3
     let shop = findBy(sh.shops, sn);
     if (!shop) { shop = { name: sn, desc: '', place: '', items: [] }; sh.shops.push(shop); }
     const rm = /^[-−]/.test(iname); const nm = iname.replace(/^[+\-−]\s*/, '');
     const ex = findBy(shop.items, nm);
     if (rm) { if (ex) { shop.items.splice(shop.items.indexOf(ex), 1); L(`🏪 ${shop.name} −${ex.name}`); } return; }
     const pr = parseNum(price)?.v;
-    if (ex) { if (pr !== undefined) ex.price = Math.abs(pr); if (desc) ex.desc = desc; }
+    if (ex) { if (pr !== undefined) ex.price = Math.abs(pr); if (desc) ex.desc = desc; if (addN && ex.stock >= 0) ex.stock += addN; }
     else shop.items.push({ name: nm, price: Math.abs(pr ?? 0), desc: desc ?? '', kind: /가구|장식|deco/i.test(desc ?? '') ? 'deco' : 'item', stock: -1 });
     L(`🏪 ${shop.name}: ${nm}`);
     return;
 }
 function opDecor(s, val, info, L, T, key, rawKey) {
     const hm = ensure(s, 'home');
-    const [n0, roomName] = splitBar(val);
+    let [n0, roomName] = splitBar(val);
+    { const pm = !roomName && n0.match(/^(.+?)\s*[(（]([^()（）]+)[)）]$/); if (pm && findBy(hm.rooms, pm[2].trim())) { n0 = pm[1]; roomName = pm[2].trim(); } } // 「화분 (거실)」 (검수)
     const rm = /^[-−]/.test(n0); const nm = n0.replace(/^[+\-−]\s*/, '');
     if (!nm) return;
     if (rm) {
@@ -1089,6 +1092,11 @@ function opAch(s, val, info, L, T, key, rawKey) {
 }
 function opMemo(s, val, info, L, T, key, rawKey) {
     const mm = ensure(s, 'memo');
+    val = String(val ?? '').trim(); if (!val) return;
+    // 「memo: -글」 = AI 메모 지우기 · 같은 글은 두 번 안 쌓는다 (검수: 「-글」이 새 메모로 쌓였다)
+    if (/^[-−]\s*\S/.test(val)) { const t = val.replace(/^[-−]\s*/, ''); const k = mm.list.findIndex(x => x.by === 'ai' && !x.pin && norm(x.text) === norm(t)); if (k >= 0) { mm.list.splice(k, 1); L('📝 메모 −1'); } return; }
+    val = val.replace(/^\+\s*/, '');
+    if (mm.list.some(x => norm(x.text) === norm(val))) return;
     mm.list.push({ id: `${info.seed}:${mm.list.length}`, text: val, by: 'ai', inject: true, pin: false });
     if (mm.list.length > 40) { const k = mm.list.findIndex(x => x.by === 'ai' && !x.pin); if (k >= 0) mm.list.splice(k, 1); }
     L('📝 메모');

@@ -2,7 +2,7 @@
 import { open, makeStatus, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open();
 try {
-    await makeStatus(page, ['profile', 'stats', 'wallet', 'rel', 'map', 'calendar', 'quest', 'contact', 'memo', 'fate']);
+    await makeStatus(page, ['profile', 'stats', 'wallet', 'rel', 'map', 'calendar', 'quest', 'contact', 'memo', 'fate', 'shop', 'home']);
     const r = await page.evaluate(async () => {
         const core = await import('/ext/src/core.js');
         Object.assign(core.settings(), { mindMode: 'thought', mindFreq: 'always' }); core.saveSettings();
@@ -66,6 +66,10 @@ try {
         await say('stat: 체력: 40'); out.statColonSet = bar('체력').cur === 40;
         { const n0 = st().data.stats.bars.length; await say('stat: 체력:-5'); out.statColonSign = bar('체력').cur === 35 && st().data.stats.bars.length === n0; }
         await say('msg: Leon → 거기 있어?\nmsg: Leon "곧 갈게"'); out.msgArrowQuote = ['거기 있어?', '곧 갈게'].every(t => (st().data.contact.threads.Leon ?? []).some(m => m.text === t));
+        { const room = st().data.home.rooms[0].name; await say(`decor: 화분 (${room})`); out.decorParen = st().data.home.rooms[0].decor.includes('화분');
+          const n0 = st().data.shop.shops.length; await say('stock: 빵 | 3'); out.stockNoShop = st().data.shop.shops.length === n0 && /stock/.test(missOf());
+          await say('memo: 비밀 장소\nmemo: 비밀 장소'); const c1 = st().data.memo.list.filter(x => x.text === '비밀 장소').length;
+          await say('memo: -비밀 장소'); out.memoDedupRm = c1 === 1 && !st().data.memo.list.some(x => /비밀 장소/.test(x.text)); }
         // 연락 · 속마음: 「이름: 글」
         await say('msg: Leon: 내일 보자'); out.msgColon = (st().data.contact.threads.Leon ?? []).some(m => m.text === '내일 보자');
         await say('msg: Leon'); out.msgNoTextMiss = /msg: Leon/.test(missOf());
