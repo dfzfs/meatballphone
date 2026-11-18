@@ -5,7 +5,7 @@ import { P, aiGenerate, parseJSON, aiJSON } from './prompts.js';
 const headTail = (t, n) => { const x = String(t ?? ''); if (x.length <= n) return x; const h = Math.floor(n / 2); return `${x.slice(0, h)}\n[…]\n${x.slice(-(n - h))}`; };
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 import { SCHEMA, modOn, parseNum } from './core.js';
-import { fmtOf } from './mindcfg.js';
+import { fmtOf, langOf } from './mindcfg.js';
 import { compute, buildInjection, tagKeysFor, extractOps, stripStatus, recentChat, chatCharacters, setDrawer, MIND_FMT, watchBrief, mindStyle } from './engine.js';
 import { finJSON, finText, finLines } from './translate.js';
 
@@ -373,7 +373,7 @@ export async function fetchMinds(names, state) {
     const fmt = fmtOf(settings())[settings().mindMode]; if (!fmt || !names?.length) return [];
     const about = names.map(n => aboutPerson(n, state).filter(Boolean).join('\n')).join('\n\n———\n\n');
     const style = mindStyle(settings(), state?.turn ?? 0, true);
-    const out = stripStatus(await aiGenerate('peek', `${P('ai.minds', { who: names.join(', '), fmt })}${style ? `\n${style}` : ''}`, about, 300));
+    const out = stripStatus(await aiGenerate('peek', `${P('ai.minds', { who: names.join(', '), fmt, ...(langOf(settings()) ? { outLang: langOf(settings()) } : {}) })}${style ? `\n${style}` : ''}`, about, 300));
     const got = [];
     for (const line of String(out).split('\n')) {
         const m = line.match(/^\s*(?:[-*•]\s*)?(?:mind\s*:\s*)?(.+?)\s*[|｜]\s*(.+?)\s*$/i); if (!m) continue;
@@ -386,7 +386,7 @@ export async function fetchMinds(names, state) {
 export async function fetchWatch(ids, state) {
     const set = settings(), fmt = fmtOf(set)[set.mindMode]; if (!fmt || !ids?.length) return [];
     const style = mindStyle(set, state?.turn ?? 0);
-    const sys = `${P('ai.watch', { who: watchBrief(ids, set, state?.turn ?? 0), fmt })}${style ? `\n${style}` : ''}`;
+    const sys = `${P('ai.watch', { who: watchBrief(ids, set, state?.turn ?? 0), fmt, ...(langOf(set) ? { outLang: langOf(set) } : {}) })}${style ? `\n${style}` : ''}`;
     const out = stripStatus(await aiGenerate('peek', sys, `Recent chat:\n${recentChat(4) || '(none)'}`, 300));
     const got = [];
     for (const line of String(out).split('\n')) {

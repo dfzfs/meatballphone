@@ -513,6 +513,17 @@ function opWatch(s, val, info, L, T, key, rawKey) {
     w.push({ who, text: t, turn: s.turn });
     if (w.length > 30) w.splice(0, w.length - 30);
 }
+// 🗑 속마음 지우기 (v2.10): _mindclear = 인물 속마음 · 지난 속마음 · 관전석 전부 / _mindel = 하나만 (w|턴|이름 · m|이름)
+//   장부에 적는 행동이라 그 앞의 답을 지우거나 되감으면 같이 되돌아간다
+function opXMindclear(s) {
+    for (const r of [...(s.data.rel?.user ?? []), ...(s.data.profile?.list ?? [])]) { delete r.mind; delete r.mindLog; }
+    s.watch = [];
+}
+function opXMindel(s, val) {
+    const [k, a, b] = splitBar(val);
+    if (k === 'w') { const t = Number(a); s.watch = (s.watch ?? []).filter(x => !(x.turn === t && x.who === b)); return; }
+    if (k === 'm') { const r = findBy(s.data.rel?.user ?? [], a) ?? findBy(s.data.profile?.list ?? [], a); if (!r) return; if (b === 'log') { delete r.mindLog; return; } delete r.mind; r.mindLog = (r.mindLog ?? []).slice(0, -1); }
+}
 function opJealous(s, val, info, L, T, key, rawKey) {
     const rl = ensure(s, 'rel');
     const m = val.match(/^(.+?)\s*([=+\-−]\s*[\d.]+)\s*$/); if (!m) return;
@@ -1304,6 +1315,8 @@ const OPS = {
     'life': opLife,
     'mind': opMind,
     'watch': opWatch,
+    '_mindclear': opXMindclear,
+    '_mindel': opXMindel,
     'jealous': opJealous,
     'confess': opConfess,
     '_nolove': opXNolove,
@@ -1408,7 +1421,7 @@ export function cleanMind(t) {
     if (/["“”」』]$/.test(x) && !/["“「『]/.test(x.slice(0, -1))) x = x.slice(0, -1).trim();
     // v2.10: 끝에 붙은 카모지는 따로 떼어 두었다가 자른 뒤에 다시 붙인다 (「글 + 카모지」에서 카모지가 잘려 나가지 않게)
     let tail = ''; const km = x.match(/\s+(\S*[()（）ʕʔ┻╯ᕦ凸ﾉ][^가-힣]*)$/); if (km && !/[가-힣]/.test(km[1]) && km.index > 0) { tail = ` ${km[1].trim()}`; x = x.slice(0, km.index).trim(); }
-    const L0 = numOf(settings()).len, max = /[가-힣]/.test(x) ? L0 : L0 * 2; // 글자 수 (설정 · 기본 26)
+    const L0 = numOf(settings()).len, max = !L0 ? Infinity : /[가-힣]/.test(x) ? L0 : L0 * 2; // 글자 수 (설정 · 기본 0 = 제한 없음)
     if (x.length > max) { const m = x.match(/^.+?[.!?。…~]+(?=\s|$)/); if (m && m[0].length >= 4) x = m[0]; } // 길 때만 첫 문장
     return `${x.length > max ? `${x.slice(0, max - 1).trim()}…` : x}${tail}`;
 }

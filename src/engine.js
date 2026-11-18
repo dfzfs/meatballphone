@@ -4,7 +4,7 @@ import {
     waitText, setAlias, TITLE, INJECT_KEY, INJECT_KEY2, INJECT_KEY3, INJECT_KEY4, trLook, trBack, viewTr, weekday, PROMPT_IN_CHAT, ROLE_SYSTEM, MODULE, AI_PARTS, aiOff, uid, diffOf, LOG, loveIndex, CONTACT_MODES, tidy, msgText, DEFAULT_STAGES, arr, playOf, swapUser, ssWarn, relAxes, INJ, isHidden, modOnRaw, DATA_V, normPlay, ssNote, heroIsUser,
 } from './core.js';
 import { P } from './prompts.js';
-import { MIND_FMT, watchDefs, watchOn, watchMode, toneLine, toneP, kaoSample, cellsOn, numOf, fmtOf } from './mindcfg.js'; // 💭 속마음 · 관전자 (v2.10)
+import { MIND_FMT, watchDefs, watchOn, watchMode, toneLine, toneP, kaoSample, cellsOn, numOf, fmtOf, langOf } from './mindcfg.js'; // 💭 속마음 · 관전자 (v2.10)
 import { pairStage, KEYMAP, KEY_MOD, seeded, effSum, today, applyLines, seasonOf, pickWeather, stageIndex, noLoveStage, updateStage, startDay, applyOp, stagesOn, dateFromIndex , needsTick } from './ops.js';
 export * from './ops.js'; // 떼어 낸 것 — 다른 파일은 예전처럼 여기서 받아도 된다
 
@@ -1514,7 +1514,8 @@ export function watchBrief(ids, set = settings(), turn = 0) {
     return ids.map(id => defs[id]).filter(Boolean).map(d => { const t = d.tone ? toneP(set, d.tone) : ''; return `- ${d.nick ? `name "${d.nick}"` : 'name: (choose a fitting short label)'} — ${d.p || d.desc || d.name}${t ? ` · this one's own voice: ${t}` : ''}`; }).join('\n');
 }
 export function mindStyle(set = settings(), turn = 0, forCast = false) {
-    const L = [], tone = toneLine(set);
+    const L = [], tone = toneLine(set), lang = langOf(set);
+    if (lang) L.push(`Write ${forCast ? 'these lines' : 'the spectator lines'} in ${lang}, whatever language the story uses.`);
     if (tone && (!forCast || set.mindToneCast === true)) L.push(`Tone/voice for ${forCast ? 'these lines' : 'the spectators'}: ${tone}.`);
     const kn = numOf(set).kao;
     if (kn && (set.mindMode === 'kaomoji' || set.mindMode === 'mix')) L.push(`Vary the kaomoji — pick ones that fit, for example: ${kaoSample(kn, seeded(`${chatSeed()}:kao:${turn}`)).join(' ')} (don't reuse the same one every turn).`);
@@ -1533,7 +1534,7 @@ function mindLine(r) {
         who.splice(watchMode(set) ? 2 : 4);
         if (who.length) L.push(`This turn, inside <meatball>, add one line per character in the scene (${who.join(', ')}) with the key mind (not msg — msg is a real message): mind: Name | ${fmtOf(set)[set.mindMode]}. It is hidden from {{user}} — do not reveal it in the story. ${mindStyle(set, s.turn, true)}`.trim());
     }
-    if (plan.watch.length) L.push(`Also inside <meatball>, add one line per spectator below with the key watch: watch: Name | ${fmtOf(set)[set.mindMode]}. Spectators are OUTSIDE the story watching this chat (they never appear in it and nobody in the story hears them). React to what just happened in THIS reply.\n${watchBrief(plan.watch, set, s.turn)}\n${mindStyle(set, s.turn)}`.trim());
+    if (plan.watch.length) L.push(`Also inside <meatball>, add one line per spectator below with the key watch: watch: Name | ${fmtOf(set)[set.mindMode]}. Spectators are OUTSIDE the story watching this chat (they never appear in it and nobody in the story hears them). React to what just happened in THIS reply, fully in character (never as an assistant).\n${watchBrief(plan.watch, set, s.turn)}\n${mindStyle(set, s.turn)}`.trim());
     return L.join('\n');
 }
 function sparkHit(key, p, cool, turn) {

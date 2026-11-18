@@ -11,7 +11,7 @@ import { addAdjust, sceneTester, mindPlan } from './engine.js';
 import { fetchMinds, fetchWatch } from './ai.js';
 import { emptyBox, avatar, ai1, busyBtn, sec, confirmPopup } from './kit.js';
 import { MIND_FREQ, addAlbum } from './extra.js';
-import { MIND_NAMES, WATCH, TONES, CELLS, CELL_FACES, NUM_DEF, SHORT_RULE, watchDefs, watchOn, watchMode, conceptOf, cellsOn, cellDefs, toneDefs, numOf, cellSvg, watchIcon } from './mindcfg.js';
+import { MIND_NAMES, WATCH, TONES, CELLS, CELL_FACES, NUM_DEF, SHORT_RULE, watchDefs, watchOn, watchMode, conceptOf, cellsOn, cellDefs, toneDefs, numOf, cellSvg, watchIcon, MIND_LANGS } from './mindcfg.js';
 import { F } from './feat.js'; // 눈치(story.js)는 ⚡ 엿보기 대가를 켜면 불러와 있다 (feat.js) — 아직이면 0으로 본다
 const susOf = (n) => F.story?.susOf(n) ?? 0, addSus = (n, k) => F.story?.addSus(n, k);
 
@@ -88,18 +88,20 @@ export function mindTab(s, ui = {}) {
     const tdefs = toneDefs(set), tone = tdefs[set.mindTone] ? set.mindTone : 'none';
     const toneSec = sec('🗣 어조', `<div class="ss-pills ss-tones">${Object.entries(tdefs).map(([k, t]) => `<span class="ss-tone-w"><button class="ss-pill ${tone === k ? 'on' : ''}" data-act="mindcfg" data-arg="tone:${esc(k)}" title="${esc(t.p || '')}">${esc(t.name)}${k === 'custom' && tone === 'custom' && set.mindToneCustom ? `<small> · ${esc(String(set.mindToneCustom).slice(0, 14))}</small>` : ''}</button>${k === 'none' ? '' : `<i class="ss-tone-ed fa-solid fa-pen" data-act="mindcfg" data-arg="tedit:${esc(k)}" role="button" title="${esc(t.name)} 고치기"></i>`}</span>`).join('')}<button class="ss-pill" data-act="mindcfg" data-arg="tnew"><i class="fa-solid fa-plus"></i> 어조 만들기</button></div>
         <div class="ss-f wide"><span>인물 속마음에도 <small>끄면 관전자에게만 — 인물은 원래 성격대로 · 관전자 · 세포마다 자기 어조를 따로 줄 수도 있어요 (✏)</small></span><div class="ss-pills">${pill(set.mindToneCast === true, 'mindcfg', 'tonecast', '인물에게도 걸기')}</div></div>
-        <p class="ss-hint">길게 늘어놓는 독백은 막아 뒀어요 — 한숨에 끝나는 한마디만 (한글 ${N.len}자까지). 글자 수 · 규칙 글은 아래 「🔢 세부 숫자 · 규칙」에서.</p>`);
-    const numSec = sec('🔢 세부 숫자 · 규칙', `<div class="ss-chips ss-mind-nums">${[`한 턴 최대 ${N.max}명`, `한 명 더 ${N.two}%`, `세포 두 마리 ${N.cellTwo}%`, `인물 섞기 ${N.cast}%`, `글자 ${N.len}자`, `말풍선 ${N.sec}초`, `위치 ${POS_NAME[N.pos]}`, `카모지 예시 ${N.kao}개`, `랜덤 ${Number(set.mindPct ?? 35)}%`, set.mindRule ? '짧게 규칙: 고침' : '짧게 규칙: 기본'].map(t => `<span class="ss-chip">${esc(t)}</span>`).join('')}</div>
+        <p class="ss-hint">길게 늘어놓는 독백은 막아 뒀어요 — 한숨에 끝나는 한마디만 (${N.len ? `한글 ${N.len}자 넘으면 잘라요` : '글자 수 제한은 없어요 — 잘리지 않아요'}). 글자 수 · 규칙 글은 아래 「🔢 세부 숫자 · 규칙」에서.</p>`);
+    const numSec = sec('🔢 세부 숫자 · 규칙', `<div class="ss-chips ss-mind-nums">${[`한 턴 최대 ${N.max}명`, `한 명 더 ${N.two}%`, `세포 두 마리 ${N.cellTwo}%`, `인물 섞기 ${N.cast}%`, N.len ? `글자 ${N.len}자` : '글자 제한 없음', `말풍선 ${N.sec}초`, `위치 ${POS_NAME[N.pos]}`, `카모지 예시 ${N.kao}개`, `랜덤 ${Number(set.mindPct ?? 35)}%`, set.mindRule ? '짧게 규칙: 고침' : '짧게 규칙: 기본'].map(t => `<span class="ss-chip">${esc(t)}</span>`).join('')}</div>
         <div class="ss-row-btns"><button class="ss-btn sm" data-act="mindcfg" data-arg="nums"><i class="fa-solid fa-sliders"></i> 고치기</button>${hidN ? `<button class="ss-btn sm ghost" data-act="mindcfg" data-arg="unhide">지운 기본 프리셋 ${hidN}개 되살리기</button>` : ''}<button class="ss-btn sm ghost" data-act="mindcfg" data-arg="resetall" title="고친 프리셋 · 숫자 · 규칙을 처음대로 (직접 만든 것은 남겨요)">전부 처음대로</button></div>`);
     const howSec = sec('⚙ 보는 방식 · 뜨는 때', `${modeRow}
         <div class="ss-f wide"><span>뜨는 때</span><div class="ss-seg wrap">${Object.keys(MIND_FREQ).map(k => `<button class="${freq === k ? 'on' : ''}" data-act="mindset" data-arg="freq:${k}">${freqLabel[k]}</button>`).join('')}</div></div>
+        <div class="ss-f wide"><span>🌐 언어 <small>속마음 · 관전자 한마디만 — 본편 · 상태창 언어는 그대로</small></span><div class="ss-seg wrap">${Object.entries(MIND_LANGS).map(([k, n]) => `<button class="${(set.mindLang ?? '') === k ? 'on' : ''}" data-act="mindcfg" data-arg="lang:${k}">${esc(n)}${k === 'custom' && set.mindLang === 'custom' && set.mindLangCustom ? ` · ${esc(String(set.mindLangCustom).slice(0, 12))}` : ''}</button>`).join('')}</div></div>
         <div class="ss-f wide"><span>뜰 때 연출 <small>HUD · 미니바 옆에 말풍선이 톡</small></span><div class="ss-pills">${pill(set.mindPop !== false, 'mindcfg', 'pop', '켜기')}<button class="ss-pill" data-act="mindcfg" data-arg="poptest"><i class="fa-solid fa-play"></i> 미리 보기</button></div></div>
         ${!watch || set.mindCastMix !== false ? `<div class="ss-f wide"><span>👁 눈치 <small>인물 속마음이 가려진 채로 오고, 눌러 볼 때마다 그 사람 눈치 +1 · 3부터 의심</small></span><div class="ss-pills">${pill(set.peekCost === true, 'mindset', 'sus:toggle', '볼 때마다 눈치')}</div></div>` : ''}
         <p class="ss-hint">${freq === 'tab' ? '이 탭에 들어오면 그 턴에 한 번 받아 와요 (AI 1~2회).' : freq === 'always' ? '본편 AI가 매 턴 답과 함께 적어요 (추가 호출 0).' : `본편 AI가 ${pct}%의 턴에 답과 함께 적어요 (추가 호출 0).`}</p>`);
     // 지금 · 지난 것
     const feed = watchFeed(s, 20), ps = people(s);
-    const getBar = `<div class="ss-rombar ss-mind-get"><span><i class="fa-solid fa-comment-dots"></i> ${watch ? '지금 장면에 한마디' : '인물들의 속마음'}</span><button class="ss-btn sm" data-act="mindfetch" ${busy ? 'disabled' : ''} title="지금 받아 와요 (AI 1~2회)"><i class="fa-solid ${busy ? 'fa-spinner fa-spin' : 'fa-wand-magic-sparkles'}"></i> ${busy ? '받는 중…' : `지금 받기 ${ai1}`}</button></div>`;
-    const feedSec = watch || feed.length ? sec(`👀 관전석 <small>${feed.length}개</small>`, feed.length ? `<ul class="ss-wt-feed">${feed.map((x, i) => `<li class="c-${esc(x.c.replace(/[^a-z0-9]/gi, ''))} ${x.turn === s.turn ? 'now' : ''}" ${x.d?.color ? `style="--wt:${esc(x.d.color)}"` : ''}><span class="ss-wt-ic">${watchIcon(x.d)}</span><div><b>${esc(x.who)}</b><p>${esc(x.text)}</p></div><small>${ago(s, x.turn)}</small>${set.albumOn !== false ? `<button class="ss-ib" data-act="mindstar" data-arg="w:${i}" title="앨범에 저장"><i class="fa-regular fa-star"></i></button>` : ''}</li>`).join('')}</ul>` : '<p class="ss-dim">아직 한마디가 없어요. 다음 답부터 와요 — 아니면 「지금 받기」.</p>') : '';
+    const anyMind = feed.length || ps.some(r => r.mind?.text || r.mindLog?.length);
+    const getBar = `<div class="ss-rombar ss-mind-get"><span><i class="fa-solid fa-comment-dots"></i> ${watch ? '지금 장면에 한마디' : '인물들의 속마음'}</span>${anyMind ? '<button class="ss-btn sm ghost" data-act="mindcfg" data-arg="clear" title="인물 속마음 · 지난 속마음 · 관전석을 전부 지워요"><i class="fa-solid fa-trash"></i> 전부 지우기</button>' : ''}<button class="ss-btn sm" data-act="mindfetch" ${busy ? 'disabled' : ''} title="지금 받아 와요 (AI 1~2회)"><i class="fa-solid ${busy ? 'fa-spinner fa-spin' : 'fa-wand-magic-sparkles'}"></i> ${busy ? '받는 중…' : `지금 받기 ${ai1}`}</button></div>`;
+    const feedSec = watch || feed.length ? sec(`👀 관전석 <small>${feed.length}개</small>`, feed.length ? `<ul class="ss-wt-feed">${feed.map((x, i) => `<li class="c-${esc(x.c.replace(/[^a-z0-9]/gi, ''))} ${x.turn === s.turn ? 'now' : ''}" ${x.d?.color ? `style="--wt:${esc(x.d.color)}"` : ''}><span class="ss-wt-ic">${watchIcon(x.d)}</span><div><b>${esc(x.who)}</b><p>${esc(x.text)}</p></div><small>${ago(s, x.turn)}</small><span class="ss-wt-acts">${set.albumOn !== false ? `<button class="ss-ib" data-act="mindstar" data-arg="w:${i}" title="앨범에 저장"><i class="fa-regular fa-star"></i></button>` : ''}<button class="ss-ib" data-act="mindcfg" data-arg="del:w|${x.turn}|${esc(x.who)}" title="이 한마디 지우기"><i class="fa-solid fa-xmark"></i></button></span></li>`).join('')}</ul>` : '<p class="ss-dim">아직 한마디가 없어요. 다음 답부터 와요 — 아니면 「지금 받기」.</p>') : '';
     const castSec = ps.length ? sec(`💭 인물 속마음 <small>${ps.filter(r => r.mind?.text).length}/${ps.length}명</small>`, `<div class="ss-stack">${ps.map(r => mindCard(s, r)).join('')}</div>`) : (watch ? '' : sec('💭 인물 속마음', emptyBox('관계 · 프로필에 인물이 없어요', 'fa-user-group')));
     return `${getBar}${feedSec}${castSec}${whoSec}${toneSec}${howSec}${numSec}`;
 }
@@ -111,9 +113,9 @@ function mindCard(s, r) {
         : cov ? `<button class="ss-btn ss-mind-cover" data-act="mindopen" data-arg="${esc(r.name)}"><i class="fa-solid fa-eye-slash"></i> 가려져 있어요 — 눌러서 보기 <small>눈치 +1</small></button>`
             : `<p class="ss-mind big">${esc(r.mind.text)}</p>`;
     return `<div class="ss-card ss-mindc ${r.mind?.turn === s.turn ? 'now' : ''}"><div class="ss-mindc-h">${avatar(r.name, 'sm')}<b>${esc(r.name)}</b><small>${r.mind?.text ? ago(s, r.mind.turn) : ''}${susOn ? `${r.mind?.text ? ' · ' : ''}눈치 ${sus}${sus >= 3 ? ' (의심하는 중)' : ''}` : ''}</small>
-            ${r.mind?.text && !cov && set.albumOn !== false ? `<button class="ss-ib" data-act="mindstar" data-arg="${esc(r.name)}" title="앨범에 저장"><i class="fa-regular fa-star"></i></button>` : ''}</div>
+            ${r.mind?.text && !cov && set.albumOn !== false ? `<button class="ss-ib" data-act="mindstar" data-arg="${esc(r.name)}" title="앨범에 저장"><i class="fa-regular fa-star"></i></button>` : ''}${r.mind?.text ? `<button class="ss-ib" data-act="mindcfg" data-arg="del:m|${esc(r.name)}" title="지금 속마음 지우기"><i class="fa-solid fa-xmark"></i></button>` : ''}</div>
         <div class="ss-mind-bubble">${now}</div>
-        ${log.length ? `<details class="ss-more"><summary>지난 속마음 ${log.length}개</summary><ul class="ss-mind-log">${log.map(x => `<li><span>${esc(x.text)}</span><small>${ago(s, x.turn)}</small></li>`).join('')}</ul></details>` : ''}</div>`;
+        ${log.length ? `<details class="ss-more"><summary>지난 속마음 ${log.length}개</summary><ul class="ss-mind-log">${log.map(x => `<li><span>${esc(x.text)}</span><small>${ago(s, x.turn)}</small></li>`).join('')}</ul><button class="ss-btn sm ghost" data-act="mindcfg" data-arg="del:m|${esc(r.name)}|log"><i class="fa-solid fa-trash"></i> 지난 속마음 지우기</button></details>` : ''}</div>`;
 }
 
 // ───── ✏ 고치기 창 — 기본 프리셋도 직접 만든 것도 같은 창 ─────
@@ -193,7 +195,7 @@ async function editNums() {
         + fld('cellTwo', '세포가 두 마리 나올 확률 %', N.cellTwo, { type: 'number', min: 0, max: 100 })
         + fld('cast', '관전자 모드에서 인물 속마음이 섞일 확률 %', N.cast, { type: 'number', min: 0, max: 100 })
         + fld('pct', '「랜덤」일 때 뜨는 턴 %', Number(set.mindPct ?? 35), { type: 'number', min: 0, max: 100 })
-        + fld('len', '글자 수 (한글)', N.len, { type: 'number', min: 8, max: 80, hint: '넘으면 첫 문장만 · 영어는 두 배' })
+        + fld('len', '글자 수 (한글)', N.len, { type: 'number', min: 0, max: 300, hint: '0 = 제한 없음 (기본) · 넘으면 첫 문장만 · 영어는 두 배' })
         + fld('sec', '말풍선 머무는 시간 (초)', N.sec, { type: 'number', min: 2, max: 20 })
         + fld('pos', '말풍선 위치', N.pos, { type: 'select', opts: Object.entries(POS_NAME) })
         + fld('kao', '카모지 예시 개수', N.kao, { type: 'number', min: 0, max: 30, hint: '매 턴 AI에게 섞어 보여 줄 수 (0 = 안 보여 줌)' })
@@ -227,6 +229,12 @@ export const MIND_ACTIONS = {
         else if (k === 'wedit' || k === 'cedit' || k === 'tedit') { if (!await editItem(k[0], v)) return; }
         else if (k === 'wnew' || k === 'cnew' || k === 'tnew') { if (!await editItem(k[0], '')) return; }
         else if (k === 'nums') { if (!await editNums()) return; }
+        else if (k === 'lang' && Object.hasOwn(MIND_LANGS, v)) {
+            if (v === 'custom') { const r = await formPopup('속마음 언어', '속마음 · 관전자 한마디만 이 언어로', fld('lang', '언어', set.mindLangCustom ?? '', { maxlength: 40, ph: '예: 부산 사투리 섞인 한국어 · Spanish · 일본어(가나만)' })); if (!r) return; set.mindLangCustom = String(r.val.lang ?? '').trim().slice(0, 40); if (!set.mindLangCustom) { set.mindLang = ''; saveSettings(); app.renderPanel(el); return; } }
+            set.mindLang = v;
+        }
+        else if (k === 'clear') { if (!await confirmPopup(Object.assign(document.createElement('div'), { innerHTML: '<p>인물 속마음 · 지난 속마음 · 관전석을 <b>전부</b> 지울까요?<br><small>지금 시점에서 지워요 — 그 전 답을 지우거나 되감으면 다시 살아나요. 설정 · 직접 만든 프리셋은 그대로예요.</small></p>' }), '전부 지우기', '취소')) return; await addAdjust({ ops: [['_mindclear', 'all']], silent: true, label: '🗑 속마음 전부 지움' }); popSeen.clear(); app.renderPanel(el); return; }
+        else if (k === 'del') { await addAdjust({ ops: [['_mindel', v]], silent: true, label: '🗑 속마음 지움' }); app.renderPanel(el); return; }
         else if (k === 'unhide') set.mindHide = { w: [], c: [], t: [] };
         else if (k === 'resetall') { if (!await confirmPopup(Object.assign(document.createElement('div'), { innerHTML: '<p>고친 프리셋 · 세부 숫자 · 짧게 규칙을 처음대로 돌릴까요?<br><small>직접 만든 관전자 · 세포 · 어조는 남겨요.</small></p>' }), '처음대로', '취소')) return; delete set.mindEdit; delete set.mindHide; delete set.mindNum; delete set.mindRule; }
         else return;

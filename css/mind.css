@@ -152,3 +152,9 @@
 .ss-scope .ss-mind-bubble .ss-mind.big { background: none; padding: 0; border: 0; }
 #ss-mind-pops .c-cell .ss-mpop-b small b { color: inherit; filter: brightness(.85); }
 .ss-scope.ss-mind-form input[type="color"].ss-in { width: 72px; height: 36px; padding: 2px; }
+.ss-scope .ss-wt-feed li { grid-template-columns: auto 1fr auto auto; }
+.ss-scope .ss-wt-acts { display: inline-flex; gap: 2px; }
+.ss-scope .ss-mind-get { gap: 6px; }
+.ss-scope .ss-mind-get > span { flex: 1; }
+/* 이름 글자는 색을 어둡게 섞어 연한 색(연두 · 노랑)에서도 읽히게 */
+.ss-scope .ss-wt-feed b, #ss-mind-pops .ss-mpop-b small b { color: color-mix(in srgb, var(--wt, var(--ss-acc)) 55%, #222); }

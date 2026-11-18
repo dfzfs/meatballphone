@@ -46,7 +46,7 @@ try {
     await ev(() => document.querySelectorAll('#ss-mind-pops .ss-mpop').forEach(x => x.remove()));
     await ev(() => window.__addUser('kiss?')); await ev(() => window.__addAI('Leon blushes.\n<meatball>\nwatch: 열성팬 | 꺄 미쳤다 진짜 (≧▽≦)\nwatch: 지적세포 | 「숨을 들이켰다」 또 나옴 ㅋㅋ\nwatch: 안티 | 그녀는 꼭 이런 식으로 나를 힘들게 한다. 정말 지긋지긋하고 이해할 수 없는 사람이다\n</meatball>')); await sleep(600);
     const w1 = await ev(() => { const s = window.__SS_TEST__.api.app.current.state; return { w: s.watch.map(x => x.who + ':' + x.text), pops: [...document.querySelectorAll('#ss-mind-pops .ss-mpop')].map(x => x.className), body: !/watch:/.test(document.querySelector('#chat .mes:last-child .mes_text')?.textContent ?? '') }; });
-    check(w1.w.length === 3 && w1.w[2].length < 40 && w1.body, '관전자 한마디 3개 저장 (긴 독백은 한 문장으로 잘림) · 본문에선 빠짐', JSON.stringify(w1));
+    check(w1.w.length === 3 && /이해할 수 없는 사람이다$/.test(w1.w[2]) && w1.body, '관전자 한마디 3개 저장 (기본은 글자 수 제한 없음 — 안 잘림) · 본문에선 빠짐', JSON.stringify(w1));
     await sleep(1600);
     const w2 = await ev(() => [...document.querySelectorAll('#ss-mind-pops .ss-mpop')].map(x => x.className + '|' + x.querySelector('.ss-mpop-t')?.textContent));
     check(w2.length === 3 && w2.some(x => /c-fan/.test(x)) && w2.some(x => /c-celljijeok.*「숨을 들이켰다」/.test(x)) && w2.some(x => /c-anti/.test(x)), 'HUD 옆에 컨셉마다 다른 말풍선이 톡', JSON.stringify(w2));
@@ -126,6 +126,23 @@ try {
     check(f1?.svg && f2.e?.name === '버럭세포' && f2.e?.color === '#ff3355' && f2.e?.face === 'shock' && f2.shown, '세포 고치기 창: 이름 · 색 · 표정 · 성격 저장 (미리 보기 그림)', JSON.stringify({ f1, f2 }));
     // 세포 그림은 지브리 검댕이가 아니라 직접 그린 파스텔 찹쌀떡 + 새싹
     check(await ev(() => !!document.querySelector('dialog .ss-cell svg.ss-cellsvg path[fill="#8ac86a"]')), '세포는 새싹 달린 파스텔 떡 그림');
+
+    // 🗑 지우기 · 🌐 속마음 언어
+    const z = await ev(async () => {
+        const E = await import('/ext/src/engine.js'); const a = window.__SS_TEST__.api.app; const st = window.__st.extensionSettings.statussim;
+        Object.assign(st, { mindWho: 'watch', mindWatch: ['fan'], mindLang: 'ja', mindMode: 'thought', mindFreq: 'always' });
+        window.__SS_TEST__.api.refreshNow(); const ja = /in Japanese, whatever language/.test(E.buildInjection(a.current).main);
+        st.mindLang = ''; window.__SS_TEST__.api.refreshNow(); const auto = !/whatever language the story uses/.test(E.buildInjection(a.current).main);
+        return { ja, auto };
+    });
+    check(z.ja && z.auto, '속마음만 따로 언어 (일본어) · 자동이면 안 붙음', JSON.stringify(z));
+    await ev(() => window.__addUser('again')); await ev(() => window.__addAI('Leon.\n<meatball>\nmind: Leon | 또 너야\nwatch: 열성팬 | 꺄아\nwatch: 열성팬2 | 하나 더\n</meatball>')); await sleep(400);
+    await panel();
+    await ev(() => { document.querySelector('dialog .ss-wt-feed [data-arg^="del:w|"]').click(); }); await sleep(500);
+    const z1 = await ev(() => window.__SS_TEST__.api.app.current.state.watch.length);
+    await ev(() => { document.querySelector('dialog [data-act="mindcfg"][data-arg="clear"]').click(); }); await sleep(700);
+    const z2 = await ev(() => { const s = window.__SS_TEST__.api.app.current.state; return { w: s.watch.length, m: s.data.rel.user.filter(r => r.mind || r.mindLog?.length).length, p: s.data.profile.list.filter(r => r.mind).length, btn: !!document.querySelector('dialog [data-arg="clear"]') }; });
+    check(z1 >= 1 && z2.w === 0 && z2.m === 0 && z2.p === 0 && !z2.btn, '한마디 하나 지우기 · 「전부 지우기」로 인물 속마음 · 지난 것 · 관전석 다 지움', JSON.stringify({ z1, z2 }));
 
     const errs = logs.filter(l => /error/i.test(l) && !/favicon|404|Failed to load resource/.test(l));
     check(!errs.length, 'no console errors', errs.slice(0, 5).join('\n'));

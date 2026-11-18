@@ -16,13 +16,13 @@ export const WATCH = {
 export const WATCH_IDS = Object.keys(WATCH);
 
 // 🧠 세포들: {{user}} 머릿속 세포 — 「세포들」을 켜면 그 턴에 여기서 고른 것 중 1~2마리가 말한다 (이름 = 세포 이름 그대로)
-const CELL_P = (x) => `one of the little brain cells living inside {{user}}'s head, reacting to what just happened to {{user}} — ${x}`;
+const CELL_P = (x) => `one of the little brain cells living inside {{user}}'s head, reacting to what just happened to {{user}} — ${x}. Always stays in character as the cell — never talks like an assistant`;
 export const CELLS = {
     jjogae: { icon: '😏', color: '#ffd36e', face: 'smirk', name: '쪼개세포', desc: '무조건 쪼개면서 돌려까는 애', p: CELL_P('always snickering (ㅋㅋ, 큭큭) while making a backhanded, roundabout dig — never says it straight') },
     yok: { icon: '🤬', color: '#ff8a7a', face: 'angry', name: '욕세포', desc: '일단 욕부터 박는 애', p: CELL_P('swears first and thinks later (씨, 아 미친, ㅅㅂ) — angry at the situation, never slurs') },
     woo: { icon: '🌧️', color: '#a9b7d6', face: 'gloom', name: '우울세포', desc: '뭘 해도 비관하는 애', p: CELL_P('gloomy and defeatist, sees the worst in everything, sighs a lot (하아…, 어차피, 망했어)') },
     sul: { icon: '💓', color: '#ffb3cf', face: 'love', name: '설렘세포', desc: '사소한 것에도 심쿵하는 애', p: CELL_P('melts over the tiniest thing, overreacts with heart-fluttering (헉 심장, 미쳤다 설레)') },
-    jijeok: { icon: '🧐', color: '#c9e88a', face: 'nerd', name: '지적세포', desc: '뭐만 하면 AI 문장 표현 지적하는 애', p: CELL_P('a grumpy editor cell who roasts the PROSE of this reply every time — clichés, AI-isms (숨을 들이켰다, 입꼬리가 올라갔다, 공기가 무거워졌다, 한 박자 늦게), repeated words, weird metaphors. Quote the offending 2-6 word phrase from THIS reply and mock it') },
+    jijeok: { icon: '🧐', color: '#c9e88a', face: 'nerd', name: '지적세포', desc: '뭐만 하면 AI 문장 표현 지적하는 애', p: CELL_P('a grumpy editor cell who roasts the PROSE of this reply every time — clichés, AI-isms (숨을 들이켰다, 입꼬리가 올라갔다, 공기가 무거워졌다, 한 박자 늦게), repeated words, weird metaphors. Quote the offending 2-6 word phrase from the latest reply and mock it — if there is no prose to roast yet, grumble in character about the scene instead (never ask the user to write something)') },
     bul: { icon: '😰', color: '#c6b4f0', face: 'worry', name: '불안세포', desc: '최악의 시나리오만 그리는 애', p: CELL_P('anxious, instantly imagines the worst-case scenario (이러다 차이는 거 아냐?)') },
     isung: { icon: '🤓', color: '#9fd8e8', face: 'calm', name: '이성세포', desc: '혼자 냉철한 척 분석하는 애', p: CELL_P('the cold, logical one who coolly analyses and tells the others to calm down') },
     mukbo: { icon: '🍙', color: '#ffc89a', face: 'yum', name: '먹보세포', desc: '무슨 상황이든 배고픈 애', p: CELL_P('only cares about food no matter what is happening') },
@@ -106,10 +106,10 @@ export function watchOn(set) { // 지금 켠 관전자 id들 (세포 하나하�
 }
 export const watchMode = (set) => set.mindWho === 'watch';
 // 숫자 (범위를 넘으면 기본값)
-export const NUM_DEF = { max: 2, two: 45, cast: 50, cellTwo: 60, len: 26, sec: 6, pos: 'hud', kao: 10 };
+export const NUM_DEF = { max: 2, two: 45, cast: 50, cellTwo: 60, len: 0, sec: 6, pos: 'hud', kao: 10 }; // len 0 = 글자 수 제한 없음 (잘라서 끊기던 것 · v2.10)
 export function numOf(set) {
     const n = set.mindNum ?? {}, c = (k, lo, hi) => { const v = Number(n[k]); return Number.isFinite(v) && v >= lo && v <= hi ? v : NUM_DEF[k]; };
-    return { max: c('max', 1, 4), two: c('two', 0, 100), cast: c('cast', 0, 100), cellTwo: c('cellTwo', 0, 100), len: c('len', 8, 80), sec: c('sec', 2, 20), pos: ['hud', 'tr', 'tl', 'br', 'bl'].includes(n.pos) ? n.pos : 'hud', kao: c('kao', 0, 30) };
+    return { max: c('max', 1, 4), two: c('two', 0, 100), cast: c('cast', 0, 100), cellTwo: c('cellTwo', 0, 100), len: c('len', 0, 300), sec: c('sec', 2, 20), pos: ['hud', 'tr', 'tl', 'br', 'bl'].includes(n.pos) ? n.pos : 'hud', kao: c('kao', 0, 30) };
 }
 export const ruleOf = (set) => String(set.mindRule ?? '').trim() || SHORT_RULE;
 export function fmtOf(set) { // 보는 방식 글 (짧게 규칙을 고쳤으면 그걸로)
@@ -126,6 +126,15 @@ export function conceptOf(set, who, hint) {
     const free = watchOn(set).filter(id => !defs[id].nick && id !== 'cells');
     if (free.length === 1) return free[0];
     return free.includes('chat') && /\d|[a-z]/i.test(String(who)) ? 'chat' : defs.by ? 'by' : (free[0] ?? '');
+}
+
+// 🌐 속마음만 따로 언어 (v2.10): '' = 상태창 출력 언어 따라 · custom = 직접 적은 언어
+export const MIND_LANGS = { '': '자동', ko: '한국어', en: 'English', ja: '日本語', zh: '中文', custom: '직접' };
+const LANG_EN = { ko: 'Korean', en: 'English', ja: 'Japanese', zh: 'Chinese' };
+export function langOf(set) {
+    const v = set.mindLang ?? '';
+    if (v === 'custom') return String(set.mindLangCustom ?? '').trim().slice(0, 40);
+    return LANG_EN[v] ?? '';
 }
 
 // ───── 🧠 세포 그림 — 동글동글 말랑한 파스텔 찹쌀떡 + 새싹 하나 (직접 디자인 · 색 · 표정은 세포마다 고칠 수 있다) ─────
