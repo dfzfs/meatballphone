@@ -19,7 +19,7 @@ import { presetHTML } from './extra.js';
 import { detectPlay, instructModule } from './ai.js';
 import { PLAY_MODES, normPlay, playOf, REC_MODS, isSimple } from './core.js';
 import { mindBar, mindPeek, mindBlock, MIND_ACTIONS } from './mind.js'; // 💭 속마음: 프로필 탭에서 인물마다 프로필 밑에 (v2.9)
-import { goodIcon, isMeatShop, shopExtra, walletExtra, lifeBox, needsTabOn, wearTabOn } from './life_lite.js'; // 🍞 생활 틀의 늘 보이는 부분만 — 무거운 부분(life.js)은 ⚡ 켠 채팅에서만 F.life로 (feat.js)
+import { goodIcon, isMeatShop, shopExtra, walletExtra, lifeBox, needsTabOn, wearTabOn, lifeHidden } from './life_lite.js'; // 🍞 생활 틀의 늘 보이는 부분만 — 무거운 부분(life.js)은 ⚡ 켠 채팅에서만 F.life로 (feat.js)
 import { DEVICES as STORY_DEVICES, KEY as STORY_KEY } from './story_meta.js'; // 목록만 (장치 동작 story.js는 ⚡ 켠 사람만)
 import { busyBtn, confirmPopup, mascot } from './kit.js';
 import { freshDot, usedPrice, placeIcon, miniWidgets, pathTo, tripInfo } from './tiles.js';
@@ -116,11 +116,11 @@ export const VIEW = {
             <div class="ss-gbtns"><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|-10">−10</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|-1">−1</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|+1">+1</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|+10">+10</button>${b.desc ? `<small class="ss-dim">${esc(b.desc)}</small>` : ''}</div>${(F.life?.needLine ?? (() => ''))(b, d)}</div>`).join('') || (d.bars.length ? '<p class="ss-hint">욕구 게이지는 「욕구」 탭에 있어요.</p>' : emptyBox('게이지가 없어요'))}</div>`)}
         ${sec('능력치', `<div class="ss-attrs">${d.attrs.map(a => `<div class="ss-attr" title="${esc(a.desc)}"><span>${esc(a.name)}${freshDot('stats', 'attrs', a.name)}</span><b>${a.val >= 0 ? '+' : ''}${a.val}</b></div>`).join('') || emptyBox('능력치가 없어요')}</div>`)}
         ${sec('상태 이상 · 버프', `<div class="ss-chips">${d.conds.map(c => `<span class="ss-chip warn" title="${esc(c.desc)}">${freshDot('stats', 'conds', c.name)}${esc(c.name)}<button class="ss-x" data-act="uncond" data-arg="${esc(c.name)}">×</button></span>`).join('') || '<span class="ss-hint">없음</span>'}</div>`)}
-        ${needsTabOn() ? '' : '<div class="ss-row-btns ss-life-x"><button class="ss-btn sm ghost" data-act="lifetab" data-arg="needs" title="심즈 · 좀보이드처럼 저절로 줄어드는 욕구 게이지 — 다마고치 화면이 있는 탭이 생겨요 (이 채팅만)">🍞 욕구 탭 켜기</button></div>'}`,
+        ${needsTabOn() || lifeHidden() ? '' : '<div class="ss-row-btns ss-life-x"><button class="ss-btn sm ghost" data-act="lifetab" data-arg="needs" title="심즈 · 좀보이드처럼 저절로 줄어드는 욕구 게이지 — 다마고치 화면이 있는 탭이 생겨요 (이 채팅만)">🍞 욕구 탭 켜기</button></div>'}`,
     needs: (s, d, ui) => need('life')?.needsTab(s, d, ui) ?? loadingHTML(), // ⚡ 생활 틀은 켠 채팅에서만 불러온다
     wear: (s, d, ui) => need('life')?.wearTab(s, d, ui) ?? loadingHTML(),
     dice: diceView,
-    wallet: (s, d, ui) => `${walletView(s, d, ui)}${walletExtra(s)}${wearTabOn() ? '' : '<div class="ss-row-btns ss-life-x"><button class="ss-btn sm ghost" data-act="lifetab" data-arg="wear" title="인물마다 도트 인형 · 내 소지품 입히기 (이 채팅만)">🎨 꾸미기 탭 켜기</button></div>'}`,
+    wallet: (s, d, ui) => `${walletView(s, d, ui)}${walletExtra(s)}${wearTabOn() || lifeHidden() ? '' : '<div class="ss-row-btns ss-life-x"><button class="ss-btn sm ghost" data-act="lifetab" data-arg="wear" title="인물마다 도트 인형 · 내 소지품 입히기 (이 채팅만)">🎨 꾸미기 탭 켜기</button></div>'}`,
     fate: fateView,
     shop: (s, d, ui) => {
         const w = s.data.wallet;
@@ -761,7 +761,7 @@ function pickerHTML(s, meta, st, ui = {}) {
     };
     const groups = GROUPS.filter(g => g.id !== 'manage').map(g => ({ ...g, tabs: g.tabs.filter(t => !PSEUDO.has(t) && MOD[TAB_MOD(t)] && !tidyHidden('mods', TAB_MOD(t))) })).filter(g => g.tabs.length); // 🧹 숨긴 칸은 목록에서 뺀다
     const rest = [...ADDON_FLAGS, ...STORY_FLAGS].filter(f => !PK_CHILD.has(f[0]) && !tidyHidden('flags', f[0]));
-    const tdy = settings().tidy, nHid = (tdy?.mods?.length ?? 0) + (tdy?.flags?.length ?? 0);
+    const tdy = settings().tidy, nHid = (tdy?.mods?.length ?? 0) + (tdy?.flags?.length ?? 0) + (tdy?.extra?.length ?? 0);
     const oRest = mgIsOpen('ex-rest'), nRest = rest.filter(f => flagOn(st, f)).length;
     const auto = autoOf(meta), todo = live ? fillTodo(s, meta) : [], needWorld = !!auto && !auto.world;
     const fillBox = auto || todo.length ? `<div class="ss-pk-fill">

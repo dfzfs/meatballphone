@@ -1,9 +1,9 @@
-// 🎨 스타일로 고르기 (눌렀을 때 · 처음 설치한 사람은 첫 채팅에서 한 번 저절로) — lazy.js로 불러온다
+// 🎨 스타일로 고르기 (눌렀을 때 · 처음 설치한 사람은 관리 탭에 처음 들어갈 때 한 번 저절로) — lazy.js로 불러온다
 //   ① 어떤 이야기? (장르 카드) → ② 그중 어떤 맛? (세부 묶음) → 칸 · 플레이 방식 · 게임 모드 · 부가 기능 · 모양을 한 번에 (AI 0회)
 //   · 고른 뒤에도 묶음 안의 항목을 하나씩 빼고 시작할 수 있다 · 「다 해 봤어요」는 관리 › 쓸 기능(전체 목록)으로
 //   · 칸(mods)은 이 채팅만 · 부가 기능은 모든 채팅 공통이라 **켜기만** 한다 (다른 채팅에서 쓰던 것을 끄지 않는다 — 만들기 창 빠른 세트와 같은 약속)
 //   · 상태창이 아직 없으면 바로 시작(autostart.js)으로 틀을 먼저 만든다 → 채우기는 예전처럼 「고른 대로 채우기」를 눌렀을 때만 AI
-//   · 설정 stylePick: '' (예전부터 쓰던 사람 · 안 띄움) · 'ask' (새로 설치 · 첫 채팅에서 한 번 띄움) · 'done' (띄웠음)
+//   · 설정 stylePick: '' (예전부터 쓰던 사람 · 안 띄움) · 'ask' (새로 설치 · 관리 탭에 처음 들어갈 때 한 번 · shell.js) · 'done' (띄웠음)
 import { app, settings, saveSettings, getMeta, saveMeta, MOD, MODS, MOD_IDS, REC_MODS, normPlay, playOf, esc, TITLE, LOG, ssWarn, ssErr, tidyHidden, applyTidyStyle } from './core.js';
 import { choosePopup } from './kit.js';
 import { ADDON_FLAGS, STORY_FLAGS, flagOn } from './views.js';
@@ -67,7 +67,7 @@ const flagIsOn = (k, st = settings()) => (k === 'mindMode' ? !!st.mindMode && st
 function genreHTML() {
     return `<h3>🐱 어떻게 놀고 싶어요?</h3>
         <p class="ss-hint">고르면 이 이야기에 맞는 칸과 기능이 한 번에 켜져요 (AI 0회). 나중에 <b>관리 › 쓸 기능</b>에서 언제든 바꿀 수 있어요.</p>
-        <div class="ss-sp-grid">${STYLES.map(g => `<button type="button" class="ss-sp-card" data-sp-g="${g.id}"><span class="ss-sp-ico">${g.icon}</span><b>${esc(g.name)}</b><small>${esc(g.desc)}</small></button>`).join('')}</div>
+        <div class="ss-sp-grid">${STYLES.filter(g => !(g.id === 'life' && tidyHidden('extra', 'life'))).map(g => `<button type="button" class="ss-sp-card" data-sp-g="${g.id}"><span class="ss-sp-ico">${g.icon}</span><b>${esc(g.name)}</b><small>${esc(g.desc)}</small></button>`).join('')}</div>
         <div class="ss-sp-alt">
             <button type="button" class="ss-btn" data-choice="light"><span>🍙</span> 그냥 가볍게<small>꼭 필요한 6칸 · 심플 화면</small></button>
             <button type="button" class="ss-btn ghost" data-choice="manual"><span>🛠</span> 다 해 봤어요, 직접 고를래요<small>전체 기능 목록으로</small></button>
@@ -181,20 +181,24 @@ async function applyLight() {
 //   · **지우지 않는다** — 칸의 내용 · 기록은 그대로. 다시 고르면 그 자리로 돌아온다 (관리 › 쓸 기능 맨 위 「🧹 기능 정리」)
 //   업데이트로 받은 사람에게 한 번 저절로 (index.js · 설정 tidyAsked) · 필수 아님 — 「그대로 둘게요」면 아무것도 안 바뀐다
 const FLAGS = () => [...ADDON_FLAGS, ...STORY_FLAGS];
+// 칸도 부가 기능도 아닌 큰 묶음 — 숨기면 그 묶음의 상자 · 단추 · 탭이 전부 안 보인다 (tidy.extra)
+const EXTRAS = [['life', '🍞 생활 틀', '게임 모드 · 욕구/꾸미기 탭 · 미트볼 상점 · 고지서']];
 const flagLabel = (f) => `${f[1] && !String(f[1]).startsWith('fa-') ? `${f[1]} ` : ''}${f[2]}`;
 export function tidyUsed() { // 지금 쓰는 것: 이 채팅에서 켜 둔 칸 · 내용이 있는 칸 · 켜 둔 부가 기능
     const meta = getMeta(), s = app.current?.state, st = settings();
     const mods = new Set(meta?.base ? MOD_IDS.filter(id => (meta.mods?.[id] !== false) || !!s?.data?.[id]) : []);
     const flags = new Set(FLAGS().filter(f => flagOn(st, f)).map(f => f[0]));
-    return { mods, flags, chat: !!meta?.base };
+    const extra = new Set();
+    if (meta?.life?.needs || meta?.life?.wear || ['life', 'fusion', 'apoc'].includes(meta?.mode) || (meta?.dolls && Object.keys(meta.dolls).length)) extra.add('life');
+    return { mods, flags, extra, chat: !!meta?.base };
 }
 export async function openTidy({ why = 'again' } = {}) {
     const st = settings(), t = st.tidy, used = tidyUsed();
     // 처음: 지금 쓰는 것만 골라 둔다 (채팅이 안 열려 있으면 칸은 전부) · 다시 열 때: 지금 보이는 것 = 고름
-    const keep = { mods: new Set(MOD_IDS.filter(id => t ? !tidyHidden('mods', id) : (!used.chat || used.mods.has(id)))), flags: new Set(FLAGS().map(f => f[0]).filter(k => t ? !tidyHidden('flags', k) : used.flags.has(k))) };
+    const keep = { mods: new Set(MOD_IDS.filter(id => t ? !tidyHidden('mods', id) : (!used.chat || used.mods.has(id)))), flags: new Set(FLAGS().map(f => f[0]).filter(k => t ? !tidyHidden('flags', k) : used.flags.has(k))), extra: new Set(EXTRAS.map(x => x[0]).filter(k => t ? !tidyHidden('extra', k) : used.extra.has(k))) };
     const box = document.createElement('div'); box.className = 'ss-root ss-scope ss-stylepick ss-tidy';
     const chip = (kind, k, name, isUsed) => `<label class="ss-sp-item ${keep[kind].has(k) ? 'on' : ''}"><input type="checkbox" class="ss-switch" data-td="${kind}:${k}" ${keep[kind].has(k) ? 'checked' : ''}><span>${esc(name)}${isUsed ? '<small>쓰는 중</small>' : ''}</span></label>`;
-    const count = () => { const hid = MOD_IDS.length - keep.mods.size + FLAGS().length - keep.flags.size; return { keepN: keep.mods.size + keep.flags.size, hid }; };
+    const count = () => { const hid = MOD_IDS.length - keep.mods.size + FLAGS().length - keep.flags.size + EXTRAS.length - keep.extra.size; return { keepN: keep.mods.size + keep.flags.size + keep.extra.size, hid }; };
     const draw = () => {
         const { keepN, hid } = count();
         box.innerHTML = `<h3>🧹 기능 정리 — 쓸 것만 남기기</h3>
@@ -204,6 +208,8 @@ export async function openTidy({ why = 'again' } = {}) {
             <div class="ss-sp-detail">
                 <h4>칸 <small>상태창의 탭 · HUD 칸</small></h4>
                 <div class="ss-sp-items">${MODS.map(m => chip('mods', m.id, m.name, used.mods.has(m.id) && used.chat)).join('')}</div>
+                <h4>화면 · 모드 <small>묶음째로</small></h4>
+                <div class="ss-sp-items">${EXTRAS.map(([k, n, d]) => chip('extra', k, `${n} — ${d}`, used.extra.has(k))).join('')}</div>
                 <h4>부가 기능 <small>선택 기능 · 이야기 장치</small></h4>
                 <div class="ss-sp-items">${FLAGS().map(f => chip('flags', f[0], flagLabel(f), used.flags.has(f[0]))).join('')}</div>
             </div>
@@ -212,8 +218,8 @@ export async function openTidy({ why = 'again' } = {}) {
     };
     box.addEventListener('click', (e) => {
         const q = e.target.closest('[data-td-quick]'); if (!q) return;
-        if (q.dataset.tdQuick === 'all') { keep.mods = new Set(MOD_IDS); keep.flags = new Set(FLAGS().map(f => f[0])); }
-        else { keep.mods = new Set(MOD_IDS.filter(id => !used.chat || used.mods.has(id))); keep.flags = new Set(used.flags); }
+        if (q.dataset.tdQuick === 'all') { keep.mods = new Set(MOD_IDS); keep.flags = new Set(FLAGS().map(f => f[0])); keep.extra = new Set(EXTRAS.map(x => x[0])); }
+        else { keep.mods = new Set(MOD_IDS.filter(id => !used.chat || used.mods.has(id))); keep.flags = new Set(used.flags); keep.extra = new Set(used.extra); }
         draw();
     });
     box.addEventListener('change', (e) => {
@@ -230,14 +236,14 @@ export async function openTidy({ why = 'again' } = {}) {
 export async function applyTidy(keep) {
     try {
         const st = settings(), gear0 = st.gearOn === true;
-        const mods = MOD_IDS.filter(id => !keep.mods.has(id)), flags = FLAGS().map(f => f[0]).filter(k => !keep.flags.has(k));
-        st.tidy = mods.length || flags.length ? { mods, flags } : null;
+        const mods = MOD_IDS.filter(id => !keep.mods.has(id)), flags = FLAGS().map(f => f[0]).filter(k => !keep.flags.has(k)), extra = EXTRAS.map(x => x[0]).filter(k => !keep.extra?.has(k));
+        st.tidy = mods.length || flags.length || extra.length ? { mods, flags, extra } : null;
         for (const k of flags) { if (st[k] === true || (k === 'guideOn' && st[k] !== false)) { st[k] = false; const b = document.querySelector(`#ss-settings input[data-s="${k}"]`); if (b) b.checked = false; } }
         saveSettings(); applyTidyStyle();
         if (gear0 !== (st.gearOn === true)) { try { await app.loadAddons?.(true); await (await import('./addons.js')).syncNeedMods?.(); } catch (e) { ssWarn(LOG, 'tidy gear', e); } }
         try { app.storyChanged?.(); } catch { /* 화면 표시일 뿐 */ }
         app.refreshNow?.(); app.rerenderPanels?.(true); app.renderHud?.();
-        toastr.success(st.tidy ? `${mods.length + flags.length}개를 숨겼어요 (지우지 않았어요). 다시 꺼내려면 <b>관리 › 쓸 기능 › 🧹 기능 정리</b>.` : '숨긴 기능을 전부 다시 꺼냈어요.', TITLE, { timeOut: 8000 });
+        toastr.success(st.tidy ? `${mods.length + flags.length + extra.length}개를 숨겼어요 (지우지 않았어요). 다시 꺼내려면 <b>관리 › 쓸 기능 › 🧹 기능 정리</b>.` : '숨긴 기능을 전부 다시 꺼냈어요.', TITLE, { timeOut: 8000 });
         return true;
     } catch (e) { ssErr(LOG, 'tidy apply', e); return false; }
 }

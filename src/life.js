@@ -14,8 +14,8 @@ const loadDL = async () => (DL ??= await import('./doll.js'));
 export { kindOf, needIcon } from './needicons.js';
 import { sec, choosePopup } from './kit.js';
 // 늘 보이는 가벼운 부분(상점 · 재산 탭의 단추 · 관리의 게임 모드 상자 · 탭 켜짐 여부)은 life_lite.js로 뗐다 — 생활 틀을 안 쓰는 사람은 이 파일을 안 읽는다 (feat.js)
-import { isMeatShop, needsTabOn, wearTabOn, MODES, goodIcon, lifeBox, shopExtra, walletExtra, lifeOf } from './life_lite.js';
-export { isMeatShop, needsTabOn, wearTabOn, MODES, goodIcon, lifeBox, shopExtra, walletExtra } from './life_lite.js';
+import { isMeatShop, needsTabOn, wearTabOn, MODES, goodIcon, lifeBox, shopExtra, walletExtra, lifeOf, lifeHidden } from './life_lite.js';
+export { isMeatShop, needsTabOn, wearTabOn, MODES, goodIcon, lifeBox, shopExtra, walletExtra, lifeHidden } from './life_lite.js';
 // addons.js는 켠 사람만 불러오는 파일이라(index.js loadAddons) 여기서도 쓸 때 불러온다 — 그 전에는 「켜기」 단추만 보인다
 let AD = null;
 const loadAD = async () => { if (!AD) { try { await app.loadAddons?.(true); } catch (e) { ssWarn(LOG, 'addons', e); } AD = await import('./addons.js'); } return AD; };

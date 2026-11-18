@@ -1,7 +1,7 @@
 // 틀: 상태창 패널 · HUD · 사이드(미니) · 떠 있는 버튼 (만들기는 wizard.js · 프롬프트/꾸미기 창은 windows.js)
 import {
     app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, isActive, ready, MOD, MOD_IDS, EMPTY, DIFFS, diffOf,
-    esc, short, clone, clamp, h, dateShort, userName, TITLE, LOG, VERSION, MODULE, relFromProfiles, ssErr, isHidden,
+    tidyHidden, esc, short, clone, clamp, h, dateShort, userName, TITLE, LOG, VERSION, MODULE, relFromProfiles, ssErr, isHidden,
 } from './core.js';
 import { commit, wipeModule, gatherSources, unreadCount, dueLetters } from './engine.js';
 import { genModule, instructModule } from './ai.js';
@@ -45,7 +45,7 @@ const INSTRUCT_HINT = {
 // ───── 탭 ─────
 // v2.7.3: 앨범 · 플레이 기록은 확장 설정에서 모든 채팅에 끌 수 있어요
 const PSEUDO_ON = { album: 'albumOn', record: 'recordOn', guide: 'guideOn', guest: () => settings().hpWave === true && settings().guestbook === true,
-    needs: () => getMeta()?.life?.needs === true && modOn('stats'), wear: () => getMeta()?.life?.wear === true }; // 🍞 욕구 · 🎨 꾸미기 탭은 이 채팅에서 켰을 때만 (v2.9) // 글 = 그 설정이 꺼져 있지 않을 때 · 함수 = 참일 때만
+    needs: () => getMeta()?.life?.needs === true && modOn('stats') && !tidyHidden('extra', 'life'), wear: () => getMeta()?.life?.wear === true && !tidyHidden('extra', 'life') }; // 🧹 생활 틀을 숨기면 두 탭도 안 보임 // 🍞 욕구 · 🎨 꾸미기 탭은 이 채팅에서 켰을 때만 (v2.9) // 글 = 그 설정이 꺼져 있지 않을 때 · 함수 = 참일 때만
 VIEW.guide = (s, d, ui) => need('storyui')?.guideView(ui) ?? loadingHTML(); // 🗝 공략 탭 (story_ui.js · ⚡ 켠 사람만 불러옴)
 VIEW.guest = () => app.hpGuestTab?.() ?? '<p class="ss-hint">방명록을 불러오는 중이에요.</p>'; // 📝 방명록 탭 (사람 묶음 · minihome_ui.js)
 // 🧩 부가 기능 탭 (관리 옆): 켠 선택 기능의 화면을 묶음별로 모은다 — 공략 · 사람/관계 · 장부 · 이야기 흐름 · 연락 (켜고 끄기는 관리 › 쓸 기능 › 부가 기능)
@@ -151,6 +151,8 @@ function renderPanel0(el) {
     }
     const s = app.current.state;
     const meta = getMeta();
+    // 🎨 새로 설치한 사람: 처음엔 둘러보게 두고, 관리 탭에 처음 들어갈 때 「어떻게 놀고 싶어요?」를 한 번 (닫아도 다시 안 뜸 · 관리 › 쓸 기능 맨 위 단추로 언제든)
+    if (st.tab === 'manage' && settings().stylePick === 'ask') { settings().stylePick = 'done'; saveSettings(); setTimeout(() => openStylePick({ why: 'first' }).catch(e => ssErr(LOG, 'style first', e)), 250); }
     // 🍙 심플 모드: 탭 줄이 없다 — 「한눈에」(홈)와 켜 둔 칸 하나씩만 연다. 관리 · 부가 기능 · 꺼 둔 칸으로 들어오면 한눈에로
     const simple = isSimple(meta);
     if (simple) { const m0 = TAB_MOD(st.tab); if (st.tab !== 'home' && (PSEUDO.has(st.tab) || !MOD[m0] || !modOn(m0, meta))) { st.tab = 'home'; st.mode = 'view'; } if (st.mode === 'json') st.mode = 'view'; }

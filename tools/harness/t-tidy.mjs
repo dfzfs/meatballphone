@@ -46,6 +46,21 @@ const MINE = ['profile', 'stats', 'wallet', 'rel', 'map', 'calendar', 'quest', '
         await Q(() => document.querySelector('dialog[open] .ss-tidy [data-choice="go"]').click()); await sleep(800);
         const back = await Q(async () => { const core = await import('/ext/src/core.js'); return { tidy: core.settings().tidy, sns: core.modOn('sns'), style: !!document.getElementById('ss-tidy-style') }; });
         check(back.tidy === null && back.sns && !back.style, '「전부 고르기」면 숨김이 전부 풀리고 칸이 돌아옴', JSON.stringify(back));
+        // 🍞 생활 틀을 숨기면: 게임 모드 상자 · 상점/재산 탭 단추 · 스타일 고르기의 🏡 장르가 안 보임
+        await Q(async () => { (await import('/ext/src/stylepick.js')).openTidy({ why: 'again' }); }); await sleep(400);
+        check(await Q(() => !!document.querySelector('dialog[open] .ss-tidy [data-td="extra:life"]')), '기능 정리에 「🍞 생활 틀」 항목');
+        await Q(() => { const i = document.querySelector('dialog[open] .ss-tidy [data-td="extra:life"]'); i.checked = false; i.dispatchEvent(new Event('change', { bubbles: true })); });
+        await Q(() => document.querySelector('dialog[open] .ss-tidy [data-choice="go"]').click()); await sleep(800);
+        await Q(async () => { const core = await import('/ext/src/core.js'); const m = core.getMeta(true); m.mods.shop = true; await core.saveMeta(); core.settings().mgTab = 'mods'; document.querySelectorAll('dialog[open]').forEach(d => d.close()); window.__SS_TEST__.api.app.openSheet('manage'); }); await sleep(600);
+        check(await Q(() => !document.querySelector('dialog[open] .ss-panel [data-act="lifemode"]')), '관리 › 쓸 기능에 「🎮 게임 모드 · 생활 탭」 상자가 없음');
+        await Q(() => { document.querySelectorAll('dialog[open]').forEach(d => d.close()); window.__SS_TEST__.api.app.openSheet('shop'); }); await sleep(500);
+        check(await Q(() => !document.querySelector('dialog[open] .ss-panel [data-act="lifeshop"]')), '상점 탭에 「미트볼 상점 넣기」가 없음');
+        await Q(() => { document.querySelectorAll('dialog[open]').forEach(d => d.close()); window.__SS_TEST__.api.app.openSheet('wallet'); }); await sleep(500);
+        check(await Q(() => !document.querySelector('dialog[open] .ss-panel [data-act="lifebills"]') && !document.querySelector('dialog[open] .ss-panel [data-act="lifetab"]')), '재산 탭에 「고지서」 · 「꾸미기 탭 켜기」가 없음');
+        await Q(async () => { (await import('/ext/src/stylepick.js')).openStylePick({ why: 'again' }); }); await sleep(300);
+        check(await Q(() => !document.querySelector('dialog[open] .ss-stylepick [data-sp-g="life"]') && !!document.querySelector('dialog[open] .ss-stylepick [data-sp-g="romance"]')), '스타일 고르기에 🏡 생활 장르가 없음');
+        await Q(() => document.querySelector('dialog[open] .ss-stylepick').closest('dialog').querySelector('.popup-button-ok').click()); await sleep(200);
+        check(!(await Q(() => performance.getEntriesByType('resource').some(e => /\/life\.js$/.test(new URL(e.name).pathname)))), '생활 틀 코드도 안 읽음');
         const errs = logs.filter(l => /pageerror|TypeError|ReferenceError/.test(l)); check(!errs.length, 'no console errors', errs.slice(0, 3).join('\n').slice(0, 600));
     } finally { await close(); }
 }

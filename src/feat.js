@@ -4,7 +4,7 @@
 //   · loadWanted(): 지금 켜진 기능을 불러온다 — 시작할 때 · 채팅을 바꿀 때 기다리고, 다시 계산할 때(refreshNow)마다 안 기다리고 부른다
 //     → 기능을 켜는 순간 불러오고, 다 불러오면 상태창 · HUD를 다시 그린다
 //   · 불러온 모듈이 단추 동작(…_ACTIONS)을 갖고 있으면 shell.js가 app.featLoaded에서 받아 붙인다
-import { app, settings, getMeta, modOn, ssWarn, LOG } from './core.js';
+import { app, settings, getMeta, modOn, ssWarn, LOG, tidyHidden } from './core.js';
 import { KEY as STORY_KEY } from './story_meta.js';
 
 export const F = {};
@@ -34,6 +34,7 @@ const WANT = {
     storyui: () => storyAny(),
     // 생활: 욕구 · 꾸미기 탭을 켰거나 · 생활 모드거나 · 옷차림을 켰거나 · 인형이 있거나 · 저절로 줄어드는 게이지가 있으면
     life: () => {
+        if (tidyHidden('extra', 'life')) return false; // 🧹 숨김
         const m = getMeta(); if (!m) return st().gearOn === true;
         if (m.life?.needs || m.life?.wear || ['life', 'fusion', 'apoc'].includes(m.mode) || st().gearOn === true) return true;
         if (m.dolls && Object.keys(m.dolls).length) return true;

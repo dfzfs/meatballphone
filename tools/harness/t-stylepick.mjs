@@ -1,6 +1,6 @@
-// 🎨 스타일로 고르기: 새로 설치한 사람의 첫 채팅에서 한 번 → 장르 → 맛 → 칸 · 플레이 방식 · 부가 기능 · 모양이 한 번에 (AI 0회)
+// 🎨 스타일로 고르기: 새로 설치한 사람이 관리 탭에 처음 들어갈 때 한 번 → 장르 → 맛 → 칸 · 플레이 방식 · 부가 기능 · 모양이 한 번에 (AI 0회)
 //   · 다른 채팅에서는 다시 안 뜸 · 관리 › 쓸 기능 · 빈 화면에서 다시 열기 · 「그냥 가볍게」 · 「직접 고를래요」 · 업데이트로 받은 사람에겐 안 뜸
-import { open, sleep, check } from './lib.mjs';
+import { open, makeStatus, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open({ auto: true, style: true });
 const Q = (fn, arg) => page.evaluate(fn, arg);
 const meta = () => Q(async () => { const core = await import('/ext/src/core.js'); const m = core.getMeta(); const s = core.settings(); return { base: !!m?.base, style: m?.style ?? '', mode: m?.mode ?? '', simple: m?.simple === true, play: core.playOf(m), mods: core.MOD_IDS.filter(id => core.modOn(id)).sort().join(','), st: { stylePick: s.stylePick, relRace: s.relRace, pairAff: s.pairAff, groupChat: s.groupChat, mindMode: s.mindMode, hompyFull: s.hompyFull, hpSkin: s.hpSkin, themeAsked: s.themeAsked } }; });
@@ -10,8 +10,12 @@ const sorted = (a) => [...a].sort().join(',');
 try {
     await Q(() => { window.__n = 0; window.__ai = () => { window.__n++; return '{}'; }; });
     await sleep(2600);
+    check((await meta()).base && !(await picker()), '새로 설치 · 첫 채팅: 틀만 생기고 창은 안 뜸 (먼저 둘러보기)');
+    await Q(() => { window.__SS_TEST__.api.app.openSheet('home'); }); await sleep(500);
+    check(!(await picker()), '홈 · 다른 탭을 둘러봐도 안 뜸');
+    await Q(() => { document.querySelectorAll('dialog[open]').forEach(d => d.close()); window.__SS_TEST__.api.app.openSheet('manage'); }); await sleep(700);
     const m0 = await meta();
-    check(m0.base && await picker(), '새로 설치 · 첫 채팅: 틀을 만든 뒤 「어떻게 놀고 싶어요?」가 뜸', JSON.stringify(m0));
+    check(m0.base && await picker(), '관리 탭에 처음 들어가면 「어떻게 놀고 싶어요?」가 뜸', JSON.stringify(m0));
     check(m0.st.stylePick === 'done', '띄운 순간 「물어봤음」으로 (다시 안 뜸)');
     check(await Q(() => document.querySelectorAll('dialog[open] .ss-stylepick [data-sp-g]').length) === 6 && await Q(() => !!document.querySelector('dialog[open] .ss-stylepick [data-choice="light"]') && !!document.querySelector('dialog[open] .ss-stylepick [data-choice="manual"]')), '장르 6개 + 「그냥 가볍게」 · 「직접 고를래요」');
     // 💕 연애 → 👑 다인 공략 · 단체방만 빼고 시작
@@ -29,9 +33,11 @@ try {
     check(m1.st.relRace === true && m1.st.pairAff === true && m1.st.mindMode === 'thought' && m1.st.groupChat !== true, '부가 기능: 루트 비교 · 인물끼리 호감 · 속마음 켬, 뺀 단체방은 그대로 꺼짐', JSON.stringify(m1.st));
     check(m1.st.hompyFull === true && m1.st.hpSkin === 'phone' && m1.st.themeAsked === true, '첫 번째엔 모양도 어울리게 (폰) · 모양 고르기 창은 다시 안 띄움', JSON.stringify(m1.st));
     check(await Q(() => window.__n) === 0, 'AI는 한 번도 안 부름');
-    // 다른 채팅: 다시 안 뜸 (틀만 바로)
+    // 다른 채팅: 관리 탭에 들어가도 다시 안 뜸
     await Q(async () => { document.querySelectorAll('dialog[open]').forEach(d => d.close()); await window.__changeChat('c2'); }); await sleep(2200);
-    check((await meta()).base && !(await picker()), '다른 채팅을 열면 틀만 생기고 창은 다시 안 뜸');
+    await Q(() => { window.__SS_TEST__.api.app.openSheet('manage'); }); await sleep(500);
+    check((await meta()).base && !(await picker()), '다른 채팅 · 관리 탭에 다시 들어가도 다시 안 뜸');
+    await Q(() => { document.querySelectorAll('dialog[open]').forEach(d => d.close()); });
     // 관리 › 쓸 기능 맨 위 단추로 다시 → 🏡 생활 › 🌱 힐링 생활
     await Q(async () => { const core = await import('/ext/src/core.js'); core.settings().mgTab = 'mods'; window.__SS_TEST__.api.app.openSheet('manage'); }); await sleep(500);
     check(await Q(() => !!document.querySelector('dialog .ss-panel [data-act="stylepick"]')), '관리 › 쓸 기능 맨 위에 「🎨 스타일로 고르기」');
@@ -72,7 +78,8 @@ try {
     const o = await open({ auto: true, style: true });
     try {
         await sleep(2600);
-        check(await o.page.evaluate(() => !!document.querySelector('dialog[open] .ss-stylepick')), '(닫기) 첫 채팅에서 뜸');
+        await o.page.evaluate(() => { window.__SS_TEST__.api.app.openSheet('manage'); }); await sleep(700);
+        check(await o.page.evaluate(() => !!document.querySelector('dialog[open] .ss-stylepick')), '(닫기) 관리 탭에서 뜸');
         await o.page.evaluate(() => document.querySelector('dialog[open] .ss-stylepick').closest('dialog').querySelector('.popup-button-ok').click()); await sleep(600);
         const r = await o.page.evaluate(async () => { const core = await import('/ext/src/core.js'); return { base: !!core.getMeta()?.base, n: core.MOD_IDS.filter(id => core.modOn(id)).length, ask: core.settings().stylePick }; });
         check(r.base && r.n === 6 && r.ask === 'done', '「나중에 고를게요」: 추천 6칸 틀 그대로 · 다시 안 뜸', JSON.stringify(r));
@@ -83,7 +90,9 @@ try {
     const o = await open({ auto: true, oldset: true, style: true });
     try {
         await sleep(2600);
+        await makeStatus(o.page, ['profile', 'rel']);
+        await o.page.evaluate(() => { window.__SS_TEST__.api.app.openSheet('manage'); }); await sleep(700);
         const r = await o.page.evaluate(async () => ({ open: !!document.querySelector('dialog[open] .ss-stylepick'), ask: (await import('/ext/src/core.js')).settings().stylePick }));
-        check(!r.open && r.ask !== 'ask', '업데이트로 받은 사람에겐 저절로 안 뜸', JSON.stringify(r));
+        check(!r.open && r.ask !== 'ask', '업데이트로 받은 사람에겐 관리 탭에서도 저절로 안 뜸', JSON.stringify(r));
     } finally { await o.close(); }
 }
