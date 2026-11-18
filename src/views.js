@@ -34,7 +34,7 @@ function homeView(s, ui) {
     const c = s.core, d = s.data, meta = getMeta();
     const alerts = [];
     const auto = autoOf(meta); // 🧆 바로 시작으로 만든 틀: 고르고 채우러 가는 길을 맨 위에
-    if (auto) alerts.push(`<div class="ss-callout" data-act="gomods"><i class="fa-solid fa-sliders"></i><div><b>지금은 틀만 있어요</b><span>이것저것 눌러 보고, 관리 › 쓸 기능에서 쓸 칸을 고르면 이 이야기에 맞게 채워 드려요 — 여기를 누르면 가요</span></div></div>`);
+    if (auto) { const left = fillTodo(s, meta).filter(id => (auto.tpl ?? []).includes(id)); alerts.push(`<div class="ss-callout" data-act="gomods"><i class="fa-solid fa-sliders"></i><div><b>${auto.world ? `아직 기본 틀인 칸: ${esc(left.map(id => MOD[id]?.name ?? id).join(' · '))}` : '세계관과 칸이 아직 기본 틀이에요'}</b><span>관리 › 쓸 기능에서 「고른 대로 채우기」를 누르면 이 이야기에 맞게 채워 드려요 — 여기를 누르면 가요</span></div></div>`); }
     const due = dueLetters(s);
     if (due.length) alerts.push(`<div class="ss-callout mail" data-act="tab" data-arg="contact"><i class="fa-solid fa-envelope-open-text"></i><div><b>도착한 편지 ${due.length}통</b><span>${due.map(x => esc(x.who)).join(', ')}</span></div></div>`);
     const un = Object.entries(d.contact?.unread ?? {}).filter(([, n]) => n);
@@ -767,7 +767,7 @@ function pickerHTML(s, meta, st, ui = {}) {
     const oRest = mgIsOpen('ex-rest'), nRest = rest.filter(f => flagOn(st, f)).length;
     const auto = autoOf(meta), todo = live ? fillTodo(s, meta) : [], needWorld = !!auto && !auto.world;
     const fillBox = auto || todo.length ? `<div class="ss-pk-fill">
-            <div><b>${auto ? '🧆 지금은 틀만 있어요' : '🧆 비어 있는 칸이 있어요'}</b><small>${auto ? '아래에서 쓸 칸을 고른 뒤 누르면, 켜 둔 칸만 이 이야기(카드 · 로어북 · 지금까지의 채팅)에 맞게 채워요.' : '켜 둔 칸 중 비어 있는 칸을 이 이야기에 맞게 채워요.'}${todo.length ? ` 채울 칸: ${todo.map(id => MOD[id].name).join(' · ')}` : ''}</small></div>
+            <div><b>${auto && !auto.world ? '🧆 세계관과 칸이 아직 기본 틀이에요' : auto ? '🧆 아직 기본 틀인 칸이 있어요' : '🧆 비어 있는 칸이 있어요'}</b><small>${auto ? '아래에서 쓸 칸을 고른 뒤 누르면, 켜 둔 칸만 이 이야기(카드 · 로어북 · 지금까지의 채팅)에 맞게 채워요.' : '켜 둔 칸 중 비어 있는 칸을 이 이야기에 맞게 채워요.'}${todo.length ? ` 채울 칸: ${todo.map(id => MOD[id].name).join(' · ')}` : ''}</small></div>
             <div class="ss-row-btns">${needWorld ? `<button class="ss-btn sm" data-act="fillworld" title="카드 · 로어북 · 이야기를 읽고 세계 핵심(제목 · 장르 · 줄거리 · 규칙)만 맞춰요">${ai1} 세계관만 맞추기</button>` : ''}${ui.fillAsk ? `<span class="ss-pk-ask">AI ${fillCalls(todo, needWorld)}회 · 틀의 내용은 새로 채운 것으로 바뀌어요</span><button class="ss-btn pri" data-act="fillgo"><i class="fa-solid fa-check"></i> 진행</button><button class="ss-btn ghost" data-act="fillno">취소</button>` : `<button class="ss-btn pri" data-act="fillchosen">${ai1} 고른 대로 채우기</button>`}</div></div>` : '';
     const common = PK_COMMON.map(([id, name, keys]) => { const list = live ? pkOpts(keys) : []; if (!list.length) return ''; const o = mgIsOpen(`cm-${id}`); return `<div class="ss-modgrp ss-fold ${o ? 'open' : ''}"><button type="button" class="ss-mg-h" data-act="mgfold" data-arg="cm-${id}" aria-expanded="${o}"><b>${name}</b><small>세부 설정 ${list.length}개 · 모든 채팅에 걸려요</small><i class="fa-solid fa-chevron-down ss-mg-chev"></i></button><div class="ss-mg-b"${o ? '' : ' hidden'}><div class="ss-pk-det">${list.join('')}</div></div></div>`; }).join('');
     return `${sec('🎛 기능 고르기 <small>이 채팅만 · 끈 칸은 내용은 남고 AI에게만 안 보내요</small>', `${fillBox}

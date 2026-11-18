@@ -33,5 +33,16 @@ try {
     check(one.todo === 6 && one.group === 1 && one.single === 0, '묶음 크기 「한 번에」: 6칸을 AI 1번', JSON.stringify(one));
     const big = await run('big', 'big');
     check(big.todo === 6 && big.group + big.single === 1, '묶음 크기 「크게」: 6칸까지 한 묶음', JSON.stringify(big));
+    // 🧆 「틀뿐」 표시: 이름 붙은 저장이면 그 칸 · 세계관은 틀이 아님 → 다 되면 표시가 사라짐 · 새로 만들면 지움
+    await Q((id) => window.__changeChat(id), 'chat-tpl'); await sleep(2500);
+    const tp = await Q(async () => {
+        const core = await import('/ext/src/core.js'), eng = await import('/ext/src/engine.js'), au = await import('/ext/src/autostart.js'); const app = window.__SS_TEST__.api.app;
+        const r = []; r.push(!!au.autoOf());
+        await eng.commit('core', { ...app.current.state.core, tone: '잔잔함', rules: '규칙' }, '✏️ 세계 핵심'); r.push(au.autoOf()?.world === true);
+        for (const id of [...(core.getMeta().auto?.tpl ?? [])]) await eng.commit(id, structuredClone(app.current.state.data[id]), `✏️ ${id}`);
+        r.push(au.autoOf() === null && !core.getMeta().auto);
+        return r;
+    });
+    check(JSON.stringify(tp) === '[true,true,true]', '틀 표시: 세계관 · 칸을 고치면 꺼지고 다 되면 사라짐', JSON.stringify(tp));
     const errs = logs.filter(l => /pageerror|TypeError|ReferenceError/.test(l)); check(!errs.length, 'no console errors', errs.slice(0, 3).join('\n').slice(0, 600));
 } finally { await close(); }

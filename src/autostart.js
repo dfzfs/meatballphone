@@ -40,7 +40,17 @@ export async function autoStart({ force = false, quiet = false } = {}) {
 }
 // 관리 › 쓸 기능으로
 export function goMods() { settings().mgTab = 'mods'; try { app.openSheet?.('manage'); } catch (e) { ssWarn(LOG, 'go mods', e); } }
-export const autoOf = (meta = getMeta()) => (meta?.auto && typeof meta.auto === 'object' ? meta.auto : null);
+// 「틀뿐」 표시 바로잡기 (v2.9.1): 예전엔 「고른 대로 채우기」로 채운 것만 지워져서, 만들기 창으로 다시 만들었거나 · 칸마다 AI로 채우기 · 직접 고친 칸 ·
+//   세계관을 다른 길로 맞춘 채팅에도 「지금은 틀만 있어요」가 계속 떴다 → 세계 핵심에 분위기 · 규칙이 있거나 이름 붙은 저장 기록이 있으면 채운 것으로 본다
+const worldFilled = (meta, s) => !!(String(s?.core?.tone ?? '').trim() || String(s?.core?.rules ?? '').trim() || (meta?.adjust ?? []).some(x => x?.set?.mod === 'core' && x.label));
+export const autoOf = (meta = getMeta(), s = app.current?.state) => {
+    const a = meta?.auto && typeof meta.auto === 'object' ? meta.auto : null;
+    if (!a) return null;
+    if (!a.world && worldFilled(meta, s)) a.world = true;
+    if (Array.isArray(a.tpl)) a.tpl = a.tpl.filter(id => !(meta.adjust ?? []).some(x => x?.set?.mod === id && x.label));
+    if (a.world && !(a.tpl ?? []).some(id => modOn(id, meta))) { delete meta.auto; return null; }
+    return a;
+};
 // 아직 AI로 안 채운 칸 (켜 둔 것만): 틀뿐인 칸 + 비어 있는 칸 (추천 음악은 장면이 생기면 본편 AI가 고르므로 뺀다)
 export function fillTodo(s = app.current?.state, meta = getMeta()) {
     const a = autoOf(meta); if (!s) return [];

@@ -1023,6 +1023,8 @@ export function applyDelta(d, p) {
     return d;
 }
 export function commit(mod, data, label, extra = {}) {
+    // 🧆 바로 시작의 「틀뿐」 표시: 이름 붙은 저장(직접 고침 · AI로 채우기 · 다시 생성)이면 그 칸은 이제 틀이 아니다 (v2.9.1)
+    try { const m = getMeta(); const a = m?.auto; if (a && label) { if (mod === 'core') a.world = true; else if (Array.isArray(a.tpl)) a.tpl = a.tpl.filter(x => x !== mod); if (a.world && !(a.tpl ?? []).some(id => modOn(id, m))) delete m.auto; } } catch (e) { ssNote('틀 표시', e); }
     if (sideOn(mod)) { // 📦 따로 보관: 기록을 쌓지 않고 덩어리만 바꾼다
         const meta = getMeta(true);
         const cur0 = app.current?.state?.data?.[mod];
@@ -1958,6 +1960,7 @@ export async function setBase(base, mods, difficulty, play) {
     meta.startKey = chat.at(-1)?.send_date ?? null;
     meta.qAsk = 0; // v2.9: 새로 만든 상태창은 처음부터 「퀘스트 완료 확인」을 쓴다
     meta.adjust = [];
+    delete meta.auto; // 새로 만들면 「틀뿐」 표시는 지운다 (바로 시작은 setBase 뒤에 다시 적는다)
     delete meta.wipe; // 🧹 칸 전체 삭제 표시도 새로 만들면 비움
     meta.off = false;
     meta.v = DATA_V;
