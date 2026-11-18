@@ -196,9 +196,11 @@ export async function openWizard() {
     // 묶음 하나: 한 번에 받고, 빠진 칸만 따로 다시 받는다
     const runGroup = async (grp) => {
         for (const id of grp) setRow(id, MOD[id].name, 'run', grp.length > 1 ? '묶음 생성 중' : '');
-        let got = {};
+        let got = {}, gerr = null;
         try { got = await genGroup(grp, { sources: opts.sources, core: results.core, instruction: opts.instruction, profileMode: opts.pmode, contactMode: opts.cmode, feature: 'wizard', play: opts.play }); }
-        catch (e) { ssWarn(LOG, 'group', grp, e); }
+        catch (e) { gerr = e; ssWarn(LOG, 'group', grp, e); }
+        // v2.9.1: 요청 자체가 실패했으면 칸마다 또 부르지 않는다 (횟수 · 오류가 칸 수만큼 늘던 것) — 「다시」 단추로 한 칸씩
+        if (gerr && !gerr.badJSON && grp.length > 1) { for (const id of grp) setRow(id, MOD[id].name, 'fail', `${esc(gerr.message)} <button class="ss-btn sm" data-retry="${id}">다시</button>`); return; }
         const miss = [];
         for (const id of grp) {
             if (got[id]) { results.data[id] = got[id]; setRow(id, MOD[id].name, 'ok'); } else miss.push(id);

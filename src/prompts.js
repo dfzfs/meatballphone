@@ -339,10 +339,12 @@ export function closeJSON(t) {
 // JSON을 받아야 하는 호출: 깨지면 고쳐 보고, 그래도 안 되면 「JSON만 다시」 1번 더 (설정)
 export async function aiJSON(feature, systemPrompt, prompt, maxTokens) {
     const text = await aiGenerate(feature, systemPrompt, prompt, maxTokens);
+    // badJSON = 답은 왔는데 JSON이 깨짐 (묶음 생성이 이걸 보고 칸마다 나눠 다시 받을지 정한다 · 요청 자체가 실패한 것과 구분)
+    const bad = (e) => { try { e.badJSON = true; } catch { /* 얼린 오류 */ } return e; };
     try { return parseJSON(text); } catch (e) {
-        if (!settings().retryJSON) throw e;
+        if (!settings().retryJSON) throw bad(e);
         ssWarn(LOG, 'bad JSON, retry once', e);
         const again = await aiGenerate(feature, `${systemPrompt}\n\nIMPORTANT: Your previous answer was not valid JSON (or was cut off). Output ONLY one complete, valid JSON object this time — shorter is fine, but it must be complete.`, prompt, maxTokens);
-        return parseJSON(again);
+        try { return parseJSON(again); } catch (e2) { throw bad(e2); }
     }
 }

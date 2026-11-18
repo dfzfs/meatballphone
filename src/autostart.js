@@ -79,17 +79,23 @@ export async function fillChosen(btn, { asked = false } = {}) {
     if (!asked && !(await askConfirm(`켜 둔 칸을 이 이야기에 맞게 채울까요?<br><b>${needWorld ? '세계관 + ' : ''}${todo.map(id => esc(MOD[id].name)).join(' · ') || '세계관만'}</b><br><small>AI ${calls}회 · 틀에 적혀 있던 내용은 새로 채운 것으로 바뀌어요 (직접 고친 칸은 먼저 꺼 두면 안 건드려요).</small>`))) return;
     toastr.info(`채우는 중이에요 (AI ${calls}회) — 창을 닫아도 끝까지 가요. 다 되면 알려 드릴게요.`, TITLE, { timeOut: 6000 });
     if (needWorld && !(await fillWorld(btn))) return;
-    let k = 0, fail = 0; const total = groups.length;
+    let k = 0, fail = 0, lastErr = '', stopped = false; const total = groups.length, failed = [];
     busyBtn(btn, true, `0/${total}`);
     try {
         const sources = await gatherSources({});
         for (const grp of groups) {
+            if (stopped) { fail += grp.length; failed.push(...grp.map(id => MOD[id].name)); continue; }
             const s = app.current.state, opt = { sources, core: s.core, profileMode: s.data.profile?.mode ?? 'minimal', contactMode: s.data.contact?.mode, feature: 'wizard', play: getMeta()?.play };
-            let got = {};
-            try { got = grp.length > 1 ? await genGroup(grp, opt) : { [grp[0]]: await genModule(grp[0], opt) }; } catch (e) { ssWarn(LOG, 'fill group', grp, e); }
+            let got = {}, gerr = null;
+            try { got = grp.length > 1 ? await genGroup(grp, opt) : { [grp[0]]: await genModule(grp[0], opt) }; } catch (e) { gerr = e; ssWarn(LOG, 'fill group', grp, e); }
+            // v2.9.1: 요청 자체가 실패했으면(연결 · 횟수 제한 · 키 …) 칸마다 다시 부르지 않는다 — 예전엔 묶음이 실패하면 칸 수만큼 또 불러서 횟수와 오류 알림이 몇 배로 늘었다
+            //   (답은 왔는데 JSON이 깨졌거나 · 몇 칸이 빠졌을 때만 그 칸을 따로)
+            const hard = gerr && !gerr.badJSON;
+            if (hard) { lastErr = gerr.message; fail += grp.length; failed.push(...grp.map(id => MOD[id].name)); if (/429|rate|quota|limit|too many|한도|횟수|401|403|key|키|연결|network|fetch/i.test(gerr.message ?? '')) stopped = true; busyBtn(btn, false); busyBtn(btn, true, `${++k}/${total}`); continue; }
             for (const id of grp) {
                 let d = got?.[id];
-                if (!d) { try { d = await genModule(id, opt); } catch (e) { fail++; toastr.error(`${esc(MOD[id].name)} 실패: ${esc(e.message)}`, TITLE); continue; } }
+                if (!d && grp.length > 1) { try { d = await genModule(id, opt); } catch (e) { fail++; failed.push(MOD[id].name); lastErr = e.message; continue; } }
+                if (!d) { fail++; failed.push(MOD[id].name); lastErr = gerr?.message ?? lastErr; continue; }
                 try { await commit(id, d, `🧆 ${MOD[id].name} 채우기`, { keep: true }); const m = getMeta(true); if (m.auto?.tpl) { m.auto.tpl = m.auto.tpl.filter(x => x !== id); await saveMeta(); } }
                 catch (e) { fail++; ssErr(LOG, 'fill commit', id, e); }
             }
@@ -98,7 +104,8 @@ export async function fillChosen(btn, { asked = false } = {}) {
     } finally { busyBtn(btn, false); }
     const m = getMeta(true); if (m.auto && m.auto.world && !(m.auto.tpl ?? []).length) { delete m.auto; await saveMeta(); }
     app.refreshNow?.(); app.rerenderPanels?.(true);
-    toastr[fail ? 'warning' : 'success'](fail ? `${todo.length - fail}칸을 채웠어요 · ${fail}칸은 실패 — 다시 누르면 남은 칸만 채워요.` : '고른 대로 채웠어요!', TITLE);
+    // 실패는 끝에 한 번만 알린다 (칸마다 빨간 알림이 쌓이던 것)
+    toastr[fail ? 'warning' : 'success'](fail ? `${todo.length - fail}칸을 채웠어요 · <b>${esc(failed.join(', '))}</b> ${fail}칸은 실패 — 다시 누르면 남은 칸만 채워요.${lastErr ? `<br><small>${esc(String(lastErr).slice(0, 160))}</small>` : ''}${stopped ? '<br><small>연결 · 횟수 제한 오류라 남은 칸은 부르지 않았어요. 잠시 뒤 다시 눌러 주세요.</small>' : ''}` : '고른 대로 채웠어요!', TITLE, fail ? { escapeHtml: false, timeOut: 12000 } : {});
 }
 // 「바로 시작」 단추 (빈 화면 · HUD · 옆 창의 만들기): 설정 창 없이 틀을 바로 만들고 상태창을 연다
 export async function quickStart() {
