@@ -52,7 +52,7 @@ export function storySection(tab, ui = {}, all = false) {
         if (!ids.length) return '';
         const bar = tab === 'memo' || (Array.isArray(all) && all.some(id => ['know', 'promise'].includes(id) && storyOn(id))) ? ledgerBar() : '';
         return `<div class="ss-story" data-story="${esc(tab)}">${bar}${ids.map(id => { const f = DEVICES.find(x => x.id === id); let body; try { body = BODY[id]?.() ?? ''; } catch (e) { body = none(`그리지 못했어요: ${esc(e?.message ?? e)}`); }
-            return `<details class="ss-st-f" data-f="${id}" ${ui.stOpen?.[id] === true ? 'open' : ''}><summary><b>${f.icon} ${esc(f.name)}</b> <small>${esc(f.cost)}</small></summary><div class="ss-st-b">${body}</div></details>`; }).join('')}</div>`;
+            return `<details class="ss-st-f" data-f="${id}" ${ui.stOpen?.[id] === true || (id === 'meddle' && ui.stOpen?.[id] !== false && L()?.meddleNow) ? 'open' : ''}><summary><b>${f.icon} ${esc(f.name)}</b> <small>${esc(f.cost)}</small></summary><div class="ss-st-b">${body}</div></details>`; }).join('')}</div>`;
     } catch (e) { ssErr(e); return ''; }
 }
 

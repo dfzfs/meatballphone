@@ -96,25 +96,40 @@ export function applyGlitch() {
 
 // ───── ✍ 손대기 ─────
 const SCRIBBLES = ['다른 사람 말고 나만 봐. — {n}', '오늘 누구 만났어? — {n}', '{n} 다녀감 ♥', '이거 보면 연락해. 바로. — {n}', '잊지 마. 넌 내 사람이야. — {n}', '왜 답이 늦어? — {n}'];
+const rnd = () => (typeof app.__meddleRand === 'function' ? app.__meddleRand() : Math.random()); // 시험에서만 정해진 값으로
+const rint = (a, b) => a + Math.floor(rnd() * (b - a + 1));
 async function rollMeddle(L) {
     L.meddleNow = null;
-    const cand = people().filter(r => r.jealous >= 50 || r.aff >= 75); if (!cand.length || Math.random() > 0.1) return;
-    const r = cand[randInt(0, cand.length - 1)], kinds = ['memo', 'nick'];
+    const cand = people().filter(r => r.jealous >= 50 || r.aff >= 75); if (!cand.length || rnd() > 0.1) return;
+    const r = cand[rint(0, cand.length - 1)], kinds = ['memo', 'nick'];
     const ct = st().data.contact, rival = people().filter(x => x.name !== r.name && x.aff >= 30).sort((a, b) => b.aff - a.aff)[0];
     if (r.jealous >= 70 && rival && ct && findBy(ct.contacts, rival.name) && !findBy(ct.contacts, rival.name).blocked) kinds.push('block');
-    const kind = kinds[randInt(0, kinds.length - 1)], e = { id: uid(), who: r.name, kind, date: stamp(st()) };
-    if (kind === 'memo') e.text = SCRIBBLES[randInt(0, SCRIBBLES.length - 1)].replace('{n}', r.name);
+    const at = chat().length - 1, m = chat()[at];
+    const kind = kinds[rint(0, kinds.length - 1)], e = { id: uid(), who: r.name, kind, date: stamp(st()), at, sid: m?.swipe_id ?? 0, sd: m?.send_date ?? null }; // 어느 답에서 생겼나 — 그 답을 다시 받거나 지우면 없던 일로
+    if (kind === 'memo') e.text = SCRIBBLES[rint(0, SCRIBBLES.length - 1)].replace('{n}', r.name);
     if (kind === 'nick') { e.text = `♥ ${r.name} ♥`; (L.nick ??= {})[r.name] = e.text; }
     if (kind === 'block') { const nd = clone(ct); findBy(nd.contacts, rival.name).blocked = true; await commit('contact', nd, ''); e.text = rival.name; }
     L.meddle = [...(L.meddle ?? []), e].slice(-20); L.meddleNow = e;
-    toastr.warning(kind === 'memo' ? `${esc(r.name)}이(가) 상태창에 낙서를 남겼어요: 「${esc(e.text)}」` : kind === 'nick' ? `${esc(r.name)}이(가) 자기 이름을 「${esc(e.text)}」(으)로 바꿔 놨어요.` : `${esc(r.name)}이(가) ${esc(e.text)}의 연락처를 차단해 놨어요.`, TITLE, { timeOut: 9000 });
+    toastr.warning(kind === 'memo' ? `${esc(r.name)}이(가) 상태창에 낙서를 남겼어요: 「${esc(e.text)}」<br><small>눌러서 보기 — 부가 기능 › 사람 · 관계 › 손댄 흔적</small>` : kind === 'nick' ? `${esc(r.name)}이(가) 연락처의 자기 이름을 「${esc(e.text)}」(으)로 바꿔 놨어요.<br><small>눌러서 보기 — 되돌리기는 부가 기능 › 사람 · 관계 › 손댄 흔적</small>` : `${esc(r.name)}이(가) ${esc(e.text)}의 연락처를 차단해 놨어요.`, TITLE, { timeOut: 9000, onclick: () => { try { if (kind === 'memo') { const set = settings(); set.mgOpen = { ...(set.mgOpen ?? {}), 'xt-people': true }; saveSettings(); } app.openSheet?.(kind === 'memo' ? 'extra' : 'contact'); } catch { /* 창을 못 열면 그냥 */ } } }); // 눌러서 바로 보러 가기 (제보: 알림만 오고 어디가 바뀐 건지 못 찾았다)
 }
-export async function undoMeddle(id) {
+export async function undoMeddle(id, save = true) {
     const L = storyData(); const e = L?.meddle?.find(x => x.id === id); if (!e) return;
-    if (e.kind === 'nick' && L.nick) delete L.nick[e.who];
-    if (e.kind === 'block') { const ct = st()?.data?.contact; if (ct && findBy(ct.contacts, e.text)) { const nd = clone(ct); findBy(nd.contacts, e.text).blocked = false; await commit('contact', nd, ''); } }
-    L.meddle = L.meddle.filter(x => x.id !== id); storySave();
+    if (e.kind === 'nick' && L.nick && L.nick[e.who] === e.text) delete L.nick[e.who];
+    if (e.kind === 'block') { const ct = st()?.data?.contact; if (ct && findBy(ct.contacts, e.text)?.blocked) { const nd = clone(ct); findBy(nd.contacts, e.text).blocked = false; await commit('contact', nd, ''); } }
+    L.meddle = L.meddle.filter(x => x.id !== id); if (L.meddleNow?.id === id) L.meddleNow = null;
+    if (save) storySave();
 }
+// 🔁 다시 받기 · 스와이프 · 지우기로 그 답이 사라졌으면, 그 답에서 생긴 손대기도 없던 일로 (제보: 리롤했더니 바뀐 건 없고 알림만 남았다)
+const meddleLive = (e) => { if (e.at === undefined) return true; const m = chat()[e.at]; return !!m && !m.is_user && (m.swipe_id ?? 0) === e.sid && (e.sd === null || m.send_date === e.sd); };
+async function pruneMeddle(save = true) {
+    const L = storyData(); if (!L?.meddle?.length) return 0;
+    const dead = L.meddle.filter(e => !meddleLive(e));
+    for (const e of dead) await undoMeddle(e.id, false);
+    if (dead.length && save) storySave();
+    return dead.length;
+}
+export const meddleNick = (name) => { if (!storyOn('meddle')) return ''; const v = storyData()?.nick; return v && Object.prototype.hasOwnProperty.call(v, name) ? v[name] : ''; };
+app.meddleNick = meddleNick;
 
 // ───── 확장 AI를 부르는 것들 ─────
 function about(who) {
@@ -237,7 +252,7 @@ async function afterReply() {
     if (storyOn('tension')) { if (L.tFire) { L.t = 15; L.calm = 3; L.tFire = false; } else { L.calm = Math.max(0, (L.calm ?? 0) - 1); L.t = Math.min(100, (L.t ?? 0) + (L.tStep ?? 7)); if (L.t >= 100) L.tFire = true; } }
     if (storyOn('scar')) L.scars = findScars();
     if (L.drop) delete L.drop;
-    try { if (storyOn('meddle')) await rollMeddle(L); else delete L.meddleNow; } catch (e) { ssNote('story meddle', e); }
+    try { if (storyOn('meddle')) { await pruneMeddle(false); await rollMeddle(L); } else delete L.meddleNow; } catch (e) { ssNote('story meddle', e); }
     applyGlitch();
     const every = Number(L.scanEvery) || 0; L.since = (L.since ?? 0) + 1;
     saveMeta();
@@ -248,6 +263,8 @@ export function initStory() {
     const { eventSource, event_types: E } = ctx();
     const on = (name, fn) => { if (E[name]) eventSource.on(E[name], (...a) => { try { const r = fn(...a); r?.catch?.(e => ssNote(`story ${name}`, e)); } catch (e) { ssNote(`story ${name}`, e); } }); };
     on('MESSAGE_RECEIVED', onReply);
+    const prune = () => { if (storyOn('meddle') && live()) setTimeout(() => pruneMeddle().then(n => { if (n) app.rerenderPanels?.(true); }).catch(e => ssNote('story meddle prune', e)), 300); };
+    on('MESSAGE_SWIPED', prune); on('MESSAGE_DELETED', prune);
     on('MESSAGE_DELETED', () => { if (storyOn('loop') && live()) { const L = storyData(true); L.loopDel = (L.loopDel ?? 0) + 1; saveMeta(); } });
     on('GENERATION_STARTED', (type, _o, dry) => { if (dry || !storyOn('debt') || !live() || (type !== 'swipe' && type !== 'regenerate')) return; const L = storyData(true); L.debt = (L.debt ?? 0) + 1; saveMeta(); });
     on('CHAT_CHANGED', () => setTimeout(applyGlitch, 800));

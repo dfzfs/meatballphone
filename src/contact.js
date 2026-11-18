@@ -38,7 +38,7 @@ function listView(s, d, ui) {
             const last = lastLine(d, n, now);
             const un = (d.unread[n] ?? 0) + due.filter(x => x.who === n).length;
             return `<div class="ss-ct-row" data-act="copen" data-arg="${esc(n)}">${avatar(n)}
-                <div class="ss-ct-b"><b>${esc(n)}${c.blocked ? ' <i class="fa-solid fa-ban ss-dim" title="차단됨"></i>' : ''}${awayOf(d, n, s) ? ' <i class="fa-solid fa-bell-slash ss-dim" title="지금 연락이 안 돼요"></i>' : ''}${c.reflect === 'never' ? ' <i class="fa-solid fa-eye-slash ss-dim" title="본편에 반영 안 함"></i>' : ''}</b><small>${esc(last ? short(msgText(last), 46) : c.status || c.handle || '대화 없음')}</small></div>
+                <div class="ss-ct-b"><b>${esc(app.meddleNick?.(n) || n)}${c.blocked ? ' <i class="fa-solid fa-ban ss-dim" title="차단됨"></i>' : ''}${awayOf(d, n, s) ? ' <i class="fa-solid fa-bell-slash ss-dim" title="지금 연락이 안 돼요"></i>' : ''}${c.reflect === 'never' ? ' <i class="fa-solid fa-eye-slash ss-dim" title="본편에 반영 안 함"></i>' : ''}</b><small>${esc(last ? short(msgText(last), 46) : c.status || c.handle || '대화 없음')}</small></div>
                 ${un ? `<i class="ss-badge">${un}</i>` : ''}
                 <button class="ss-ib" data-act="cmenu" data-arg="${esc(n)}" title="더 보기"><i class="fa-solid fa-ellipsis"></i></button></div>`;
         }).join('') || emptyBox('연락처가 없어요', 'fa-address-book')}</div>
@@ -74,7 +74,7 @@ function phoneView(s, d, ui) {
     const who = ui.who, th = d.threads[who] ?? [];
     const c = findBy(d.contacts, who) ?? { name: who };
     return `<div class="ss-phone">
-        <div class="ss-phone-top"><button class="ss-ib" data-act="cback"><i class="fa-solid fa-chevron-left"></i></button>${avatar(who)}<div class="ss-ct-b"><b>${esc(who)}</b><small>${esc(c.status || d.app)}</small></div>
+        <div class="ss-phone-top"><button class="ss-ib" data-act="cback"><i class="fa-solid fa-chevron-left"></i></button>${avatar(who)}<div class="ss-ct-b"><b>${esc(app.meddleNick?.(who) || who)}</b><small>${esc(c.status || d.app)}</small></div>
             ${ui.truth ? `<button class="ss-ib" data-act="ctruthclear" data-arg="${esc(who)}" title="이 사람과의 최면 어플 대화 비우기"><i class="fa-solid fa-broom"></i></button>` : `<button class="ss-ib" data-act="cmenu" data-arg="${esc(who)}"><i class="fa-solid fa-ellipsis-vertical"></i></button>`}</div>
         ${!ui.truth && awayOf(d, who, s) ? `<div class="ss-csum ss-away"><i class="fa-solid fa-bell-slash"></i> <span><b>지금 연락이 안 돼요</b>${awayOf(d, who, s).why ? ` — ${esc(awayOf(d, who, s).why)}` : ''} · ${esc(awayLeft(awayOf(d, who, s), s))}</span><button class="ss-btn sm" data-act="cwake" data-arg="${esc(who)}" title="꺼 둔 연락을 무시하고 지금 답장을 받아요 (AI 1회)">${ai1} 그래도 불러내기</button></div>` : ''}
         ${ui.truth ? '<div class="ss-csum ss-truth-bar"><i class="fa-solid fa-hurricane"></i> 최면 어플 켜짐 — 숨기지 못하고, 시키면 해요</div>' : ''}
