@@ -957,7 +957,7 @@ function opPlace(s, val, info, L, T, key, rawKey) {
     return;
 }
 function opAff(s, val, info, L, T, key, rawKey) {
-    // 「aff: Trafalgar Law | +2」 숫자가 | 뒤 (제보: 숫자 없는 줄로 보고 ⚠로 넘어갔다) → 「Trafalgar Law +2」 · 그 뒤의 | 는 메모 · 부호 없는 숫자는 예전처럼 bareFix가 판단
+    // 「aff: 레온 | +2」 숫자가 | 뒤 (제보: 숫자 없는 줄로 보고 ⚠로 넘어갔다) → 「레온 +2」 · 그 뒤의 | 는 메모 · 부호 없는 숫자는 예전처럼 bareFix가 판단
     { const bv = String(val).match(/^([^|\d][^|]*?)\s*\|\s*([=+\-−]?\s*\d[\d.]*)\s*(?:\|\s*(.*))?$/); if (bv) val = `${bv[1].trim()} ${bv[2]}${bv[3] ? ` | ${bv[3]}` : ''}`; }
     // 「Leon +2, Mira +3」 → 한 명씩 (v2.7.19 · 예전엔 둘 다 안 올랐음) — 「| 메모」 뒤의 쉼표는 안 나눔
     { const head = val.split('|')[0]; if (MULTI_RE.test(head) && /\d/.test(head.split(MULTI_RE)[0])) { const parts = head.split(MULTI_RE); const tail = val.slice(head.length); parts.forEach((p0, i) => p0.trim() && applyPart(s, key, p0.trim() + (i === parts.length - 1 ? tail : ''), info)); return; } }
