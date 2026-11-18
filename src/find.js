@@ -44,11 +44,38 @@ export function markHtml(text, list) {
 
 // ───── 자료 → 찾을 거리 { icon, title, parts[], tab } ─────
 // on(tab) = 그 칸이 켜져 있는지 (꺼진 칸은 눌러도 못 여니까 뺀다) · album = 추억 앨범 목록
-export function collect(d, { on = () => true, album = [] } = {}) {
+// 칸 이름으로 찾기 — 「시간」 「돈」 「날씨」처럼 자료 안엔 없는 말로도 그 칸으로 가게 (지금 값을 같이 보여 줌)
+const TAB_KW = {
+    profile: ['👤', '프로필', '인물 캐릭터 소개 외모 성격 나이'], rel: ['💞', '관계', '호감 애정 우정 신뢰 단계 연인 친구 질투'], stats: ['❤️', '수치', '체력 기력 게이지 능력치 상태 이상 버프 스탯'],
+    dice: ['🎲', '주사위', '판정 굴리기 dc 난이도'], wallet: ['💰', '재산', '돈 소지금 화폐 소지품 아이템 가방 물가 일거리 월급'], shop: ['🏪', '상점', '가게 사기 팔기 구매'],
+    home: ['🏠', '본거지', '집 방 가구 창고 쓰레기통'], map: ['🗺', '지도', '장소 위치 이동 길 현재 위치'], calendar: ['📅', '달력', '시간 시각 시계 날짜 오늘 요일 날씨 일정 기념일 계절 아침 저녁 밤'],
+    contact: ['💬', '연락', '메신저 문자 편지 카톡 전화 답장'], quest: ['📜', '퀘스트', '의뢰 목표 보상 임무'], news: ['📰', '뉴스', '소식 기사 신문'], gossip: ['🍷', '가십지', '소문 스캔들'],
+    board: ['📋', '게시판', '글 댓글 커뮤니티'], ach: ['🏆', '업적', '엔딩 달성'], memo: ['📝', '메모', '약속 단서 고정'], fate: ['🔮', '운명', '저주 축복 카드 이벤트 규칙 점집 타로'],
+    sns: ['#️⃣', 'SNS', '피드 좋아요 해시태그'], music: ['🎵', '추천 음악', '노래 곡 bgm 음악'], custom: ['🧩', '내 탭', '직접 만든 탭'],
+};
+function tabNow(m, d) {
+    const x = d[m] ?? {};
+    if (m === 'calendar') return [x.era, x.y !== undefined && x.m !== undefined ? `${str(x.y)}년 ${str(x.m)}월 ${str(x.d)}일` : '', x.time ? `시간: ${x.time}` : '', x.weather ? `날씨: ${x.weather}` : ''].filter(Boolean).join(' · ');
+    if (m === 'wallet') return x.cash !== undefined ? `소지금 ${fmtNum(Number(x.cash) || 0)}${x.currency ? ` ${x.currency}` : ''}` : '';
+    if (m === 'stats') return arr(x.bars).map(b => `${str(b.name)} ${str(b.cur)}/${str(b.max)}`).join(' · ');
+    if (m === 'map') return x.here ? `지금 위치: ${x.here}` : '';
+    if (m === 'music') return x.now?.title ? `${str(x.now.title)} — ${str(x.now.artist)}` : '';
+    return '';
+}
+
+export function collect(d, { on = () => true, album = [], days = [], core = null } = {}) {
     d = d && typeof d === 'object' ? d : {};
     const out = [];
-    const add = (tab, icon, title, ...parts) => out.push({ tab, icon, title: str(title).trim(), parts: parts.flat(3).filter(x => x !== null && x !== undefined && x !== '').map(String) });
+    const add = (tab, icon, title, ...parts) => { const it = { tab, icon, title: str(title).trim(), parts: parts.flat(3).filter(x => x !== null && x !== undefined && x !== '').map(String) }; out.push(it); return it; };
     const kv = (k, v) => (str(v).trim() ? `${str(k)}: ${str(v)}` : '');
+    for (const [m, [icon, name, kw]] of Object.entries(TAB_KW)) {
+        if (!d[m] || !on(m)) continue;
+        const it = add(m === 'home' ? 'base' : m, icon, `${name} 칸`, tabNow(m, d));
+        it.kw = `${name} ${kw}`.split(' '); it.tabHit = true;
+    }
+    if (core && typeof core === 'object') add('home', '🌍', core.title || '세계관', core.genre, core.summary, core.userRole, core.rules, core.tone);
+    for (const x of arr(days).slice(-60)) add('record', '📆', x?.date, arr(x?.labels));
+    if (d.calendar && on('calendar')) { const c = d.calendar; if (arr(c.times).length) add('calendar', '🕐', '시간대', arr(c.times).join(' · ')); }
     if (on('profile')) for (const p of arr(d.profile?.list)) add('profile', '👤', p.name, p.summary, arr(p.fields).map(f => kv(f?.k, f?.v)), p.home ? `사는 곳: ${p.home}` : '', p.sched ? `일과: ${p.sched}` : '');
     if (on('rel')) {
         for (const r of arr(d.rel?.user)) add('rel', '💞', r.name, r.label, r.memo, r.likes ? `끌리는 것: ${r.likes}` : '', r.dislikes ? `싫어하는 것: ${r.dislikes}` : '', r.concern ? `신경 쓰는 것: ${r.concern}` : '', r.met ? `처음 만난 날: ${r.met}` : '');
@@ -90,10 +117,10 @@ export function collect(d, { on = () => true, album = [] } = {}) {
     }
     if (on('home')) {
         const h = d.home ?? {};
-        if (h.name || h.desc) add('home', '🏠', h.name || '본거지', h.desc);
-        for (const r of arr(h.rooms)) add('home', '🛋', r.name, r.desc, arr(r.decor));
-        if (arr(h.storage).length) add('home', '📦', '창고', arr(h.storage));
-        for (const t of arr(h.trash)) add('home', '🗑', t?.name ?? t, t?.date);
+        if (h.name || h.desc) add('base', '🏠', h.name || '본거지', h.desc);
+        for (const r of arr(h.rooms)) add('base', '🛋', r.name, r.desc, arr(r.decor));
+        if (arr(h.storage).length) add('base', '📦', '창고', arr(h.storage));
+        for (const t of arr(h.trash)) add('base', '🗑', t?.name ?? t, t?.date);
     }
     if (on('calendar')) for (const e of arr(d.calendar?.events)) add('calendar', '📅', e.title, `${str(e.m)}/${str(e.d)}`, e.desc);
     if (on('ach')) { for (const a of arr(d.ach?.list)) if (!a.hidden || a.done) add('ach', '🏆', a.name, a.desc); for (const e of arr(d.ach?.endings)) add('ach', '🎬', e.name, e.desc); }
@@ -121,10 +148,12 @@ export function find(items, q, max = 80) {
     for (const it of items) {
         const nt = norm(it.title);
         const np = it.parts.map(norm);
-        const hay = `${nt}\u0001${np.join('\u0001')}`;
+        const nk = (it.kw ?? []).map(norm).filter(Boolean);
+        const hay = `${nt}\u0001${np.join('\u0001')}\u0001${nk.join('\u0001')}`;
         if (!list.every(x => hasTerm(hay, x))) continue;
         const inTitle = list.filter(x => hasTerm(nt, x)).length;
-        const score = (nt === whole ? 100 : 0) + (inTitle === list.length ? 40 : inTitle * 10) + (nt.startsWith(list[0].t) ? 5 : 0);
+        let score = (nt === whole ? 100 : 0) + (inTitle === list.length ? 40 : inTitle * 10) + (nt.startsWith(list[0].t) ? 5 : 0);
+        if (it.tabHit && list.every(x => nk.some(k => k === x.t || k === x.alt) || hasTerm(nt, x))) score += 200; // 칸 이름 · 그 칸을 뜻하는 말과 똑같으면 맨 위
         // 보여 줄 작은 글: 찾은 말이 든 줄 먼저 (제목에만 있으면 첫 줄)
         const k = np.findIndex(p => list.some(x => hasTerm(p, x)));
         const text = snippet(k >= 0 ? it.parts[k] : (it.parts[0] ?? ''), list);

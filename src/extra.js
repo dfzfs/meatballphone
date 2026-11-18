@@ -409,7 +409,7 @@ export function recordView(s, d, ui) {
 // ───── 🔎 검색 (찾기는 find.js) ─────
 // 띄어 쓴 낱말은 모두 들어 있으면 찾음 · 조사 무시 · 설명 · 메모 · 댓글까지 · 꺼 둔 칸은 뺌 · 찾은 말 둘레를 칠해서 보여 줌
 export function searchAll(s, q) {
-    const items = collect(s?.data, { on: (m) => { try { return modOn(m); } catch { return true; } }, album: settings().albumOn !== false ? (getMeta()?.album ?? []) : [] });
+    const items = collect(s?.data, { on: (m) => { try { return modOn(m); } catch { return true; } }, album: settings().albumOn !== false ? (getMeta()?.album ?? []) : [], days: s?.days ?? [], core: s?.core });
     return find(items, q);
 }
 export async function openSearch() {

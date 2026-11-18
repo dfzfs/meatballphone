@@ -12,6 +12,7 @@ try {
     const out = {
       key: titles('열쇠'), keyObj: titles('열쇠를'), spaced: titles('검은열쇠'),
       two: titles('레온 약속'), chair: titles('흔들의자'), none: q('절대없는말').total,
+      time: titles('시간'), money: titles('돈'), weather: titles('날씨'),
     };
     core.getMeta().mods = { ...(core.getMeta().mods ?? {}), memo: false }; app.refreshNow?.(); await wait(100);
     out.memoOff = titles('약속').filter(t => t.startsWith('memo:')).length;
@@ -22,7 +23,9 @@ try {
   check(r.keyObj.includes('wallet:검은 열쇠'), '「열쇠를」처럼 조사가 붙어도 찾음', JSON.stringify(r.keyObj));
   check(r.spaced.includes('wallet:검은 열쇠'), '띄어쓰기 없이 적어도 찾음', JSON.stringify(r.spaced));
   check(r.two.some(t => t.startsWith('memo:')), '띄어 쓴 두 낱말이 모두 든 메모를 찾음 (예전엔 「레온약속」 붙은 글만)', JSON.stringify(r.two));
-  check(r.chair.some(t => t.startsWith('home:')), '본거지 창고도 찾음', JSON.stringify(r.chair));
+  check(r.chair.some(t => t.startsWith('base:')), '본거지 창고도 찾음 (누르면 홈이 아니라 본거지 탭)', JSON.stringify(r.chair));
+  check(r.time[0] === 'calendar:달력 칸', '「시간」 → 맨 위에 달력 칸 (자료 안에 「시간」이란 말이 없어도)', JSON.stringify(r.time));
+  check(r.money[0] === 'wallet:재산 칸' && r.weather[0] === 'calendar:달력 칸', '「돈」 → 재산 · 「날씨」 → 달력', JSON.stringify([r.money, r.weather]));
   check(r.none === 0, '없는 말은 0개');
   check(r.memoOff === 0, '꺼 둔 칸(메모)은 결과에서 빠짐');
   // 화면: 창을 열고 적으면 칠한 결과 · 개수 · 누르면 그 탭
