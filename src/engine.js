@@ -1858,8 +1858,31 @@ export function recentChat(n, mode = 'short') {
         return out.reverse().join('\n');
     }
     const pick = list.slice(-n);
-    if (mode !== 'last' && mode !== 'recent') return pick.map(m => line(m, 700)).join('\n');
-    return pick.map((m, i) => line(m, i === pick.length - 1 ? READ_FULL : mode === 'recent' ? READ_LONG : 700)).join('\n');
+    const per = clamp(parseInt(settings().genReadLen, 10) || 700, 200, 6000); // 📖 메시지마다 읽을 글자 수 (v2.9.1 · 예전엔 700 고정이라 긴 답의 뒷부분 사건이 빠졌다)
+    if (mode !== 'last' && mode !== 'recent') return pick.map(m => line(m, per)).join('\n');
+    return pick.map((m, i) => line(m, i === pick.length - 1 ? READ_FULL : mode === 'recent' ? Math.max(READ_LONG, per) : per)).join('\n');
+}
+// 📒 변화 장부 (v2.9.1 · 블루레몬): 본편 AI가 답마다 <meatball>에 남긴 변화의 합 — 「채팅 전체」로 다시 만들 때 같이 보낸다
+//   본문만 보내면 AI가 수치를 처음부터 다시 어림해서, 실제 쌓인 애정 · 우정 · 돈과 크게 달랐다 (긴 채팅으로 다시 만들면 처음 만난 사이처럼 낮게)
+export function changeLedger() {
+    const chat = ctx().chat ?? [], A = {}, T = {}, ev = [];
+    let cash = 0, cashN = 0, loc = '', time = '', n = 0;
+    const sgn = (x) => parseInt(String(x).replace(/−/g, '-').replace(/\s+/g, ''), 10);
+    for (const m of chat) {
+        if (!isStoryAI(m)) continue;
+        const ops = msgOps(m); if (!ops.length) continue; n++;
+        for (const [k0, v0] of ops) {
+            const k = KEYMAP[String(k0).trim().toLowerCase()], v = String(v0 ?? '').trim();
+            if (k === 'aff' || k === 'trust') for (const p of v.split(/\s*[,，]\s*/)) { const mm = p.match(/^(.+?)\s*([+\-−]\s*\d{1,3})\b/); if (mm) { const nm = mm[1].trim(), d = sgn(mm[2]); if (nm && Number.isFinite(d) && nm.length <= 30) (k === 'aff' ? A : T)[nm] = ((k === 'aff' ? A : T)[nm] ?? 0) + d; } }
+            else if (k === 'cash') { const mm = v.match(/^([+\-−])\s*([\d,]+(?:\.\d+)?)/); if (mm) { cash += (mm[1] === '+' ? 1 : -1) * Number(mm[2].replace(/,/g, '')); cashN++; } }
+            else if (k === 'loc') loc = String(v.split('|')[0]).split(/\s*(?:→|->|=>)\s*/).pop().trim();
+            else if (k === 'time') time = v.split(/\s*(?:→|->|=>)\s*/).pop().trim();
+            else if (k === 'event' || k === 'quest' || k === 'ach') ev.push(short(v.split('|')[0].trim(), 50));
+        }
+    }
+    if (!n) return '';
+    const fmt = (o) => Object.entries(o).filter(([, d]) => d).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 30).map(([nm, d]) => `${nm} ${d > 0 ? '+' : ''}${d}`).join(', ');
+    return [`(${n} replies carried status changes)`, fmt(A) && `aff (romance) total change: ${fmt(A)}`, fmt(T) && `trust (friendship) total change: ${fmt(T)}`, cashN && `money total change: ${cash > 0 ? '+' : ''}${cash} over ${cashN} entries`, loc && `last location: ${loc}`, time && `last time of day: ${time}`, ev.length && `events / quests along the way: ${[...new Set(ev)].slice(-20).join(' · ')}`].filter(Boolean).join('\n');
 }
 // 📎 하던 채팅에 붙이기: 이미 긴 채팅에서 상태창을 만들 때 — 최근 N개만으로는 앞에서 쌓인 돈 · 관계 · 물건을 모른다.
 //   요약 확장의 요약(가장 최근 것) · 작가 노트 · 앞쪽 이야기를 띄엄띄엄 훑은 줄을 같이 준다. AI 호출 수는 그대로고 보내는 글만 늘어난다.
@@ -1902,6 +1925,7 @@ export async function gatherSources(opt = {}) {
         if (sf.note && !useNote) parts.push(`[AUTHOR'S NOTE]\n${sf.note}`); // 위에서 이미 넣었으면 두 번 안 넣는다
         if (sf.sample && readMode !== 'all') parts.push(`[EARLIER STORY — sampled lines, oldest first]\n${sf.sample}`); // 채팅 전체를 읽으면 훑은 줄은 겹친다
     }
+    if (opt.chat !== false && (readMode === 'all' || opt.long === true)) { const lg = changeLedger(); if (lg) parts.push(`[CHANGE LEDGER — totals of what the story AI recorded reply by reply in this chat. Start relationship values, money, location and time from these real totals instead of re-guessing from the prose]\n${lg}`); }
     if (opt.chat !== false) { const rc = recentChat(set.recentForGen, readMode); if (rc) parts.push(`${readMode === 'all' ? '[CHAT SO FAR — oldest first]' : '[RECENT CHAT]'}\n${rc}`); }
     if (opt.chat !== false && opt.long === true) parts.push('[ONGOING STORY] This status window is being attached to a story that is already in progress. Fill every value as it stands NOW, at the latest message — current date and time, location, money, belongings, gauges, relationship levels, people already met, quests already taken — not as it was when the story began. When sources disagree, trust the most recent one.');
     return parts.join('\n\n');

@@ -718,6 +718,8 @@ export function checkKorean() {
     const id = String(ctx().getCurrentChatId?.() ?? '');
     if (!id || lastKoCheck === id || !app.current?.state) return; // 상태가 계산된 뒤에 한 번
     lastKoCheck = id;
+    // 🔁 열 때 저절로 영어 저장으로 (설정 trAutoConvert · 기본 끔 · 실리 기본 번역일 때만 = 토큰 0) — 같은 채팅은 한 접속에 한 번
+    if (settings().trAutoConvert === true && settings().trEngine === 'st') { if (koPanels().length) convertToEnglish(null, { auto: true }).catch(e => ssWarn(LOG, 'auto en', e)); return; }
     if (settings().trNotice !== true) return; // 🌐 번역 알림 끔 (기본): 바꾸고 싶으면 확장 설정 › 상태창 언어 · 번역의 「한국어 칸을 영어로」
     const ko = koPanels();
     if (!ko.length) return;
@@ -807,7 +809,7 @@ export function textMap(cur, out) {
     for (const a of bad) delete m[a];
     return m;
 }
-export async function convertToEnglish(btn) {
+export async function convertToEnglish(btn, o = {}) {
     if (running) { stop = true; return; }
     const s = app.current?.state;
     if (!s) { toastr.info('이 채팅에 상태창이 없어요.', TITLE); return; }
@@ -816,7 +818,8 @@ export async function convertToEnglish(btn) {
     const ids = koPanels();
     if (!ids.length) { toastr.success('한국어로 저장된 칸이 없어요. 이미 영어로 저장돼 있어요.', TITLE); return; }
     const who = settings().trEngine === 'st' ? '실리 기본 번역 (토큰 0)' : `번역 모델 ${ids.length}회`;
-    if (!(await ctx().Popup.show.confirm(TITLE, `한국어로 저장된 ${ids.length}칸을 영어 저장으로 바꿔요 (${esc(who)}).<br><br>• 지금 보이는 한국어는 <b>화면 번역으로 그대로 남아요</b> — 화면은 거의 그대로고, AI에게만 영어로 가요.<br>• 칸마다 「되돌리기」(<code>/ss-undo</code>)로 되돌릴 수 있어요. 걱정되면 먼저 관리 탭 › 세이브나 전체 백업을 해 두세요.<br>• 다시 누르면 멈춰요.`))) return;
+    // 묻지 않기 (v2.9.1 · 블루레몬: 채팅을 열 때마다 같은 질문이 떴다) — 이제 숫자는 굳지 않고 글만 바뀌어서 바로 해도 안전해요
+    if (!o.auto && settings().trConvertAsk !== false && !(await ctx().Popup.show.confirm(TITLE, `한국어로 저장된 ${ids.length}칸을 영어 저장으로 바꿔요 (${esc(who)}).<br><br>• 지금 보이는 한국어는 <b>화면 번역으로 그대로 남아요</b> — 화면은 거의 그대로고, AI에게만 영어로 가요.<br>• 글만 바뀌고 애정 · 돈 같은 숫자는 그대로 계산돼요. 「되돌리기」(<code>/ss-undo</code>)로 되돌릴 수 있어요.<br>• 다시 누르면 멈춰요.<br><small>확장 설정 › 상태창 언어 · 번역의 「바꾸기 전에 묻기」를 끄면 다음부턴 바로 바꿔요.</small>`))) return;
     running = true; stop = false;
     const old = btn?.innerHTML;
     let k = 0, fail = 0;
@@ -845,6 +848,7 @@ export async function convertToEnglish(btn) {
         addPairs(rulePairs());
     } finally { running = false; if (btn) btn.innerHTML = old; }
     app.refreshNow?.(); translateView();
+    if (o.auto && !fail) { lastKoCheck = String(ctx().getCurrentChatId?.() ?? ''); return; } // 저절로 한 것은 조용히
     toastr[fail ? 'warning' : 'success'](`${k}칸을 영어 저장으로 바꿨어요${fail ? ` · <b>${esc(failed.join(', '))}</b>은(는) 실패해서 한국어 그대로예요. 한 번 더 누르면 실패한 칸만 다시 해요` : ''}${stop ? ' (멈춤)' : ''}.`, TITLE, fail ? { timeOut: 12000, escapeHtml: false } : {});
     lastKoCheck = '';
 }
