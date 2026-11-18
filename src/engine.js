@@ -4,6 +4,7 @@ import {
     waitText, setAlias, TITLE, INJECT_KEY, INJECT_KEY2, INJECT_KEY3, INJECT_KEY4, trLook, trBack, viewTr, weekday, PROMPT_IN_CHAT, ROLE_SYSTEM, MODULE, AI_PARTS, aiOff, uid, diffOf, LOG, loveIndex, CONTACT_MODES, tidy, msgText, DEFAULT_STAGES, arr, playOf, swapUser, ssWarn, relAxes, INJ, isHidden, modOnRaw, DATA_V, normPlay, ssNote, heroIsUser,
 } from './core.js';
 import { P } from './prompts.js';
+import { MIND_FMT, watchDefs, watchOn, watchMode, toneLine, toneP, kaoSample, cellsOn, numOf, fmtOf } from './mindcfg.js'; // 💭 속마음 · 관전자 (v2.10)
 import { pairStage, KEYMAP, KEY_MOD, seeded, effSum, today, applyLines, seasonOf, pickWeather, stageIndex, noLoveStage, updateStage, startDay, applyOp, stagesOn, dateFromIndex , needsTick } from './ops.js';
 export * from './ops.js'; // 떼어 낸 것 — 다른 파일은 예전처럼 여기서 받아도 된다
 
@@ -366,7 +367,7 @@ export function skillRoll(s, attrPick, dc = 12) {
 export function freshState(base) {
     const data = {};
     for (const id of MOD_IDS) data[id] = base?.data?.[id] ? clone(base.data[id]) : null;
-    const s = { core: clone(base?.core ?? EMPTY.core()), data, pendingRoll: null, recent: [], turn: 0, tally: clone(base?.tally) ?? null, days: clone(base?.days) ?? [], day0: base?.day0 ?? null, gone: clone(base?.gone) ?? [] };
+    const s = { core: clone(base?.core ?? EMPTY.core()), data, pendingRoll: null, recent: [], turn: 0, tally: clone(base?.tally) ?? null, days: clone(base?.days) ?? [], day0: base?.day0 ?? null, gone: clone(base?.gone) ?? [], watch: clone(base?.watch) ?? [] };
     if (s.day0 === null && data.calendar) s.day0 = dayIndex(data.calendar);
     // 관계: 처음 단계 맞추기 (알림 없이)
     if (data.rel) { data.rel.stages ??= clone(DEFAULT_STAGES); data.rel.life ??= []; for (const r of data.rel.user ?? []) { r.jealous ??= 0; if (r.stage === undefined || r.stage === null || r.stage < 0) { r.stage = stageIndex(data.rel.stages, r.aff, r.trust); if (r.noLove) r.stage = noLoveStage(data.rel, data.rel.stages, r, r.stage); } } }
@@ -1060,7 +1061,7 @@ export function squash(meta, keep = squashKeep()) {
     }
     // 굳힌 답의 칩 (v2.7.23): 굳히면 그 답들은 다시 계산하지 않아서 칩이 사라졌다 → 굳히는 순간의 칩 글을 답에 적어 두고 계속 보여 준다
     try { for (const [i, sn] of r.snaps) { const m = chat[i]; if (!m || !sn.labels?.length) continue; (((m.extra ??= {})[MODULE] ??= {}).chips ??= {})[m.swipe_id ?? 0] = sn.labels.slice(0, 14); syncSwipe(m); } } catch (e) { ssNote('굳힌 답 칩 적어 두기 실패', e); }
-    meta.base = { core: r.state.core, data: r.state.data, tally: r.state.tally, days: r.state.days, day0: r.state.day0, gone: r.state.gone };
+    meta.base = { core: r.state.core, data: r.state.data, tally: r.state.tally, days: r.state.days, day0: r.state.day0, gone: r.state.gone, watch: (r.state.watch ?? []).slice(-12) };
     meta.baseTurn = r.state.turn;
     meta.startAt = cut;
     meta.startKey = chat[cut - 1]?.send_date ?? null;
@@ -1138,7 +1139,7 @@ export function tagKeysFor(meta) {
     if (on('profile')) K.push('npc (이름 | 한 줄 소개 — a new named character who will matter)');
     if (on('dice')) K.push('roll (판정 이름 | 난이도 — ask {{user}} to roll instead of deciding a risky outcome yourself)');
     if (on('fate')) K.push('curse (이름 | 효과1, 효과2 | 일수 | 풀리는 조건 — only when the story truly curses or blesses {{user}}; -이름 lifts it)');
-    if ((on('rel') || on('profile')) && (settings().mindMode ?? 'off') !== 'off' && mindActive(app.current?.state?.turn ?? 0)) K.push('mind (이름 | 속마음 — hidden inner feeling, only this turn; NOT msg: msg is a real message sent to {{user}})');
+    { const mp = mindPlan(app.current?.state); if (mp.cast && (on('rel') || on('profile'))) K.push('mind (이름 | 속마음 — hidden inner feeling, only this turn; NOT msg: msg is a real message sent to {{user}})'); if (mp.watch.length) K.push('watch (관전자 이름 | 한마디 — a spectator outside the story reacting, only this turn)'); }
     if (on('rel') && settings().jealousy) K.push('jealous (이름 ±N — someone gets jealous of {{user}} with another, or is reassured)');
     if (on('rel') && settings().romBond) K.push('confess (이름 — ONLY right after a real confession was made AND accepted in this reply; the user confirms it. Never for closeness or time spent together)');
     if (on('rel') && settings().romDrive) K.push('concern (이름 | 요즘 신경 쓰는 것 — when what they are preoccupied with changes or gets resolved; 이름 | 없음 clears) · taste (이름 | 끌리는 것 | 싫어하는 것 — fill once if blank)');
@@ -1480,28 +1481,60 @@ export function buildInjection(r, opt = {}) {
 }
 // 설렘 한 스푼: 단계마다 할 수 있는 「설레는 한 순간」과 넘으면 안 되는 선 (친구인데 연인처럼 굴지 않게)
 const sparkMemo = new Map(); // 「채팅:종류:확률:쉬는 턴」 → { upto, last, hits }
-// 💭 속마음 (v2.7.21): 이번 턴에 장면 속 인물의 속마음을 <meatball>에 같이 적게 — 본편 AI가 쓰므로 추가 호출 0
-export const MIND_FMT = {
-    thought: 'their unspoken inner voice in FIRST person, like a thought bubble — 3 to 8 words, no narration, no name, no numbers (e.g. "…또 사고 쳤겠지" / "Idiot. Still glad he\'s okay.")',
-    emoji: '1-3 emoji that show their true feeling right now (emoji only, no words)',
-    kaomoji: 'one kaomoji that shows their true feeling right now, e.g. (｡•́︿•̀｡) (≧▽≦) (￣ヘ￣) (⁄ ⁄•⁄ω⁄•⁄ ⁄) — kaomoji only, no words',
-};
+// 💭 속마음 (v2.7.21 · v2.10 관전자): 이번 턴에 장면 속 인물의 속마음 · 관전자의 한마디를 <meatball>에 같이 적게 — 본편 AI가 쓰므로 추가 호출 0
+export { MIND_FMT };
+const chatSeed = () => ctx().getCurrentChatId?.() ?? MODULE;
 export function mindActive(turn, set = settings()) {
     if (!MIND_FMT[set.mindMode]) return false;
     if (set.mindFreq === 'always') return true;
     if (set.mindFreq === 'tab') return false; // 탭에 들어올 때 따로 받는다 (mind.js) — 본편 AI에게는 시키지 않는다
-    return sparkHit(`${ctx().getCurrentChatId?.() ?? MODULE}:mind`, clamp(num(set.mindPct, 35), 0, 100), 0, turn ?? 0);
+    return sparkHit(`${chatSeed()}:mind`, clamp(num(set.mindPct, 35), 0, 100), 0, turn ?? 0);
+}
+// 이번 턴에 누가 말할까: { cast: 인물 속마음을 받을지, watch: [관전자 id 1~2개] } — 같은 턴이면 늘 같은 답 (다시 계산해도 안 바뀐다)
+export function mindPlan(s, set = settings(), force = false) {
+    const turn = s?.turn ?? 0, out = { cast: false, watch: [] };
+    if (!MIND_FMT[set.mindMode] || (!force && !mindActive(turn, set))) return out;
+    if (!watchMode(set)) { out.cast = true; return out; }
+    const ids = watchOn(set), rnd = seeded(`${chatSeed()}:watch:${turn}`), N = numOf(set);
+    const pool = [...ids]; for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+    let k = 1; while (k < Math.min(N.max, pool.length) && rnd() * 100 < N.two) k++; // 한 명 더 나올 확률 (설정 · 최대 N.max명)
+    out.watch = pool.slice(0, k);
+    if (out.watch.includes('cells')) { // 🧠 세포들: 고른 세포 중 1~2마리 (세포만 뽑혔으면 2마리일 때가 많게)
+        const cs = [...cellsOn(set)]; for (let i = cs.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [cs[i], cs[j]] = [cs[j], cs[i]]; }
+        const n = cs.length > 1 && rnd() * 100 < (out.watch.length === 1 ? N.cellTwo : N.cellTwo / 2) ? 2 : 1;
+        out.watch = [...out.watch.filter(x => x !== 'cells'), ...cs.slice(0, n).map(id => `cell:${id}`)];
+    }
+    out.cast = set.mindCastMix !== false && rnd() * 100 < N.cast; // 인물도 섞기: 절반쯤의 턴에 인물 속마음도
+    if (!out.watch.length) out.cast = true;
+    return out;
+}
+// 관전자 · 어조 · 카모지 안내 (본편 · 탭에서 받기가 같이 쓴다)
+export function watchBrief(ids, set = settings(), turn = 0) {
+    const defs = watchDefs(set);
+    return ids.map(id => defs[id]).filter(Boolean).map(d => { const t = d.tone ? toneP(set, d.tone) : ''; return `- ${d.nick ? `name "${d.nick}"` : 'name: (choose a fitting short label)'} — ${d.p || d.desc || d.name}${t ? ` · this one's own voice: ${t}` : ''}`; }).join('\n');
+}
+export function mindStyle(set = settings(), turn = 0, forCast = false) {
+    const L = [], tone = toneLine(set);
+    if (tone && (!forCast || set.mindToneCast === true)) L.push(`Tone/voice for ${forCast ? 'these lines' : 'the spectators'}: ${tone}.`);
+    const kn = numOf(set).kao;
+    if (kn && (set.mindMode === 'kaomoji' || set.mindMode === 'mix')) L.push(`Vary the kaomoji — pick ones that fit, for example: ${kaoSample(kn, seeded(`${chatSeed()}:kao:${turn}`)).join(' ')} (don't reuse the same one every turn).`);
+    return L.join(' ');
 }
 function mindLine(r) {
     const set = settings(), s = r?.state, meta = getMeta();
-    const relOk = !!s?.data?.rel && modOn('rel', meta), profOk = !!s?.data?.profile && modOn('profile', meta);
-    if (!(relOk || profOk) || !(set.sync === 'tag' || set.sync === 'tagPlus') || !mindActive(s.turn, set)) return '';
-    const inScene = sceneTester(set, s);
-    const rel = relOk ? s.data.rel.user : [], who = rel.filter(x => !x.out && inScene(x.name)).map(x => x.name);
-    if (profOk) for (const p of s.data.profile.list) if (p.role !== 'user' && !rel.some(r => r.name === p.name) && inScene(p.name)) who.push(p.name); // v2.9: 프로필에만 있는 인물도
-    who.splice(4);
-    if (!who.length) return '';
-    return `This turn, inside <meatball>, add one line per character in the scene (${who.join(', ')}) with the key mind (not msg — msg is a real message): mind: Name | ${MIND_FMT[set.mindMode]}. It is hidden from {{user}} — do not reveal it in the story.`;
+    if (!s || !(set.sync === 'tag' || set.sync === 'tagPlus')) return '';
+    const plan = mindPlan(s, set); if (!plan.cast && !plan.watch.length) return '';
+    const L = [];
+    const relOk = !!s.data?.rel && modOn('rel', meta), profOk = !!s.data?.profile && modOn('profile', meta);
+    if (plan.cast && (relOk || profOk)) {
+        const inScene = sceneTester(set, s);
+        const rel = relOk ? s.data.rel.user : [], who = rel.filter(x => !x.out && inScene(x.name)).map(x => x.name);
+        if (profOk) for (const p of s.data.profile.list) if (p.role !== 'user' && !rel.some(r => r.name === p.name) && inScene(p.name)) who.push(p.name); // v2.9: 프로필에만 있는 인물도
+        who.splice(watchMode(set) ? 2 : 4);
+        if (who.length) L.push(`This turn, inside <meatball>, add one line per character in the scene (${who.join(', ')}) with the key mind (not msg — msg is a real message): mind: Name | ${fmtOf(set)[set.mindMode]}. It is hidden from {{user}} — do not reveal it in the story. ${mindStyle(set, s.turn, true)}`.trim());
+    }
+    if (plan.watch.length) L.push(`Also inside <meatball>, add one line per spectator below with the key watch: watch: Name | ${fmtOf(set)[set.mindMode]}. Spectators are OUTSIDE the story watching this chat (they never appear in it and nobody in the story hears them). React to what just happened in THIS reply.\n${watchBrief(plan.watch, set, s.turn)}\n${mindStyle(set, s.turn)}`.trim());
+    return L.join('\n');
 }
 function sparkHit(key, p, cool, turn) {
     const mk = `${key}:${p}:${cool}`;

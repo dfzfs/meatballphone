@@ -5,7 +5,7 @@ export { clamp, clone, esc, num, str, arr, norm, fmtNum, signed, uid, short, spl
 export const MODULE = 'statussim';
 export const LOG = '[미트볼 상태창]';
 export const TITLE = '미트볼 상태창';
-export const VERSION = '2.9.1';
+export const VERSION = '2.10.0';
 export const INJECT_KEY = 'statussim_state';
 export const INJECT_KEY2 = 'statussim_people';
 export const INJECT_KEY3 = 'statussim_romance'; // 로맨스 보정 · 내 주입문 (v2.6)
@@ -225,6 +225,15 @@ export const DEFAULTS = Object.freeze({
     mindMode: 'off',         // 💭 속마음 (v2.7.21): off | thought(속마음 한 줄) | emoji(이모티콘) | kaomoji(카모지) — 본편 AI가 <meatball>에 같이 적음 (추가 호출 0)
     mindFreq: 'random',      // always(매 턴) | random(mindPct% 턴만) | tab(프로필 › 속마음 탭에 들어올 때 · 그 턴에 한 번 AI 1회 — v2.9)
     mindPct: 35,
+    mindWho: 'cast',         // 💭 누가 말할까 (v2.10): cast(장면 속 인물) | watch(관전자 — 이야기 밖에서 채팅을 보는 사람들)
+    mindWatch: ['fan'],      // 켠 관전자 컨셉 (mindcfg.js WATCH · 직접 만든 것은 mindWatchOwn) — 턴마다 1~2명이 랜덤으로
+    mindCells: ['jjogae', 'yok', 'woo', 'sul', 'jijeok'], // 🧠 세포들 중 켠 세포 (mindcfg.js CELLS)
+    mindWatchOwn: [],        // 직접 만든 관전자 [{ id, name, icon, desc }]
+    mindCastMix: true,       // 관전자 모드에서 인물 속마음도 가끔 섞기
+    mindTone: 'none',        // 어조 (mindcfg.js TONES) · custom이면 mindToneCustom
+    mindToneCustom: '',
+    mindToneCast: false,     // 어조를 인물 속마음에도
+    mindPop: true,           // 새 속마음 · 한마디가 오면 HUD · 미니바 옆에 말풍선이 톡 튀어나온다
     partsOff: {},            // 👁 보일 것 (v2.7.19): { 탭: [숨긴 것 키, …] } — 화면에서만 숨김 · 모든 채팅 공통
     // ── 로맨스 보정 (v2.6 · 전부 선택 · 기본 꺼짐) ──
     romBond: false,          // 맨 위 단계(연인)는 숫자만으론 안 됨 — 고백 후 「연인 확정」을 눌러야

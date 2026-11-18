@@ -1,4 +1,5 @@
 // 규칙 · 변화량 처리 — <meatball> 한 줄(키=값)을 상태에 반영 (engine.js에서 떼어 냄)
+import { numOf } from './mindcfg.js'; // 💭 속마음 글자 수 (v2.10)
 import { setAlias } from './core.js';
 import { letterMode, ctx, settings, EMPTY, DIFFS, GLOBAL_OFF, clamp, num, norm, findBy, parseNum, splitBar, signed, fmtNum, short, dayIndex, addDays, dateStr, eventsOn, parseDate, nowTick, wholeTick, useDays, stamp, viewTr, diffOf, loveIndex, touchContact, THREAD_MAX, dateShort, DEFAULT_STAGES, relAxes, romanceStart, ssNote, parseClock, toClockStyle, fmtClock, nextTime, nextTimeWraps } from './core.js';
 import { enStr } from './skeleton_en.js';
@@ -36,6 +37,7 @@ export const KEYMAP = {
     life: 'life', offscreen: 'life', '근황': 'life', '화면밖': 'life',
     jealous: 'jealous', jealousy: 'jealous', '질투': 'jealous',
     mind: 'mind', '속마음': 'mind', thought: 'mind', feel: 'mind',
+    watch: 'watch', '관전': 'watch', '관전자': 'watch', '구경꾼': 'watch', spectator: 'watch', viewer: 'watch',
     confess: 'confess', '고백': 'confess', concern: 'concern', '신경': 'concern', '고민': 'concern', taste: 'taste', '취향': 'taste',
     alert: '_alert', '알림': '_alert',
 };
@@ -500,6 +502,16 @@ function opMind(s, val, info, L, T, key, rawKey) { // 💭 속마음 · 이모�
     // v2.9: 지난 것도 5개까지 남긴다 (프로필 › 속마음 탭의 기록) — 같은 턴에 다시 오면 바꿔 적는다
     const log = (r.mindLog ?? []).filter(x => x.turn !== s.turn); log.push({ text: t, turn: s.turn }); r.mindLog = log.slice(-5);
     return;
+}
+// 👀 관전자 한마디 (v2.10 · 이름 | 한마디): 이야기 밖에서 이 채팅을 보는 사람 — 상태의 watch[]에 최근 30개 (칸이 아니라 켜고 끄기와 상관없이 받는다)
+function opWatch(s, val, info, L, T, key, rawKey) {
+    const [nm, ...rest] = splitBar(val); const who = String(nm ?? '').replace(/^[@*_`\s]+|[*_`\s]+$/g, '').slice(0, 16), text = rest.join(' | ').trim();
+    if (!who || !text) return;
+    const t = cleanMind(text); if (!t) return;
+    const w = (s.watch ??= []);
+    const i = w.findIndex(x => x.turn === s.turn && x.who === who); if (i >= 0) w.splice(i, 1); // 같은 턴에 같은 사람이 다시 오면 바꿔 적는다
+    w.push({ who, text: t, turn: s.turn });
+    if (w.length > 30) w.splice(0, w.length - 30);
 }
 function opJealous(s, val, info, L, T, key, rawKey) {
     const rl = ensure(s, 'rel');
@@ -1291,6 +1303,7 @@ const OPS = {
     'custom': opCustom,
     'life': opLife,
     'mind': opMind,
+    'watch': opWatch,
     'jealous': opJealous,
     'confess': opConfess,
     '_nolove': opXNolove,
@@ -1388,10 +1401,16 @@ export function dateFromIndex(cal, idx) {
 }
 // 속마음 글 다듬기: 수치 괄호((20/85 💕/🤝) 같은 것) · 따옴표 · 이름 머리를 떼고, 첫 문장만 · 짧게 (한글 22자 · 그 밖 48자)
 export function cleanMind(t) {
-    let x = String(t ?? '').replace(/\([^()]*\d+\s*\/\s*\d+[^()]*\)/g, '').replace(/[-+]?\d+\s*\/\s*\d+/g, '').replace(/^\s*["'“”‘’「『]+|["'“”‘’」』]+\s*$/g, '').replace(/\s+/g, ' ').trim();
-    const max = /[가-힣]/.test(x) ? 22 : 48;
+    let x = String(t ?? '').replace(/\([^()]*\d+\s*\/\s*\d+[^()]*\)/g, '').replace(/[-+]?\d+\s*\/\s*\d+/g, '').replace(/\s+/g, ' ').trim();
+    // 따옴표: 글 전체를 감싼 것만 뗀다 — 「숨을 들이켰다」 또 나옴 처럼 일부만 인용한 것은 그대로 (v2.10)
+    const PAIR = { '"': '"', "'": "'", '“': '”', '‘': '’', '「': '」', '『': '』' };
+    for (let k = 0; k < 2; k++) { const o = x[0], c = PAIR[o]; if (!c) break; const at = x.indexOf(c, 1); if (at < 0) x = x.slice(1).trim(); else if (at === x.length - 1) x = x.slice(1, -1).trim(); else break; }
+    if (/["“”」』]$/.test(x) && !/["“「『]/.test(x.slice(0, -1))) x = x.slice(0, -1).trim();
+    // v2.10: 끝에 붙은 카모지는 따로 떼어 두었다가 자른 뒤에 다시 붙인다 (「글 + 카모지」에서 카모지가 잘려 나가지 않게)
+    let tail = ''; const km = x.match(/\s+(\S*[()（）ʕʔ┻╯ᕦ凸ﾉ][^가-힣]*)$/); if (km && !/[가-힣]/.test(km[1]) && km.index > 0) { tail = ` ${km[1].trim()}`; x = x.slice(0, km.index).trim(); }
+    const L0 = numOf(settings()).len, max = /[가-힣]/.test(x) ? L0 : L0 * 2; // 글자 수 (설정 · 기본 26)
     if (x.length > max) { const m = x.match(/^.+?[.!?。…~]+(?=\s|$)/); if (m && m[0].length >= 4) x = m[0]; } // 길 때만 첫 문장
-    return x.length > max ? `${x.slice(0, max - 1).trim()}…` : x;
+    return `${x.length > max ? `${x.slice(0, max - 1).trim()}…` : x}${tail}`;
 }
 
 // ───── 🍞 욕구 게이지 (v2.9): 시간이 지나면 저절로 줄고 · 단계마다 상태가 붙고 · 바닥이면 다른 게이지를 깎는다 ─────

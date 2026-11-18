@@ -4,7 +4,8 @@
 //   ③ 생활비 틀: 월세 · 관리비 · 통신비 · 구독료를 재산의 「정기 수입 · 지출」에 넣는다
 //   ④ 👕 옷차림 · 장비 화면: addons.js(장비 착용)의 단추 — 재산 탭 아래. 효과 글의 「체온 -30%」는 그 욕구가 30% 덜 줄게 한다
 // 값은 이 채팅의 물가(재산 › 물가 · 상점 가격의 아래쪽 4분의 1)를 한 단위로 삼아 맞춘다.
-import { app, ctx, settings, saveSettings, getMeta, saveMeta, stamp, modOn, esc, short, fmtNum, norm, clone, findBy, EMPTY, TITLE, LOG, ssWarn, isSimple } from './core.js';
+import { app, ctx, settings, saveSettings, getMeta, saveMeta, stamp, modOn, esc, short, fmtNum, norm, clone, findBy, EMPTY, TITLE, LOG, ssWarn, isSimple, mindCovered } from './core.js';
+import { faceOfMind, faceOfRel } from './mindcfg.js'; // 😊 다른 인물 인형의 「기분 따라」 표정 (v2.10)
 import { commit, addAdjust } from './engine.js';
 import { parseStages, stageOf } from './ops.js';
 import { kindOf, RISING, svg, needIcon, goodOf, clamp01, lvOf } from './needicons.js';
@@ -182,10 +183,21 @@ export const LIFE_ACTIONS = {
         const box = document.createElement('div'); box.className = 'ss-root ss-scope ss-gearpick';
         box.innerHTML = `<div class="ss-wz-head"><i class="fa-solid fa-shirt"></i><div><b>${esc(arg)}</b><small>소지품에서 골라요 — 한 물건은 한 칸에만</small></div></div>
             <div class="ss-stack">${items.map((i, k) => `<button class="ss-btn ${cur && norm(cur.name) === norm(i.name) ? 'pri' : ''}" data-choice="i${k}">${esc(i.name)}${i.effect ? `<small> · ${esc(i.effect)}</small>` : ''}</button>`).join('') || '<p class="ss-hint">소지품이 없어요.</p>'}</div>
-            ${cur ? '<div class="ss-row-btns"><button class="ss-btn ghost" data-choice="off"><i class="fa-solid fa-xmark"></i> 벗기</button></div>' : ''}`;
+            <div class="ss-row-btns">${cur ? '<button class="ss-btn ghost" data-choice="off"><i class="fa-solid fa-xmark"></i> 벗기</button>' : ''}${AD.GEAR_BASE.includes(arg) ? '' : '<button class="ss-btn ghost" data-choice="drop"><i class="fa-solid fa-minus"></i> 이 칸 없애기</button>'}</div>`;
         const pick = await choosePopup(box, '취소'); if (!pick) return;
-        if (pick === 'off') AD.unequip(arg); else { const it = items[Number(pick.slice(1))]; if (it) AD.equip(arg, it.name); }
+        if (pick === 'drop') AD.dropGearSlot(arg);
+        else if (pick === 'off') AD.unequip(arg); else { const it = items[Number(pick.slice(1))]; if (it) AD.equip(arg, it.name); }
         try { await AD.syncNeedMods(); } catch (e) { ssWarn(LOG, 'gear sync', e); }
+        app.refreshNow?.(); app.rerenderPanels?.(true);
+    },
+    gearslot: async (el) => { // ＋ 칸 늘리기 (v2.10)
+        await loadAD();
+        if (AD.gearSlots().length >= 16) { toastr.info('칸은 16개까지예요.', TITLE); return; }
+        const box = document.createElement('div'); box.className = 'ss-root ss-scope ss-gearpick';
+        box.innerHTML = `<div class="ss-wz-head"><i class="fa-solid fa-plus"></i><div><b>어떤 칸을 늘릴까요</b><small>겉옷 · 장신구는 여러 개 겹쳐 입혀져요</small></div></div>
+            <div class="ss-stack">${[['장신구', '귀걸이 · 목걸이 · 안경 · 날개 …'], ['모자', '모자 · 머리띠 · 리본 · 왕관 …'], ['얼굴', '안경 · 안대 · 마스크'], ['목', '목도리 · 넥타이 · 목걸이'], ['등', '날개 · 배낭 · 꼬리'], ['겉옷', '망토 위에 코트처럼 겹쳐 입기']].map(([n, d]) => `<button class="ss-btn" data-choice="${n}">${n}<small> · ${d}</small></button>`).join('')}</div>`;
+        const pick = await choosePopup(box, '취소'); if (!pick) return;
+        const n = AD.addGearSlot(pick); if (n) toastr.success(`「${n}」 칸을 늘렸어요. 눌러서 소지품에서 골라요.`, TITLE);
         app.refreshNow?.(); app.rerenderPanels?.(true);
     },
     qasknot: async (el, arg) => { await addAdjust({ ops: [['_qask', arg]], silent: true, label: '' }); },
@@ -324,11 +336,12 @@ const ARTS = new Map();
 function artOf(id) { const a = id && settings().dollArt?.[id]; if (!a || !DL) return undefined; const k = `${id}:${a.rev ?? 0}`; let g = ARTS.get(k); if (!g) { g = DL.decodeArt(a); ARTS.set(k, g); if (ARTS.size > 60) ARTS.delete(ARTS.keys().next().value); } return { k, g }; }
 const THUMBS = new Map();
 function thumbOf(id) { const a = artOf(id); if (!a) return ''; let u = THUMBS.get(a.k); if (!u) { u = DL.artUrl(a.g); THUMBS.set(a.k, u); if (THUMBS.size > 60) THUMBS.delete(THUMBS.keys().next().value); } return u; }
+const MULTI_KIND = new Set(['acc', 'outer']); // v2.10: 겉옷 · 장신구는 여러 개 겹쳐 입기
 function wearNow(s, D) {
     const wear = [];
     if (settings().gearOn === true && DL) {
         if (!AD) loadAD().then(() => app.rerenderPanels?.(true)).catch(e => ssWarn(LOG, 'doll load', e));
-        else for (const e of AD.equipped(s)) { const kind = DL.slotKind(e.slot); if (wear.some(x => x.kind === kind)) continue; const lk = D.looks?.[norm(e.name)] ?? {}; wear.push({ kind, shape: DL.SHAPES[kind]?.[lk.shape] ? lk.shape : DL.guessShape(kind, e.name), color: lk.color || DL.guessColor(e.name, kind), accent: lk.accent || undefined, name: e.name, slot: e.slot }); }
+        else for (const e of AD.equipped(s)) { const kind = DL.slotKind(e.slot); if (!MULTI_KIND.has(kind) && wear.some(x => x.kind === kind)) continue; if (MULTI_KIND.has(kind) && wear.filter(x => x.kind === kind).length >= 6) continue; const lk = D.looks?.[norm(e.name)] ?? {}; wear.push({ kind, shape: DL.SHAPES[kind]?.[lk.shape] ? lk.shape : DL.guessShape(kind, e.name), color: lk.color || DL.guessColor(e.name, kind), accent: lk.accent || undefined, name: e.name, slot: e.slot }); }
     }
     // 직접 찍은 그림을 「쓰기」로 걸어 둔 칸: 입은 물건이 있으면 그 그림 대신, 없으면 그냥 입힌다
     if (DL) for (const kind of ['top', 'bottom', 'outer', 'shoes', 'acc', 'weapon']) { const art = artOf(D.art?.[kind]); if (!art) continue; const x = wear.find(w => w.kind === kind); if (x) x.art = art; else wear.push({ kind, shape: '', color: '#888888', art, name: '', slot: '' }); }
@@ -345,6 +358,9 @@ const lookOf = (D) => ({ skin: D.skin, hair: D.hair, hairColor: D.hairColor, eye
 //   D.asFace = true 이면 그 인형 얼굴을 그 인물의 공용 프로필(얼굴)로 — 관계 · 연락 · 프로필 · HUD … 얼굴이 나오는 곳 모두 (kit.js avatar → app.dollFace)
 const userOf = (s) => (s?.data?.profile?.list ?? []).find(p => p.role === 'user')?.name ?? '';
 export const OUTFIT_KINDS = ['top', 'bottom', 'outer', 'shoes', 'acc', 'weapon'];
+// v2.10: 다른 인물도 겉옷 2벌 · 장신구 4개까지 — 칸 이름 = 종류 + 번호 (outer2 · acc2 …)
+export const OUTFIT_SLOTS = ['top', 'bottom', 'outer', 'outer2', 'shoes', 'acc', 'acc2', 'acc3', 'acc4', 'weapon'];
+const kindOfSlot = (slot) => String(slot).replace(/\d+$/, '');
 // 지금 꾸미는 사람: 패널의 ui.dollWho — 나(또는 프로필에 없는 이름)면 '' 
 export function whoOf(el, s = app.current?.state) {
     const w = String(el?._ss?.ui?.dollWho ?? '');
@@ -359,13 +375,22 @@ function bagOf(meta, who, make = true) {
 }
 function outfitWear(D) {
     const out = [];
-    for (const kind of OUTFIT_KINDS) {
-        const o = D.outfit?.[kind], art = artOf(D.art?.[kind]);
-        if (o && DL.SHAPES[kind]?.[o.shape]) out.push({ kind, shape: o.shape, color: o.color || DL.guessColor('', kind), accent: o.accent || undefined, name: '', slot: kind, art });
+    for (const slot of OUTFIT_SLOTS) {
+        const kind = kindOfSlot(slot), o = D.outfit?.[slot], art = slot === kind ? artOf(D.art?.[kind]) : undefined;
+        if (o && DL.SHAPES[kind]?.[o.shape]) out.push({ kind, shape: o.shape, color: o.color || DL.guessColor('', kind), accent: o.accent || undefined, name: '', slot, art });
         else if (art) out.push({ kind, shape: '', color: '#888888', art, name: '', slot: '' });
     }
     return out;
 }
+// 😊 다른 인물의 기분 (v2.10): 표정을 「기분 따라」로 둔 인형만 — 최근 3턴 안의 속마음 글/이모티콘/카모지 → 없거나 못 읽으면 관계 수치(애정 · 질투)
+export function npcFace(s, who) {
+    if (!s || !who) return '';
+    const rel = s.data?.rel?.user ?? [], r = rel.find(x => x.name === who) ?? (s.data?.profile?.list ?? []).find(x => x.name === who);
+    if (!r) return '';
+    const m = r.mind?.text && r.mind.turn >= (s.turn ?? 0) - 3 && !mindCovered(r) ? faceOfMind(r.mind.text) : '';
+    return m || faceOfRel(rel.find(x => x.name === who));
+}
+const lookFor = (s, D, who) => { const lk = lookOf(D); if (who && !lk.face) { const f = npcFace(s, who); if (f) lk.face = f; } return lk; };
 const wearFor = (s, D, who) => (who ? outfitWear(D) : wearNow(s, D));
 const moodFor = (s, who) => (who ? 3 : moodLv(s?.data?.stats));
 // 그 사람 인형 한 장 (화면용 · 그림이 아직 안 불러졌으면 빈 자리)
@@ -374,7 +399,7 @@ export function dollFor(s, who, cls = '') {
     if (!DL) { loadDL().then(() => app.rerenderPanels?.(true)).catch(e => ssWarn(LOG, 'doll art', e)); return `<span class="ss-px-wait ${cls}"></span>`; }
     const D = bagOf(getMeta(), who, false);
     if (D.img) return `<span class="ss-px ss-px-own ${cls}"><img alt="" src="${esc(D.img)}"></span>`;
-    return DL.dollSVG(lookOf(D), outfitWear(D), 3, cls, Array.isArray(D.hurt) ? D.hurt : []);
+    return DL.dollSVG(lookFor(s, D, who), outfitWear(D), 3, cls, Array.isArray(D.hurt) ? D.hurt : []);
 }
 // 그 사람 인형 그림 주소 (프로필 그림 · 얼굴용) — 아직 안 불러졌으면 불러 두고 ''
 function dollUrlOf(name, need) {
@@ -384,7 +409,7 @@ function dollUrlOf(name, need) {
     if (who && !meta.dolls?.[who]) return '';
     if (D.img) return D.img;
     if (!DL) { if (!app._dlWait) { app._dlWait = true; loadDL().then(() => app.rerenderPanels?.(true)).catch(e => ssWarn(LOG, 'doll art', e)).finally(() => { app._dlWait = false; }); } return ''; }
-    const html = DL.dollSVG(lookOf(D), wearFor(s, D, who), moodFor(s, who), '', []);
+    const html = DL.dollSVG(lookFor(s, D, who), wearFor(s, D, who), moodFor(s, who), '', []);
     return html.match(/src="([^"]+)"/)?.[1] ?? '';
 }
 app.dollFace = (name) => dollUrlOf(name, (D) => D.asFace === true); // kit.js avatar
@@ -436,7 +461,7 @@ export function wearTab(s, _d, ui = {}) {
         <div class="ss-f wide"><span>표정 <small>${Object.keys(DL.FACES).length}가지</small></span><button class="ss-btn sm" data-act="dollpick" data-arg="face"><i class="fa-regular fa-face-smile"></i> ${esc(DL.FACES[D.face] ?? DL.FACES.auto)} — 바꾸기</button></div>
         <div class="ss-f wide"><span>다친 곳 <small>빨갛게 깜빡여요</small></span><div class="ss-pills">${Object.entries(DL.HURT_PARTS).map(([k, n]) => `<button class="ss-pill ${hurt.includes(k) ? 'on' : ''}" data-act="dollhurt" data-arg="${k}">${hurt.includes(k) ? '<i class="fa-solid fa-check"></i> ' : ''}${n}</button>`).join('')}</div></div>
         ${faceRow}
-        <p class="ss-hint">${who ? '다른 인물의 다친 곳 · 표정은 여기서 고른 대로 보여요.' : '상태 이상에 「왼팔 부상」 · 「다리 골절」처럼 다친 곳이 적히면 그 부위가 저절로 빨개져요. 체력이 4분의 1 아래로 떨어져도요. 표정을 「기분 따라」로 두면 욕구 상태에 맞춰 바뀌어요.'}</p>`);
+        <p class="ss-hint">${who ? `다른 인물의 다친 곳은 여기서 고른 대로 보여요. 표정을 「기분 따라」로 두면 ${esc(who)}의 속마음 · 호감 · 질투에 맞춰 저절로 바뀌어요${npcFace(s, who) ? ` (지금: ${esc(DL.FACES[npcFace(s, who)] ?? '')})` : ''}.` : '상태 이상에 「왼팔 부상」 · 「다리 골절」처럼 다친 곳이 적히면 그 부위가 저절로 빨개져요. 체력이 4분의 1 아래로 떨어져도요. 표정을 「기분 따라」로 두면 욕구 상태에 맞춰 바뀌어요.'}</p>`);
     const lib = settings().dollArt ?? {}, A = D.art ?? {};
     const mine = sec(`🖌 직접 그리기 · 내 그림 <small>${Object.keys(lib).length}개</small>`, `
         ${Object.keys(lib).length ? `<div class="ss-stack">${Object.entries(lib).map(([id, a]) => `<div class="ss-card ss-art"><img class="ss-art-th" alt="" src="${thumbOf(id)}"><div><b>${esc(a.n)} <small>${esc(DL.ART_KINDS[a.kind] ?? '')}</small></b>
@@ -448,12 +473,14 @@ export function wearTab(s, _d, ui = {}) {
     // 다른 인물: 옷 종류마다 입기 · 모양 · 색 · 포인트 색
     if (who) {
         const O = D.outfit ?? {}, def = !meta?.dolls?.[who];
-        const rows = OUTFIT_KINDS.map(kind => {
-            const o = O[kind], on = !!(o && DL.SHAPES[kind]?.[o.shape]), color = o?.color || DL.guessColor('', kind);
-            return `<div class="ss-card ss-look"><b>${esc(DL.KIND_NAMES[kind])} ${on ? `<small>${esc(DL.shapeName(kind, o.shape))}</small>` : '<small>안 입음</small>'}</b>
-                <div class="ss-row-btns"><button class="ss-btn sm ${on ? '' : 'pri'}" data-act="dollwear" data-arg="${kind}|${on ? 'off' : 'on'}">${on ? '벗기' : '<i class="fa-solid fa-shirt"></i> 입히기'}</button>${on ? `<button class="ss-btn sm" data-act="dollpick" data-arg="wear|${kind}"><i class="fa-solid fa-shapes"></i> 모양 바꾸기 <small>${Object.keys(DL.SHAPES[kind]).length}가지</small></button>` : ''}</div>
-                ${on ? `<div class="ss-sws">${DL.COLORS.map(c => `<button class="ss-sw ${color === c ? 'on' : ''}" data-act="dollwear" data-arg="${kind}|color:${c}" style="--c:${c}" aria-label="${c}"></button>`).join('')}${any(`wear:${kind}|color`, color)}</div>
-                <div class="ss-f wide"><span>포인트 색 <small>줄무늬 · 단추 · 리본 같은 곳</small></span><div class="ss-sws">${DL.COLORS.slice(0, 10).map(c => `<button class="ss-sw sm ${o.accent === c ? 'on' : ''}" data-act="dollwear" data-arg="${kind}|accent:${c}" style="--c:${c}" aria-label="${c}"></button>`).join('')}${any(`wear:${kind}|accent`, o.accent)}${o.accent ? `<button class="ss-pill" data-act="dollwear" data-arg="${kind}|accent:">기본으로</button>` : ''}</div></div>` : ''}</div>`;
+        const onSlot = (sl) => !!(O[sl] && DL.SHAPES[kindOfSlot(sl)]?.[O[sl].shape]);
+        const shown = OUTFIT_SLOTS.filter(sl => !/\d$/.test(sl) || onSlot(sl) || onSlot(sl.replace(/\d+$/, (n) => (Number(n) > 2 ? String(Number(n) - 1) : ''))));
+        const rows = shown.map(slot => {
+            const kind = kindOfSlot(slot), num = slot.match(/\d+$/)?.[0] ?? '', o = O[slot], on = !!(o && DL.SHAPES[kind]?.[o.shape]), color = o?.color || DL.guessColor('', kind);
+            return `<div class="ss-card ss-look"><b>${esc(DL.KIND_NAMES[kind])}${num ? ` ${num}` : ''} ${on ? `<small>${esc(DL.shapeName(kind, o.shape))}</small>` : '<small>안 입음</small>'}</b>
+                <div class="ss-row-btns"><button class="ss-btn sm ${on ? '' : 'pri'}" data-act="dollwear" data-arg="${slot}|${on ? 'off' : 'on'}">${on ? '벗기' : '<i class="fa-solid fa-shirt"></i> 입히기'}</button>${on ? `<button class="ss-btn sm" data-act="dollpick" data-arg="wear|${slot}"><i class="fa-solid fa-shapes"></i> 모양 바꾸기 <small>${Object.keys(DL.SHAPES[kind]).length}가지</small></button>` : ''}</div>
+                ${on ? `<div class="ss-sws">${DL.COLORS.map(c => `<button class="ss-sw ${color === c ? 'on' : ''}" data-act="dollwear" data-arg="${slot}|color:${c}" style="--c:${c}" aria-label="${c}"></button>`).join('')}${any(`wear:${slot}|color`, color)}</div>
+                <div class="ss-f wide"><span>포인트 색 <small>줄무늬 · 단추 · 리본 같은 곳</small></span><div class="ss-sws">${DL.COLORS.slice(0, 10).map(c => `<button class="ss-sw sm ${o.accent === c ? 'on' : ''}" data-act="dollwear" data-arg="${slot}|accent:${c}" style="--c:${c}" aria-label="${c}"></button>`).join('')}${any(`wear:${slot}|accent`, o.accent)}${o.accent ? `<button class="ss-pill" data-act="dollwear" data-arg="${slot}|accent:">기본으로</button>` : ''}</div></div>` : ''}</div>`;
         }).join('');
         return `${whoBar}<div class="ss-wear-top">${stage}</div>${def ? `<p class="ss-hint">${esc(who)}의 인형은 아직 기본 모습이에요. 아래에서 고르면 바로 만들어져요.</p>` : ''}
             ${sec(`👕 ${esc(who)}의 옷 <small>모양 · 색을 바로 골라 입혀요</small>`, `<div class="ss-stack">${rows}</div>`)}
@@ -467,7 +494,7 @@ export function wearTab(s, _d, ui = {}) {
             <div class="ss-row-btns"><button class="ss-btn sm" data-act="dollpick" data-arg="shape|${esc(x.name)}"><i class="fa-solid fa-shapes"></i> ${esc(DL.shapeName(x.kind, x.shape))} — 모양 바꾸기 <small>${Object.keys(DL.SHAPES[x.kind]).length}가지</small></button></div>
             <div class="ss-sws">${DL.COLORS.map(c => `<button class="ss-sw ${x.color === c ? 'on' : ''}" data-act="dollitem" data-arg="${esc(x.name)}|color:${c}" style="--c:${c}" aria-label="${c}"></button>`).join('')}${any(`item:${x.name}|color`, x.color)}</div>
             <div class="ss-f wide"><span>포인트 색 <small>줄무늬 · 단추 · 리본 같은 곳</small></span><div class="ss-sws">${DL.COLORS.slice(0, 10).map(c => `<button class="ss-sw sm ${x.accent === c ? 'on' : ''}" data-act="dollitem" data-arg="${esc(x.name)}|accent:${c}" style="--c:${c}" aria-label="${c}"></button>`).join('')}${any(`item:${x.name}|accent`, x.accent)}${x.accent ? `<button class="ss-pill" data-act="dollitem" data-arg="${esc(x.name)}|accent:">기본으로</button>` : ''}</div></div>${x.art ? '<p class="ss-hint">지금은 직접 그린 그림이 대신 보여요.</p>' : ''}</div>`).join('');
-    return `${whoBar}${sec(`👕 옷 입히기 <small>${eq.length}/${AD.gearSlots().length} · 칸을 눌러 소지품에서 골라요</small>`, dollHTML(AD.gearSlots(), by, stage))}
+    return `${whoBar}${sec(`👕 옷 입히기 <small>${eq.length}/${AD.gearSlots().length} · 칸을 눌러 소지품에서 골라요</small>`, `${dollHTML(AD.gearSlots(), by, stage)}<div class="ss-row-btns ss-slot-more"><button class="ss-btn sm" data-act="gearslot"><i class="fa-solid fa-plus"></i> 칸 늘리기</button><small class="ss-dim">장신구 · 모자 · 겉옷은 여러 개 겹쳐 입어요 · 늘린 칸은 눌러서 없앨 수 있어요</small></div>`)}
         ${looks ? sec('🎨 입은 옷의 모양 · 색 <small>이름을 보고 골라 둔 것 — 틀리면 바꿔요</small>', `<div class="ss-stack">${looks}</div>`) : ''}
         ${make}
         ${mine}
@@ -488,11 +515,13 @@ LIFE_ACTIONS.dollface = async (el, arg) => { const meta = getMeta(true); if (!me
 LIFE_ACTIONS.dollwear = async (el, arg) => {
     await loadDL();
     const who = whoOf(el); if (!who) return;
-    const j = String(arg).indexOf('|'), kind = arg.slice(0, j), rest = arg.slice(j + 1); if (!OUTFIT_KINDS.includes(kind)) return;
+    const j = String(arg).indexOf('|'), slot = arg.slice(0, j), kind = kindOfSlot(slot), rest = arg.slice(j + 1); if (!OUTFIT_SLOTS.includes(slot)) return;
     const meta = getMeta(true), O = (bagOf(meta, who).outfit ??= {});
-    if (rest === 'on') O[kind] = { ...(O[kind] ?? {}), shape: DL.SHAPES[kind]?.[O[kind]?.shape] ? O[kind].shape : DL.guessShape(kind, '') };
-    else if (rest === 'off') delete O[kind];
-    else { const i = rest.indexOf(':'), k = rest.slice(0, i), v = rest.slice(i + 1); if (!O[kind] || !['color', 'accent'].includes(k) || (v && !/^#[0-9a-f]{6}$/i.test(v))) return; if (v) O[kind][k] = v.toLowerCase(); else delete O[kind][k]; }
+    // 장신구 2 · 3 …은 첫 장신구와 다른 모양으로 시작 (안 그러면 같은 귀걸이가 겹친다)
+    const nextAcc = () => { const used = new Set(Object.entries(O).filter(([k]) => kindOfSlot(k) === kind).map(([, v]) => v?.shape)); return Object.keys(DL.SHAPES[kind] ?? {}).find(id => !used.has(id)) ?? DL.guessShape(kind, ''); };
+    if (rest === 'on') O[slot] = { ...(O[slot] ?? {}), shape: DL.SHAPES[kind]?.[O[slot]?.shape] ? O[slot].shape : slot === kind ? DL.guessShape(kind, '') : nextAcc() };
+    else if (rest === 'off') delete O[slot];
+    else { const i = rest.indexOf(':'), k = rest.slice(0, i), v = rest.slice(i + 1); if (!O[slot] || !['color', 'accent'].includes(k) || (v && !/^#[0-9a-f]{6}$/i.test(v))) return; if (v) O[slot][k] = v.toLowerCase(); else delete O[slot][k]; }
     await saveMeta(); app.rerenderPanels?.(true);
 };
 // 🎨 아무 색이나 고르기 · 🖼 그림 올리기: 진짜 입력칸(색 · 파일)을 눌러야 폰에서도 창이 확실히 뜬다 → 값이 바뀌면 여기서 받는다
@@ -545,21 +574,21 @@ LIFE_ACTIONS.dollimg = async (el, arg) => { if (arg !== 'off') return; const met
 // 머리 모양 · 표정 · 옷 모양 고르기: 미리보기 인형이 깔린 창 (누를 때만 그린다)
 LIFE_ACTIONS.dollpick = async (el, arg, btn, s) => {
     await loadDL();
-    const meta = getMeta(true), who = whoOf(el, s), D = bagOf(meta, who), look = lookOf(D), wear = wearFor(s, D, who), mood = moodFor(s, who);
+    const meta = getMeta(true), who = whoOf(el, s), D = bagOf(meta, who), look = lookFor(s, D, who), autoLook = lookFor(s, { ...D, face: undefined }, who), wear = wearFor(s, D, who), mood = moodFor(s, who);
     let title = '', cells = [], cur = '', save = null;
     // 머리 모양 미리보기는 모자에 가리지 않게 장신구를 빼고 보여 준다
     if (arg === 'hair') { title = '머리 모양'; cur = D.hair ?? 'short'; cells = Object.entries(DL.HAIRS).map(([id, h]) => [id, h.n, DL.dollSVG({ ...look, hair: id }, wear.filter(w => w.kind !== 'acc'), mood)]); save = (id) => { D.hair = id; }; }
-    else if (arg === 'face') { title = '표정'; cur = D.face ?? 'auto'; cells = Object.entries(DL.FACES).map(([id, n]) => [id, n, DL.dollSVG({ ...look, face: id === 'auto' ? undefined : id }, wear, mood)]); save = (id) => { D.face = id; }; }
+    else if (arg === 'face') { title = '표정'; cur = D.face ?? 'auto'; cells = Object.entries(DL.FACES).map(([id, n]) => [id, n, DL.dollSVG({ ...look, face: id === 'auto' ? autoLook.face : id }, wear, mood)]); save = (id) => { D.face = id; }; }
     else if (String(arg).startsWith('shape|')) {
         const name = arg.slice(6), x = wear.find(w => w.name === name); if (!x) return;
         title = `${name} — 모양`; cur = x.shape;
         cells = Object.entries(DL.SHAPES[x.kind]).map(([id, sh]) => [id, sh.n, DL.dollSVG(look, wear.map(w => (w === x ? { ...w, shape: id } : w)), mood)]);
         save = (id) => { ((D.looks ??= {})[norm(name)] ??= {}).shape = id; };
     } else if (String(arg).startsWith('wear|') && who) { // 다른 인물의 옷 모양
-        const kind = arg.slice(5), x = wear.find(w => w.kind === kind && w.shape); if (!x || !DL.SHAPES[kind]) return;
-        title = `${who} · ${DL.KIND_NAMES[kind]} — 모양`; cur = x.shape;
+        const slot = arg.slice(5), kind = kindOfSlot(slot), x = wear.find(w => w.slot === slot && w.shape); if (!x || !DL.SHAPES[kind]) return;
+        title = `${who} · ${DL.KIND_NAMES[kind]}${slot !== kind ? ` ${slot.slice(kind.length)}` : ''} — 모양`; cur = x.shape;
         cells = Object.entries(DL.SHAPES[kind]).map(([id, sh]) => [id, sh.n, DL.dollSVG(look, wear.map(w => (w === x ? { ...w, shape: id, art: undefined } : w)), mood)]);
-        save = (id) => { ((D.outfit ??= {})[kind] ??= {}).shape = id; };
+        save = (id) => { ((D.outfit ??= {})[slot] ??= {}).shape = id; };
     } else return;
     const box = document.createElement('div'); box.className = 'ss-root ss-scope ss-dollpick';
     box.innerHTML = `<div class="ss-wz-head"><i class="fa-solid fa-shapes"></i><div><b>${esc(title)}</b><small>${cells.length}가지 — 눌러서 골라요</small></div></div><div class="ss-pick">${cells.map(([id, n, svg1]) => `<button class="ss-pick-c ${id === cur ? 'on' : ''}" data-choice="${esc(id)}">${svg1}<small>${esc(n)}</small></button>`).join('')}</div>`;

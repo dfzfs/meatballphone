@@ -329,15 +329,17 @@ function render(look, wear, mood, hurt) {
     const img = Array.from({ length: H }, () => Array(W).fill(''));
     const skin = look.skin || SKINS[0], hc = look.hairColor || HAIR_COLORS[1];
     const hairId = HAIRS[look.hair] ? look.hair : 'short', hair = look.hairArt?.g ? { f: look.hairArt.g, b: null } : layerOf(`hair:${hairId}`, HAIRS[hairId]);
-    const of = (kind) => { const x = wear.find(v => v.kind === kind); return x?.art?.g ? { g: { f: x.art.g, b: null }, pal: null } : x && SHAPES[kind]?.[x.shape] ? { g: layerOf(`${kind}:${x.shape}`, SHAPES[kind][x.shape]), pal: clothPal(x.color, skin, x.accent) } : null; };
+    const one = (kind, x) => (x?.art?.g ? { g: { f: x.art.g, b: null }, pal: null } : x && SHAPES[kind]?.[x.shape] ? { g: layerOf(`${kind}:${x.shape}`, SHAPES[kind][x.shape]), pal: clothPal(x.color, skin, x.accent) } : null);
+    const of = (kind) => one(kind, wear.find(v => v.kind === kind));
+    const ofAll = (kind) => wear.filter(v => v.kind === kind).map(x => one(kind, x)).filter(Boolean); // v2.10: 겉옷 · 장신구는 여러 개를 겹쳐 입는다 (입은 순서대로 위로)
     const top = of('top') ?? { g: layerOf('top:tee', SHAPES.top.tee), pal: clothPal('#f7f4ee', skin) }, bottom = of('bottom') ?? { g: layerOf('bottom:shorts', SHAPES.bottom.shorts), pal: clothPal('#8a8f98', skin) };
-    const outer = of('outer'), shoes = of('shoes'), acc = of('acc'), weapon = of('weapon');
+    const outers = ofAll('outer'), accs = ofAll('acc'), shoes = of('shoes'), weapon = of('weapon');
     const hairPal = look.hairArt?.g ? null : { h: hc, a: '#e2557b', D: shade(hc, 0.24) };
-    paint(img, hair.b, hairPal); if (top.g.b) paint(img, top.g.b, top.pal); if (outer?.g.b) paint(img, outer.g.b, outer.pal); if (acc?.g.b) paint(img, acc.g.b, acc.pal);
+    paint(img, hair.b, hairPal); if (top.g.b) paint(img, top.g.b, top.pal); for (const o of outers) if (o.g.b) paint(img, o.g.b, o.pal); for (const a of accs) if (a.g.b) paint(img, a.g.b, a.pal);
     paint(img, layerOf('body', { f: BODY }).f, { s: skin });
     paint(img, bottom.g.f, bottom.pal); if (shoes) paint(img, shoes.g.f, shoes.pal);
     paint(img, top.g.f, top.pal);
-    if (outer) paint(img, outer.g.f, outer.pal);
+    for (const o of outers) paint(img, o.g.f, o.pal);
     for (let x = 12; x <= 19; x++) if (img[23][x]) img[23][x] = shade(img[23][x], 0.14); // 턱 밑 그늘
     paint(img, hair.f, hairPal);
     if (hair.f && hairPal) for (let x = 9; x <= 17; x++) for (const y of [6, 7]) if (hair.f[y][x] === 'h' && (x + y) % 5 !== 0 && (y === 6 ? x < 16 : x < 13)) img[y][x] = tint(hc, 0.38); // 머리카락 윤기
@@ -345,7 +347,7 @@ function render(look, wear, mood, hurt) {
     const faceId = FACE_DEF[look.face] ? look.face : MOOD_FACE[Math.max(0, Math.min(4, Math.round(mood)))];
     const eye = look.eye || '#8a5230', mix = (a, b, k) => hexOf(rgb(a).map((v, i) => v + (rgb(b)[i] - v) * k));
     paint(img, layerOf(`face:${faceId}`, { f: FACE_DEF[faceId] }).f, { e: shade(eye, 0.62), j: shade(eye, 0.3), i: eye, I: tint(eye, 0.42), W: '#ffffff', m: mix(skin, '#9a3f3f', 0.62), b: mix(skin, '#f47a8a', 0.5), t: '#7cc4f5', p: '#f06a9a' }, true);
-    if (acc?.g.f) paint(img, acc.g.f, acc.pal);
+    for (const a of accs) if (a.g.f) paint(img, a.g.f, a.pal);
     for (let y = 24; y <= yb(35); y++) for (const x of [11, MID - 11]) if (img[y][x] && img[y][x + (x === 11 ? 1 : -1)]) img[y][x] = shade(img[y][x], 0.3); // 팔과 몸통 사이 그늘 (안 그러면 팔이 몸에 붙어 보인다)
     outline(img, LINE_K[look.line] ?? 0.7);
     if (weapon?.g.f) paint(img, weapon.g.f, weapon.pal, true);

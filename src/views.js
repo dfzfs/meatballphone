@@ -18,7 +18,7 @@ import { slotsHTML, cardPack, carryFor } from './safe.js';
 import { presetHTML } from './extra.js';
 import { detectPlay, instructModule } from './ai.js';
 import { PLAY_MODES, normPlay, playOf, REC_MODS, isSimple } from './core.js';
-import { mindBar, mindPeek, mindBlock, MIND_ACTIONS } from './mind.js'; // 💭 속마음: 프로필 탭에서 인물마다 프로필 밑에 (v2.9)
+import { mindTab, MIND_ACTIONS } from './mind.js'; // 💭 속마음: 따로 탭으로 (v2.10 · 사람 묶음)
 import { goodIcon, isMeatShop, shopExtra, walletExtra, lifeBox, needsTabOn, wearTabOn, lifeHidden } from './life_lite.js'; // 🍞 생활 틀의 늘 보이는 부분만 — 무거운 부분(life.js)은 ⚡ 켠 채팅에서만 F.life로 (feat.js)
 import { DEVICES as STORY_DEVICES, KEY as STORY_KEY } from './story_meta.js'; // 목록만 (장치 동작 story.js는 ⚡ 켠 사람만)
 import { busyBtn, confirmPopup, mascot } from './kit.js';
@@ -106,19 +106,20 @@ function mapOld(s, d, ui) {
 export const relOnly = (s) => { const pf = s?.data?.profile?.list, ru = s?.data?.rel?.user; if (!Array.isArray(pf) || !Array.isArray(ru)) return []; return ru.filter(r => r?.name && !r.left && !findBy(pf, r.name)); };
 export const VIEW = {
     home: (s, d, ui) => homeView(s, ui),
-    profile: (s, d, ui) => `${mindBar(s, ui)}<div class="ss-hint">프로필 모드: <b>${d.mode === 'detailed' ? '상세' : '최소'}</b> — ${d.mode === 'detailed' ? '이 시트가 AI에게 전달돼요' : '카드·로어북을 쓰고, 새 NPC만 전달돼요'}</div>${relOnly(s).length ? `<div class="ss-hint ss-relonly">👥 관계에만 있고 프로필이 없는 사람 ${relOnly(s).length}명: ${esc(short(relOnly(s).map(r => r.name).join(', '), 80))} <button class="ss-btn sm" data-act="profadd" title="관계 칸의 이름표 · 메모로 짧은 프로필을 만들어요 (AI 0회)">프로필 더하기</button></div>` : ''}
+    profile: (s, d, ui) => `<div class="ss-hint">프로필 모드: <b>${d.mode === 'detailed' ? '상세' : '최소'}</b> — ${d.mode === 'detailed' ? '이 시트가 AI에게 전달돼요' : '카드·로어북을 쓰고, 새 NPC만 전달돼요'}</div>${relOnly(s).length ? `<div class="ss-hint ss-relonly">👥 관계에만 있고 프로필이 없는 사람 ${relOnly(s).length}명: ${esc(short(relOnly(s).map(r => r.name).join(', '), 80))} <button class="ss-btn sm" data-act="profadd" title="관계 칸의 이름표 · 메모로 짧은 프로필을 만들어요 (AI 0회)">프로필 더하기</button></div>` : ''}
         <div class="ss-stack">${d.list.map((p, i) => `<details class="ss-prof" ${ui.open === i || d.list.length === 1 ? 'open' : ''}>
-            <summary><button class="ss-ava-btn" data-act="relemoji" data-arg="${esc(p.name)}" title="얼굴 이모지 바꾸기">${avatar(p.name)}</button><div class="ss-ct-b"><b>${freshDot('profile', 'list', p.name)}${esc(p.name)} <span class="ss-role ${p.role}">${roleName[p.role]}</span></b><small>${esc(short(p.summary, 60))}</small>${mindPeek(s, p.name)}</div><i class="fa-solid fa-chevron-down ss-chev"></i></summary>
+            <summary><button class="ss-ava-btn" data-act="relemoji" data-arg="${esc(p.name)}" title="얼굴 이모지 바꾸기">${avatar(p.name)}</button><div class="ss-ct-b"><b>${freshDot('profile', 'list', p.name)}${esc(p.name)} <span class="ss-role ${p.role}">${roleName[p.role]}</span></b><small>${esc(short(p.summary, 60))}</small></div><i class="fa-solid fa-chevron-down ss-chev"></i></summary>
             <div class="ss-prof-b">${wearTabOn() && (p.role === 'user' || getMeta()?.dolls?.[p.name]) ? `<div class="ss-prof-doll">${(need('life')?.dollFor ?? (() => ''))(s, p.role === 'user' ? '' : p.name, 'big')}</div>` : ''}<p class="ss-pre">${esc(p.summary)}</p>
             ${p.home || p.sched ? `<p class="ss-dim ss-where">${p.home ? `🏠 ${esc(p.home)}` : ''}${p.sched ? ` · 🕐 ${esc(p.sched)}` : ''}${s.data.calendar && whereNow(p, s.data.calendar) ? ` · <b>지금: ${esc(whereNow(p, s.data.calendar))}</b>` : ''}</p>` : ''}
             ${p.fields.length ? `<dl class="ss-dl">${p.fields.map(f => `<dt>${esc(f.k)}</dt><dd class="ss-pre">${esc(f.v)}</dd>`).join('')}</dl>` : ''}
-            <div class="ss-row-btns">${modOn('contact') && p.role !== 'user' ? `<button class="ss-btn sm ghost" data-act="talk" data-arg="${esc(p.name)}"><i class="fa-solid fa-envelope"></i> 연락하기</button>` : ''}<button class="ss-btn sm ghost" data-act="dollgo" data-arg="${esc(p.name)}" title="도트 인형 만들기 · 이 인형 얼굴을 ${esc(p.name)}의 공용 프로필로"><i class="fa-solid fa-palette"></i> 꾸미기</button></div>${mindBlock(s, p.name)}</div>
+            <div class="ss-row-btns">${modOn('contact') && p.role !== 'user' ? `<button class="ss-btn sm ghost" data-act="talk" data-arg="${esc(p.name)}"><i class="fa-solid fa-envelope"></i> 연락하기</button>` : ''}<button class="ss-btn sm ghost" data-act="dollgo" data-arg="${esc(p.name)}" title="도트 인형 만들기 · 이 인형 얼굴을 ${esc(p.name)}의 공용 프로필로"><i class="fa-solid fa-palette"></i> 꾸미기</button></div></div>
         </details>`).join('') || emptyBox('인물이 없어요', 'fa-id-card')}</div>`,
     stats: (s, d, ui) => `${sec('게이지', `<div class="ss-stack">${d.bars.filter(b => !(F.life?.inNeedPanel ?? (() => false))(b, d)).map(b => `<div class="ss-card ss-gcard">${gauge(b, false, freshDot('stats', 'bars', b.name))}
             <div class="ss-gbtns"><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|-10">−10</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|-1">−1</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|+1">+1</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|+10">+10</button>${b.desc ? `<small class="ss-dim">${esc(b.desc)}</small>` : ''}</div>${(F.life?.needLine ?? (() => ''))(b, d)}</div>`).join('') || (d.bars.length ? '<p class="ss-hint">욕구 게이지는 「욕구」 탭에 있어요.</p>' : emptyBox('게이지가 없어요'))}</div>`)}
         ${sec('능력치', `<div class="ss-attrs">${d.attrs.map(a => `<div class="ss-attr" title="${esc(a.desc)}"><span>${esc(a.name)}${freshDot('stats', 'attrs', a.name)}</span><b>${a.val >= 0 ? '+' : ''}${a.val}</b></div>`).join('') || emptyBox('능력치가 없어요')}</div>`)}
         ${sec('상태 이상 · 버프', `<div class="ss-chips">${d.conds.map(c => `<span class="ss-chip warn" title="${esc(c.desc)}">${freshDot('stats', 'conds', c.name)}${esc(c.name)}<button class="ss-x" data-act="uncond" data-arg="${esc(c.name)}">×</button></span>`).join('') || '<span class="ss-hint">없음</span>'}</div>`)}
         ${needsTabOn() || lifeHidden() ? '' : '<div class="ss-row-btns ss-life-x"><button class="ss-btn sm ghost" data-act="lifetab" data-arg="needs" title="심즈 · 좀보이드처럼 저절로 줄어드는 욕구 게이지 — 다마고치 화면이 있는 탭이 생겨요 (이 채팅만)">🍞 욕구 탭 켜기</button></div>'}`,
+    mind: (s, d, ui) => mindTab(s, ui), // 💭 속마음 · 관전자 (v2.10)
     needs: (s, d, ui) => need('life')?.needsTab(s, d, ui) ?? loadingHTML(), // ⚡ 생활 틀은 켠 채팅에서만 불러온다
     wear: (s, d, ui) => need('life')?.wearTab(s, d, ui) ?? loadingHTML(),
     dice: diceView,
@@ -575,14 +576,14 @@ export const GROUPS = [
     { id: 'home', name: '홈', icon: 'fa-house', tabs: ['home', 'music', 'album', 'record'] },
     { id: 'me', name: '나', icon: 'fa-user', tabs: ['profile', 'needs', 'wear', 'stats', 'dice', 'wallet', 'fate', 'ach', 'memo', 'custom'] },
     { id: 'world', name: '세계', icon: 'fa-earth-asia', tabs: ['map', 'calendar', 'shop', 'base'] },
-    { id: 'people', name: '사람', icon: 'fa-user-group', tabs: ['rel', 'contact', 'guest'] }, // guest = 📝 방명록 (파도타기 + 방명록을 켰을 때만 보임 · minihome_ui.js)
+    { id: 'people', name: '사람', icon: 'fa-user-group', tabs: ['rel', 'mind', 'contact', 'guest'] }, // guest = 📝 방명록 (파도타기 + 방명록을 켰을 때만 보임 · minihome_ui.js)
     { id: 'feed', name: '소식', icon: 'fa-bullhorn', tabs: ['quest', 'news', 'gossip', 'board', 'sns'] },
     { id: 'manage', name: '관리', icon: 'fa-sliders', tabs: ['manage'] },
     { id: 'extra', name: '부가 기능', icon: 'fa-puzzle-piece', tabs: ['extra'] }, // 🧩 관리 옆의 묶음 — 켠 부가 기능의 화면 (칸이 아니라 쓸 기능 목록에는 안 나온다)
 ];
 // 칸(데이터)이 아닌 탭 — 늘 켜져 있고 편집 도구가 없다
-export const PSEUDO = new Set(['home', 'manage', 'album', 'record', 'guide', 'extra', 'guest', 'needs', 'wear']); // needs · wear = 🍞 욕구 · 👕 옷차림 (v2.9 · 이 채팅에서 켠 것만 — life.js)
-const PSEUDO_INFO = { home: { name: '홈', icon: 'fa-house' }, manage: { name: '관리', icon: 'fa-sliders' }, album: { name: '추억 앨범', icon: 'fa-star' }, record: { name: '플레이 기록', icon: 'fa-chart-simple' }, guide: { name: '공략', icon: 'fa-key' }, extra: { name: '부가 기능', icon: 'fa-puzzle-piece' }, guest: { name: '방명록', icon: 'fa-pen-to-square' }, needs: { name: '욕구', icon: 'fa-bowl-food' }, wear: { name: '꾸미기', icon: 'fa-palette' } };
+export const PSEUDO = new Set(['home', 'manage', 'album', 'record', 'guide', 'extra', 'guest', 'needs', 'wear', 'mind']); // mind = 💭 속마음 탭 (v2.10) · needs · wear = 🍞 욕구 · 👕 옷차림 (v2.9 · 이 채팅에서 켠 것만 — life.js)
+const PSEUDO_INFO = { home: { name: '홈', icon: 'fa-house' }, manage: { name: '관리', icon: 'fa-sliders' }, album: { name: '추억 앨범', icon: 'fa-star' }, record: { name: '플레이 기록', icon: 'fa-chart-simple' }, guide: { name: '공략', icon: 'fa-key' }, extra: { name: '부가 기능', icon: 'fa-puzzle-piece' }, guest: { name: '방명록', icon: 'fa-pen-to-square' }, needs: { name: '욕구', icon: 'fa-bowl-food' }, wear: { name: '꾸미기', icon: 'fa-palette' }, mind: { name: '속마음', icon: 'fa-comment-dots' } };
 export const TAB_MOD = (tab) => (tab === 'base' ? 'home' : tab === 'home' ? 'core' : tab);
 export const TAB_INFO = (tab) => (PSEUDO_INFO[tab] ?? (tab === 'base' ? MOD.home : MOD[tab]) ?? { name: tab, icon: 'fa-circle' });
 
@@ -671,13 +672,13 @@ const PK_SETS = [
 ];
 // 같이 켜면 좋은 칸 — [칸, 왜] (서로 실제로 이어지는 것만)
 const PK_SYN = {
-    profile: [['rel', '인물마다 관계 · 속마음이 프로필에 붙어요']],
+    profile: [['rel', '인물마다 관계가 프로필에 붙어요']],
     stats: [['dice', '능력치가 판정에 보정으로 붙어요'], ['shop', '음식 · 물약을 사서 게이지를 채워요'], ['calendar', '욕구 게이지를 넣으면 시간이 흐를 때 줄어요']],
     dice: [['stats', '능력치 보정'], ['quest', '퀘스트 완료 판정'], ['wallet', '흥정 · 일하기 판정']],
     wallet: [['shop', '사고팔기'], ['map', '이동 요금'], ['quest', '보상'], ['dice', '흥정 · 일하기 판정']],
     shop: [['wallet', '돈이 있어야 사요 (꼭 필요)'], ['stats', '산 물건을 써서 게이지를 채워요'], ['home', '가구를 사면 본거지 창고로 가요'], ['calendar', '날씨 · 시간대 효과를 켜면 밤에 가게가 닫혀요']],
     home: [['shop', '가구를 사면 창고로 와요'], ['wallet', '가구를 사고팔 돈'], ['map', '새 지도를 켜면 지도에서 집 안 보기']],
-    rel: [['profile', '속마음이 프로필 밑에 떠요'], ['contact', '연락으로 선물을 보내면 호감이 올라요 (답장마다 반영은 「연락 · 방명록에서 호감 반영」을 켜야)'], ['calendar', '기념일 · 약속']],
+    rel: [['profile', '인물마다 관계가 프로필에 붙어요'], ['contact', '연락으로 선물을 보내면 호감이 올라요 (답장마다 반영은 「연락 · 방명록에서 호감 반영」을 켜야)'], ['calendar', '기념일 · 약속']],
     map: [['calendar', '이동하면 시간이 흘러요'], ['wallet', '이동 요금'], ['home', '새 지도를 켜면 집 안 보기']],
     calendar: [['map', '이동하면 시간이 흘러요'], ['contact', '편지가 며칠 걸려 와요'], ['quest', '기한'], ['stats', '욕구 게이지를 넣으면 시간이 흐를 때 줄어요']],
     contact: [['rel', '선물을 보내면 호감이 올라요 (답장마다 반영은 「연락 · 방명록에서 호감 반영」을 켜야)'], ['calendar', '편지가 며칠 걸려 와요']],
@@ -733,9 +734,9 @@ const pkOpts = (keys) => keys.map(pkOpt).filter(Boolean);
 function pkSub(id, s, st) { // 켠 칸 밑의 딸린 옵션
     const parts = [];
     if (id === 'profile') { // 💭 속마음 (v2.9 · 기본 끔): 프로필 탭의 속마음 막대와 같은 단추 · 같은 값
-        const mm = { off: '끔', thought: '속마음', emoji: '이모티콘', kaomoji: '카모지' }, mf = { always: '매 턴', random: `가끔 (${st.mindPct ?? 35}%)`, tab: '볼 때만 (AI 1회)' };
+        const mm = { off: '끔', thought: '속마음', emoji: '이모티콘', kaomoji: '카모지', mix: '글+카모지' }, mf = { always: '매 턴', random: `가끔 (${st.mindPct ?? 35}%)`, tab: '볼 때만 (AI 1회)' };
         const cur = mm[st.mindMode] ? st.mindMode : 'off', fq = mf[st.mindFreq] ? st.mindFreq : 'random';
-        parts.push(`<div class="ss-pk-opt"><small>💭 속마음 · 모든 채팅에 걸려요</small><div class="ss-seg wrap">${Object.entries(mm).map(([k, v]) => `<button class="${cur === k ? 'on' : ''}" data-act="mindset" data-arg="mode:${k}">${v}</button>`).join('')}</div>${cur !== 'off' ? `<small>뜨는 때</small><div class="ss-seg wrap">${Object.entries(mf).map(([k, v]) => `<button class="${fq === k ? 'on' : ''}" data-act="mindset" data-arg="freq:${k}">${v}</button>`).join('')}</div>` : ''}</div>`);
+        parts.push(`<div class="ss-pk-opt"><small>💭 속마음 · 모든 채팅에 걸려요 — 관전자 · 어조는 사람 › 💭 속마음 탭에서</small><div class="ss-seg wrap">${Object.entries(mm).map(([k, v]) => `<button class="${cur === k ? 'on' : ''}" data-act="mindset" data-arg="mode:${k}">${v}</button>`).join('')}</div>${cur !== 'off' ? `<small>뜨는 때</small><div class="ss-seg wrap">${Object.entries(mf).map(([k, v]) => `<button class="${fq === k ? 'on' : ''}" data-act="mindset" data-arg="freq:${k}">${v}</button>`).join('')}</div>` : ''}</div>`);
     }
     if (id === 'calendar' && s.data.calendar) parts.push(`<div class="ss-pk-opt"><small>시간 적는 법</small>${seg(CLOCK_STYLES.map(([v, name, ex]) => [v, `${name} <small>${ex}</small>`]), s.data.calendar.clock ?? '', 'clockstyle', 'class="ss-seg wrap"')}</div>`);
     const flags = (PK_PARENT[id] ?? []).map(k => FLAG_BY[k]).filter(Boolean);

@@ -35,7 +35,7 @@ DICE (주사위)
 RELATIONSHIPS (관계)
 - Each person has two numbers from −100 to 100 and a stage (단계). New chats (v2.7+): 💗 애정 (aff = romantic feelings only) and 🤝 우정 (trust = friendship · closeness). A best friend has high 우정 and low 애정, so friendship alone never becomes romance. Default stages: 낯선 사이 → 아는 사이 → 친구 → 단짝 (우정만 필요) → 설렘 → 연인 (애정 필요). Older chats keep 호감/신뢰 (same keys, old meaning); the names can be changed in 관계 탭 › ✏️ 편집 (aff/trust 수치 이름) or by 🔄 regenerating the 관계 panel. Both numbers must pass a stage's thresholds (-100 = not needed).
 - 💔 애정 꺼 두기 (per person): the ♥ button on a person's card in 관계 탭 (or ✏️ 편집 › 「💗 애정 꺼 두기」). That person's 애정 never rises (AI gains are ignored, shown as a 🚫♥ chip), no jealousy, no confession/💍 popup, and the stage stops before the romantic stages. The AI is told they are platonic only. Press again to turn 애정 back on. Each stage unlocks behaviours. Stages are editable per world.
-- 질투 (jealousy gauge), 화면 밖 생활 (off-screen life after days pass), 속마음 엿보기 (💗? button, one AI call, daily limit), automatic anniversaries.
+- 질투 (jealousy gauge), 화면 밖 생활 (off-screen life after days pass), 💭 속마음 tab (v2.10, 사람 group next to 관계): character inner thoughts or 👀 spectators — 열성팬, 안티팬, 공동작가, 주변인, 실시간 채팅, 🧠 세포들 (쪼개세포 · 욕세포 · 우울세포 · 지적세포 …), custom spectators; tones (애교체 · 변태체 · 욕설 …); short one-liners only; pop-up bubbles next to HUD/minibar, automatic anniversaries.
 - 「관계 단계를 넘는 행동 막기」: tells the AI not to act beyond the stage (a prohibition; can make characters cold).
 
 ROMANCE GUARD (💗 로맨스 보정) — NEW in v2.6, all optional, default OFF. Extension settings › 「💗 로맨스 보정」. Button 「추천 세트 켜기 (①②④)」 turns on the recommended three.

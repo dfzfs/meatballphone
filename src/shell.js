@@ -45,7 +45,7 @@ const INSTRUCT_HINT = {
 // ───── 탭 ─────
 // v2.7.3: 앨범 · 플레이 기록은 확장 설정에서 모든 채팅에 끌 수 있어요
 const PSEUDO_ON = { album: 'albumOn', record: 'recordOn', guide: 'guideOn', guest: () => settings().hpWave === true && settings().guestbook === true,
-    needs: () => getMeta()?.life?.needs === true && modOn('stats') && !tidyHidden('extra', 'life'), wear: () => getMeta()?.life?.wear === true && !tidyHidden('extra', 'life') }; // 🧹 생활 틀을 숨기면 두 탭도 안 보임 // 🍞 욕구 · 🎨 꾸미기 탭은 이 채팅에서 켰을 때만 (v2.9) // 글 = 그 설정이 꺼져 있지 않을 때 · 함수 = 참일 때만
+    needs: () => getMeta()?.life?.needs === true && modOn('stats') && !tidyHidden('extra', 'life'), wear: () => getMeta()?.life?.wear === true && !tidyHidden('extra', 'life'), mind: () => modOn('rel') || modOn('profile') || settings().mindWho === 'watch' }; // 🧹 생활 틀을 숨기면 두 탭도 안 보임 // 🍞 욕구 · 🎨 꾸미기 탭은 이 채팅에서 켰을 때만 (v2.9) // 글 = 그 설정이 꺼져 있지 않을 때 · 함수 = 참일 때만
 VIEW.guide = (s, d, ui) => need('storyui')?.guideView(ui) ?? loadingHTML(); // 🗝 공략 탭 (story_ui.js · ⚡ 켠 사람만 불러옴)
 VIEW.guest = () => app.hpGuestTab?.() ?? '<p class="ss-hint">방명록을 불러오는 중이에요.</p>'; // 📝 방명록 탭 (사람 묶음 · minihome_ui.js)
 // 🧩 부가 기능 탭 (관리 옆): 켠 선택 기능의 화면을 묶음별로 모은다 — 공략 · 사람/관계 · 장부 · 이야기 흐름 · 연락 (켜고 끄기는 관리 › 쓸 기능 › 부가 기능)
@@ -359,7 +359,7 @@ async function onPanelAction(el, act, arg, btn) {
         case 'cardload': return loadFromCard(setBase, false);
         case 'carrystart': return startCarry(setBase);
         case 'filerestore': return restoreFile(setBase);
-        case 'tab': st.tab = arg === 'mind' ? (modOn('profile') ? 'profile' : 'rel') : arg; st.mode = 'view'; st.ui = {}; if (el.classList.contains('ss-panel-side') && settings().sideState !== 'full') { settings().sideState = 'full'; saveSettings(); ensureUI(); } return rr();
+        case 'tab': st.tab = arg; st.mode = 'view'; st.ui = {}; if (el.classList.contains('ss-panel-side') && settings().sideState !== 'full') { settings().sideState = 'full'; saveSettings(); ensureUI(); } return rr();
         case 'instructtog': st.ui.instructOpen = !st.ui.instructOpen; return rr();
         case 'instructnote': { const n = String(ctx().chatMetadata?.note_prompt ?? '').trim(); if (!n) return; const cur = String(st.ui.instructText ?? '').trim(); if (!cur.includes(n)) st.ui.instructText = `${cur ? `${cur}\n\n` : ''}[작가 노트 — 참고할 설정]\n${n}`; return rr(); } // 📝 (v2.9.1 · 블루레몬)
         case 'totop': { const b = el.querySelector('.ss-body'); (b && b.scrollHeight > b.clientHeight ? b : el).scrollTo?.({ top: 0, behavior: 'smooth' }); return; } // ⬆ 맨 위로
@@ -489,7 +489,6 @@ export function rerenderPanels(force = false) {
 export async function openSheet(tab, opt = {}) {
     const el = document.createElement('div');
     el.className = 'ss-panel ss-panel-pop';
-    if (tab === 'mind') tab = modOn('profile') ? 'profile' : 'rel'; // 💭 속마음은 프로필 탭에서 인물마다 뜬다 (프로필을 꺼 뒀으면 관계 탭으로)
     el._ss = { tab: tab ?? 'home', mode: 'view', work: null, ui: {} };
     const full = opt.full ?? settings().sheetFull;
     if (opt.full) settings().sheetFull = true;
@@ -802,6 +801,7 @@ export function ensureUI() {
     if (!showSide && side) { panels.delete(side.querySelector('.ss-panel')); side.remove(); side = null; }
     // body 클래스는 바뀔 때만 건드린다 (지웠다 다시 붙이면 매 갱신마다 페이지 전체 스타일을 다시 계산 → 긴 채팅 렉의 주범)
     const simple = isSimple(); document.body.classList.toggle('ss-simple', simple); // 같은 값이면 아무것도 안 바뀐다
+    try { app.mindPop?.(); } catch (e) { ssErr(LOG, 'mindPop', e); } // 💭 새 속마음 · 관전자 한마디 말풍선 (mind.js)
     try { app.lifeFx?.(); } catch (e) { ssErr(LOG, 'lifeFx', e); } // ✨ 생활 틀 화면 연출 (life.js · 넣지 않은 채팅에선 아무것도 안 함)
     const sstate = simple && set.sideState === 'full' ? 'mini' : set.sideState; // 🍙 심플: 「펼침」으로 저장돼 있어도 미니로 보여 준다 (설정값은 안 건드림 — 다른 채팅은 그대로)
     const want = side && sstate !== 'closed' ? `ss-body-${sstate}` : '';

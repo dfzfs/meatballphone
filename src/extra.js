@@ -126,7 +126,8 @@ export const CUSTOM_ACTIONS = {
 // ───── 💞 관계: 단계 · 질투 · 화면 밖 · 속마음 ─────
 const stagesOf = (d) => (d.stages?.length ? d.stages : DEFAULT_STAGES);
 // 관계 화면에 보일 것 (v2.7.18) — 다 끄면 이름 · 애정 · 우정 숫자만
-export const MIND_NAMES = { off: '끔', thought: '속마음', emoji: '이모티콘', kaomoji: '카모지' };
+export { MIND_NAMES } from './mindcfg.js'; // 💭 v2.10: 글 + 카모지(mix)가 늘어서 mindcfg.js로
+import { MIND_NAMES } from './mindcfg.js';
 export const MIND_FREQ = { always: '항상', random: '랜덤', tab: '탭에 들어올 때' };
 export const REL_SHOW = [
     ['relStagesOn', '단계', '단계 이름 · 해금 · 다음 단계 · 단계 알림 (끄면 AI에게도 단계를 안 보내요)'],

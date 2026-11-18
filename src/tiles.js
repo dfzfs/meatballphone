@@ -5,7 +5,8 @@ import { trString } from './translate.js';
 import { gauge, chip, avatar, emojiOf } from './kit.js';
 import { songLink } from './notify.js';
 import { confirmPopup } from './kit.js';
-import { needIcon, goodOf, lvOf } from './needicons.js'; // 🎨 욕구 단계 상태는 글 대신 그림 딱지로 (v2.9)
+import { needIcon, goodOf, lvOf } from './needicons.js';
+import { watchDefs, conceptOf, watchIcon } from './mindcfg.js'; // 👀 관전자 한마디도 속마음 칸에 (v2.10) // 🎨 욕구 단계 상태는 글 대신 그림 딱지로 (v2.9)
 
 // 🔴 방금 AI 답에서 바뀐 곳 (v2.7.3) — 작은 빨간 점 하나
 export const FRESH_DOT = '<i class="ss-fresh" title="방금 AI 답에서 바뀌었어요"></i>';
@@ -47,7 +48,7 @@ export const TILES = {
     quest: { name: '퀘스트', on: (d) => d.quest?.list.some(q => q.status === 'active'), f: (s, L) => { const a = s.data.quest.list.filter(q => q.status === 'active'); return { h: `${fi('fa-scroll')}<span>${L ? esc(a[0].title) : a.length}</span>`, t: a.map(q => q.title).join(' · ') }; } },
     rel: { name: '관계', w: 2, on: (d) => d.rel?.user.length, f: (s, L) => { const o = miniRelOpt(), rl = s.data.rel, key = { aff: (r) => r.aff, trust: (r) => r.trust, sum: (r) => r.aff + r.trust }[o.sort]; const p = o.pick.map(n => rl.user.find(r => r.name === n)).filter(Boolean); const list = (p.length ? p : [...rl.user].filter(r => !r.out).sort((a, b) => key(b) - key(a))).slice(0, o.n);
         return { h: list.map(r => `<span class="p">${face(r.name)}${L ? `<small>${esc(r.name)}</small>` : ''}${r.noLove ? '' : `<b class="lv">${r.aff}</b>`}${L || r.noLove ? `<b class="tr">${r.trust}</b>` : ''}</span>`).join(''), t: list.map(r => `${r.name} ♥${r.aff} 🤝${r.trust}`).join(' · ') }; } },
-    mind: { name: '속마음', w: 2, on: (d) => (settings().mindMode ?? 'off') !== 'off' && !!app.current && mindList(app.current.state).length > 0, f: (s, L) => ({ h: mindList(s, L ? 4 : 2).map(x => `<span class="p">${face(x.name)}<span class="m">${esc(mindShown(x))}</span></span>`).join(''), t: mindList(s, 4).map(x => `${x.name}: ${x.mind.text}`).join(' · ') }) },
+    mind: { name: '속마음', w: 2, on: (d) => (settings().mindMode ?? 'off') !== 'off' && !!app.current && mindList(app.current.state).length > 0, f: (s, L) => ({ h: mindList(s, L ? 4 : 2).map(x => `<span class="p">${wFace(x)}<span class="m">${esc(mindShown(x))}</span></span>`).join(''), t: mindList(s, 4).map(x => `${x.name}: ${x.mind.text}`).join(' · ') }) },
     cond: { name: '상태 이상', on: (d) => d.stats?.conds.length, f: (s, L) => {
         const st = s.data.stats, rest = st.conds.filter(c => !c.auto);
         const badges = st.conds.filter(c => c.auto).map(c => { const b = st.bars.find(x => x.name === c.auto); return b ? `<span class="ss-mdl sm lv-${lvOf(goodOf(b))}" title="${esc(c.name)}">${needIcon(b.name)}${L ? `<em>${esc(c.name)}</em>` : ''}</span>` : ''; }).join(''); // 욕구 게이지가 만든 상태 = 그림 딱지
@@ -433,10 +434,13 @@ export function tileAct(a, rerender, attr = 'side') {
 // 💭 속마음 공통 (미니창 · HUD): 최근 3턴 안의 것 · 장면에서 빠진 사람 빼고
 export function mindList(s, max = 4) {
     const rel = s.data.rel?.user ?? [], all = [...rel, ...(s.data.profile?.list ?? []).filter(p => p.role !== 'user' && !rel.some(r => r.name === p.name))]; // v2.9: 프로필에만 있는 인물의 속마음도
-    return all.filter(x => x.mind?.text && !x.out && x.mind.turn >= (s.turn ?? 0) - 2).sort((a, b) => b.mind.turn - a.mind.turn).slice(0, max);
+    const set = settings(), defs = watchDefs(set);
+    const w = (s.watch ?? []).filter(x => x.turn >= (s.turn ?? 0) - 2).map(x => { const c = conceptOf(set, x.who); return { name: x.who, mind: { text: x.text, turn: x.turn }, watch: c, d: defs[c] }; });
+    return [...all.filter(x => x.mind?.text && !x.out && x.mind.turn >= (s.turn ?? 0) - 2), ...w].sort((a, b) => b.mind.turn - a.mind.turn).slice(0, max);
 }
-export const mindShown = (x) => (mindCovered(x) ? '· · ·' : x.mind.text); // 👁 눈치를 켰으면 프로필 › 속마음에서 눌러 보기 전까지 가려 둔다
-export const mindBub = (x) => `<span class="ss-mind-bub" title="${esc(x.name)}">${avatar(x.name, 'xs')}<em>${esc(mindShown(x))}</em></span>`;
+const wFace = (x, big) => (x.watch ? `<span class="ss-tf ss-wt-f" title="${esc(x.name)}">${watchIcon(x.d ?? { icon: '👀' })}</span>` : big ? avatar(x.name, 'xs') : face(x.name));
+export const mindShown = (x) => (!x.watch && mindCovered(x) ? '· · ·' : x.mind.text); // 👁 눈치를 켰으면 프로필 › 속마음에서 눌러 보기 전까지 가려 둔다
+export const mindBub = (x) => `<span class="ss-mind-bub${x.watch ? ' w' : ''}" title="${esc(x.name)}">${wFace(x, true)}<em>${esc(mindShown(x))}</em></span>`;
 // 미니 관계 칸: 무엇을 보일지 · 누구 순으로 · 몇 명 — 꾸미기에서 고름 (settings.miniRel)
 export const MINI_REL_VALS = { aff: '💗 애정', trust: '🤝 우정', stage: '단계', jealous: '질투' };
 export const MINI_REL_SORT = { aff: '애정 높은 순', trust: '우정 높은 순', sum: '둘 다 합쳐서' };
