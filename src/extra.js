@@ -450,15 +450,17 @@ export async function openSearch() {
         if (!q.trim()) { res.innerHTML = ''; cnt.textContent = ''; return; }
         const r = searchAll(s, q);
         cnt.textContent = r.total ? `${r.total}개 찾음${r.total > r.list.length ? ` · 앞의 ${r.list.length}개만 — 낱말을 더 적으면 좁혀져요` : ''}` : '';
-        res.innerHTML = r.list.map(x => `<div class="ss-note" data-tab="${esc(x.tab)}"${x.key ? ` data-key="${esc(x.key)}"` : ''}><span class="ss-t-ico">${esc(x.icon)}</span><div class="ss-t-b"><b>${markHtml(x.title, r.terms)}</b><small>${markHtml(x.text, r.terms)}</small></div></div>`).join('')
+        res.innerHTML = r.list.map(x => `<div class="ss-note" data-tab="${esc(x.tab)}"${x.key ? ` data-key="${esc(x.key)}" data-where="${esc(x.where ?? '')}"` : ''}><span class="ss-t-ico">${esc(x.icon)}</span><div class="ss-t-b"><b>${markHtml(x.title, r.terms)}</b><small>${markHtml(x.text, r.terms)}</small></div></div>`).join('')
             || `<div class="ss-hint">찾지 못했어요${r.terms.length > 1 ? ' — 낱말을 하나만 적어 보세요 (띄어 쓴 낱말은 모두 들어 있어야 나와요)' : ''}</div>`;
     };
     inp.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(run, 120); });
     inp.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) { clearTimeout(timer); run(); } });
     res.addEventListener('click', (e) => {
         const n = e.target.closest('[data-tab]'); if (!n) return;
-        if (n.dataset.key) { settings().mgTab = 'all'; saveSettings(); app._setFocus = n.dataset.key; } // ⚙ 설정 → 관리 › 전체 설정의 그 칸
-        el.closest('dialog')?.querySelector('.popup-button-ok')?.click(); setTimeout(() => app.openSheet?.(n.dataset.tab), 200);
+        el.closest('dialog')?.querySelector('.popup-button-ok')?.click();
+        // ⚙ 설정: 상태창 안엔 없고 확장 설정 서랍에 있다 — 어디 있는지 알려 주고, 서랍도 열어 그 칸을 반짝 (못 열면 안내만)
+        if (n.dataset.key) { const k = n.dataset.key; toastr.info(`<b>${esc(n.dataset.where || '확장 설정 › 😼 미트볼 상태창')}</b>에 있어요.<br><small>실리 위쪽 확장 메뉴(🧩)에서 열 수 있어요.</small>`, TITLE, { escapeHtml: false, timeOut: 8000 }); setTimeout(() => app.openSettingAt?.(k), 200); return; }
+        setTimeout(() => app.openSheet?.(n.dataset.tab), 200);
     });
     setTimeout(() => inp?.focus(), 100);
     await app.popup(el, { large: true });

@@ -20,8 +20,19 @@ function glossary(extra) {
         add(s.data.wallet?.currency);
     }
     if (extra?.title) add(extra.title);
-    const list = [...names].filter(Boolean).slice(0, 50);
-    return list.length ? `Known names (use exactly when the same person/place appears): ${list.join(', ')}` : '';
+    // 영어 이름을 「그대로 써라」로 넘기면 번역 모델이 그 이름 자체를 영어로 돌려줬다 (Pine Trail → Pine Trail)
+    // → 이미 번역이 정해진 이름은 「영어 = 한국어」 짝으로 · 번역이 아직 없는 영어 이름은 넣지 않는다 · 한국어 이름만 그대로 쓰게
+    const d = trDict() ?? {}, pairs = [], keep = [];
+    for (const n of names) {
+        if (!n) continue;
+        if (!/[A-Za-z]/.test(n)) { keep.push(n); continue; }
+        const ko = Object.hasOwn(d, n) ? String(d[n]) : '';
+        if (/[가-힣]/.test(ko)) pairs.push(`${n} = ${ko}`);
+    }
+    const out = [];
+    if (pairs.length) out.push(`Names already translated (English = translation; always use the translation side): ${pairs.slice(0, 50).join('; ')}`);
+    if (keep.length) out.push(`Known names (use exactly when the same person/place appears): ${keep.slice(0, 50).join(', ')}`);
+    return out.join('\n');
 }
 
 // ───── 번역 지침 (v2.6) ─────

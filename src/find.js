@@ -137,8 +137,8 @@ export function collect(d, { on = () => true, album = [], days = [], core = null
         for (const f of arr(t.fields)) add('custom', t.icon || '🧩', `${str(t.name)} · ${str(f.k)}`, str(f.v), f.desc);
     }
     for (const a of arr(album)) add('album', '⭐', a.who, a.text, a.note);
-    // ⚙ 설정 (확장 설정 서랍의 칸 — 누르면 관리 › 전체 설정의 그 칸으로)
-    for (const x of arr(sets)) { const it = add('manage', '⚙', x.name, x.head ? `설정 · ${x.head}` : '설정', x.text); it.key = x.key; it.kw = [x.key]; }
+    // ⚙ 설정 (확장 설정 서랍의 칸 — 누르면 서랍을 열고 그 칸으로)
+    for (const x of arr(sets)) { const where = `확장 설정 › 😼 미트볼 상태창${x.head ? ` › ${x.head}` : ''}`; const it = add('manage', '⚙', x.name, `${where}에 있어요`, x.text); it.key = x.key; it.where = `${where} › ${x.name}`; it.kw = [x.key]; }
     return out.filter(x => x.title || x.parts.length);
 }
 
@@ -161,7 +161,7 @@ export function find(items, q, max = 80) {
         // 보여 줄 작은 글: 찾은 말이 든 줄 먼저 (제목에만 있으면 첫 줄)
         const k = np.findIndex(p => list.some(x => hasTerm(p, x)));
         const text = snippet(k >= 0 ? it.parts[k] : (it.parts[0] ?? ''), list);
-        hits.push({ icon: it.icon, title: it.title, text, tab: it.tab, score: score - (it.key ? 3 : 0), ...(it.key ? { key: it.key } : {}) });
+        hits.push({ icon: it.icon, title: it.title, text, tab: it.tab, score: score - (it.key ? 3 : 0), ...(it.key ? { key: it.key, where: it.where } : {}) });
     }
     hits.sort((a, b) => b.score - a.score);
     return { list: hits.slice(0, max), total: hits.length, terms: list };

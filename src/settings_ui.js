@@ -376,14 +376,20 @@ export function renderSettings() {
     el.className = 'ss-settings';
     el.innerHTML = `<div class="inline-drawer">
         <div class="inline-drawer-toggle inline-drawer-header"><b>😼 미트볼 상태창 <small>v${VERSION}</small></b><div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div>
-        <div class="inline-drawer-content">${settingsBody()}</div></div>`;
+        <div class="inline-drawer-content">
+            <div class="ss-set-find"><input class="ss-in ss-set-q" type="search" enterkeyhint="search" placeholder="설정 찾기 (예: 번역, 알림, 토큰, 연락, 로맨스)"><small class="ss-hint ss-set-n"></small></div>
+            <div class="ss-set-body">${settingsBody()}</div>
+        </div></div>`;
     bindSettings(el);
+    const q = el.querySelector('.ss-set-q');
+    let timer = 0;
+    q.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => filterSettings(el, q.value), 120); });
     document.getElementById('extensions_settings2')?.appendChild(el);
 }
 
-// ───── ⚙ 상태창 「관리 › 전체 설정」 ─────
-// 확장 설정 서랍과 똑같은 칸을 상태창 안에 한 벌 더 그린다 (값은 하나 · 한쪽에서 바꾸면 다른 쪽도 같은 값) + 맨 위 찾기 칸
-let lastQ = '';
+// ───── ⚙ 설정 찾기 (확장 설정 서랍 맨 위 · 🔎 상태창 검색) ─────
+// v2.9.1: 상태창 「관리 › 전체 설정」에 서랍을 한 벌 더 그리던 것은 뺐다 — 상태창을 다시 그릴 때마다 칸 150여 개를 새로 만들어 무거웠다
+// 이제 서랍 한 곳에만 있고, 🔎 검색에서 설정을 누르면 서랍을 열고 그 칸으로 간다
 const blockText = (n) => (n.textContent ?? '').replace(/\s+/g, ' ');
 export function filterSettings(el, q) {
     const body = el.querySelector('.ss-set-body'); if (!body) return 0;
@@ -413,29 +419,23 @@ export function filterSettings(el, q) {
 export function focusSetting(el, key) {
     const inp = el.querySelector(`[data-s="${CSS.escape(key)}"], [data-s-every="${CSS.escape(key)}"]`); if (!inp) return false;
     const q = el.querySelector('.ss-set-q');
-    if (q && inp.closest('[hidden]')) { q.value = ''; lastQ = ''; filterSettings(el, ''); }
+    if (q && inp.closest('[hidden]')) { q.value = ''; filterSettings(el, ''); }
     const d = inp.closest('details'); if (d) d.open = true;
     const t = inp.closest('label') ?? inp;
     setTimeout(() => { t.scrollIntoView({ block: 'center', behavior: 'smooth' }); t.classList.add('ss-set-flash'); setTimeout(() => t.classList.remove('ss-set-flash'), 2200); }, 60);
     return true;
 }
-export function mountSettings(host) {
-    if (!host || host.querySelector('.ss-settings')) return;
-    const el = document.createElement('div');
-    el.className = 'ss-settings ss-set-sheet';
-    el.innerHTML = `<div class="ss-set-find"><input class="ss-in ss-set-q" type="search" enterkeyhint="search" placeholder="설정 찾기 (예: 번역, 알림, 토큰, 연락, 로맨스)" value="${esc(lastQ)}"><small class="ss-hint ss-set-n"></small></div>
-        <small class="ss-hint">확장 설정 서랍(확장 메뉴 › 😼 미트볼 상태창)과 같은 칸이에요. 여기서 바꿔도 서랍에서 바꾼 것과 똑같아요 · 모든 채팅에 걸려요.</small>
-        <div class="ss-set-body">${settingsBody()}</div>`;
-    bindSettings(el);
-    host.replaceChildren(el);
-    const q = el.querySelector('.ss-set-q');
-    let timer = 0;
-    q.addEventListener('input', () => { lastQ = q.value; clearTimeout(timer); timer = setTimeout(() => filterSettings(el, q.value), 120); });
-    if (lastQ) filterSettings(el, lastQ);
-    const f = app._setFocus; app._setFocus = null;
-    if (f) focusSetting(el, f);
+// 🔎 검색에서 설정을 누르면: 실리 확장 메뉴 → 😼 미트볼 상태창 서랍을 열고 그 칸으로 (반짝)
+export async function openSettingAt(key) {
+    const box = document.getElementById('ss-settings'); if (!box) return false;
+    const drawer = document.getElementById('rm_extensions_block');
+    if (drawer && !drawer.classList.contains('openDrawer')) document.querySelector('#extensions-settings-button .drawer-toggle')?.click();
+    const cont = box.querySelector('.inline-drawer-content');
+    if (cont && getComputedStyle(cont).display === 'none') box.querySelector('.inline-drawer-toggle')?.click();
+    await new Promise(r => setTimeout(r, 350));
+    return focusSetting(box, key);
 }
-app.mountSettings = mountSettings;
+app.openSettingAt = openSettingAt;
 app.settingsIndex = () => settingsIndex();
 // 🔎 상태창 검색에 넣을 설정 목록: 서랍의 칸마다 { 이름, 묶음, 설명, 키 }
 export function settingsIndex() {

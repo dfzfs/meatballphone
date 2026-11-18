@@ -587,7 +587,7 @@ export const TAB_MOD = (tab) => (tab === 'base' ? 'home' : tab === 'home' ? 'cor
 export const TAB_INFO = (tab) => (PSEUDO_INFO[tab] ?? (tab === 'base' ? MOD.home : MOD[tab]) ?? { name: tab, icon: 'fa-circle' });
 
 // 🗂 관리 탭 안의 탭: 맨 위 줄에서 고른 것 하나만 보인다 (고른 탭은 설정 mgTab에 기억). 다른 탭의 단추도 숨기기만 해서 그대로 있다
-const MG_TABS = [['play', 'fa-gamepad', '플레이'], ['mods', 'fa-puzzle-piece', '쓸 기능'], ['save', 'fa-floppy-disk', '저장'], ['tools', 'fa-sliders', '도구'], ['all', 'fa-gear', '전체 설정'], ['fix', 'fa-stethoscope', '문제 해결'], ['danger', 'fa-triangle-exclamation', '초기화']];
+const MG_TABS = [['play', 'fa-gamepad', '플레이'], ['mods', 'fa-puzzle-piece', '쓸 기능'], ['save', 'fa-floppy-disk', '저장'], ['tools', 'fa-sliders', '도구'], ['fix', 'fa-stethoscope', '문제 해결'], ['danger', 'fa-triangle-exclamation', '초기화']];
 const mgCur = () => { const v = settings().mgTab; return MG_TABS.some(t => t[0] === v) ? v : 'play'; };
 const mgStrip = () => { const cur = mgCur(); return `<div class="ss-seg wrap ss-mg-tabs" role="tablist">${MG_TABS.map(([id, icon, name]) => `<button class="${cur === id ? 'on' : ''}" data-act="mgtab" data-arg="${id}" role="tab" aria-selected="${cur === id}"><i class="fa-solid ${icon}"></i> ${name}</button>`).join('')}</div>`; };
 const mg = (id, icon, name, sum, inner, cls = '') => `<section class="ss-sec ss-mg ${cls}" data-mg="${id}"${mgCur() === id ? '' : ' hidden'}>${inner}</section>`;
@@ -819,7 +819,7 @@ export function manageHTML(s, ui = {}, extra = '') {
         </div><p class="ss-hint">전체 백업 = 기록·세이브·앨범까지 이 채팅의 상태창 전부${meta.lastBackup ? ` (마지막 백업 ${new Date(meta.lastBackup).toLocaleDateString('ko-KR')})` : ''} · 템플릿 = 지금 상태만 (다른 채팅·다른 사람용) · 카드에 붙이면 그 카드로 새 채팅을 열 때 바로 불러올 수 있어요${cardPack() ? ' — <b>지금 이 카드에 붙어 있어요 ✔</b>' : ''}.</p>`)}
         ${sec('<i class="fa-solid fa-clapperboard"></i> 2회차', `<div class="ss-row-btns"><button class="ss-btn" data-act="carryprep"><i class="fa-solid fa-forward"></i> 2회차 준비</button>${carryFor() ? '<span class="ss-chip hi">준비됨 — 새 채팅에서 시작</span>' : ''}</div><p class="ss-hint">업적·엔딩·소지품 일부를 이어받아 같은 캐릭터 새 채팅에서 다시 시작해요.${meta.round > 1 ? ` 지금 ${meta.round}회차.` : ''}</p>`)}`)}
         ${mg('tools', 'fa-sliders', '설정 · 도구', '모델 맞춤 · 프롬프트 · 꾸미기 · 번역', `
-        ${sec('<i class="fa-solid fa-robot"></i> 모델 맞춤 설정 <small>한 번에 바꾸기</small>', `${presetHTML()}<p class="ss-hint">세부 설정은 위 <b>⚙ 전체 설정</b>에서 바꿀 수 있어요 (확장 설정 서랍과 같은 칸 · 같은 값).</p><div class="ss-row-btns"><button class="ss-btn sm" data-act="mgtab" data-arg="all"><i class="fa-solid fa-gear"></i> 전체 설정 열기</button></div>`)}
+        ${sec('<i class="fa-solid fa-robot"></i> 모델 맞춤 설정 <small>한 번에 바꾸기</small>', `${presetHTML()}<p class="ss-hint">세부 설정은 확장 설정 서랍에서 바꿀 수 있어요.</p>`)}
         ${sec('도구', `<div class="ss-grid-btns">
             <button class="ss-btn" data-act="fillempty">${ai1} 비어 있는 칸 채우기</button>
             <button class="ss-btn" data-act="prompts"><i class="fa-solid fa-scroll"></i> 프롬프트 · 토큰</button>
@@ -828,7 +828,6 @@ export function manageHTML(s, ui = {}, extra = '') {
             <button class="ss-btn" data-act="trsheet"><i class="fa-solid fa-language"></i> 상태창 전체 번역</button>
             <button class="ss-btn" data-act="trclear" title="이 채팅의 번역을 모두 지워요 — 번역이 마음에 안 들 때 통째로 다시 받으려고 (📌 내가 고친 건 남김 · 저장된 상태는 그대로)"><i class="fa-solid fa-trash-can"></i> 번역 전체 삭제</button>
         </div>`)}`)}
-        ${mg('all', 'fa-gear', '전체 설정', '확장 설정 서랍의 모든 칸', `<div class="ss-set-host" data-set-host><p class="ss-hint">설정을 불러오는 중…</p></div>`)}
         ${mg('fix', 'fa-stethoscope', '문제 해결', '자가 진단 · 칩 점검 · 오류 보고', `
         ${sec('<i class="fa-solid fa-stethoscope"></i> 문제 해결', `<div class="ss-row-btns"><button class="ss-btn" data-act="diagnose"><i class="fa-solid fa-stethoscope"></i> 자가 진단 · 고치기</button><button class="ss-btn" data-act="pipcheck"><i class="fa-solid fa-magnifying-glass"></i> 마지막 답 칩 점검</button><button class="ss-btn" data-act="copydump"><i class="fa-solid fa-clipboard"></i> 지금 상태 복사</button><button class="ss-btn" data-act="perf"><i class="fa-solid fa-gauge-simple-high"></i> 부하 재기</button><button class="ss-btn" data-act="chatsize" title="미트볼이 이 채팅 파일에 쓰고 있는 양 · 큰 칸부터"><i class="fa-solid fa-weight-hanging"></i> 이 채팅 크기</button></div><p class="ss-hint">창이 안 뜨거나 숫자가 이상할 때 눌러 주세요. 망가진 기록을 찾아 고쳐요 (AI 호출 없음).</p>`)}`)}
         ${mg('danger', 'fa-triangle-exclamation', '다시 만들기 · 끄기 · 삭제', '되돌리기 어려운 것', `<div class="ss-grid-btns">

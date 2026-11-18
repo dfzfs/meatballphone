@@ -821,13 +821,8 @@ dialog.popup.ss-dlg.ss-full .popup-content { max-height: none; }
 .ss-ft-stamp.g2 { color: #c99a12; background: color-mix(in srgb, #f3d27a 18%, transparent); } .ss-ft-stamp.g1 { color: #2f9a5a; }
 .ss-ft-stamp.g0 { color: #8a8a8a; } .ss-ft-stamp.b1 { color: #e0782e; } .ss-ft-stamp.b2 { color: #e0282e; background: color-mix(in srgb, #e0282e 10%, transparent); }
 
-/* ⚙ 관리 › 전체 설정 — 확장 설정 서랍과 같은 칸을 상태창 안에 (settings_ui.js mountSettings) */
+/* ⚙ 설정 찾기 — 확장 설정 서랍 맨 위 (settings_ui.js filterSettings) */
 .ss-settings :is([hidden], #ss-no-such-id) { display: none !important; } /* :is(#…)로 서랍의 「display: … !important」 규칙보다 세게 */
-.ss-set-sheet { font-size: .95em; }
-.ss-set-sheet .ss-set-find { position: sticky; top: 0; z-index: 2; padding: 6px 0; background: var(--ss-bg, var(--SmartThemeBlurTintColor)); }
-.ss-set-sheet .ss-set-q { width: 100%; }
-.ss-set-sheet .ss-set-n { display: block; min-height: 1em; margin-top: 2px; }
-.ss-set-sheet .ss-set-body > b.ss-set-h:first-of-type { margin-top: 8px; }
-.ss-set-sheet .text_pole { width: 100%; box-sizing: border-box; }
-.ss-set-sheet .ss-set-inline .text_pole { width: auto; flex: 1 1 auto; min-width: 0; }
-.ss-set-sheet label > small { display: block; }
+#ss-settings .ss-set-find { position: sticky; top: 0; z-index: 2; padding: 6px 0; background: var(--SmartThemeBlurTintColor); }
+#ss-settings .ss-set-q { width: 100%; box-sizing: border-box; }
+#ss-settings .ss-set-n { display: block; min-height: 1em; margin-top: 2px; }

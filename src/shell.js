@@ -300,7 +300,6 @@ function renderPanel0(el) {
     if (!el._ssTop) { el._ssTop = true; el.addEventListener('scroll', (e) => { const t = e.target; if (!(t instanceof Element) || !(t === el || t.classList.contains('ss-body'))) return; el.querySelector('.ss-totop')?.classList.toggle('show', t.scrollTop > 500); }, { capture: true, passive: true }); } // ⬆ 길게 내렸을 때만
     el.querySelector('.ss-cin')?.addEventListener('input', (e) => { st.ui.draft = e.target.value; });
     const th = el.querySelector('.ss-thread, .ss-letter-list'); if (th) th.scrollTop = th.scrollHeight;
-    { const h = el.querySelector('[data-set-host]'); if (h && !h.hidden && !h.closest('[hidden]')) app.mountSettings?.(h); } // ⚙ 관리 › 전체 설정 = 확장 설정 서랍과 같은 칸 (settings_ui.js · 그 탭을 볼 때만 그린다)
     bindPanel(el);
 }
 app.renderPanel = renderPanel;
