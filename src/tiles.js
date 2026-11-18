@@ -1,5 +1,5 @@
 // 미니 위젯 · 타일 판 (HUD · 사이드 미니창 공통) — views.js에서 떼어 냄
-import { app, settings, saveSettings, getMeta, modOn, findBy, DIFFS, diffOf, esc, short, clamp, norm, fmtNum, dateShort, mascotUrl, eventsOn, TITLE, relAxes, DEFAULT_STAGES, viewTr, isSimple, SIMPLE_TILES, mindCovered } from './core.js';
+import { app, settings, saveSettings, getMeta, modOn, findBy, DIFFS, diffOf, esc, short, clamp, norm, fmtNum, dateShort, mascotUrl, eventsOn, TITLE, relAxes, DEFAULT_STAGES, viewTr, isSimple, SIMPLE_TILES, mindCovered, parseClock, fmtClock } from './core.js';
 import { unreadCount, inTransit, stageIndex, isFresh, addAdjust, peopleAt } from './engine.js';
 import { trString } from './translate.js';
 import { gauge, chip, avatar, emojiOf } from './kit.js';
@@ -133,7 +133,10 @@ export function tripInfo(s, name) {
     const path = pathTo(mp, p?.name ?? name), hops = path ? path.length - 1 : 1;
     const cal = modOn('calendar') ? s.data.calendar : null;
     let arrive = '';
-    if (cal?.times?.length && hops > 0) {
+    if (cal?.clock && hops > 0) { // 🕐 시각 달력: 한 칸에 1시간 (ops.js _travel과 같은 셈 — 검수: 시간대 칸으로 셈해 도착 시각이 엉뚱했다)
+        const t = (parseClock(cal.time) ?? 0) + Math.min(hops, 240) * 60, days = Math.floor(t / 1440);
+        arrive = `${days === 1 ? '다음 날 ' : days ? `${days}일 뒤 ` : ''}${fmtClock(t, cal.clock, cal.times, viewTr())}`;
+    } else if (cal?.times?.length && hops > 0) {
         let i = Math.max(0, cal.times.indexOf(cal.time)), days = 0;
         for (let k = 0; k < hops; k++) { i++; if (i >= cal.times.length) { i = 0; days++; } }
         arrive = `${days === 1 ? '다음 날 ' : days ? `${days}일 뒤 ` : ''}${cal.times[i]}`;
