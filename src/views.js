@@ -819,11 +819,12 @@ export function manageHTML(s, ui = {}, extra = '') {
             <button class="ss-btn" data-act="fillempty">${ai1} 비어 있는 칸 채우기</button>
             <button class="ss-btn" data-act="prompts"><i class="fa-solid fa-scroll"></i> 프롬프트 · 토큰</button>
             <button class="ss-btn" data-act="themewin"><i class="fa-solid fa-palette"></i> 꾸미기</button>
+            <button class="ss-btn" data-act="cardpng" title="지금 상태(이름 · 날짜 · 게이지 · 관계 상위 4명 · 장비)를 그림 한 장(PNG)으로 내려받아요 · AI 0회"><i class="fa-solid fa-image"></i> 상태 카드 그림</button>
             <button class="ss-btn" data-act="trsheet"><i class="fa-solid fa-language"></i> 상태창 전체 번역</button>
             <button class="ss-btn" data-act="trclear" title="이 채팅의 번역을 모두 지워요 — 번역이 마음에 안 들 때 통째로 다시 받으려고 (📌 내가 고친 건 남김 · 저장된 상태는 그대로)"><i class="fa-solid fa-trash-can"></i> 번역 전체 삭제</button>
         </div>`)}`)}
         ${mg('fix', 'fa-stethoscope', '문제 해결', '자가 진단 · 칩 점검 · 오류 보고', `
-        ${sec('<i class="fa-solid fa-stethoscope"></i> 문제 해결', `<div class="ss-row-btns"><button class="ss-btn" data-act="diagnose"><i class="fa-solid fa-stethoscope"></i> 자가 진단 · 고치기</button><button class="ss-btn" data-act="pipcheck"><i class="fa-solid fa-magnifying-glass"></i> 마지막 답 칩 점검</button><button class="ss-btn" data-act="copydump"><i class="fa-solid fa-clipboard"></i> 지금 상태 복사</button><button class="ss-btn" data-act="perf"><i class="fa-solid fa-gauge-simple-high"></i> 부하 재기</button></div><p class="ss-hint">창이 안 뜨거나 숫자가 이상할 때 눌러 주세요. 망가진 기록을 찾아 고쳐요 (AI 호출 없음).</p>`)}`)}
+        ${sec('<i class="fa-solid fa-stethoscope"></i> 문제 해결', `<div class="ss-row-btns"><button class="ss-btn" data-act="diagnose"><i class="fa-solid fa-stethoscope"></i> 자가 진단 · 고치기</button><button class="ss-btn" data-act="pipcheck"><i class="fa-solid fa-magnifying-glass"></i> 마지막 답 칩 점검</button><button class="ss-btn" data-act="copydump"><i class="fa-solid fa-clipboard"></i> 지금 상태 복사</button><button class="ss-btn" data-act="perf"><i class="fa-solid fa-gauge-simple-high"></i> 부하 재기</button><button class="ss-btn" data-act="chatsize" title="미트볼이 이 채팅 파일에 쓰고 있는 양 · 큰 칸부터"><i class="fa-solid fa-weight-hanging"></i> 이 채팅 크기</button></div><p class="ss-hint">창이 안 뜨거나 숫자가 이상할 때 눌러 주세요. 망가진 기록을 찾아 고쳐요 (AI 호출 없음).</p>`)}`)}
         ${mg('danger', 'fa-triangle-exclamation', '다시 만들기 · 끄기 · 삭제', '되돌리기 어려운 것', `<div class="ss-grid-btns">
             <button class="ss-btn" data-act="wizard"><i class="fa-solid fa-wand-magic-sparkles"></i> 처음부터 다시 만들기</button>
             <button class="ss-btn" data-act="chatoff"><i class="fa-solid fa-power-off"></i> 이 채팅에서 끄기</button>
@@ -860,6 +861,21 @@ export const VIEW_ACTIONS = {
         if (!(await askConfirm(`「${esc(adjName(a))}」 기록을 지울까요? 이 편집이 없던 일이 돼요. 그 뒤의 편집은 그대로예요.`))) return;
         el._ss.ui.undoOpen = true;
         await undoAt(t); toastr.success('지웠어요.', TITLE);
+    },
+    // 🖼 상태 카드 그림 · 📊 이 채팅 크기 (addons.js — 쓸 때 불러온다)
+    cardpng: async () => {
+        try { await app.loadAddons?.(true); } catch { /* 아래 import가 다시 시도 */ }
+        const AD = await import('./addons.js'), css = getComputedStyle(document.querySelector('.ss-root') ?? document.body), v = (k, d) => css.getPropertyValue(k).trim() || d;
+        if (!AD.cardDownload({ bg: v('--ss-bg', '#ffffff'), fg: v('--ss-ink', '#1f2430'), sub: v('--ss-dim', '#6b7280'), accent: v('--ss-acc', '#e2557b') })) toastr.info('그릴 상태가 없어요.', TITLE);
+    },
+    chatsize: async () => {
+        try { await app.loadAddons?.(true); } catch { /* 아래 import가 다시 시도 */ }
+        const z = (await import('./addons.js')).chatSize(), kb = (n) => `${(n / 1024).toFixed(n < 10240 ? 1 : 0)}KB`;
+        const NAME = { adjust: '편집 기록', base: '기준 상태', saves: '세이브', album: '앨범', story: '이야기 장치', gbook: '방명록', notes: '메모', tr: '번역', extra: '덧붙인 자료' };
+        const box = document.createElement('div'); box.className = 'ss-root ss-scope';
+        box.innerHTML = `<h3><i class="fa-solid fa-weight-hanging"></i> 이 채팅에 미트볼이 쓰는 양: ${kb(z.total)}</h3><p class="ss-hint">채팅 설정(메타) ${kb(z.meta)} · 메시지마다 붙은 칩 · 변화 ${kb(z.msgs)}. 큰 칸부터:</p>
+            <ul>${z.top.map(([k, n]) => `<li><b>${esc(NAME[k] ?? k)}</b> — ${kb(n)}</li>`).join('')}</ul><p class="ss-hint">세이브 · 앨범이 크면 관리에서 지울 수 있어요. 오래된 기록은 「기록 정리」로 굳혀져요.</p>`;
+        await app.popup(box);
     },
     haggle: async (el, arg, btn, s) => { // 🎲 흥정 (v2.7.6): 매력 · 화술 같은 능력치로 d20 — 하루에 물건마다 한 번
         const [i, j] = arg.split('|').map(Number);

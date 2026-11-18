@@ -2,7 +2,7 @@
 import { letterMode, contactSimple, instantLetter, SIMPLE_THREAD, app, settings, getMeta, modOn, esc, short, clone, findBy, norm, uid, randInt, rand, clamp, num, fmtNum, nowTick, wholeTick, tickUnit, waitText, slotsPerDay, useDays, saveSettings, stamp, CONTACT_MODES, TITLE, COURIER_PRESETS, touchContact, msgText, ssErr, ssWarn } from './core.js';
 import { commit, addAdjust, dueLetters, inTransit, affMul, PIN_LINES } from './engine.js';
 import { phoneReply, letterReply, pingMessage, summarizeThread, truthReply, groupReply } from './ai.js';
-import { avatar, ai1, emptyBox, askInput, askConfirm, askDelete, busyBtn, choosePopup } from './kit.js';
+import { avatar, ai1, emptyBox, askInput, askConfirm, askDelete, busyBtn, choosePopup, confirmPopup } from './kit.js';
 
 const isLetter = (d) => letterMode(d);
 const simple = () => contactSimple();
@@ -211,15 +211,21 @@ function roomList(s, d, ui) {
             <div class="ss-row-btns"><button class="ss-btn sm pri" data-act="crnew">만들기</button><small class="ss-hint">2~6명을 골라요. 말을 걸 때마다 확장 AI 1회.</small></div>` : '<p class="ss-hint">방에 넣을 사람이 2명 이상 있어야 해요 — 연락처나 관계에 사람을 먼저 추가해요.</p>'}</div>
     </div>`;
 }
+// 🧩 덧붙이는 기능(addons.js)은 켠 사람만 불러오는 파일 — 쓸 때 불러온다
+const loadAddons = async () => { try { await app.loadAddons?.(true); } catch (e) { ssWarn('addons', e); } return import('./addons.js'); };
+const tellOf = (room) => { const e = getMeta()?.roomTell?.[room]; return { mode: ['summary', 'pick'].includes(e?.mode) ? e.mode : 'off', summary: String(e?.summary ?? ''), ids: Array.isArray(e?.ids) ? e.ids : [] }; };
 function roomView(s, d, ui) {
     const r = d.rooms?.[ui.room]; if (!r) return roomList(s, d, { rooms: true });
-    const bub = (m) => { const mine = m.from === 'me'; return `<div class="ss-bub ${mine ? 'me' : 'grp'}" data-id="${esc(m.id)}">${mine ? '' : `<small class="ss-bub-who">${avatar(m.who || '?')} ${esc(m.who || '?')}</small>`}<span class="${/\n/.test(m.text ?? '') ? 'ss-pre' : ''}">${esc(m.text)}</span>
-        <div class="ss-bub-meta">${esc(m.date || '')}</div><div class="ss-bub-acts"><button class="ss-ib" data-act="crmsgdel" data-arg="${esc(m.id)}" title="지우기"><i class="fa-solid fa-trash-can"></i></button></div></div>`; };
+    const tl = tellOf(ui.room), picking = tl.mode === 'pick';
+    const bub = (m) => { const mine = m.from === 'me', on = picking && tl.ids.includes(m.id); return `<div class="ss-bub ${mine ? 'me' : 'grp'}${on ? ' ss-pinned' : ''}" data-id="${esc(m.id)}">${mine ? '' : `<small class="ss-bub-who">${avatar(m.who || '?')} ${esc(m.who || '?')}</small>`}<span class="${/\n/.test(m.text ?? '') ? 'ss-pre' : ''}">${esc(m.text)}</span>
+        <div class="ss-bub-meta">${esc(m.date || '')}</div><div class="ss-bub-acts">${picking ? `<button class="ss-ib ${on ? 'on' : ''}" data-act="crpick" data-arg="${esc(m.id)}" title="${on ? '본편에 알리기에서 빼기' : '이 말풍선을 본편 AI에게 알리기'}"><i class="fa-solid fa-thumbtack"></i></button>` : ''}<button class="ss-ib" data-act="crmsgdel" data-arg="${esc(m.id)}" title="지우기"><i class="fa-solid fa-trash-can"></i></button></div></div>`; };
     return `<div class="ss-phone ss-room">
         <div class="ss-phone-top"><button class="ss-ib" data-act="cback"><i class="fa-solid fa-chevron-left"></i></button><span class="ss-room-ico"><i class="fa-solid fa-people-group"></i></span><div class="ss-ct-b"><b>${esc(ui.room)}</b><small>${esc(r.members.join(', '))}</small></div>
+            <button class="ss-ib ${tl.mode !== 'off' ? 'on' : ''}" data-act="crtell" data-arg="${esc(ui.room)}" title="본편 AI에게 이 방 알리기 — ${tl.mode === 'summary' ? '요약으로 알리는 중' : picking ? `고른 말풍선 ${tl.ids.length}개` : '안 알림 (기본)'}"><i class="fa-solid fa-bullhorn"></i></button>
             <button class="ss-ib" data-act="crmem" data-arg="${esc(ui.room)}" title="멤버 초대 · 내보내기"><i class="fa-solid fa-user-plus"></i></button>
             <button class="ss-ib" data-act="crclear" data-arg="${esc(ui.room)}" title="대화 비우기"><i class="fa-solid fa-broom"></i></button>
             <button class="ss-ib" data-act="crdel" data-arg="${esc(ui.room)}" title="방 지우기"><i class="fa-solid fa-trash-can"></i></button></div>
+        ${tl.mode === 'summary' && tl.summary ? `<button class="ss-csum" data-act="crtell" data-arg="${esc(ui.room)}" title="본편 AI에게 가는 요약 — 눌러서 바꾸기"><i class="fa-solid fa-bullhorn"></i> ${esc(tl.summary)}</button>` : picking ? `<div class="ss-csum"><i class="fa-solid fa-thumbtack"></i> 📌를 누른 말풍선만 본편 AI에게 가요 (${tl.ids.length}/20)</div>` : ''}
         <div class="ss-thread">${r.msgs.map(bub).join('') || '<div class="ss-hint center">아직 조용해요. 먼저 말을 걸어 보세요.</div>'}</div>
         <div class="ss-phone-in"><textarea class="ss-in ss-cin" rows="1" placeholder="단체방에 메시지 보내기">${esc(ui.draft ?? '')}</textarea><button class="ss-btn pri ss-send" data-act="csend" title="보내기"><i class="fa-solid fa-paper-plane"></i></button></div>
         <div class="ss-phone-opt"><label class="ss-tog"><input type="checkbox" class="ss-switch ss-creply" ${ui.noReply ? '' : 'checked'}><span>보내면 반응 받기 ${ai1}</span></label>
@@ -505,6 +511,22 @@ async function pickAttach(kind, s) {
     return v ? { kind, text: v, label: v } : null;
 }
 
+// 📚 연락처별 로어북: 이 사람이 연락에서 답할 때 같이 읽을 로어북 항목 (6개까지 · 고를 때 내용을 떠 둔다)
+async function pickLore(el, who) {
+    const AD = await loadAddons();
+    let list = []; try { list = await AD.loreEntries(); } catch (e) { ssWarn('lore list', e); }
+    if (!list.length) { toastr.info('읽을 로어북이 없어요. 캐릭터 · 채팅 · 전역에 붙은 로어북의 항목이 여기 나와요.', TITLE); return; }
+    const had = new Set(AD.contactLoreOf(who).map(x => `${x.book}|${x.uid}`));
+    const box = document.createElement('div'); box.className = 'ss-root ss-scope';
+    box.innerHTML = `<h3><i class="fa-solid fa-book"></i> ${esc(who)}이(가) 읽을 로어북</h3><p class="ss-hint">연락에서 답할 때 고른 항목을 같이 읽어요 (6개까지 · 항목마다 1200자까지). 로어북을 고친 뒤엔 다시 골라 주세요.</p>
+        <div class="ss-stack" style="max-height:50vh;overflow:auto">${list.slice(0, 300).map(x => `<label class="ss-tog"><input type="checkbox" class="ss-switch" data-lk="${esc(`${x.book}|${x.uid}`)}" ${had.has(`${x.book}|${x.uid}`) ? 'checked' : ''}><span><b>${esc(x.head || '(이름 없음)')}</b> <small>${esc(x.book)} · ${x.len}자</small></span></label>`).join('')}</div>`;
+    box.addEventListener('change', (e) => { const on = [...box.querySelectorAll('[data-lk]:checked')]; if (on.length > 6) { e.target.checked = false; toastr.info('6개까지 고를 수 있어요.', TITLE); } });
+    if (!(await confirmPopup(box, '저장', '취소'))) return;
+    const picks = [...box.querySelectorAll('[data-lk]:checked')].map(i => { const k = i.dataset.lk, j = k.lastIndexOf('|'); return { book: k.slice(0, j), uid: k.slice(j + 1) }; });
+    const n = await AD.setContactLore(who, picks);
+    toastr.success(n ? `${esc(who)}이(가) 로어북 ${n}개를 읽어요.` : '로어북을 비웠어요.', TITLE);
+    app.renderPanel(el);
+}
 export const CONTACT_ACTIONS = {
     // 💨 퀵 속도를 바꾸면 요금 표시를 바로 다시 그린다
     cquick: (el, arg) => {
@@ -600,6 +622,32 @@ export const CONTACT_ACTIONS = {
     cback: (el) => { el._ss.ui = el._ss.ui?.truth ? { truth: true } : el._ss.ui?.rooms ? { rooms: true } : {}; app.renderPanel(el); },
     // 👥 단체방 (v2.8)
     croom: (el) => { el._ss.ui = el._ss.ui?.rooms || !roomOn() ? {} : { rooms: true }; app.renderPanel(el); },
+    // 📣 단체방을 본편에 알리기 (방마다 · 기본 안 알림): 요약(AI 1회 · 고칠 수 있음) 또는 고른 말풍선만
+    crtell: async (el, arg, btn, s) => {
+        const room = arg, cur = tellOf(room);
+        const box = document.createElement('div'); box.className = 'ss-root ss-scope ss-menu';
+        box.innerHTML = `<h3><i class="fa-solid fa-bullhorn"></i> 「${esc(room)}」을(를) 본편 AI에게</h3><p class="ss-hint">단체방 대화는 기본으로 본편에 안 가요. 알리면 매 턴 몇 줄이 더 가요.</p>
+            <button class="ss-btn wide ${cur.mode === 'off' ? 'pri' : ''}" data-choice="off">안 알림</button>
+            <button class="ss-btn wide ${cur.mode === 'summary' ? 'pri' : ''}" data-choice="summary">${ai1} 요약으로 알리기 <small>${cur.summary ? '(지금 요약을 고치거나 새로)' : '(AI 1회)'}</small></button>
+            <button class="ss-btn wide ${cur.mode === 'pick' ? 'pri' : ''}" data-choice="pick"><i class="fa-solid fa-thumbtack"></i> 고른 말풍선만 알리기 <small>(20개까지)</small></button>`;
+        const pick = await choosePopup(box, '취소'); if (!pick) return;
+        const AD = await loadAddons();
+        if (pick === 'off') AD.setRoomTell(room, { mode: 'off' });
+        if (pick === 'pick') { AD.setRoomTell(room, { mode: 'pick' }); toastr.info('말풍선의 📌를 눌러 본편에 알릴 것을 골라요.', TITLE); }
+        if (pick === 'summary') {
+            let t = cur.summary;
+            if (!t || (await askConfirm('AI로 새로 요약할까요? (취소하면 지금 요약을 고쳐요)'))) { busyBtn(btn, true, '요약 중…'); try { t = await AD.roomSummaryAI(room); } catch (e) { toastr.error(`요약하지 못했어요: ${esc(e.message)}`, TITLE); } finally { busyBtn(btn, false); } }
+            const v = await askInput(TITLE, '본편 AI에게 갈 요약 (고쳐도 돼요 · 비우면 안 알림)', t ?? ''); if (v === null) return app.renderPanel(el);
+            AD.setRoomTell(room, String(v).trim() ? { mode: 'summary', summary: String(v).trim() } : { mode: 'off', summary: '' });
+        }
+        app.refreshNow?.(); app.renderPanel(el);
+    },
+    crpick: async (el, arg) => {
+        const room = el._ss.ui.room; if (!room) return;
+        const cur = tellOf(room), ids = cur.ids.includes(arg) ? cur.ids.filter(x => x !== arg) : [...cur.ids, arg];
+        if (ids.length > 20) { toastr.info('20개까지만 고를 수 있어요.', TITLE); return; }
+        (await loadAddons()).setRoomTell(room, { mode: 'pick', ids }); app.refreshNow?.(); app.renderPanel(el);
+    },
     cropen: (el, arg) => { el._ss.ui = { rooms: true, room: arg }; app.renderPanel(el); },
     crnew: async (el, arg, btn, s) => {
         const name = el.querySelector('.ss-rname')?.value.trim(); const members = [...el.querySelectorAll('.ss-rmem:checked')].map(x => x.value);
@@ -749,6 +797,7 @@ export const CONTACT_ACTIONS = {
             <button class="ss-btn wide" data-m="prompt"><i class="fa-solid fa-feather-pointed"></i> 추가 지시 ${findBy(s.data.contact.contacts, who)?.prompt ? '<small>(적어 둠)</small>' : ''}</button>
             ${isLetter(s.data.contact) ? '<button class="ss-btn wide" data-m="courier"><i class="fa-solid fa-dove"></i> 이 사람이 쓰는 배달 수단</button>' : ''}
             <button class="ss-btn wide" data-m="ping">${ai1} ${isLetter(s.data.contact) ? '편지 오게' : '선톡 오게'}</button>
+            <button class="ss-btn wide" data-m="lore"><i class="fa-solid fa-book"></i> 이 사람이 읽을 로어북 ${getMeta()?.ctLore?.[who]?.length ? `<small>(${getMeta().ctLore[who].length}개)</small>` : ''}</button>
             <button class="ss-btn wide" data-m="sumwrite"><i class="fa-solid fa-pen"></i> 한 줄 요약 직접 쓰기</button>
             <button class="ss-btn wide" data-m="summary">${ai1} 한 줄 요약 AI로 만들기</button>
             ${s.data.contact.summaries?.[who] ? '<button class="ss-btn wide ghost" data-m="sumdel"><i class="fa-solid fa-eraser"></i> 한 줄 요약 지우기</button>' : ''}
@@ -783,6 +832,7 @@ export const CONTACT_ACTIONS = {
         if (pick === 'courier') {
             const v = await askInput(TITLE, `배달 수단 이름 (${nd.couriers.map(x => x.name).join(', ')})`, c.courier || nd.couriers[0]?.name); if (v === null) return; c.courier = v.trim();
         }
+        if (pick === 'lore') return pickLore(el, who);
         if (pick === 'ping') return CONTACT_ACTIONS.cping(el, who, null, curState());
         if (pick === 'summary') return maybeSummarize(who, true);
         if (pick === 'sumwrite') return CONTACT_ACTIONS.csumedit(el, who, null, curState());
