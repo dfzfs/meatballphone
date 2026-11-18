@@ -102,9 +102,11 @@ function mapOld(s, d, ui) {
             <p class="ss-hint">끌어서 옮기고, 두 손가락·휠·버튼으로 확대해요.</p>
             ${card}`;
     }
+// 👥 관계 칸에는 있는데 프로필이 없는 사람 (v2.9.1 · 블루레몬: 관계는 열 몇 명인데 프로필은 여섯 명 안팎만 나왔다)
+export const relOnly = (s) => { const pf = s?.data?.profile?.list, ru = s?.data?.rel?.user; if (!Array.isArray(pf) || !Array.isArray(ru)) return []; return ru.filter(r => r?.name && !r.left && !findBy(pf, r.name)); };
 export const VIEW = {
     home: (s, d, ui) => homeView(s, ui),
-    profile: (s, d, ui) => `${mindBar(s, ui)}<div class="ss-hint">프로필 모드: <b>${d.mode === 'detailed' ? '상세' : '최소'}</b> — ${d.mode === 'detailed' ? '이 시트가 AI에게 전달돼요' : '카드·로어북을 쓰고, 새 NPC만 전달돼요'}</div>
+    profile: (s, d, ui) => `${mindBar(s, ui)}<div class="ss-hint">프로필 모드: <b>${d.mode === 'detailed' ? '상세' : '최소'}</b> — ${d.mode === 'detailed' ? '이 시트가 AI에게 전달돼요' : '카드·로어북을 쓰고, 새 NPC만 전달돼요'}</div>${relOnly(s).length ? `<div class="ss-hint ss-relonly">👥 관계에만 있고 프로필이 없는 사람 ${relOnly(s).length}명: ${esc(short(relOnly(s).map(r => r.name).join(', '), 80))} <button class="ss-btn sm" data-act="profadd" title="관계 칸의 이름표 · 메모로 짧은 프로필을 만들어요 (AI 0회)">프로필 더하기</button></div>` : ''}
         <div class="ss-stack">${d.list.map((p, i) => `<details class="ss-prof" ${ui.open === i || d.list.length === 1 ? 'open' : ''}>
             <summary><button class="ss-ava-btn" data-act="relemoji" data-arg="${esc(p.name)}" title="얼굴 이모지 바꾸기">${avatar(p.name)}</button><div class="ss-ct-b"><b>${freshDot('profile', 'list', p.name)}${esc(p.name)} <span class="ss-role ${p.role}">${roleName[p.role]}</span></b><small>${esc(short(p.summary, 60))}</small>${mindPeek(s, p.name)}</div><i class="fa-solid fa-chevron-down ss-chev"></i></summary>
             <div class="ss-prof-b">${wearTabOn() && (p.role === 'user' || getMeta()?.dolls?.[p.name]) ? `<div class="ss-prof-doll">${(need('life')?.dollFor ?? (() => ''))(s, p.role === 'user' ? '' : p.name, 'big')}</div>` : ''}<p class="ss-pre">${esc(p.summary)}</p>
@@ -715,7 +717,7 @@ const PK_DETAIL = {
 const PK_COMMON = [
     ['send', 'AI에게 보내는 방식', ['injectMode', 'sceneFilter', 'sceneTurns', 'deltaMode', 'deltaEvery', 'injectDepth', 'injWorld', 'injScan', 'goneInject', 'oocDetect', 'skipQuiet']],
     ['look', '화면 · 알림 · 기록', ['msgCard', 'chipOutside', 'freshDot', 'toastMode', 'toastPos', 'toastSec', 'featureTips', 'actionTips', 'albumOn', 'recordOn', 'autoStart']],
-    ['make', '만들기 재료 · 숨긴 답 · 지우기 · 뒤로 가기', ['genRead', 'genReadCap', 'genNote', 'hideSkip', 'askDelete', 'backClose']],
+    ['make', '만들기 재료 · 숨긴 답 · 지우기 · 뒤로 가기', ['genRead', 'genReadLen', 'genReadCap', 'fixReadCap', 'genNote', 'hideSkip', 'askDelete', 'backClose']],
     ['guard', '다른 확장과 같이 쓰기 (간섭 차단)', ['guardData', 'guardLook']],
 ];
 const pkDrawer = (k) => document.querySelector(`#ss-settings [data-s="${k}"]`);

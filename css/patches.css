@@ -623,6 +623,7 @@ dialog.popup.ss-dlg.ss-full .popup-content { max-height: none; }
 .ss-map.line .node text.lb { font-size: 3.1px; font-weight: 700; dominant-baseline: auto; }
 .ss-map.line .node.here text.lb { fill: var(--ss-hi); }
 .ss-map.line .node text.lb .ppl { font-size: 2.5px; fill: var(--ss-hi); font-weight: 600; }
+.ss-map.line .node text.lb .pf { font-size: 2.3px; fill: var(--ss-dim); font-weight: 600; } /* 🏢 층 (v2.9.1) */
 @media (prefers-reduced-motion: reduce) { .ss-map.line .edges .ln.route { animation: none; } }
 /* 📍 인물 핀: 장소 위에 뜨는 이모지 말풍선 (노선도 · 입체 · 평면 공통) */
 .ss-map .pins { pointer-events: none; animation: ss-iso-bob 1.6s ease-in-out infinite; }

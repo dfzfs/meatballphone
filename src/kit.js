@@ -53,6 +53,12 @@ export async function popup(el, opts = {}) {
     const p = new Popup(el, opts.type ?? POPUP_TYPE.TEXT, '', { wide: true, large: !!opts.large, allowVerticalScrolling: true, okButton: opts.okButton ?? '닫기', ...opts });
     p.dlg?.classList.add('ss-dlg', 'ss-scope');
     if (opts.full) p.dlg?.classList.add('ss-full');
+    // ✕ 오른쪽 위로 닫기 (v2.9.1 · 블루레몬: 폰에서 아래 「닫기」 줄이 내용 자리를 먹었다) — 「닫기」 하나뿐인 창만 · 설정 popX
+    if (settings().popX !== false && (opts.type === undefined || opts.type === POPUP_TYPE.TEXT) && !opts.cancelButton && p.dlg) {
+        const x = document.createElement('button'); x.type = 'button'; x.className = 'ss-popx'; x.title = '닫기'; x.setAttribute('aria-label', '닫기'); x.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+        x.addEventListener('click', () => p.dlg.querySelector('.popup-button-ok')?.click());
+        p.dlg.classList.add('ss-xclose'); p.dlg.appendChild(x);
+    }
     const done = backTrack(p.dlg);
     try { return await p.show(); } finally { done(); }
 }
@@ -258,8 +264,13 @@ export function applyTheme() {
     const dark = s.theme === 'ink' || (s.themeCustom?.bg && isDark(s.themeCustom.bg));
     // 🛡 화면 보호(guardLook): 테마가 같은 변수를 더 센 선택자로 덮는 것을 이기게 선택자를 올린다 (미니홈피 모양의 !important 규칙은 그대로 이긴다)
     const css = `${s.guardLook === true ? ':root body.ss-guard-look .ss-scope.ss-scope.ss-scope' : ':root .ss-scope'}{${THEME_KEYS.map(([k]) => `--ss-${k}:${t[k]};`).join('')}--ss-r:${clamp(Number(s.radius) || 12, 0, 24)}px;--ss-fs:${clamp(Number(s.fontScale) || 1, 0.8, 1.4)};--ss-shadow:${dark ? '0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.45)' : '0 1px 2px rgba(20,20,20,.05),0 8px 28px rgba(20,20,20,.10)'};color-scheme:${dark ? 'dark' : 'light'}}`;
+    // 🔤 미트볼 화면 글꼴 (v2.9.1 · 블루레몬: 한국어 글이 테마 본문과 따로 놀았다) — --ss-font 하나로
+    const fv = s.uiFont === 'theme' ? 'var(--mainFontFamily, inherit)' : s.uiFont === 'dot' ? "'MeatballDot', sans-serif" : s.uiFont ? `'${String(s.uiFont).replace(/['"\\;{}<>]/g, '').slice(0, 60)}', sans-serif` : '';
+    const css2 = fv ? `${css}:root .ss-scope{--ss-font:${fv};}` : css;
     // 매 갱신마다 불려서, 같은 글이면 건드리지 않는다 (다시 쓰면 페이지 전체 스타일을 다시 계산함)
-    if (st.textContent !== css) st.textContent = css;
+    if (st.textContent !== css2) st.textContent = css2;
+    // ✨ 화면 다듬기 스위치 (v2.9.1 · css/polish.css)
+    const bc = document.body?.classList; if (bc) { bc.toggle('ss-noblur', s.blurFx === false); bc.toggle('ss-noalbumbtn', s.albumBtn === false); }
 }
 function isDark(hex) {
     const m = String(hex).match(/^#?([0-9a-f]{6})$/i); if (!m) return false;

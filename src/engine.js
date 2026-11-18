@@ -521,6 +521,26 @@ export function shiftSwipeAnchors(meta, m, removed) {
 // 이야기와 상관없는 정리 · 설정 편집은 묶지 않음 (메시지를 지워도 남음): 번역 · 영어 저장(라벨 없는 칸 저장) · 완전 삭제 · 읽음 · 메모 · 업적 표시 · 애정 끄기 · 연인 확정
 const META_OPS = new Set(['_purge', '_read', '_nread', '_memo', '_achtog', '_nolove', '_love', '_bond', '_unbond', '_alert', '_merge']);
 export const isMetaEdit = (a) => (a?.ops?.length ? a.ops.every(([k]) => META_OPS.has(k)) : !!a?.set && !a.label && !a.silent) || a?.keep === true; // 조용한 저장(구매 때 상점 재고 −1 등)은 행동이라 묶음
+// 🗑 중간 메시지 지우기 (v2.9.1 · 블루레몬 제보): 묶이지 않은 편집(칸 저장 · 영어 저장 바꾸기 …)의 자리 at(그때 메시지 수)이 그대로라서,
+// 그보다 앞 답을 지우면 저장 뒤에 있던 답이 저장 앞으로 들어가 그 저장에 덮였다 (그 답의 변화가 사라짐)
+// → 마지막 계산 때의 메시지 목록과 견줘 지운 자리를 찾고, 그보다 뒤의 기록을 지운 만큼 당긴다
+let seenChat = null;
+export function noteChat(chat) { seenChat = { id: String(ctx().getCurrentChatId?.() ?? ''), list: chat.slice() }; }
+export function shiftForDelete(meta, chat = ctx().chat ?? []) {
+    const seen = seenChat;
+    if (!seen || seen.id !== String(ctx().getCurrentChatId?.() ?? '') || seen.list.length <= chat.length) { noteChat(chat); return 0; }
+    const gone = []; let j = 0;
+    for (let i = 0; i < seen.list.length; i++) { if (j < chat.length && seen.list[i] === chat[j]) j++; else gone.push(i); }
+    noteChat(chat);
+    if (j !== chat.length || gone.length !== seen.list.length - chat.length) return 0; // 지우기만 한 게 아니면 (다른 채팅 · 다시 불러옴) 손대지 않는다
+    let n = 0;
+    for (const a of meta?.adjust ?? []) {
+        if (a.an) continue; // 묶인 편집은 묶인 메시지를 따라간다
+        const before = gone.filter(g => g < a.at).length;
+        if (before) { a.at -= before; n++; }
+    }
+    return n;
+}
 export function clampAdjust(meta, len) {
     let n = 0;
     for (const e of meta?.adjust ?? []) if (!e.an && e.at > len) { e.at = len; n++; } // 묶인 편집은 당기지 않음 (묶인 메시지가 없으면 계산에서 빠짐)
@@ -568,6 +588,7 @@ export function compute(limit, opts = {}) {
     // 묶인 편집: 묶인 메시지가 지금 채팅에 그 스와이프로 있을 때만 · 자리는 그 메시지 바로 뒤
     moveContinued(meta, chat);
     const byKey = new Map(); chat.forEach((m, i) => { byKey.set(msgKey(m), i); rememberKey(m); });
+    if (!opts.bake && (limit ?? chat.length) >= chat.length) noteChat(chat); // 🗑 지운 자리를 찾을 수 있게 (shiftForDelete)
     let legacy = null;
     const live = (a) => {
         if (!a.an) return true;
@@ -592,7 +613,10 @@ export function compute(limit, opts = {}) {
         if (a._off) return; // 지운 · 바꾼 메시지 뒤의 행동 (그 스와이프로 돌아오면 다시)
         s.romActive = a.at >= romFrom;
         const info = { seed: `${seed}:adj:${a.t}`, labels: [], alerts: [], mods: meta.mods, meta, cut: 0 };
-        if (a.set?.patch) { // v2.7.7: 연락 · 피드는 바뀐 부분만 (칸 통째 복사본이 쌓여 채팅 파일이 MB로 불던 것)
+        if (a.set?.patch?.tx) { // v2.9.1: 영어 저장으로 바꾸기 = 글만 바꾸는 기록 (숫자는 그때 값으로 굳지 않음)
+            if (a.set.mod === 'core') s.core = swapTexts(s.core, a.set.patch.tx);
+            else if (s.data[a.set.mod]) s.data[a.set.mod] = swapTexts(s.data[a.set.mod], a.set.patch.tx);
+        } else if (a.set?.patch) { // v2.7.7: 연락 · 피드는 바뀐 부분만 (칸 통째 복사본이 쌓여 채팅 파일이 MB로 불던 것)
             if (DELTA_MODS.has(a.set.mod) && s.data[a.set.mod]) {
                 try {
                     const lk = FEED_LISTS[a.set.mod], md = s.data[a.set.mod];
@@ -981,6 +1005,13 @@ export function deltaOf(a, b) {
     return p;
 }
 const putVal = (cur, v) => (isList(v) ? (Array.isArray(cur) ? cur.slice(v.$d) : []).concat(clone(v.$p)) : clone(v));
+// 글 칸만 바꾸기: 값이 표에 그대로 있는 글자열만 (열쇠 · 숫자는 그대로)
+export function swapTexts(o, tx) {
+    if (typeof o === 'string') return Object.hasOwn(tx, o) ? tx[o] : o;
+    if (Array.isArray(o)) { for (let i = 0; i < o.length; i++) o[i] = swapTexts(o[i], tx); return o; }
+    if (o && typeof o === 'object') { for (const k of Object.keys(o)) o[k] = swapTexts(o[k], tx); return o; }
+    return o;
+}
 export function applyDelta(d, p) {
     for (const [k, v] of Object.entries(p.top ?? {})) d[k] = putVal(d[k], v);
     for (const k of p.del ?? []) delete d[k];
@@ -1771,6 +1802,20 @@ export function setLorePick(linked, on) {
     const meta = getMeta(true); if (!meta) return;
     meta.lorePick = { off, add }; saveMeta();
 }
+// 🏢 로어북의 층 안내 읽기 (v2.9.1) — 채팅을 열 때 한 번 → app.loreFloors (지도 이름표에 「7F」)
+//   카드 · 채팅에 걸린 로어북만 (전역 로어북 목록은 실리 모듈을 불러와야 해서 · 채팅을 열 때마다 하지 않게) · 노선도 지도를 처음 그릴 때 한 번
+let loreFloorsFor = null;
+export async function loadLoreFloors() {
+    const c = ctx(), id = String(c.getCurrentChatId?.() ?? '');
+    if (loreFloorsFor === id) return; loreFloorsFor = id; app.loreFloors = null;
+    if (!c.loadWorldInfo) return;
+    const books = new Set(); for (const ch of chatCharacters()) { const w = ch?.data?.extensions?.world; if (w) books.add(w); } if (c.chatMetadata?.world_info) books.add(c.chatMetadata.world_info);
+    const texts = [];
+    try { for (const name of books) { const book = await c.loadWorldInfo(name); for (const e of Object.values(book?.entries ?? {})) if (!e.disable && /\d\s*F|층/i.test(String(e.content ?? ''))) texts.push(e.content); } } catch (e) { ssNote('로어북 층 읽기', e); }
+    const { loreFloorMap } = await import('./iso.js');
+    const m = loreFloorMap(texts); app.loreFloors = m.size ? m : null;
+}
+app.wantLoreFloors = () => { const id = String(ctx().getCurrentChatId?.() ?? ''); if (loreFloorsFor === id) return; loadLoreFloors().then(() => { if (app.loreFloors) app.rerenderPanels?.(true); }).catch(e => ssNote('로어북 층', e)); };
 export async function loreText(limit) {
     const c = ctx();
     if (!c.loadWorldInfo || limit <= 0) return '';
@@ -1827,8 +1872,31 @@ export function recentChat(n, mode = 'short') {
         return out.reverse().join('\n');
     }
     const pick = list.slice(-n);
-    if (mode !== 'last' && mode !== 'recent') return pick.map(m => line(m, 700)).join('\n');
-    return pick.map((m, i) => line(m, i === pick.length - 1 ? READ_FULL : mode === 'recent' ? READ_LONG : 700)).join('\n');
+    const per = clamp(parseInt(settings().genReadLen, 10) || 700, 200, 6000); // 📖 메시지마다 읽을 글자 수 (v2.9.1 · 예전엔 700 고정이라 긴 답의 뒷부분 사건이 빠졌다)
+    if (mode !== 'last' && mode !== 'recent') return pick.map(m => line(m, per)).join('\n');
+    return pick.map((m, i) => line(m, i === pick.length - 1 ? READ_FULL : mode === 'recent' ? Math.max(READ_LONG, per) : per)).join('\n');
+}
+// 📒 변화 장부 (v2.9.1 · 블루레몬): 본편 AI가 답마다 <meatball>에 남긴 변화의 합 — 「채팅 전체」로 다시 만들 때 같이 보낸다
+//   본문만 보내면 AI가 수치를 처음부터 다시 어림해서, 실제 쌓인 애정 · 우정 · 돈과 크게 달랐다 (긴 채팅으로 다시 만들면 처음 만난 사이처럼 낮게)
+export function changeLedger() {
+    const chat = ctx().chat ?? [], A = {}, T = {}, ev = [];
+    let cash = 0, cashN = 0, loc = '', time = '', n = 0;
+    const sgn = (x) => parseInt(String(x).replace(/−/g, '-').replace(/\s+/g, ''), 10);
+    for (const m of chat) {
+        if (!isStoryAI(m)) continue;
+        const ops = msgOps(m); if (!ops.length) continue; n++;
+        for (const [k0, v0] of ops) {
+            const k = KEYMAP[String(k0).trim().toLowerCase()], v = String(v0 ?? '').trim();
+            if (k === 'aff' || k === 'trust') for (const p of v.split(/\s*[,，]\s*/)) { const mm = p.match(/^(.+?)\s*([+\-−]\s*\d{1,3})\b/); if (mm) { const nm = mm[1].trim(), d = sgn(mm[2]); if (nm && Number.isFinite(d) && nm.length <= 30) (k === 'aff' ? A : T)[nm] = ((k === 'aff' ? A : T)[nm] ?? 0) + d; } }
+            else if (k === 'cash') { const mm = v.match(/^([+\-−])\s*([\d,]+(?:\.\d+)?)/); if (mm) { cash += (mm[1] === '+' ? 1 : -1) * Number(mm[2].replace(/,/g, '')); cashN++; } }
+            else if (k === 'loc') loc = String(v.split('|')[0]).split(/\s*(?:→|->|=>)\s*/).pop().trim();
+            else if (k === 'time') { const t = v.split(/\s*(?:→|->|=>)\s*/).pop().trim(); if (t && !/^[+\-]/.test(t)) time = t; } // 「+1」 같은 넘김은 빼고
+            else if (k === 'event' || k === 'quest' || k === 'ach') ev.push(short(v.split('|')[0].trim(), 50));
+        }
+    }
+    if (!n) return '';
+    const fmt = (o) => Object.entries(o).filter(([, d]) => d).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 30).map(([nm, d]) => `${nm} ${d > 0 ? '+' : ''}${d}`).join(', ');
+    return [`(${n} replies carried status changes)`, fmt(A) && `aff (romance) total change: ${fmt(A)}`, fmt(T) && `trust (friendship) total change: ${fmt(T)}`, cashN && `money total change: ${cash > 0 ? '+' : ''}${cash} over ${cashN} entries`, loc && `last location: ${loc}`, time && `last time of day: ${time}`, ev.length && `events / quests along the way: ${[...new Set(ev)].slice(-20).join(' · ')}`].filter(Boolean).join('\n');
 }
 // 📎 하던 채팅에 붙이기: 이미 긴 채팅에서 상태창을 만들 때 — 최근 N개만으로는 앞에서 쌓인 돈 · 관계 · 물건을 모른다.
 //   요약 확장의 요약(가장 최근 것) · 작가 노트 · 앞쪽 이야기를 띄엄띄엄 훑은 줄을 같이 준다. AI 호출 수는 그대로고 보내는 글만 늘어난다.
@@ -1871,6 +1939,7 @@ export async function gatherSources(opt = {}) {
         if (sf.note && !useNote) parts.push(`[AUTHOR'S NOTE]\n${sf.note}`); // 위에서 이미 넣었으면 두 번 안 넣는다
         if (sf.sample && readMode !== 'all') parts.push(`[EARLIER STORY — sampled lines, oldest first]\n${sf.sample}`); // 채팅 전체를 읽으면 훑은 줄은 겹친다
     }
+    if (opt.chat !== false && (readMode === 'all' || opt.long === true)) { const lg = changeLedger(); if (lg) parts.push(`[CHANGE LEDGER — totals of what the story AI recorded reply by reply in this chat. Start relationship values, money, location and time from these real totals instead of re-guessing from the prose]\n${lg}`); }
     if (opt.chat !== false) { const rc = recentChat(set.recentForGen, readMode); if (rc) parts.push(`${readMode === 'all' ? '[CHAT SO FAR — oldest first]' : '[RECENT CHAT]'}\n${rc}`); }
     if (opt.chat !== false && opt.long === true) parts.push('[ONGOING STORY] This status window is being attached to a story that is already in progress. Fill every value as it stands NOW, at the latest message — current date and time, location, money, belongings, gauges, relationship levels, people already met, quests already taken — not as it was when the story began. When sources disagree, trust the most recent one.');
     return parts.join('\n\n');

@@ -12,7 +12,7 @@
 }
 .ss-scope, .ss-scope * { box-sizing: border-box; }
 .ss-root, .ss-hud, .ss-side, .ss-float, .ss-msgcard, dialog.ss-dlg .popup-content {
-    font-family: 'IBM Plex Sans KR', 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif; /* v2.8: 기본 글꼴 IBM Plex Sans KR (없으면 다음 글꼴로) */
+    font-family: var(--ss-font, 'IBM Plex Sans KR', 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif); /* v2.8: 기본 글꼴 IBM Plex Sans KR (없으면 다음 글꼴로) · v2.9.1: 테마는 --ss-font 하나만 덮으면 돼요 */
     font-size: calc(14px * var(--ss-fs)); line-height: 1.5; color: var(--ss-ink); text-align: left;
     letter-spacing: normal; text-shadow: none; -webkit-tap-highlight-color: transparent;
 }

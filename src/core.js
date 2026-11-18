@@ -5,7 +5,7 @@ export { clamp, clone, esc, num, str, arr, norm, fmtNum, signed, uid, short, spl
 export const MODULE = 'statussim';
 export const LOG = '[미트볼 상태창]';
 export const TITLE = '미트볼 상태창';
-export const VERSION = '2.9.0';
+export const VERSION = '2.9.1';
 export const INJECT_KEY = 'statussim_state';
 export const INJECT_KEY2 = 'statussim_people';
 export const INJECT_KEY3 = 'statussim_romance'; // 로맨스 보정 · 내 주입문 (v2.6)
@@ -108,6 +108,13 @@ export const DEFAULTS = Object.freeze({
     radius: 12,
     defaultMods: null,
     ssGenLang: 'ko',         // 상태창(확장 AI) 생성 언어: ko = 바로 한국어 | en = 영어로 생성 → 번역본 저장 | enview = 영어로 저장 · 화면만 번역 (v2.6)
+    aiModelOnly: '',         // 🧠 연결 프로필 없이 모델 이름만 (메인 연결과 같은 회사 · 채팅 완성) — 프로필을 고르면 프로필이 먼저 (v2.9.1)
+    trModelOnly: '',         //   └ 번역에만 쓸 모델 이름
+    popX: true,              // ✨ 「닫기」뿐인 창은 오른쪽 위 ✕로 닫기 (아래 닫기 줄을 숨겨 폰에서 내용 자리를 넓힘 · v2.9.1)
+    blurFx: true,            // ✨ 옆 서랍 · 알림의 뒤 흐림 (끄면 글이 또렷하고 폰에서 가벼워요)
+    albumBtn: true,          // ✨ 답마다 「추억 앨범에 담기」 단추 (끄면 단추만 숨김 · 앨범 탭은 그대로)
+    iconStyle: 'emoji',      // ✨ 화면의 그림 글자: emoji (그대로) | line (선 아이콘 · 화면만 — 저장 · AI 글은 그대로)
+    uiFont: '',              // 🔤 미트볼 화면 글꼴 (v2.9.1): '' = 기본 · 'theme' = 실리 테마 글꼴 따라감 · 'dot' = 미트볼 도트 글꼴 · 그 밖 = 글꼴 이름 그대로
     trProfile: '',           // 번역 모델 (연결 프로필, '' = 확장 AI 모델 → 없으면 메인)
     trLang: '한국어',
     trEngine: 'st',          // 번역 담당: st = 실리 기본 번역 (Chat Translation의 Google·DeepL 등 · 무료 · v2.7.2부터 기본) | llm = 번역 모델 (지침 이해 · 토큰)
@@ -271,6 +278,10 @@ export const DEFAULTS = Object.freeze({
     chipOutside: false,      // 변동 칩을 본문(.mes_text) 밖 아래에 붙이기 — 번역 확장이 원문을 숨겨 칩이 안 보일 때
     // ── 만들기 재료 · 숨긴 답 · 지우기 확인 · 뒤로 가기 (기타 확장이 밖에서 덧대던 것을 미트볼이 직접) ──
     genRead: 'short',        // 📖 만들기 · 다시 생성 때 채팅 읽기: short (최근 N개 · 앞 700자씩 — 예전 그대로) · last (+ 마지막 답은 전체) · recent (최근 N개를 길게) · all (채팅 전체)
+    genReadLen: 700,         // 📖 「최근 채팅」으로 읽을 때 메시지마다 읽을 글자 수 (v2.9.1 · 예전엔 700 고정)
+    fixReadCap: 8000,        // 🔍 태그가 빠진 답을 따로 분석할 때 읽을 답 글자 수 — 넘으면 앞 · 뒤 반씩 (v2.9.1 · 예전엔 앞 4,000자만)
+    trConvertAsk: true,      // 🌐 「한국어 칸을 영어 저장으로」 바꾸기 전에 묻기 (v2.9.1 · 끄면 바로 · 글만 바뀌고 숫자는 그대로라 안전)
+    trAutoConvert: false,    // 🔁 한국어로 저장된 칸이 있는 채팅을 열면 저절로 영어 저장으로 (실리 기본 번역일 때만 · 토큰 0 · 기본 끔)
     genReadCap: 120000,      // 「채팅 전체」로 읽을 때 최대 글자 수 — 넘으면 오래된 메시지부터 앞부분만 남긴다
     genNote: false,          // 📝 만들기 · 다시 생성 때 이 채팅의 작가 노트도 읽기 (페르소나 · 세계관을 작가 노트에 적는 사람용)
     hideSkip: false,         // 🙈 눈 단추로 직접 숨긴 AI 답은 상태 계산에서 빼기 (요약 확장 · /hide로 숨겨진 답은 그대로 더한다)
@@ -511,8 +522,21 @@ export function findBy(list, name, field = 'name') {
     if (aliasMap && Object.hasOwn(aliasMap, n)) n = norm(aliasMap[n]);
     if (!n || !Array.isArray(list)) return null;
     return list.find(x => norm(x?.[field]) === n)
-        ?? list.find(x => { const m = norm(x?.[field]); return m.length >= 2 && n.length >= 2 && (m.includes(n) || n.includes(m)); })
+        ?? list.find(x => nameWithin(x?.[field], name))
         ?? trFind(list, name, field);
+}
+// 이름이 다른 이름 안에 들어 있을 때 같은 사람 · 장소로 볼지 (v2.9.1 · 블루레몬 제보): 예전엔 두 글자 이상 「포함」이면 같다고 봐서
+// 「유나」와 「유나린」이 한 사람으로 합쳐지고 「Ann」이 「Anna」에 붙었다 → 낱말 경계로만 (「레온」 ↔ 「레온 하트」) · 뒤에 조사 · 호칭만 붙은 것(「레온이」 「유나 씨」 「Leon's」)은 같게
+const NAME_TAIL = /^(?:이|가|은|는|을|를|의|에게|한테|께|와|과|랑|이랑|도|만|님|씨|군|양|선배|형|누나|오빠|언니|'s|’s)$/i;
+const nameToks = (x) => String(x ?? '').toLowerCase().split(/[\s·・,，()（）\[\]{}「」『』"“”'_/|]+/).filter(Boolean);
+export function nameWithin(a, b) {
+    const A = nameToks(a), B = nameToks(b);
+    if (!A.length || !B.length) return false;
+    const [S, L] = A.join('').length <= B.join('').length ? [A, B] : [B, A];
+    if (S.join('').length < 2 || S.join('') === L.join('')) return S.join('') === L.join('') && S.join('').length >= 2;
+    for (let i = 0; i + S.length <= L.length; i++) if (S.every((t, j) => L[i + j] === t)) return true; // 낱말 그대로 들어 있음
+    const s = S.join(''), l = L.join('');
+    return l.startsWith(s) && NAME_TAIL.test(l.slice(s.length)); // 「레온이」 = 레온 + 조사
 }
 // ───── 화면만 번역 (v2.6): 상태창 데이터는 영어 그대로 (= AI에게도 영어), 화면에 그릴 때만 번역본 ─────
 // 번역 사전은 채팅마다 meta.tr = { 영어 원문: 번역 } 에 쌓인다.

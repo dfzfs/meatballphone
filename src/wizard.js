@@ -1,6 +1,6 @@
 // 처음 만들기 (마법사 · 기준 상태 세우기) — shell.js에서 떼어 냄
 import { DATA_V, app, ctx, settings, saveSettings, getMeta, saveMeta, MOD, MOD_IDS, EMPTY, NORM, normalize, DIFFS, GENRES, CONTACT_MODES, esc, clone, clamp, h, TITLE, LOG, PLAY_MODES, normPlay, playOf, mascotUrl, relFromProfiles, ssErr, ssWarn, PLAY_SETS } from './core.js';
-import { gatherSources, loreNames, loreChoice, setLorePick, chatCharacters, setBase, startBlank, storySoFar, LONG_CHAT, READ_MODES, authorNote } from './engine.js';
+import { gatherSources, loreNames, loreChoice, setLorePick, chatCharacters, setBase, startBlank, storySoFar, LONG_CHAT, READ_MODES, authorNote, recentChat } from './engine.js';
 import { genModule, genGroup, GEN_GROUPS } from './ai.js';
 import { popup, askConfirm, busyBtn, seg, sec, mascot } from './kit.js';
 import { GROUPS, TAB_MOD } from './views.js';
@@ -76,7 +76,7 @@ export async function openWizard() {
             <label class="ss-tog"><input type="checkbox" class="ss-switch" data-src="lore" checked><span>로어북</span></label>
             <label class="ss-tog"><input type="checkbox" class="ss-switch" data-src="chat" ${chatN > 1 ? 'checked' : ''}><span>최근 채팅 ${settings().recentForGen}개</span></label>
             ${authorNote() ? `<label class="ss-tog" title="이 채팅의 작가 노트에 적은 페르소나 · 세계관도 재료로 읽어요 (문체 지시는 무시)"><input type="checkbox" class="ss-switch" data-src="note" ${settings().genNote === true ? 'checked' : ''}><span>작가 노트</span></label>` : ''}</div>
-            <label class="ss-f wide ss-w-readrow"><span>📖 채팅 읽는 방식 <small class="ss-hint">길게 읽을수록 만드는 요청의 토큰이 늘어요</small></span><select class="ss-in ss-w-read">${Object.entries(READ_MODES).map(([k, v]) => `<option value="${k}" ${(READ_MODES[settings().genRead] ? settings().genRead : 'short') === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>
+            <label class="ss-f wide ss-w-readrow"><span>📖 채팅 읽는 방식 <small class="ss-hint">길게 읽을수록 만드는 요청의 토큰이 늘어요</small></span><select class="ss-in ss-w-read">${Object.entries(READ_MODES).map(([k, v]) => `<option value="${k}" ${(READ_MODES[settings().genRead] ? settings().genRead : 'short') === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select><small class="ss-hint ss-w-readsize"></small></label>
             <div class="ss-w-lore ss-hide"><small class="ss-hint">📚 읽을 로어북 — 끈 것은 이 채팅의 상태창을 만들 때 · 칸을 다시 만들 때 읽지 않아요</small><div class="ss-pills ss-w-lorelist"></div></div></section>
         <section class="ss-sec ss-wz-adv"><div class="ss-sec-h"><h4>난이도</h4></div>
             <div class="ss-seg" data-w="diff">${Object.entries(DIFFS).map(([k, v]) => `<button data-v="${k}" class="${W.diff === k ? 'on' : ''}"><i class="fa-solid ${v.icon}"></i> ${v.name}</button>`).join('')}</div>
@@ -92,6 +92,9 @@ export async function openWizard() {
         <div class="ss-row-btns"><button class="ss-btn pri big ss-w-go"><i class="fa-solid fa-play"></i> 생성 시작</button><small class="ss-hint ss-w-cost"></small></div>
         <div class="ss-w-prog"></div>
     </div>`);
+    // 📖 실을 양 어림 (v2.9.1 · 블루레몬): 고른 읽기로 보낼 메시지 · 글자 · 토큰
+    const readSize = () => { const o = el.querySelector('.ss-w-readsize'), sel = el.querySelector('.ss-w-read'); if (!o || !sel) return; try { const t = recentChat(settings().recentForGen, sel.value), msgs = t ? t.split('\n').filter(l => /^[^:\n]{1,40}: /.test(l)).length : 0; o.textContent = t ? `메시지 약 ${msgs}개 · ${t.length.toLocaleString()}자 · 토큰 약 ${Math.round(t.length / 2.2).toLocaleString()}` : ''; } catch { o.textContent = ''; } };
+    el.querySelector('.ss-w-read')?.addEventListener('change', readSize); readSize();
     const cost = () => {
         const on0 = [...el.querySelectorAll('[data-mod]:checked')].map(i => i.dataset.mod).filter(id => id !== 'music');
         el.querySelector('.ss-gmhint')?.classList.toggle('ss-hide', W.gm === 'ai');

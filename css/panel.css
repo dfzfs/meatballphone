@@ -515,6 +515,10 @@ dialog.ss-dlg .popup-content > .ss-root, dialog.ss-dlg .popup-content > .ss-pane
 .ss-trend .ss-trend-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; font-size: .9em; }
 .ss-trend .ss-trend-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .ss-trend .ss-trend-legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.ss-trend .ss-trend-legend span { cursor: pointer; border-radius: 6px; padding: 1px 4px; }
+.ss-trend .ss-trend-legend span.hi { background: color-mix(in srgb, currentColor 10%, transparent); font-weight: 650; }
+.ss-trend .ss-trend-legend span.dim, .ss-trend svg g.dim { opacity: .28; }
+.ss-trend svg g.hi polyline { stroke-width: 3.5; }
 .ss-trend .ss-trend-legend small { opacity: .7; }
 
 /* 🔗 연락 구간 고르기 · 요약 줄 (v2.7.23) */
@@ -539,3 +543,7 @@ button.ss-csum { width: 100%; text-align: left; border: 0; border-bottom: 1px so
 /* 🔕 상대가 연락을 꺼 둠 (v2.7.23) */
 .ss-csum.ss-away { gap: 8px; flex-wrap: wrap; color: var(--ss-ink); background: color-mix(in srgb, var(--ss-warn, #c47f0a) 12%, var(--ss-bg)); }
 .ss-csum.ss-away > span { flex: 1 1 auto; }
+
+/* ⬆ 맨 위로 (v2.9.1 · 블루레몬) — 길게 내렸을 때만 */
+.ss-totop { display: none; position: sticky; bottom: 12px; margin: -40px 10px 0 auto; width: 36px; height: 36px; border-radius: 50%; align-items: center; justify-content: center; border: 1px solid var(--ss-line, rgba(0,0,0,.12)); background: var(--ss-card, #fff); color: inherit; box-shadow: 0 2px 8px rgba(0,0,0,.15); cursor: pointer; z-index: 3; }
+.ss-totop.show { display: flex; }

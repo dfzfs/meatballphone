@@ -1,5 +1,5 @@
 // v2.5 화면: SNS · 추천 음악 · 내 탭 · 추억 앨범 · 플레이 기록 · 검색 · 속마음 · 엔딩 · 모델 맞춤 설정
-import { app, ctx, settings, saveSettings, isAiPart, aiOff, partTouched, getMeta, saveMeta, modOn, esc, short, clone, clamp, num, fmtNum, signed, uid, findBy, norm, stamp, userName, TITLE, LOG, MOD, dayIndex, msgText, DEFAULT_STAGES } from './core.js';
+import { app, ctx, settings, saveSettings, isAiPart, aiOff, partTouched, getMeta, saveMeta, modOn, esc, short, clone, clamp, num, fmtNum, signed, uid, findBy, nameWithin, norm, stamp, userName, TITLE, LOG, MOD, dayIndex, msgText, DEFAULT_STAGES } from './core.js';
 import { loveIndex, ensureLove, relAxes, romanceStart, ladderIssue, fixLoveLadder, playOf } from './core.js';
 import { addAdjust, commit, stageIndex, stripStatus, isFresh, pairStage } from './engine.js';
 const FRESH_I = '<i class="ss-fresh" title="방금 AI 답에서 바뀌었어요"></i>';
@@ -208,7 +208,26 @@ export function relView(s, d, ui) {
         ${relOn('relShowPairs') && d.pairs.length ? sec('인물끼리', `<div class="ss-pairs ${PA ? 'aff' : ''}">${d.pairs.map(pairRow).join('')}</div>`) : ens ? emptyBox('인물끼리의 관계가 아직 없어요', 'fa-people-arrows') : ''}
         ${!STG ? '' : `<details class="ss-more"><summary>관계 단계 ${st.length}개</summary><ol class="ss-stages">${st.map((x, i) => `<li><b>${i === L ? '💞 ' : ''}${esc(x.name)}</b> <small>${esc([x.at > -100 ? `${AX.aff} ${x.at}+` : '', x.trust > -100 ? `${AX.trust} ${x.trust}+` : ''].filter(Boolean).join(' · ')) || '처음부터'}${x.unlock ? ` — <span>${esc(x.unlock)}</span>` : ''}</small></li>`).join('')}</ol><p class="ss-hint">${L >= 0 ? `💞 표시가 <b>연인 단계</b>예요${set.romBond ? ' — 숫자만으론 안 올라가고, 고백 후 💍 확정해야 올라가요' : ''}.` : '이 세계관의 단계엔 <b>연인 단계가 없어요</b>. 아래 버튼으로 맨 위에 붙일 수 있어요.'} 다른 단계를 연인 단계로 쓰려면 ✏️ 편집 › 관계 단계에서 「💞 연인 단계」를 체크하세요.</p>${L < 0 ? '<div class="ss-row-btns"><button class="ss-btn sm pri" data-act="addlove"><i class="fa-solid fa-heart"></i> 💞 연인 단계 추가</button></div>' : ''}</details>`}`;
 }
+// 🔗 두 관계 줄이 같은 사람일 수 있나 (직함 줄 ↔ 이름 줄) → 까닭 글 또는 ''
+export function mergeHint(a, b, s) {
+    if (!a || !b) return '';
+    if (nameWithin(a.name, b.name)) return '이름이 겹쳐요';
+    const inText = (nm, r) => { const p = findBy(s?.data?.profile?.list ?? [], r.name); const t = [r.label, r.memo, p?.summary, ...(p?.fields ?? []).map(f => f.v)].filter(Boolean).join(' '); return nm.length >= 2 && new RegExp(`(^|[^\\p{L}])${nm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=$|[^\\p{L}]|이|가|은|는|을|를|의|님)`, 'u').test(t); };
+    if (inText(a.name, b)) return `「${a.name}」이(가) ${b.name}의 직함 · 메모에 나와요`;
+    if (inText(b.name, a)) return `「${b.name}」이(가) ${a.name}의 직함 · 메모에 나와요`;
+    return '';
+}
 export const REL_ACTIONS = {
+    // 👥 관계에만 있는 사람에게 짧은 프로필 (AI 0회 · 이름표 · 메모로)
+    profadd: async () => {
+        const s = app.current?.state; if (!s?.data?.profile || !s.data.rel) return;
+        const pf = s.data.profile.list, add = (s.data.rel.user ?? []).filter(r => r?.name && !r.left && !findBy(pf, r.name));
+        if (!add.length) return;
+        const np = clone(s.data.profile);
+        for (const r of add) np.list.push({ name: r.name, role: 'npc', summary: [r.label, r.memo].filter(Boolean).join(' — ').slice(0, 200), fields: [] });
+        await commit('profile', np, `👥 프로필 ${add.length}명 더함`);
+        toastr.success(`${add.length}명의 프로필을 더했어요. 「AI로 수정」으로 자세히 채울 수 있어요.`, TITLE);
+    },
     relladder: async (el, arg, btn, s) => {
         const nd = fixLoveLadder(clone(s.data.rel));
         await commit('rel', nd, '💞 관계 단계: 연애 느낌 단계엔 애정도 필요하게');
@@ -243,10 +262,13 @@ export const REL_ACTIONS = {
     },
     // 🔗 인물 합치기 (v2.7.23)
     relmerge: async (el, arg) => {
-        const others = (app.current?.state?.data?.rel?.user ?? []).filter(r => norm(r.name) !== norm(arg));
-        if (!others.length) return;
+        const rel = app.current?.state?.data?.rel, others0 = (rel?.user ?? []).filter(r => norm(r.name) !== norm(arg));
+        if (!others0.length) return;
+        // 🔗 합칠 후보를 앞에 (v2.9.1 · 블루레몬): 이름이 낱말로 겹치거나(「레온」 · 「레온 하트」) 한쪽 이름이 다른 쪽의 직함 · 메모 · 프로필에 나오면(「대장」)
+        const me = (rel?.user ?? []).find(r => norm(r.name) === norm(arg));
+        const others = others0.map(r => ({ r, hit: mergeHint(me, r, app.current?.state) })).sort((a, b) => (b.hit ? 1 : 0) - (a.hit ? 1 : 0)).map(x => ({ ...x.r, _hit: x.hit }));
         const box = document.createElement('div'); box.className = 'ss-root ss-scope';
-        box.innerHTML = `<h3>🔗 「${esc(arg)}」을(를) 누구와 합칠까요?</h3><p class="ss-hint">같은 사람이 이름만 달라 둘로 생겼을 때 써요. 「${esc(arg)}」의 수치를 고른 사람에게 더하고 「${esc(arg)}」 카드는 사라져요. 앞으로 AI가 「${esc(arg)}」(이)라고 적어도 고른 사람에게 반영돼요. 관리 탭의 되돌리기로 되돌릴 수 있어요. (연락 대화 기록은 합쳐지지 않아요.)</p><div class="ss-row-btns">${others.map(r => `<button class="ss-btn sm" data-choice="${esc(r.name)}">${esc(r.name)}</button>`).join('')}</div>`;
+        box.innerHTML = `<h3>🔗 「${esc(arg)}」을(를) 누구와 합칠까요?</h3><p class="ss-hint">같은 사람이 이름만 달라 둘로 생겼을 때 써요. 「${esc(arg)}」의 수치를 고른 사람에게 더하고 「${esc(arg)}」 카드는 사라져요. 앞으로 AI가 「${esc(arg)}」(이)라고 적어도 고른 사람에게 반영돼요. 관리 탭의 되돌리기로 되돌릴 수 있어요. (연락 대화 기록은 합쳐지지 않아요.)</p><div class="ss-row-btns">${others.map(r => `<button class="ss-btn sm${r._hit ? ' pri' : ''}" data-choice="${esc(r.name)}" ${r._hit ? `title="${esc(r._hit)}"` : ''}>${r._hit ? '⭐ ' : ''}${esc(r.name)}</button>`).join('')}</div>${others.some(r => r._hit) ? '<p class="ss-hint">⭐ = 같은 사람일 수 있어요 (이름 · 직함이 겹쳐요)</p>' : ''}`;
         const to = await choosePopup(box);
         if (!to) return;
         await addAdjust({ ops: [['_merge', `${arg} => ${to}`]], label: `🔗 ${arg} → ${to} 합침` });

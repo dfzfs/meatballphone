@@ -16,7 +16,7 @@ import { terms, matchText } from './find.js';
 
 // ───── 확장 설정 서랍 ─────
 // 바꾸면 화면을 바로 다시 그려야 하는 스위치 (v2.7.3)
-const VIEW_KEYS = new Set(['fortuneTarot', 'fortuneOrb', 'fortuneShaman', 'mapMetro', 'hompyFull', 'hpLite', 'hpSkinHud', 'loopMode', 'swipeGhost', 'fateDebt', 'tensionOn', 'realGap', 'glitchView', 'ledgerKnow', 'ledgerPromise', 'guideOn', 'peekCost', 'relScar', 'memoryDrift', 'meddleOn', 'tasteBook', 'crossMail', 'groupChat', 'extraJudge', 'questExpire', 'memoOn', 'albumOn', 'peekOn', 'recordOn', 'freshDot', 'pipCheck', 'questJudge', 'msgCard', 'chipOutside', 'contactSimple', 'contactSimpleReflect', 'relStagesOn', 'relShowMemo', 'relShowWants', 'relShowLife', 'relShowPairs', 'relShowBtns', 'relShowNext', 'relShowUnlock']);
+const VIEW_KEYS = new Set(['uiFont', 'iconStyle', 'blurFx', 'albumBtn', 'fortuneTarot', 'fortuneOrb', 'fortuneShaman', 'mapMetro', 'hompyFull', 'hpLite', 'hpSkinHud', 'loopMode', 'swipeGhost', 'fateDebt', 'tensionOn', 'realGap', 'glitchView', 'ledgerKnow', 'ledgerPromise', 'guideOn', 'peekCost', 'relScar', 'memoryDrift', 'meddleOn', 'tasteBook', 'crossMail', 'groupChat', 'extraJudge', 'questExpire', 'memoOn', 'albumOn', 'peekOn', 'recordOn', 'freshDot', 'pipCheck', 'questJudge', 'msgCard', 'chipOutside', 'contactSimple', 'contactSimpleReflect', 'relStagesOn', 'relShowMemo', 'relShowWants', 'relShowLife', 'relShowPairs', 'relShowBtns', 'relShowNext', 'relShowUnlock']);
 // 「부가 기능 한 번에 끄기」 — 상태 계산 · 본편 롤플에 꼭 필요하지 않은 것만
 const LIGHT_OFF = { memoOn: false, albumOn: false, mindMode: 'off', recordOn: false, daySummary: false, featureTips: false, showMascot: false, mascotBuddy: false, musicToast: false };
 const ADDON_SET = new Set(['gearOn', 'ambientOn', 'giftTaste', 'promiseClock', 'mergeContact', 'guestbook', 'hpWave', 'socialAff']); // index.js의 ADDON_KEYS와 같은 목록
@@ -85,6 +85,8 @@ function settingsBody() {
             <label>번역 지침<textarea class="text_pole" rows="4" data-s="trRules" placeholder="Leon Hart = 레온 하트&#10;Kingdom of Ardel = 아르델 왕국&#10;편지는 반말로 옮길 것">${esc(s.trRules ?? '')}</textarea></label>
             <label>화면만 번역: 본편 AI가 새로 쓴 영어 글 자동 번역<select class="text_pole" data-s="trAuto">${o('trAuto', 'st', '실리 기본 번역일 때만 (무료 · 추천)')}${o('trAuto', 'always', '항상 — 번역 모델이면 새 글이 생길 때 AI 1회씩')}${o('trAuto', 'off', '끔 — 「상태창 전체 번역」을 누를 때만')}</select></label>
             <label class="checkbox_label"><input type="checkbox" data-s="trLlmFallback" ${s.trLlmFallback !== false ? 'checked' : ''}> 실리 번역기가 영어 그대로 돌려준 글은 묻지 않고 번역 모델로 다시 (그 글만 · 토큰 조금)</label>
+            <label class="checkbox_label"><input type="checkbox" data-s="trConvertAsk" ${s.trConvertAsk !== false ? 'checked' : ''}> 「한국어 칸을 영어 저장으로」 바꾸기 전에 묻기 <small>(끄면 바로 바꿔요 · 글만 바뀌고 숫자는 그대로예요)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="trAutoConvert" ${s.trAutoConvert === true ? 'checked' : ''}> 🔁 채팅을 열 때 한국어로 저장된 칸을 저절로 영어 저장으로 <small>(실리 기본 번역일 때만 · 토큰 0 · 기본 꺼짐)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="trNotice" ${s.trNotice === true ? 'checked' : ''}> 🌐 번역 알림 띄우기 — 「한국어로 저장된 칸이 있어요」 · 「번역하지 못했어요」처럼 저절로 뜨는 알림 <small>(기본 꺼짐 · 누른 것에 대한 대답은 그대로)</small></label>
             <small><b>번역 모델</b>: 적은 글이 그대로 지침으로 가요. <b>실리 기본 번역</b>: 지침을 읽지 못해서 <code>원문 = 번역</code> 모양의 줄만 써요 (이름·용어 고정). 다른 줄은 무시돼요.</small>
             <div class="ss-set-btns"><button class="menu_button" data-s-act="trsheet"><i class="fa-solid fa-language"></i> 상태창 전체 번역</button><button class="menu_button" data-s-act="trprune" title="지금 상태창에 없는 옛 번역을 지워 채팅 파일을 줄이고 화면 번역을 빠르게 (📌 고정한 건 남김 · AI 0회)"><i class="fa-solid fa-broom"></i> 번역 사전 정리</button><button class="menu_button" data-s-act="trclear" title="이 채팅의 번역을 모두 지워요 — 번역이 마음에 안 들 때 통째로 다시 받으려고 (📌 내가 고친 건 남김 · 저장된 상태는 그대로 · 지우는 데 AI 0회)"><i class="fa-solid fa-trash-can"></i> 번역 전체 삭제</button><button class="menu_button" data-s-act="toenglish" title="예전에 한국어로 저장된 칸을 영어 저장으로 바꿔요. 지금 보이는 한국어는 화면 번역으로 남아요."><i class="fa-solid fa-right-left"></i> 한국어로 저장된 칸을 영어 저장으로 바꾸기</button></div>
@@ -113,6 +115,8 @@ function settingsBody() {
             <label>확장 AI에 쓸 모델 (연결 프로필)
                 <div class="ss-set-inline"><select class="text_pole" data-s="aiProfile">${profileOptions(s.aiProfile)}</select><button class="menu_button" data-s-act="profiles" title="새로고침"><i class="fa-solid fa-rotate"></i></button></div>
                 <small>만들기·추가 지시·연락 답장·뉴스 등에만 쓰여요. 롤플 본문은 메인 연결.</small></label>
+            <label>🧠 연결 프로필 없이 모델 이름만 <small>(메인 연결과 같은 회사로 모델만 바꿔 보내요 · 채팅 완성 API일 때 · 위에서 프로필을 고르면 프로필이 먼저 · 예: gpt-4o-mini, gemini-2.5-flash)</small><input class="text_pole" data-s="aiModelOnly" value="${esc(s.aiModelOnly ?? '')}" placeholder="비우면 메인 모델"></label>
+            <label>└ 번역에만 쓸 모델 이름 <small>(비우면 위 칸)</small><input class="text_pole" data-s="trModelOnly" value="${esc(s.trModelOnly ?? '')}" placeholder="비우면 위와 같음"></label>
             <details class="ss-set-more"><summary>기능별 모델 따로 고르기</summary>
                 <small>비워 두면 위의 확장 AI 모델을 써요.</small>
                 <label>연락 (메신저·편지 답장 · 선톡)<select class="text_pole" data-s="profContact">${featOptions(s.profContact)}</select></label>
@@ -127,6 +131,8 @@ function settingsBody() {
             <label>확장 AI 최대 출력 토큰<input type="number" min="500" max="32000" class="text_pole" data-s="aiMaxTokens" value="${s.aiMaxTokens}"></label>
             <label>생성 때 읽을 최근 채팅 수<input type="number" min="0" max="100" class="text_pole" data-s="recentForGen" value="${s.recentForGen}"></label>
             <label>📖 생성 때 채팅 읽는 방식 <small>(만들기 · 칸 다시 생성 · AI로 수정의 재료 — 길게 읽을수록 그 요청의 토큰이 늘어요. 본편 · 다른 확장 AI 호출은 그대로예요)</small><select class="text_pole" data-s="genRead">${o('genRead', 'short', '최근 채팅 · 메시지마다 앞 700자 (기본)')}${o('genRead', 'last', '최근 채팅 + 마지막 답은 전체')}${o('genRead', 'recent', '최근 채팅을 길게 (2,500자씩 · 마지막 답은 전체)')}${o('genRead', 'all', '채팅 전체 (처음부터 끝까지)')}</select></label>
+            <label>「최근 채팅」으로 읽을 때 메시지마다 읽을 글자 수 <small>(기본 700 · 긴 답의 뒷부분 사건까지 읽히려면 늘려요)</small><input type="number" min="200" max="6000" step="100" class="text_pole" data-s="genReadLen" value="${s.genReadLen ?? 700}"></label>
+            <label>태그가 빠진 답을 따로 분석할 때 읽을 글자 수 <small>(🔍 칩 점검 · 넘으면 앞 · 뒤를 반씩 읽어요)</small><input type="number" min="2000" max="40000" step="1000" class="text_pole" data-s="fixReadCap" value="${s.fixReadCap ?? 8000}"></label>
             <label>「채팅 전체」로 읽을 때 최대 글자 수 <small>(넘으면 오래된 메시지부터 앞부분만 남겨요)</small><input type="number" min="4000" max="2000000" step="10000" class="text_pole" data-s="genReadCap" value="${s.genReadCap}"></label>
             <label class="checkbox_label"><input type="checkbox" data-s="genNote" ${s.genNote === true ? 'checked' : ''}> 📝 생성 때 이 채팅의 작가 노트도 읽기 <small>(기본 끔 — 페르소나 · 세계관을 작가 노트에 적어 두는 분용. 문체 지시는 무시하고 사실만 참고하게 해요)</small></label>
             <label>생성 때 읽을 로어북 최대 글자 수<input type="number" min="0" max="100000" step="1000" class="text_pole" data-s="loreChars" value="${s.loreChars}"></label>
@@ -223,6 +229,11 @@ function settingsBody() {
             <label class="checkbox_label"><input type="checkbox" data-s="fortuneShaman" ${s.fortuneShaman === true ? 'checked' : ''}> <b>🪭 점집: 무당 · 굿</b> <small>(v2.9 · 기본 끔 — 박보살 할매의 사주 · 신점, 굿으로 저주 풀기 · 한 번에 AI 1회 · 복채)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="mapMetro" ${s.mapMetro === true ? 'checked' : ''}> <b>🚇 새 지도</b> <small>(v2.9 · 기본 끔 — 노선도 · 이동 모션 · 인물 이모지 핀 · 건물 정면도/층별 평면도 · 본거지 집 안 그림 · 지도 꾸미기. 끄면 예전 지도 · 화면만 · 토큰 0)</small></label>
             <b class="ss-set-h">데이터 · 화면</b>
+            <label>🔤 미트볼 화면 글꼴<select class="text_pole" data-s="uiFont">${o('uiFont', '', '기본 (IBM Plex Sans KR)')}${o('uiFont', 'theme', '실리 테마 글꼴 따라가기')}${o('uiFont', 'dot', '미트볼 도트 글꼴')}${s.uiFont && !['theme', 'dot'].includes(s.uiFont) ? o('uiFont', s.uiFont, s.uiFont) : ''}</select></label>
+            <label>🖼 화면의 그림 글자<select class="text_pole" data-s="iconStyle">${o('iconStyle', 'emoji', '이모지 그대로 (기본)')}${o('iconStyle', 'line', '선 아이콘 (화면만 · 기기마다 모양이 같아요)')}</select></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="popX" ${s.popX !== false ? 'checked' : ''}> 「닫기」뿐인 창은 오른쪽 위 ✕로 닫기 <small>(아래 닫기 줄이 사라져 폰에서 내용이 넓어져요)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="blurFx" ${s.blurFx !== false ? 'checked' : ''}> 옆 서랍 · 알림 뒤 흐림 효과 <small>(끄면 글이 또렷하고 폰에서 가벼워요)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="albumBtn" ${s.albumBtn !== false ? 'checked' : ''}> 답마다 「추억 앨범에 담기」 단추 <small>(끄면 단추만 숨겨요 · 앨범 탭은 그대로)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="hompyFull" ${s.hompyFull !== false ? 'checked' : ''}> <b>📒 전체화면은 미니홈피 모양으로</b> <small>(v2.8 새 화면 · 기본 끔 — 켜면 상태창의 전체화면이 위에 메뉴, 옆에 프로필 · 상태 · 일촌 창, 가운데에 지금 탭이 있는 미니홈피로 열려요. 화면만 바뀌고 계산 · 토큰은 그대로예요)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="hpLite" ${s.hpLite === true ? 'checked' : ''}> 🪶 미니홈피 가볍게 <small>(옆 창 없이 가운데 창만 그려요 — 큰 상태창 · 폰에서 화면이 가벼워져요. 꾸미기 › 창에서도 바꿔요)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="hpSkinHud" ${s.hpSkinHud === true ? 'checked' : ''}> 🪟 HUD · 보통 상태창도 미니홈피와 같은 모양으로 <small>(기본 끔 — 끄면 예전 모양 그대로)</small></label>
@@ -284,6 +295,7 @@ function bindSettings(el) {
         if (k === 'ssGenLang' && e.target.value === 'enview') toastr.info('이제부터 만드는 상태창은 영어로 저장되고 화면에만 번역돼요. 이미 한국어로 저장된 칸은 그대로예요.', TITLE);
         if (k === 'mascotSound' || k === 'mascotVolume') playMascotSound(); // 고르면 바로 들려주기
         app.storyChanged?.(); // 🧭 이야기 장치를 켜고 껐을 수 있음 (화면 깨짐 표시 맞추기)
+        if (k === 'uiFont' || k === 'blurFx' || k === 'albumBtn') app.ensureUI?.(); // ✨ 글꼴 · 흐림 · 앨범 단추는 바로 (kit.js applyTheme)
         if (VIEW_KEYS.has(k)) { try { app.applyRetro?.(); } catch { /* 꾸밈일 뿐 */ } app.redecorate(); app.refreshNow(); rerenderPanels(true); app.renderHud?.(); return; } // 화면 모양이 바뀌는 스위치는 바로 다시 그림
         app.refreshNow();
     });
