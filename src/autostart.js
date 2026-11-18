@@ -3,7 +3,7 @@
 //   · AI를 부르는 것은 「세계관 맞추기」(1회)와 「고른 대로 채우기」(묶음마다 1회) 둘뿐 — 둘 다 단추를 눌렀을 때만
 //   · 어디까지 했는지는 meta.auto = { tpl: [아직 틀뿐인 칸], world: 세계관을 AI로 맞췄나 } (다 채우면 열쇠를 지운다)
 //   · 끄기: 설정 autoStart = false (그러면 예전처럼 「만들기」를 눌러야 생긴다) · 이 채팅에서 상태창을 끈 경우(meta.off) · 카드에 상태창이 붙어 있는 경우엔 만들지 않는다
-import { app, ctx, settings, getMeta, saveMeta, modOn, MOD, MOD_IDS, REC_MODS, normalize, normPlay, esc, TITLE, LOG, ssWarn, ssErr } from './core.js';
+import { app, ctx, settings, sizeGroups, getMeta, saveMeta, modOn, MOD, MOD_IDS, REC_MODS, normalize, normPlay, esc, TITLE, LOG, ssWarn, ssErr } from './core.js';
 import { setBase, commit, gatherSources, chatCharacters } from './engine.js';
 import { skeleton, skeletonCore } from './skeleton.js';
 import { cardPack } from './safe.js';
@@ -50,7 +50,7 @@ export function fillTodo(s = app.current?.state, meta = getMeta()) {
 export function fillGroups(ids, GEN_GROUPS) {
     if (settings().genBatch === false) return ids.map(id => [id]);
     const gs = GEN_GROUPS.map(g => g.filter(id => ids.includes(id))).filter(g => g.length), left = ids.filter(id => !GEN_GROUPS.flat().includes(id));
-    return left.length ? [...gs, left] : gs;
+    return sizeGroups(left.length ? [...gs, left] : gs);
 }
 // 「고른 대로 채우기」가 AI를 몇 번 부르나 (화면에 미리 보여 준다 · 묶음 수 + 세계관) — ai.js를 부르지 않게 묶음을 여기 적어 둔다 (ai.js GEN_GROUPS와 같아야 한다)
 const GROUPS0 = [['profile', 'rel', 'contact'], ['wallet', 'shop', 'home'], ['map', 'calendar', 'quest'], ['stats', 'dice', 'custom'], ['ach', 'memo', 'fate'], ['news', 'gossip', 'board', 'sns']];

@@ -127,6 +127,7 @@ function settingsBody() {
             </details>
             <label class="checkbox_label"><input type="checkbox" data-s="aiFallbackMain" ${s.aiFallbackMain ? 'checked' : ''}> 연결 프로필이 실패하면 메인 연결로 다시 보내기 <small>(기본 끔 — 실패하면 거기서 멈추고 알려 줘요 · 비싼 메인 모델로 새는 것 방지)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="genBatch" ${s.genBatch ? 'checked' : ''}> 상태창 만들기: 관련 칸끼리 묶어서 생성 <small>(호출 17번 → 6번 · 빠진 칸만 따로 다시)</small></label>
+            <label>📦 묶음 크기 <small>(크게 묶을수록 AI 횟수가 줄어요 · 출력 한도가 큰 모델(Gemini 4 Argon 등)용 — 잘리면 빠진 칸만 따로 다시 받아요)</small><select class="text_pole" data-s="genBatchSize">${o('genBatchSize', 'normal', '보통 — 엮인 칸끼리 2~4칸씩 (기본)')}${o('genBatchSize', 'big', '크게 — 6칸까지')}${o('genBatchSize', 'one', '한 번에 — 세계관 1번 + 나머지 1번')}</select></label>
             <label>동시에 보낼 생성 요청 수 <small>(너무 높으면 API가 거절할 수 있어요)</small><input type="number" min="1" max="8" class="text_pole" data-s="genParallel" value="${s.genParallel}"></label>
             <label>확장 AI 최대 출력 토큰<input type="number" min="500" max="32000" class="text_pole" data-s="aiMaxTokens" value="${s.aiMaxTokens}"></label>
             <label>생성 때 읽을 최근 채팅 수<input type="number" min="0" max="100" class="text_pole" data-s="recentForGen" value="${s.recentForGen}"></label>

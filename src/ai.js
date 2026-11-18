@@ -84,7 +84,7 @@ export async function genGroup(mods, { sources, core, instruction, profileMode, 
         L.push(`--- PANEL "${mod}" (${MOD[mod].name}) ---\n${P(`gen.${mod}`, { difficulty: diffLine(), contactMode: contactModeLine(contactMode) })}${mod === 'profile' ? `\nMODE: ${profileMode ?? 'minimal'}` : ''}\nJSON shape: ${SCHEMA[mod]}`);
     }
     L.push(`=== OUTPUT ===\nONE JSON object with exactly these keys: {${mods.map(m => `"${m}": {…}`).join(', ')}}`);
-    const max = Math.min(Math.max(Number(settings().aiMaxTokens) || 6000, 2500 * mods.length), 24000);
+    const max = Math.min(Math.max(Number(settings().aiMaxTokens) || 6000, 2500 * mods.length), mods.length > 4 ? 32000 : 24000); // 큰 묶음은 32K까지 (생각하는 모델은 생각에도 한도를 쓴다 · 32,768을 넘기면 거부하는 API가 있어 그 아래로)
     const raw = await aiJSON(feature, P('gen.system'), L.join('\n\n'), max);
     for (const m of mods) if (raw?.[m] && typeof raw[m] === 'object' && !Array.isArray(raw[m])) raw[m] = trimGen(raw[m], m); // 줄인 다음 번역
     const obj = await finJSON(raw, core);

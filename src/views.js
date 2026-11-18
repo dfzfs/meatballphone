@@ -717,7 +717,7 @@ const PK_DETAIL = {
 const PK_COMMON = [
     ['send', 'AI에게 보내는 방식', ['injectMode', 'sceneFilter', 'sceneTurns', 'deltaMode', 'deltaEvery', 'injectDepth', 'injWorld', 'injScan', 'goneInject', 'oocDetect', 'skipQuiet']],
     ['look', '화면 · 알림 · 기록', ['msgCard', 'chipOutside', 'freshDot', 'toastMode', 'toastPos', 'toastSec', 'featureTips', 'actionTips', 'albumOn', 'recordOn', 'autoStart']],
-    ['make', '만들기 재료 · 숨긴 답 · 지우기 · 뒤로 가기', ['genRead', 'genReadLen', 'genReadCap', 'fixReadCap', 'genNote', 'hideSkip', 'askDelete', 'backClose']],
+    ['make', '만들기 재료 · 숨긴 답 · 지우기 · 뒤로 가기', ['genBatchSize', 'genRead', 'genReadLen', 'genReadCap', 'fixReadCap', 'genNote', 'hideSkip', 'askDelete', 'backClose']],
     ['guard', '다른 확장과 같이 쓰기 (간섭 차단)', ['guardData', 'guardLook']],
 ];
 const pkDrawer = (k) => document.querySelector(`#ss-settings [data-s="${k}"]`);

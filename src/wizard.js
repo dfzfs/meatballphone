@@ -5,7 +5,7 @@ import { genModule, genGroup, GEN_GROUPS } from './ai.js';
 import { popup, askConfirm, busyBtn, seg, sec, mascot } from './kit.js';
 import { GROUPS, TAB_MOD } from './views.js';
 import { GEN_MODES, HYBRID_TPL, skeleton, skeletonCore, skeletonHint } from './skeleton.js';
-import { REC_MODS, defaultModOn } from './core.js';
+import { REC_MODS, defaultModOn, sizeGroups } from './core.js';
 
 // ───── 처음 만들기 ─────
 const LIFE_STARTS = ['life', 'fusion', 'apoc'], START_IDS = ['simple', 'basic', ...LIFE_STARTS]; // 만들기 창 「어떻게 쓸까요」 (v2.9: 게임 모드)
@@ -100,7 +100,7 @@ export async function openWizard() {
         el.querySelector('.ss-gmhint')?.classList.toggle('ss-hide', W.gm === 'ai');
         if (W.gm === 'tpl') { el.querySelector('.ss-w-cost').textContent = `AI 0회 · 토큰 0 · 기능 ${on0.length}개를 기본 틀로 바로 만들어요`; el.querySelector('.ss-cmode').classList.toggle('ss-hide', !el.querySelector('[data-mod="contact"]').checked); return; }
         const on = W.gm === 'hybrid' ? on0.filter(id => !HYBRID_TPL.includes(id)) : on0, n = on.length;
-        const g = settings().genBatch ? GEN_GROUPS.filter(gr => gr.some(id => on.includes(id))).length : n;
+        const g = settings().genBatch ? sizeGroups([...GEN_GROUPS.map(gr => gr.filter(id => on.includes(id))), on.filter(id => !GEN_GROUPS.flat().includes(id))]).length : n;
         el.querySelector('.ss-w-cost').textContent = settings().genBatch ? `AI ${g + 1}회 (세계 핵심 1 + 묶음 ${g} · 기능 ${n}개) · 보통 1~2분` : `AI ${n + 1}회 (세계 핵심 1 + 기능 ${n}) · 보통 1~3분`; el.querySelector('.ss-cmode').classList.toggle('ss-hide', !el.querySelector('[data-mod="contact"]').checked); };
     cost();
     el.addEventListener('change', (e) => { const l = e.target.closest('.ss-mod'); if (l) l.classList.toggle('on', e.target.checked); cost(); });
@@ -287,9 +287,10 @@ export async function openWizard() {
         if (await runOne('core')) {
             const par = clamp(parseInt(settings().genParallel, 10) || 4, 1, 8);
             if (settings().genBatch) {
-                const groups = GEN_GROUPS.map(g => g.filter(id => ids.includes(id))).filter(g => g.length);
+                let groups = GEN_GROUPS.map(g => g.filter(id => ids.includes(id))).filter(g => g.length);
                 const left = ids.filter(id => !GEN_GROUPS.flat().includes(id));
                 if (left.length) groups.push(left);
+                groups = sizeGroups(groups); // 📦 묶음 크기 (설정 genBatchSize)
                 const q = [...groups];
                 const worker = async () => { while (q.length) await runGroup(q.shift()); };
                 await Promise.all(Array.from({ length: Math.min(par, q.length) }, worker));

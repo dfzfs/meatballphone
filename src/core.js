@@ -156,7 +156,8 @@ export const DEFAULTS = Object.freeze({
     hompyFull: false,        // 📒 전체화면으로 열면 미니홈피 모양으로 (v2.8 · 화면만 · 기본 끔 — 확장 설정 › 데이터 · 화면에서 켬)
     sheetFull: false,        // 상태창을 전체화면으로 열기
     genBatch: true,          // 상태창 만들기: 관련 칸끼리 묶어서 한 번에 생성 (17번 → 6번)
-    genParallel: 4,          // 동시에 보낼 생성 요청 수
+    genParallel: 4,
+    genBatchSize: 'normal',  // 📦 묶음 크기: normal (2~4칸씩) · big (6칸까지) · one (세계관 뺀 나머지를 한 번에) — 출력 한도가 큰 모델용 (v2.9.1)          // 동시에 보낼 생성 요청 수
     sceneFilter: true,       // 최근 대화에 나온 인물만 자세히 주입, 나머지는 이름만
     sceneTurns: 6,           // 장면 판단에 볼 최근 메시지 수
     pinCap: 8,               // 주입할 고정 메모 최대 개수
@@ -508,6 +509,15 @@ function recErr(level, args) {
 export function ssErr(...a) { recErr('error', a); console.error(...a); }
 export function ssWarn(...a) { recErr('warn', a); console.warn(...a); }
 // 넘어가도 되지만 흔적은 남길 것 — 콘솔엔 안 찍고 오류 보고문에만 남는다. 빈 catch { } 대신 쓴다
+// 📦 묶음 크기 (v2.9.1 · 설정 genBatchSize): normal = 엮인 칸끼리 2~4칸 (예전 그대로) · big = 이어 붙여 6칸까지 · one = 세계관 뺀 나머지를 한 번에
+//   출력 한도가 큰 모델(Gemini 4 Argon 등)에서 횟수를 줄인다 — 한 번에 받을수록 잘리면 잃는 것도 크다 (빠진 칸만 따로 다시 받음)
+export function sizeGroups(groups) {
+    const m = settings().genBatchSize, gs = groups.filter(g => g.length);
+    if (m === 'one') return gs.length ? [gs.flat()] : [];
+    if (m !== 'big') return gs;
+    const out = []; for (const g of gs) { const last = out.at(-1); if (last && last.length + g.length <= 6) last.push(...g); else out.push([...g]); }
+    return out;
+}
 export function ssNote(where, e) { recErr('note', [where, e]); }
 export function h(html) {
     const t = document.createElement('template');
