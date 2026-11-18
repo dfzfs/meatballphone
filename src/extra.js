@@ -7,6 +7,7 @@ import { newSns, snsReactions, musicPicks, fillWants } from './ai.js';
 import { sec, emptyBox, chip, avatar, ai1, seg, gauge, meter, askInput, askConfirm, busyBtn, insertInput, closeIfPopup, mascot, choosePopup } from './kit.js';
 import { MUSIC_APPS, songLink } from './notify.js';
 import { openTrend } from './trend.js';
+import { collect, find, markHtml } from './find.js';
 
 const play = (x, label = '') => `<a class="ss-btn sm ss-play" href="${esc(songLink(x))}" target="_blank" rel="noopener" title="${esc((MUSIC_APPS[settings().musicApp] ?? MUSIC_APPS.youtube).name)}에서 찾기"><i class="fa-solid fa-play"></i>${label ? ` ${label}` : ''}</a>`;
 
@@ -405,41 +406,32 @@ export function recordView(s, d, ui) {
         ${sec(`📅 지난 하루들 <small>${days.length}</small>`, days.map(x => `<details class="ss-dayc"><summary><b>${esc(x.date)}</b><span>${x.cash ? `<em class="${x.cash > 0 ? 'pos' : 'neg'}">${signed(x.cash)}</em>` : ''}${x.aff.slice(0, 3).map(([n, v]) => `<em class="${v > 0 ? 'love' : 'neg'}">♥${esc(n)} ${signed(v)}</em>`).join('')}<small>${x.n}개</small></span></summary><ul>${x.labels.map(l => `<li>${esc(l)}</li>`).join('')}</ul></details>`).join('') || '<div class="ss-hint">날짜가 넘어가면 그날 있었던 일이 여기 정리돼요 (달력 기능).</div>')}`;
 }
 
-// ───── 🔎 검색 ─────
+// ───── 🔎 검색 (찾기는 find.js) ─────
+// 띄어 쓴 낱말은 모두 들어 있으면 찾음 · 조사 무시 · 설명 · 메모 · 댓글까지 · 꺼 둔 칸은 뺌 · 찾은 말 둘레를 칠해서 보여 줌
 export function searchAll(s, q) {
-    const n = norm(q); if (!n) return [];
-    const out = []; const d = s.data;
-    const hit = (t) => norm(t).includes(n);
-    const add = (icon, title, text, tab) => { if (out.length < 60) out.push({ icon, title, text: short(text, 90), tab }); };
-    for (const p of d.profile?.list ?? []) { const f = p.fields.find(x => hit(x.k) || hit(x.v)); if (hit(p.name) || hit(p.summary) || f) add('👤', p.name, f ? `${f.k}: ${f.v}` : p.summary, 'profile'); }
-    for (const m of d.memo?.list ?? []) if (hit(m.text)) add('📝', '메모', m.text, 'memo');
-    for (const [who, th] of Object.entries(d.contact?.threads ?? {})) for (const m of th) if (hit(m.text)) add('💬', `${who}${m.from === 'me' ? ' ← 나' : ''}`, msgText(m), 'contact');
-    for (const q2 of d.quest?.list ?? []) if (hit(q2.title) || hit(q2.desc)) add('📜', q2.title, q2.desc, 'quest');
-    for (const x of d.news?.items ?? []) if (hit(x.title) || hit(x.body)) add('📰', x.title, x.body, 'news');
-    for (const x of d.gossip?.issues ?? []) if (hit(x.title) || hit(x.body)) add('🍷', x.title, x.body, 'gossip');
-    for (const x of d.board?.posts ?? []) if (hit(x.title) || hit(x.body)) add('📋', x.title, x.body, 'board');
-    for (const x of d.sns?.posts ?? []) if (hit(x.text) || hit(x.pic) || hit(x.author)) add('#️⃣', x.author, x.text || x.pic, 'sns');
-    for (const p of d.map?.places ?? []) if (hit(p.name) || hit(p.desc)) add('📍', p.name, p.desc, 'map');
-    for (const i of d.wallet?.items ?? []) if (hit(i.name) || hit(i.desc)) add('🎒', i.name, i.desc, 'wallet');
-    for (const sh of d.shop?.shops ?? []) for (const i of sh.items) if (hit(i.name)) add('🏪', `${sh.name} · ${i.name}`, `${fmtNum(i.price)} — ${i.desc}`, 'shop');
-    for (const e of d.calendar?.events ?? []) if (hit(e.title)) add('📅', e.title, `${e.m}/${e.d} ${e.desc}`, 'calendar');
-    for (const t of d.custom?.tabs ?? []) for (const f of t.fields) if (hit(f.k) || hit(f.v)) add(t.icon, `${t.name} · ${f.k}`, String(f.v), 'custom');
-    if (settings().albumOn !== false) for (const a of getMeta()?.album ?? []) if (hit(a.text) || hit(a.note)) add('⭐', a.who, a.text, 'album');
-    return out;
+    const items = collect(s?.data, { on: (m) => { try { return modOn(m); } catch { return true; } }, album: settings().albumOn !== false ? (getMeta()?.album ?? []) : [] });
+    return find(items, q);
 }
 export async function openSearch() {
     const s = app.current?.state; if (!s) return;
     const el = document.createElement('div');
     el.className = 'ss-root ss-scope ss-search';
-    el.innerHTML = `<div class="ss-wz-head"><i class="fa-solid fa-magnifying-glass"></i><div><b>상태창 검색</b><small>프로필 · 메모 · 연락 · 퀘스트 · 소식 · SNS · 지도 · 소지품 · 앨범</small></div></div>
-        <input class="ss-in ss-q" placeholder="찾을 말 (예: 열쇠, 레온, 약속)"><div class="ss-results"></div>`;
-    const res = el.querySelector('.ss-results');
-    el.querySelector('.ss-q').addEventListener('input', (e) => {
-        const list = searchAll(s, e.target.value);
-        res.innerHTML = e.target.value.trim() ? list.map(x => `<div class="ss-note" data-tab="${esc(x.tab)}"><span class="ss-t-ico">${esc(x.icon)}</span><div class="ss-t-b"><b>${esc(x.title)}</b><small>${esc(x.text)}</small></div></div>`).join('') || '<div class="ss-hint">찾지 못했어요</div>' : '';
-    });
+    el.innerHTML = `<div class="ss-wz-head"><i class="fa-solid fa-magnifying-glass"></i><div><b>상태창 검색</b><small>프로필 · 관계 · 메모 · 연락 · 퀘스트 · 소식 · SNS · 지도 · 소지품 · 본거지 · 일정 · 앨범 …</small></div></div>
+        <input class="ss-in ss-q" placeholder="찾을 말 (예: 열쇠, 레온, 레온 약속)" enterkeyhint="search"><small class="ss-hint ss-q-n"></small><div class="ss-results"></div>`;
+    const res = el.querySelector('.ss-results'), cnt = el.querySelector('.ss-q-n'), inp = el.querySelector('.ss-q');
+    let timer = 0;
+    const run = () => {
+        const q = inp.value;
+        if (!q.trim()) { res.innerHTML = ''; cnt.textContent = ''; return; }
+        const r = searchAll(s, q);
+        cnt.textContent = r.total ? `${r.total}개 찾음${r.total > r.list.length ? ` · 앞의 ${r.list.length}개만 — 낱말을 더 적으면 좁혀져요` : ''}` : '';
+        res.innerHTML = r.list.map(x => `<div class="ss-note" data-tab="${esc(x.tab)}"><span class="ss-t-ico">${esc(x.icon)}</span><div class="ss-t-b"><b>${markHtml(x.title, r.terms)}</b><small>${markHtml(x.text, r.terms)}</small></div></div>`).join('')
+            || `<div class="ss-hint">찾지 못했어요${r.terms.length > 1 ? ' — 낱말을 하나만 적어 보세요 (띄어 쓴 낱말은 모두 들어 있어야 나와요)' : ''}</div>`;
+    };
+    inp.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(run, 120); });
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) { clearTimeout(timer); run(); } });
     res.addEventListener('click', (e) => { const n = e.target.closest('[data-tab]'); if (!n) return; el.closest('dialog')?.querySelector('.popup-button-ok')?.click(); setTimeout(() => app.openSheet?.(n.dataset.tab), 200); });
-    setTimeout(() => el.querySelector('.ss-q')?.focus(), 100);
+    setTimeout(() => inp?.focus(), 100);
     await app.popup(el, { large: true });
 }
 app.openSearch = openSearch;

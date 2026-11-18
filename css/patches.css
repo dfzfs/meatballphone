@@ -124,6 +124,8 @@ dialog.popup.ss-dlg.ss-full .popup-content { max-height: none; }
 .ss-toast.open .ss-t-b small { display: block; -webkit-line-clamp: unset; overflow: visible; white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere; }
 .ss-toast.open .ss-t-tip { flex-direction: column; }
 .ss-search .ss-q { width: 100%; margin-top: 4px; }
+.ss-search .ss-q-n { display: block; margin-top: 4px; min-height: 1em; }
+.ss-search .ss-results mark { background: color-mix(in srgb, var(--ss-hi) 28%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
 .ss-scope .ss-callout.new { background: color-mix(in srgb, var(--ss-hi) 7%, var(--ss-bg)); border-color: color-mix(in srgb, var(--ss-hi) 30%, transparent); }
 
 /* 관계 단계 · 질투 · 해금 */
