@@ -9,7 +9,7 @@ try {
     const adj = (ops) => page.evaluate(async (ops) => { await (await import('/ext/src/engine.js')).addAdjust({ ops, label: 'x' }); }, ops).then(() => sleep(250));
     await ai('time: 저녁');
     check((await cal()).time === '저녁' && !(await cal()).has, '안 고르면 예전 그대로 (시간대 낱말 · clock 열쇠 없음)');
-    check(/period \(one of the time slots\)/.test(await keys()), 'AI 안내도 예전 그대로');
+    check(/period \(one of the time slots/.test(await keys()), 'AI 안내도 예전 그대로');
     await ai('time: 오후 2시 반');
     check((await cal()).time === '오후 2시 반', '시간대 달력은 AI가 적은 글 그대로');
     await adj([['_clock', '24']]);

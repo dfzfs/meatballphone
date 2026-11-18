@@ -1112,6 +1112,8 @@ function relKeyHint() {
         : `aff (이름 ±N — ${A.aff}: affection${noLoveNote(rl)}) · trust (이름 ±N — ${A.trust})`;
 }
 const noLoveNote = (rl) => { const n = (rl?.user ?? []).filter(x => x.noLove).map(x => x.name); return n.length ? ` · platonic only, never raise aff: ${n.slice(0, 8).join(', ')}` : ''; };
+// 🕐 간결 · 초압축 · 변화 위주는 키 이름만 보내서 period가 「지금 시간」인지 몰랐다 (제보: 시간이 안 흐름 · {{user}}가 「5분 뒤」라고 써도 그대로) → 한 줄 덧붙임
+const timeKeyShort = (meta) => (!modOnRaw('calendar', meta) ? '' : calClock() ? ' (period = clock time now HH:MM — write it whenever time passes, even minutes, incl. skips in {{user}}\'s message)' : ' (period = time slot now — write it when the slot changes, incl. skips in {{user}}\'s message)');
 const relKeyShort = (rl) => { const A = relAxes(rl, viewTr()); return (A.love ? ` (aff = ${A.aff}: romantic interest, raise it on any romantic/flustered moment · trust = ${A.trust}${noLoveNote(rl)})` : noLoveNote(rl) ? ` (${noLoveNote(rl).slice(3)})` : ''); };
 // 📌 고정 메모를 몇 개까지 보낼지 (검수): 0 = 안 보냄 — 예전엔 0이 기본 8로 바뀌었고, 진짜 0이어도 slice(-0)이 전부를 돌려줬다
 const pinCapOf = (set) => { const n = parseInt(set.pinCap, 10); return clamp(Number.isFinite(n) ? n : 8, 0, 30); };
@@ -1128,7 +1130,7 @@ export function tagKeysFor(meta) {
         const pa = settings().pairAff === true ? ' · pairaff (A & B ±N — how close two characters OTHER than {{user}} are to each other, -100..100; +1~+3 after a real moment between them, − after they clash)' : '';
         K.push(playOf(meta).ensemble ? `pair (A & B = 관계 — how two characters relate; add or update when it truly changes)${pa}` : `${relKeyHint()} · rel (이름 = 관계 이름, when it truly changes) · pair (A & B = 관계)${pa}`);
     }
-    if (on('calendar')) K.push(`days (+1 when days pass / 3월 14일 to jump) · ${calClock() ? 'period (the clock time now, 24-hour HH:MM like 14:30 — write it in every reply where time has passed, even a few minutes; add "days: +1" when it passes midnight)' : 'period (one of the time slots)'} · weather (only when the story changes it) · event (날짜 | 제목 | 설명 — a new appointment)`);
+    if (on('calendar')) K.push(`days (+1 when days pass / 3월 14일 to jump) · ${calClock() ? 'period (the clock time now, 24-hour HH:MM like 14:30 — write it in every reply where time has passed, even a few minutes, also when {{user}}\'s message says time passed; add "days: +1" when it passes midnight)' : 'period (one of the time slots — write the new one whenever the slot changes, also when {{user}}\'s message skips time)'} · weather (only when the story changes it) · event (날짜 | 제목 | 설명 — a new appointment)`);
     if (on('quest')) K.push('quest (제목 | 새/수락/완료/실패 | 설명 — a new request appears, {{user}} accepts, or it ends; 제목 | 진행 내용 = progress)');
     if (on('news')) K.push('news (헤드라인 | 내용 — only for big public events)');
     if (on('gossip')) K.push('rumor (제목 | 내용 | 관련 인물 — when people start whispering about something)');
@@ -1433,7 +1435,7 @@ function buildUltra(r, opt = {}) {
     if (on('dice')) L.push('🎲[판정·…]=시스템 결과 그대로 서술 · 위험한 행동은 roll 키로 판정 요청');
     if (s.recent.length) L.push(`${viewTr() ? 'UI:' : 'UI행동:'}${recentI(s, 5)}`);
     if (!opt.noOutput && (set.sync === 'tag' || set.sync === 'tagPlus')) {
-        const keys = tagKeysFor(meta).map(k => k.match(/(^|· )([a-z]+) \(/g)?.map(x => x.replace(/[·( ]/g, '')).join(' ')).join(' ') + (modOnRaw('rel', meta) && d.rel ? relKeyShort(d.rel) : '');
+        const keys = tagKeysFor(meta).map(k => k.match(/(^|· )([a-z]+) \(/g)?.map(x => x.replace(/[·( ]/g, '')).join(' ')).join(' ') + (modOnRaw('rel', meta) && d.rel ? relKeyShort(d.rel) : '') + timeKeyShort(meta);
         L.push(outRule(P('inj.ultra.output', { keys })));
     }
     return { main: L.filter(Boolean).join('\n'), people: '' };
@@ -1462,7 +1464,7 @@ function buildDelta(r, plan, opt = {}) {
     if (plan.changes.length && !viewTr()) L.push(`변화:${plan.changes.slice(-14).join(' / ')}`);
     if (s.recent.length) L.push(`${viewTr() ? 'UI:' : 'UI행동:'}${recentI(s, 5)}`);
     if (!opt.noOutput && (set.sync === 'tag' || set.sync === 'tagPlus')) {
-        const keys = tagKeysFor(meta).map(k => k.match(/(^|· )([a-z]+) \(/g)?.map(x => x.replace(/[·( ]/g, '')).join(' ')).join(' ') + (modOnRaw('rel', meta) && d.rel ? relKeyShort(d.rel) : '');
+        const keys = tagKeysFor(meta).map(k => k.match(/(^|· )([a-z]+) \(/g)?.map(x => x.replace(/[·( ]/g, '')).join(' ')).join(' ') + (modOnRaw('rel', meta) && d.rel ? relKeyShort(d.rel) : '') + timeKeyShort(meta);
         L.push(outRule(P('inj.ultra.output', { keys })));
     }
     return { main: L.filter(Boolean).join('\n'), people: '' };
@@ -1779,7 +1781,7 @@ function buildInjection0(r, opt = {}) {
     if (s.recent.length) L.push(`Since the last reply {{user}} did (via the status UI): ${recentI(s, 8)}`);
     if (!opt.noOutput && (set.sync === 'tag' || set.sync === 'tagPlus')) {
         L.push(outRule(P('inj.output')));
-        L.push(lite ? `Keys (key: value, ±N for numbers, +/-name for lists, name | detail): ${keysI(tagKeysFor(meta)).map(k => k.match(/(^|· )([a-z]+) \(/g)?.map(x => x.replace(/[·( ]/g, '')).join(' ')).join(' ')}${modOnRaw('rel', meta) && s.data.rel ? relKeyShort(s.data.rel) : ''}` : `Keys: ${keysI(tagKeysFor(meta)).join(' · ')}`);
+        L.push(lite ? `Keys (key: value, ±N for numbers, +/-name for lists, name | detail): ${keysI(tagKeysFor(meta)).map(k => k.match(/(^|· )([a-z]+) \(/g)?.map(x => x.replace(/[·( ]/g, '')).join(' ')).join(' ')}${modOnRaw('rel', meta) && s.data.rel ? relKeyShort(s.data.rel) : ''}${timeKeyShort(meta)}` : `Keys: ${keysI(tagKeysFor(meta)).join(' · ')}`);
         if (!lite) L.push(viewTr() ? P('inj.example.en') : P('inj.example'));
     }
     return { main: L.filter(Boolean).join('\n'), people: PP.length ? `[STATUS SIM — PEOPLE (part of the state above)]\n${PP.join('\n')}\n${P('inj.people.absent')}` : '' };
