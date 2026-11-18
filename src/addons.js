@@ -155,6 +155,7 @@ export function promiseDday(p, s = st()) {
     let idx = null; try { idx = questDue(s, { deadline: p.due, since: Number.isFinite(p.day) ? p.day : now }); } catch { idx = null; }
     return Number.isFinite(idx) ? { idx, left: idx - now } : null;
 }
+app.promiseDday = (p) => { try { return promiseClockOn() ? promiseDday(p) : null; } catch { return null; } }; // 약속 장부 줄의 D-day 딱지 (story_ui.js)
 // 답을 받은 뒤: 처음 본 약속에 「적은 날」을 붙이고, 기한이 지난 약속은 어김으로 (우정 −4 · 약속 장부와 같은 처리)
 async function promiseTick() {
     if (!promiseClockOn() || !live()) return 0;
