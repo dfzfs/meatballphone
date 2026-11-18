@@ -74,11 +74,13 @@ try {
         const mods = [...el.querySelectorAll('[data-mod]:checked')].map(i => i.dataset.mod).sort().join(',');
         const res = { play: el.querySelector('[data-w="play"] > button.on')?.dataset.v, ens: el.querySelector('.ss-w-ens').checked, heroHidden: el.querySelector('.ss-hero').classList.contains('ss-hide'), mods, note: !el.querySelector('.ss-set-note').classList.contains('ss-hide') };
         el.querySelector('[data-set="romance"]').click();
+        res.music = !!el.querySelector('[data-mod="music"]') && !el.querySelector('[data-mod="music"]').checked; // 🎵 추천 음악도 고를 수 있다 (세트에 없으면 꺼짐)
         res.play2 = el.querySelector('[data-w="play"] > button.on')?.dataset.v; res.ens2 = el.querySelector('.ss-w-ens').checked; res.ensHidden2 = el.querySelector('.ss-ens').classList.contains('ss-hide');
         return res;
     });
     check(w.play === 'director' && w.ens && w.heroHidden && w.note, '세트: 군상극 → 풀사칭 · 주인공 없음', JSON.stringify(w));
     check(w.mods === 'calendar,gossip,map,memo,news,profile,rel', '세트: 군상극 기능 7개', w.mods);
+    check(w.music, '만들기 창에서 추천 음악도 고를 수 있음 (세트에 없으면 꺼짐)', JSON.stringify(w));
     check(w.play2 === 'rp' && !w.ens2 && w.ensHidden2, '세트: 여성향 연애 → 롤플', JSON.stringify(w));
     const errs = logs.filter(l => !/404/.test(l)); // 만들기 창은 실리의 로어북 모듈(/scripts/world-info.js)을 찾는데 시험 페이지엔 없다
     check(!errs.length, 'no console errors', errs.join('\n'));

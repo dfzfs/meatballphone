@@ -21,14 +21,18 @@ try {
     check(await Q(() => !!document.querySelector('dialog .ss-pk[data-pk="rel"] .ss-pk-syn [data-act="pkon"][data-arg="contact"]') && !document.querySelector('dialog .ss-pk[data-pk="rel"] .ss-pk-syn [data-act="pkon"][data-arg="profile"]')), '「같이 켜면」: 꺼진 칸만 단추 (켠 칸은 ✔)');
     await Q(() => document.querySelector('dialog .ss-pk[data-pk="rel"] .ss-pk-syn [data-act="pkon"][data-arg="contact"]').click()); await sleep(500);
     check((await onMods()).split(',').includes('contact') && await Q(() => !document.querySelector('dialog .ss-pk[data-pk="contact"] .ss-pk-sub').hidden), '눌러서 켜면 그 칸의 딸린 옵션이 펼쳐짐');
+    // 「같이 켜면」 문구: 운명 → 주사위(실제로 판정에 안 들어감) · SNS → 연락(「사람 묶음」이 아님)은 없다
+    check(await Q(() => !document.querySelector('dialog .ss-pk[data-pk="fate"] .ss-pk-syn [data-arg="dice"]') && !document.querySelector('dialog .ss-pk[data-pk="sns"] .ss-pk-syn [data-arg="contact"]') && !/사람 묶음/.test(document.querySelector('dialog .ss-mg[data-mg="mods"]').textContent)), '「같이 켜면」에 틀린 이어짐이 없음');
     // 상점을 켜면 재산도
     await Q(async () => { const core = await import('/ext/src/core.js'); const m = core.getMeta(true); m.mods.wallet = false; m.mods.shop = false; await core.saveMeta(); const el = document.querySelector('dialog .ss-panel'); window.__SS_TEST__.api.app.renderPanel(el); }); await sleep(200);
     await Q(() => { const i = document.querySelector('dialog .ss-pk[data-pk="shop"] input[data-chg="mod"]'); i.checked = true; i.dispatchEvent(new Event('change', { bubbles: true })); }); await sleep(500);
     const afterShop = await onMods();
     check(['shop', 'wallet'].every(id => onModsHas(afterShop, id)), '상점을 켜면 꼭 필요한 재산도 같이 켜짐');
     // 달력 밑에 시간 적는 법 · 지도 밑에 보기 방식
-    // (「추천만」은 선택 기능 스위치를 처음 값으로 돌리므로 v2.9 「새 지도」도 꺼진다 → 이동 모션은 새 지도를 켰을 때만 보여서 다시 켠다)
-    check(await Q(async () => (await import('/ext/src/core.js')).settings().mapMetro === false), '「추천만」을 누르면 새 지도도 처음 값(끔)으로');
+    // 「가볍게 · 추천 6칸만」은 다른 묶음처럼 칸만 바꾼다 — 모든 채팅에 걸리는 선택 기능(새 지도 · 점집 …)은 그대로
+    check(await Q(async () => { const S = (await import('/ext/src/core.js')).settings(); return S.mapMetro === true && S.fortuneTarot === true; }), '「가볍게」는 칸만 — 새 지도 · 점집 스위치는 그대로');
+    // 딸린 옵션의 자리: 👕 옷차림 · 장비는 재산 밑 · 🕰 현실 시간 연동은 관계와 상관없어 「그 밖의 장치」 · 흥정 판정은 재산 · 상점 밑
+    check(await Q(() => !!document.querySelector('dialog .ss-pk[data-pk="wallet"] [data-chg="setflag"][data-arg="gearOn"]') && !document.querySelector('dialog .ss-pk[data-pk="rel"] [data-arg="realGap"]') && !!document.querySelector('dialog .ss-mg[data-mg="mods"] [data-chg="setflag"][data-arg="realGap"]') && !document.querySelector('dialog .ss-pk[data-pk="stats"] [data-arg="extraJudge"]')), '옷차림은 재산 밑 · 현실 시간 연동은 그 밖의 장치 · 흥정 판정은 수치 밑에 없음');
     await Q(() => { const i = document.querySelector('dialog .ss-pk[data-pk="map"] input[data-chg="setflag"][data-arg="mapMetro"]'); i.checked = true; i.dispatchEvent(new Event('change', { bubbles: true })); }); await sleep(500);
     check(await Q(() => !!document.querySelector('dialog .ss-pk[data-pk="calendar"] .ss-pk-sub [data-act="clockstyle"][data-arg="24"]') && !!document.querySelector('dialog .ss-pk[data-pk="map"] .ss-pk-sub [data-act="mapmotion"][data-arg="off"]')), '달력 밑에 「시간 적는 법」 · 지도 밑에 「이동 모션」');
     await Q(() => document.querySelector('dialog .ss-pk[data-pk="calendar"] .ss-pk-sub [data-act="clockstyle"][data-arg="24"]').click()); await sleep(500);

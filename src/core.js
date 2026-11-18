@@ -551,8 +551,8 @@ export const PLAY_MODES = {
 export const PLAY_SETS = {
     romance: { name: '여성향 연애', icon: 'fa-heart', desc: '1:1 롤플 · 관계 · 연락 · 달력 중심', play: { mode: 'rp' }, mods: ['profile', 'rel', 'calendar', 'contact', 'map', 'memo', 'sns'], set: {} },
     routes: { name: '다인 · 루트 미정', icon: 'fa-users', desc: '내가 주인공, 누구와 이어질지 모름 · 👑 루트 비교 켬', play: { mode: 'multi' }, mods: ['profile', 'rel', 'calendar', 'contact', 'map', 'memo', 'gossip', 'sns'], set: { relRace: true } },
-    director: { name: '풀사칭', icon: 'fa-clapperboard', desc: '주인공도 AI가 씀 · 💞 인물끼리 호감 켬', play: { mode: 'director' }, mods: ['profile', 'stats', 'rel', 'calendar', 'map', 'memo', 'gossip'], set: { pairAff: true, relRace: true } },
-    ensemble: { name: '풀사칭 · 군상극', icon: 'fa-people-group', desc: '주인공 없음 · 인물끼리의 관계만 추적', play: { mode: 'director', ensemble: true }, mods: ['profile', 'rel', 'calendar', 'map', 'memo', 'gossip', 'news'], set: { pairAff: true, relRace: true } },
+    director: { name: '풀사칭', icon: 'fa-clapperboard', desc: '주인공도 AI가 씀 · 💞 인물끼리 호감 · 👑 루트 비교 켬', play: { mode: 'director' }, mods: ['profile', 'stats', 'rel', 'calendar', 'map', 'memo', 'gossip'], set: { pairAff: true, relRace: true } },
+    ensemble: { name: '풀사칭 · 군상극', icon: 'fa-people-group', desc: '주인공 없음 · 인물끼리의 관계만 추적 · 💞 인물끼리 호감 · 👑 루트 비교 켬', play: { mode: 'director', ensemble: true }, mods: ['profile', 'rel', 'calendar', 'map', 'memo', 'gossip', 'news'], set: { pairAff: true, relRace: true } },
 };
 export function normPlay(p) {
     p = p && typeof p === 'object' ? p : {};

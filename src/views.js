@@ -613,6 +613,7 @@ export const ADDON_FLAGS = [
     ['ambientShop', 'fa-store-slash', '밤에는 가게 닫기', '날씨 · 시간대 효과를 켰을 때만 · 토큰 0'],
     ['giftTaste', 'fa-gift', '취향에 맞는 선물', '좋아하는 것이면 호감 2배 · 싫어하는 것이면 −1 · 토큰 0'],
     ['promiseClock', 'fa-hourglass-half', '약속 기한', '약속 장부의 기한이 지나면 자동으로 어김 · 토큰 0~1줄'],
+    ['gearOn', 'fa-shirt', '옷차림 · 장비', '소지품을 칸마다 입거나 들어요 (재산 탭 아래) · 효과의 「힘 +2」는 판정에, 「체온 -30%」는 욕구에 · AI에게 「지금 입은 것」 한 줄'],
     ['mergeContact', 'fa-link', '합칠 때 연락도 옮기기', '인물을 합칠 때 연락 대화도 옮길지 물어봐요 · 토큰 0'],
     ['trendMore', 'fa-chart-line', '그래프에 수치 더하기', '변화 그래프에 게이지 · 내 탭 숫자 그래프 · 토큰 0'],
     // 🔮 점집 (v2.9 · 운명 칸 밑): 점쟁이마다 따로 — 하나라도 켜면 운명 탭 맨 아래에 점집이 생겨요
@@ -626,16 +627,10 @@ export const ADDON_FLAGS = [
 const STORY_FLAGS = STORY_DEVICES.map(d => [STORY_KEY[d.id], d.icon, d.name, `${d.desc} · ${d.cost}`]);
 const FLAG_KEYS = new Set([...ADDON_FLAGS, ...STORY_FLAGS].map(x => x[0]));
 const FLAG_BY = Object.fromEntries([...ADDON_FLAGS, ...STORY_FLAGS].map(f => [f[0], f]));
-// 부가 기능의 묶음 (관리 › 쓸 기능의 스위치 · 부가 기능 탭의 화면이 같은 분류를 쓴다) — [id, 이름, 스위치의 설정 키들]
-const EXTRA_GROUPS = [
-    ['people', '사람 · 관계', ['guideOn', 'relRace', 'pairAff', 'peekCost', 'relScar', 'memoryDrift', 'meddleOn', 'tasteBook', 'giftTaste', 'mergeContact']],
-    ['social', '연락 · 미니홈피', ['groupChat', 'crossMail', 'hpWave', 'guestbook', 'guestbookAuto', 'socialAff']],
-    ['flow', '이야기 흐름', ['loopMode', 'swipeGhost', 'fateDebt', 'tensionOn', 'realGap', 'glitchView']],
-    ['ledger', '장부 · 약속', ['ledgerKnow', 'ledgerPromise', 'promiseClock']],
-    ['world', '세계 · 기록', ['ambientOn', 'ambientShop', 'trendMore']],
-].map(([id, name, keys]) => [id, name, keys.map(k => FLAG_BY[k]).filter(Boolean)]);
 // 부가 기능 스위치를 한 번에 (확장 설정 창의 같은 체크 칸도 맞춘다): 'all' 전부 켬 · 'none' 전부 끔 · 'rec' 처음 값
-function setFlags(how) { const st = settings(); for (const k of FLAG_KEYS) { const v = how === 'all' ? true : how === 'rec' ? !!FLAG_BY[k][4] : false; st[k] = v; const box = document.querySelector(`#ss-settings input[data-s="${k}"]`); if (box) box.checked = v; } saveSettings(); try { app.storyChanged?.(); } catch { /* 화면 표시일 뿐 */ } }
+// 👕 옷차림 · 장비를 켜고 끄면 입은 옷의 욕구 보정도 맞춘다 (생활 탭의 켜기 · 끄기 단추와 같게 — life.js gearon/gearoff)
+async function gearSync() { try { await app.loadAddons?.(true); await (await import('./addons.js')).syncNeedMods(); } catch { /* 장비 자료가 없으면 할 일 없음 */ } }
+function setFlags(how) { const st = settings(), gear0 = st.gearOn === true; for (const k of FLAG_KEYS) { const v = how === 'all' ? true : how === 'rec' ? !!FLAG_BY[k][4] : false; st[k] = v; const box = document.querySelector(`#ss-settings input[data-s="${k}"]`); if (box) box.checked = v; } saveSettings(); if (gear0 !== (st.gearOn === true)) gearSync(); try { app.storyChanged?.(); } catch { /* 화면 표시일 뿐 */ } }
 const flagOn = (st, [k, , , , defOn]) => (defOn ? st[k] !== false : st[k] === true);
 const flagList = (st, list) => `<div class="ss-mods">${list.map(f => { const [k, icon, name, desc] = f, o = flagOn(st, f); return `<label class="ss-mod ${o ? 'on' : ''}"><input type="checkbox" class="ss-switch" data-chg="setflag" data-arg="${k}" ${o ? 'checked' : ''}>${icon.startsWith('fa-') ? `<i class="fa-solid ${icon}"></i>` : `<i class="ss-emo">${icon}</i>`}<span><b>${esc(name)}</b><small>${esc(desc)}</small></span></label>`; }).join('')}</div>`;
 // 🧩 부가 기능 탭 (관리 옆): 켠 선택 기능의 「화면」만 묶음별로 모은다 — 켜고 끄기는 관리 › 쓸 기능 › 부가 기능. 묶음은 전부 접힌 채로 시작
@@ -657,8 +652,9 @@ export function extraHTML(s, ui = {}, part = {}) {
 const PK_PARENT = {
     profile: ['peekCost'],
     stats: ['trendMore', 'glitchView'],
-    rel: ['guideOn', 'relRace', 'pairAff', 'giftTaste', 'tasteBook', 'relScar', 'memoryDrift', 'meddleOn', 'realGap'],
+    rel: ['guideOn', 'relRace', 'pairAff', 'giftTaste', 'tasteBook', 'relScar', 'memoryDrift', 'meddleOn'],
     contact: ['groupChat', 'socialAff', 'mergeContact', 'crossMail'],
+    wallet: ['gearOn'],
     calendar: ['ambientOn', 'ambientShop'],
     map: ['mapMetro'],
     fate: ['fortuneTarot', 'fortuneOrb', 'fortuneShaman'],
@@ -674,23 +670,23 @@ const PK_SETS = [
 // 같이 켜면 좋은 칸 — [칸, 왜] (서로 실제로 이어지는 것만)
 const PK_SYN = {
     profile: [['rel', '인물마다 관계 · 속마음이 프로필에 붙어요']],
-    stats: [['dice', '능력치가 판정에 보정으로 붙어요'], ['shop', '음식 · 물약을 사서 게이지를 채워요'], ['calendar', '시간이 흐르면 욕구가 줄어요 (생활 탭)']],
+    stats: [['dice', '능력치가 판정에 보정으로 붙어요'], ['shop', '음식 · 물약을 사서 게이지를 채워요'], ['calendar', '욕구 게이지를 넣으면 시간이 흐를 때 줄어요']],
     dice: [['stats', '능력치 보정'], ['quest', '퀘스트 완료 판정'], ['wallet', '흥정 · 일하기 판정']],
-    wallet: [['shop', '사고팔기'], ['map', '이동 요금'], ['quest', '보상']],
-    shop: [['wallet', '돈이 있어야 사요 (꼭 필요)'], ['stats', '산 물건을 써서 게이지를 채워요'], ['calendar', '밤에는 가게 닫기 (날씨 · 시간대 효과)']],
-    home: [['map', '지도에서 집을 눌러 안을 봐요'], ['wallet', '가구를 사서 놓아요']],
-    rel: [['profile', '속마음이 프로필 밑에 떠요'], ['contact', '연락이 호감에 반영돼요'], ['calendar', '기념일 · 약속']],
-    map: [['calendar', '이동하면 시간이 흘러요'], ['wallet', '이동 요금'], ['home', '집 안 보기']],
-    calendar: [['map', '이동하면 시간이 흘러요'], ['contact', '편지가 며칠 걸려 와요'], ['quest', '기한'], ['stats', '시간이 흐르면 욕구가 줄어요']],
-    contact: [['rel', '연락이 호감에 반영돼요'], ['calendar', '편지가 며칠 걸려 와요']],
+    wallet: [['shop', '사고팔기'], ['map', '이동 요금'], ['quest', '보상'], ['dice', '흥정 · 일하기 판정']],
+    shop: [['wallet', '돈이 있어야 사요 (꼭 필요)'], ['stats', '산 물건을 써서 게이지를 채워요'], ['home', '가구를 사면 본거지 창고로 가요'], ['calendar', '날씨 · 시간대 효과를 켜면 밤에 가게가 닫혀요']],
+    home: [['shop', '가구를 사면 창고로 와요'], ['wallet', '가구를 사고팔 돈'], ['map', '새 지도를 켜면 지도에서 집 안 보기']],
+    rel: [['profile', '속마음이 프로필 밑에 떠요'], ['contact', '연락으로 선물을 보내면 호감이 올라요 (답장마다 반영은 「연락 · 방명록에서 호감 반영」을 켜야)'], ['calendar', '기념일 · 약속']],
+    map: [['calendar', '이동하면 시간이 흘러요'], ['wallet', '이동 요금'], ['home', '새 지도를 켜면 집 안 보기']],
+    calendar: [['map', '이동하면 시간이 흘러요'], ['contact', '편지가 며칠 걸려 와요'], ['quest', '기한'], ['stats', '욕구 게이지를 넣으면 시간이 흐를 때 줄어요']],
+    contact: [['rel', '선물을 보내면 호감이 올라요 (답장마다 반영은 「연락 · 방명록에서 호감 반영」을 켜야)'], ['calendar', '편지가 며칠 걸려 와요']],
     quest: [['calendar', '기한'], ['wallet', '보상'], ['dice', '완료 판정'], ['ach', '업적']],
     news: [['gossip', '세상 소식 묶음'], ['board', '세상 소식 묶음']],
     gossip: [['rel', '인물들의 소문'], ['news', '세상 소식 묶음']],
-    board: [['news', '세상 소식 묶음'], ['quest', '의뢰 글']],
-    ach: [['quest', '퀘스트를 끝내면']],
-    memo: [['rel', '약속 장부 — 지키면 우정이 올라요']],
-    fate: [['dice', '저주 · 축복이 판정에'], ['calendar', '며칠 가는 저주']],
-    sns: [['rel', '인물들의 글'], ['contact', '사람 묶음']],
+    board: [['news', '세상 소식 묶음'], ['gossip', '세상 소식 묶음']],
+    ach: [['quest', '퀘스트 완료가 업적 조건으로 좋아요 (달성은 AI가 판단)']],
+    memo: [['rel', '약속 장부(딸린 옵션)를 켜면 지킨 약속에 우정이 올라요']],
+    fate: [['wallet', '저주가 물가 · 대출에 걸려요'], ['calendar', '며칠 가는 저주 · 매일 효과']],
+    sns: [['rel', '인물들의 글'], ['news', '세상 소식 묶음']],
 };
 // 토큰 어림: 영문 · 숫자 4글자 = 1 · 한글 1.6글자 = 1 (정확한 값이 아니라 「많다 · 적다」를 보는 용도)
 const pkTok = (t) => { let a = 0, k = 0; for (const ch of String(t ?? '')) { if (ch.charCodeAt(0) < 128) a++; else k++; } return Math.round(a / 4 + k / 1.6); };
@@ -702,7 +698,8 @@ function pkCosts(meta) { // 칸마다: 켰을 때 AI에게 가는 「적는 법 
 function pkTotal() { try { const r = app.current; if (!r || getMeta()?.paused) return null; const inj = buildInjection(r); return pkTok(inj.main) + pkTok(inj.people) + pkTok(inj.romance); } catch { return null; } }
 // 칸마다의 세부 설정 — 확장 설정 서랍(#ss-settings)의 같은 칸을 그대로 비춘다: 이름 · 고르는 값은 서랍에서 읽고, 바꾸면 서랍의 칸을 바꾼 것과 똑같이 처리된다 (값은 하나 · 모든 채팅 공통)
 const PK_DETAIL = {
-    stats: ['extraJudge'],
+    wallet: ['extraJudge'],
+    shop: ['extraJudge'],
     rel: ['jealousy', 'stageLock', 'offscreen', 'romBond', 'romCap', 'romCapAff', 'romCapTrust', 'romFatigue', 'romFacts', 'romDrive', 'romDepth', 'romSpark', 'romSparkPct'],
     contact: ['contactReflect', 'contactSimple', 'contactSimpleReflect', 'autoPing', 'autoPingEvery', 'rushChance', 'contactRecall', 'contactStayRemote', 'contactAway', 'profContact'],
     calendar: ['daySummary'],
@@ -710,6 +707,9 @@ const PK_DETAIL = {
     memo: ['pinCap'],
     music: ['musicTaste', 'musicApp', 'musicToast'],
     news: ['profFeeds'],
+    gossip: ['profFeeds'],
+    board: ['profFeeds'],
+    sns: ['profFeeds'],
 };
 // 칸에 딸리지 않은 공통 설정 (맨 아래 접힌 묶음 둘)
 const PK_COMMON = [
@@ -777,7 +777,7 @@ function pickerHTML(s, meta, st, ui = {}) {
             ${groups.map(g => { const o = mgIsOpen(`mods-${g.id}`), ms = g.tabs.map(t => MOD[TAB_MOD(t)]), nOn = ms.filter(isOn).length; return `<div class="ss-modgrp ss-fold ${o ? 'open' : ''}"><button type="button" class="ss-mg-h" data-act="mgfold" data-arg="mods-${g.id}" aria-expanded="${o}"><b>${g.name}</b><small>${nOn}/${ms.length} 켬 · ${ms.map(m => m.name).join(' · ')}</small><i class="fa-solid fa-chevron-down ss-mg-chev"></i></button><div class="ss-mg-b"${o ? '' : ' hidden'}><div class="ss-pklist">${ms.map(card).join('')}</div></div></div>`; }).join('')}
             <div class="ss-modgrp ss-fold ${oRest ? 'open' : ''}"><button type="button" class="ss-mg-h" data-act="mgfold" data-arg="ex-rest" aria-expanded="${oRest}"><b>그 밖의 장치</b><small>${nRest}/${rest.length} 켬 · 칸에 딸리지 않은 선택 기능 · 모든 채팅에 걸려요</small><i class="fa-solid fa-chevron-down ss-mg-chev"></i></button><div class="ss-mg-b"${oRest ? '' : ' hidden'}>${flagList(st, rest)}<p class="ss-hint">켠 장치의 화면은 「부가 기능」 탭에 모여요.</p><div class="ss-row-btns"><small>딸린 옵션 · 장치를 한 번에</small>${FLAGSET_BTNS}</div></div></div>
             ${common}`,
-        `<button class="ss-btn sm ghost" data-act="modset" data-arg="all" title="칸을 전부 켜요 (딸린 옵션은 그대로)">칸 전부</button><button class="ss-btn sm ghost" data-act="modset" data-arg="none" title="칸과 딸린 옵션을 전부 꺼요 — 내용은 남아요">전부 끄기</button>`)}`;
+        `<button class="ss-btn sm ghost" data-act="modset" data-arg="all" title="칸을 전부 켜요 (딸린 옵션은 그대로)">칸 전부</button><button class="ss-btn sm ghost" data-act="modset" data-arg="none" title="칸과 딸린 옵션을 전부 꺼요 — 딸린 옵션은 모든 채팅에서 꺼져요 · 칸의 내용은 남아요">전부 끄기</button>`)}`;
 }
 export function manageHTML(s, ui = {}, extra = '') {
     const meta = getMeta();
@@ -990,10 +990,11 @@ export const VIEW_ACTIONS = {
     modset: async (el, arg) => { // 쓸 기능 한 번에: 추천만 · 전부 · 전부 끄기
         const meta = getMeta(true); meta.mods ??= {};
         for (const id of MOD_IDS) meta.mods[id] = arg === 'rec' ? REC_MODS.includes(id) : arg === 'all';
-        // 🧩 부가 기능 스위치도 같이: 전부 끄기 = 전부 끔 · 추천만 = 처음 값(공략만 켬). 「전부」는 건드리지 않는다 (토큰을 쓰는 선택 기능이 한꺼번에 켜지지 않게)
-        if (arg !== 'all') setFlags(arg);
+        // 🧩 부가 기능 스위치는 「전부 끄기」만 같이 끈다 (모든 채팅). 「가볍게 · 추천 6칸만」은 다른 묶음처럼 칸만 바꾼다 — 예전엔 처음 값으로 돌려서 다른 채팅의 새 지도 · 점집까지 꺼졌다
+        //   (부가 기능을 처음 값으로 돌리는 건 「그 밖의 장치」의 「처음 값」 단추)
+        if (arg === 'none') setFlags('none');
         await saveMeta(); app.refreshNow(); app.rerenderPanels?.(true); app.renderPanel(el);
-        toastr.info(arg === 'rec' ? '추천 6칸만 켰어요 (부가 기능은 공략만). 끈 칸의 내용은 그대로 남아 있어요.' : arg === 'all' ? '칸을 전부 켰어요. 부가 기능은 그대로 뒀어요 — 아래 「부가 기능」에서 골라 켜요.' : '칸과 부가 기능을 전부 껐어요. 내용은 그대로 남아 있어요.', TITLE);
+        toastr.info(arg === 'rec' ? '추천 6칸만 켰어요 (부가 기능은 그대로). 끈 칸의 내용은 그대로 남아 있어요.' : arg === 'all' ? '칸을 전부 켰어요. 부가 기능은 그대로 뒀어요 — 아래 「부가 기능」에서 골라 켜요.' : '칸과 부가 기능을 전부 껐어요. 내용은 그대로 남아 있어요.', TITLE);
     },
     gomods: (el) => { // 🧆 홈의 「틀만 있어요」 → 관리 › 쓸 기능 (이 창 안에서 탭만 바꾼다 — 예전엔 창을 하나 더 띄워서 창이 두 겹이 됐다)
         settings().mgTab = 'mods'; saveSettings();
@@ -1144,6 +1145,7 @@ export const VIEW_CHANGES = {
         settings()[k] = t.checked; saveSettings();
         const box = document.querySelector(`#ss-settings input[data-s="${k}"]`); if (box) { box.checked = t.checked; }
         if (t.checked) app.loadAddons?.(true);
+        if (k === 'gearOn') gearSync();
         try { app.storyChanged?.(); } catch { /* 화면 표시일 뿐 */ }
         app.refreshNow(); app.rerenderPanels?.(true);
     },
