@@ -12,14 +12,13 @@ import { fullBackup, restoreFile, saveSlot, loadSlot, deleteSlot, attachToCard, 
 import { applyPreset } from './extra.js';
 import { unreadNotes } from './notify.js';
 import { DICE_ACTIONS, DICE_CHANGES } from './dice.js';
-import { F, need } from './feat.js'; // ⚡ 연락 · 미니홈피는 켠 사람만 불러온다 — 단추 동작은 불러온 뒤 아래 featLoaded에서 붙인다
+import { F, need, load, wanted, loadingHTML, LAZY_ACTS } from './feat.js'; // ⚡ 연락 · 미니홈피는 켠 사람만 불러온다 — 단추 동작은 불러온 뒤 아래 featLoaded에서 붙인다
 import { FEED_ACTIONS, FEED_CHANGES } from './feeds.js';
 import { MONEY_ACTIONS } from './money.js';
 import { FATE_ACTIONS, FATE_CHANGES } from './fate.js';
 import { EDIT, viewTr, letterMode, GLOBAL_OFF, isSimple } from './core.js';
 import { translateSheet, missingTr } from './translate.js';
 import { hintAfterAction } from './tips.js';
-import { storyPick, STORY_HOME, guideView } from './story_ui.js';
 import { setNoShort } from './util.js';
 import { openPromptWindow, openThemeWindow, openWizard, openStylePick } from './lazy.js';
 import { setBase, startBlank } from './engine.js';
@@ -47,10 +46,10 @@ const INSTRUCT_HINT = {
 // v2.7.3: 앨범 · 플레이 기록은 확장 설정에서 모든 채팅에 끌 수 있어요
 const PSEUDO_ON = { album: 'albumOn', record: 'recordOn', guide: 'guideOn', guest: () => settings().hpWave === true && settings().guestbook === true,
     needs: () => getMeta()?.life?.needs === true && modOn('stats'), wear: () => getMeta()?.life?.wear === true }; // 🍞 욕구 · 🎨 꾸미기 탭은 이 채팅에서 켰을 때만 (v2.9) // 글 = 그 설정이 꺼져 있지 않을 때 · 함수 = 참일 때만
-VIEW.guide = (s, d, ui) => guideView(ui); // 🗝 공략 탭 (story_ui.js)
+VIEW.guide = (s, d, ui) => need('storyui')?.guideView(ui) ?? loadingHTML(); // 🗝 공략 탭 (story_ui.js · ⚡ 켠 사람만 불러옴)
 VIEW.guest = () => app.hpGuestTab?.() ?? '<p class="ss-hint">방명록을 불러오는 중이에요.</p>'; // 📝 방명록 탭 (사람 묶음 · minihome_ui.js)
 // 🧩 부가 기능 탭 (관리 옆): 켠 선택 기능의 화면을 묶음별로 모은다 — 공략 · 사람/관계 · 장부 · 이야기 흐름 · 연락 (켜고 끄기는 관리 › 쓸 기능 › 부가 기능)
-VIEW.extra = (s, d, ui) => extraHTML(s, ui, { guide: settings().guideOn !== false ? guideView(ui) : '', rel: storyPick(STORY_HOME.rel, ui), memo: storyPick(STORY_HOME.memo, ui), flow: storyPick(STORY_HOME.flow, ui), contact: storyPick(STORY_HOME.contact, ui) });
+VIEW.extra = (s, d, ui) => { const U = wanted('storyui') ? need('storyui') : null; if (wanted('storyui') && !U) return loadingHTML(); return extraHTML(s, ui, U ? { guide: settings().guideOn !== false ? U.guideView(ui) : '', rel: U.storyPick(U.STORY_HOME.rel, ui), memo: U.storyPick(U.STORY_HOME.memo, ui), flow: U.storyPick(U.STORY_HOME.flow, ui), contact: U.storyPick(U.STORY_HOME.contact, ui) } : {}); }; // ⚡ 이야기 장치를 하나도 안 켰으면 story_ui.js를 안 읽는다
 function groupTabs(g, meta) {
     return g.tabs.filter(t => (PSEUDO.has(t) ? (typeof PSEUDO_ON[t] === 'function' ? PSEUDO_ON[t]() : !PSEUDO_ON[t] || settings()[PSEUDO_ON[t]] !== false) : modOn(TAB_MOD(t), meta)));
 }
@@ -288,6 +287,9 @@ const addActs = (acts, chg) => { for (const [k, v] of Object.entries(acts ?? {})
         try { prev?.(name, m); } catch (e) { ssErr(LOG, 'feat hook', e); }
         if (name === 'contact') addActs(m.CONTACT_ACTIONS, m.CONTACT_CHANGES);
         else if (name === 'fortune') addActs(m.FORTUNE_ACTIONS, m.FORTUNE_CHANGES);
+        else if (name === 'life') addActs(m.LIFE_ACTIONS, m.LIFE_CHANGES);
+        else if (name === 'story') { try { m.initStory(); } catch (e) { ssErr(LOG, 'story', e); } } // 🧭 이야기 장치: 켠 사람만 불러와서 그때 이벤트를 건다 (예전엔 시작할 때 늘)
+        else if (name === 'storyui') { try { m.initStoryUI(); } catch (e) { ssErr(LOG, 'story ui', e); } }
         else if (name === 'hompy') { try { m.initHompy(); } catch (e) { ssErr(LOG, 'hompy', e); } } // 📒 미니홈피 준비 (예전엔 시작할 때 늘)
     };
     for (const [n, m] of Object.entries(F)) app.featLoaded(n, m); // 이 파일보다 먼저 불러온 것
@@ -393,7 +395,12 @@ async function onPanelAction(el, act, arg, btn) {
             settings().sheetFull = on; saveSettings();
             return renderPanel(el);
         }
-        default: { const fn = ACTIONS[act] ?? MANAGE_ACTIONS[act] ?? app.extraActions?.[act]; if (fn) return fn(el, arg, btn, s); } // app.extraActions: 켰을 때만 불러오는 화면의 단추 (minihome_ui.js)
+        default: {
+            let fn = ACTIONS[act] ?? MANAGE_ACTIONS[act] ?? app.extraActions?.[act];
+            // ⚡ 아직 안 불러온 기능의 단추 (예: 관리의 「🎮 생활 모드」 · 상점의 「미트볼 상점 넣기」) — 그 기능을 불러온 뒤 다시 찾는다 (feat.js)
+            if (!fn) for (const name of LAZY_ACTS) { if (F[name]) continue; try { await load(name); } catch { continue; } fn = ACTIONS[act]; if (fn) break; }
+            if (fn) return fn(el, arg, btn, s);
+        } // app.extraActions: 켰을 때만 불러오는 화면의 단추 (minihome_ui.js)
     }
 }
 function bindPanel(el) {

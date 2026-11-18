@@ -26,8 +26,6 @@ import { openPip, pipWanted, markSkip, seriousList } from './src/pip.js';
 import { maybeTip, maybeLaterWarn } from './src/tips.js';
 import { registerCommands } from './src/commands.js';
 import { renderSettings } from './src/settings_ui.js';
-import { initStory } from './src/story.js';
-import { initStoryUI } from './src/story_ui.js';
 
 try { startErrorCapture(); } catch { /* 오류 기록은 없어도 동작 */ }
 
@@ -983,7 +981,7 @@ function init() {
     registerCommands();
     registerMacros();
     // 📒 미니홈피: 켠 사람만 불러와서 그때 준비한다 (shell.js의 app.featLoaded)
-    try { initStory(); initStoryUI(); } catch (e) { ssWarn(LOG, 'story', e); } // 🧭 이야기 장치 (v2.8 · 켠 장치가 없으면 아무 일도 안 함)
+    // 🧭 이야기 장치 · 🗝 공략: 하나라도 켠 사람만 불러와서 그때 이벤트를 건다 (feat.js → shell.js featLoaded)
     try { loadAddons(); } catch (e) { ssWarn(LOG, 'addons', e); } // 📝 방명록 자동 (설정 guestbook · guestbookAuto — 기본 끔이면 아무 일도 안 함)
     if (settings().autoRegex) installRegex(false);
     try { startViewTr(); } catch (e) { ssWarn(LOG, 'viewtr', e); }

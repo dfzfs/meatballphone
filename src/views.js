@@ -19,8 +19,8 @@ import { presetHTML } from './extra.js';
 import { detectPlay, instructModule } from './ai.js';
 import { PLAY_MODES, normPlay, playOf, REC_MODS, isSimple } from './core.js';
 import { mindBar, mindPeek, mindBlock, MIND_ACTIONS } from './mind.js'; // 💭 속마음: 프로필 탭에서 인물마다 프로필 밑에 (v2.9)
-import { needLine, LIFE_ACTIONS, inNeedPanel, goodIcon, isMeatShop, needsTab, wearTab, shopExtra, walletExtra, lifeBox, needsTabOn, wearTabOn, dollNow, dollFor } from './life.js';
-import { DEVICES as STORY_DEVICES, KEY as STORY_KEY } from './story.js';
+import { goodIcon, isMeatShop, shopExtra, walletExtra, lifeBox, needsTabOn, wearTabOn } from './life_lite.js'; // 🍞 생활 틀의 늘 보이는 부분만 — 무거운 부분(life.js)은 ⚡ 켠 채팅에서만 F.life로 (feat.js)
+import { DEVICES as STORY_DEVICES, KEY as STORY_KEY } from './story_meta.js'; // 목록만 (장치 동작 story.js는 ⚡ 켠 사람만)
 import { busyBtn, confirmPopup, mascot } from './kit.js';
 import { freshDot, usedPrice, placeIcon, miniWidgets, pathTo, tripInfo } from './tiles.js';
 // 🏠 건물 층 · 집 안 구조 (iso.js) · 🚇 노선도 (metro.js) — ⚡ 새 지도를 켠 사람만 불러온다 (feat.js) → F.iso · F.metro
@@ -107,18 +107,18 @@ export const VIEW = {
     profile: (s, d, ui) => `${mindBar(s, ui)}<div class="ss-hint">프로필 모드: <b>${d.mode === 'detailed' ? '상세' : '최소'}</b> — ${d.mode === 'detailed' ? '이 시트가 AI에게 전달돼요' : '카드·로어북을 쓰고, 새 NPC만 전달돼요'}</div>
         <div class="ss-stack">${d.list.map((p, i) => `<details class="ss-prof" ${ui.open === i || d.list.length === 1 ? 'open' : ''}>
             <summary><button class="ss-ava-btn" data-act="relemoji" data-arg="${esc(p.name)}" title="얼굴 이모지 바꾸기">${avatar(p.name)}</button><div class="ss-ct-b"><b>${freshDot('profile', 'list', p.name)}${esc(p.name)} <span class="ss-role ${p.role}">${roleName[p.role]}</span></b><small>${esc(short(p.summary, 60))}</small>${mindPeek(s, p.name)}</div><i class="fa-solid fa-chevron-down ss-chev"></i></summary>
-            <div class="ss-prof-b">${wearTabOn() && (p.role === 'user' || getMeta()?.dolls?.[p.name]) ? `<div class="ss-prof-doll">${dollFor(s, p.role === 'user' ? '' : p.name, 'big')}</div>` : ''}<p class="ss-pre">${esc(p.summary)}</p>
+            <div class="ss-prof-b">${wearTabOn() && (p.role === 'user' || getMeta()?.dolls?.[p.name]) ? `<div class="ss-prof-doll">${(need('life')?.dollFor ?? (() => ''))(s, p.role === 'user' ? '' : p.name, 'big')}</div>` : ''}<p class="ss-pre">${esc(p.summary)}</p>
             ${p.home || p.sched ? `<p class="ss-dim ss-where">${p.home ? `🏠 ${esc(p.home)}` : ''}${p.sched ? ` · 🕐 ${esc(p.sched)}` : ''}${s.data.calendar && whereNow(p, s.data.calendar) ? ` · <b>지금: ${esc(whereNow(p, s.data.calendar))}</b>` : ''}</p>` : ''}
             ${p.fields.length ? `<dl class="ss-dl">${p.fields.map(f => `<dt>${esc(f.k)}</dt><dd class="ss-pre">${esc(f.v)}</dd>`).join('')}</dl>` : ''}
             <div class="ss-row-btns">${modOn('contact') && p.role !== 'user' ? `<button class="ss-btn sm ghost" data-act="talk" data-arg="${esc(p.name)}"><i class="fa-solid fa-envelope"></i> 연락하기</button>` : ''}<button class="ss-btn sm ghost" data-act="dollgo" data-arg="${esc(p.name)}" title="도트 인형 만들기 · 이 인형 얼굴을 ${esc(p.name)}의 공용 프로필로"><i class="fa-solid fa-palette"></i> 꾸미기</button></div>${mindBlock(s, p.name)}</div>
         </details>`).join('') || emptyBox('인물이 없어요', 'fa-id-card')}</div>`,
-    stats: (s, d, ui) => `${sec('게이지', `<div class="ss-stack">${d.bars.filter(b => !inNeedPanel(b, d)).map(b => `<div class="ss-card ss-gcard">${gauge(b, false, freshDot('stats', 'bars', b.name))}
-            <div class="ss-gbtns"><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|-10">−10</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|-1">−1</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|+1">+1</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|+10">+10</button>${b.desc ? `<small class="ss-dim">${esc(b.desc)}</small>` : ''}</div>${needLine(b, d)}</div>`).join('') || (d.bars.length ? '<p class="ss-hint">욕구 게이지는 「욕구」 탭에 있어요.</p>' : emptyBox('게이지가 없어요'))}</div>`)}
+    stats: (s, d, ui) => `${sec('게이지', `<div class="ss-stack">${d.bars.filter(b => !(F.life?.inNeedPanel ?? (() => false))(b, d)).map(b => `<div class="ss-card ss-gcard">${gauge(b, false, freshDot('stats', 'bars', b.name))}
+            <div class="ss-gbtns"><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|-10">−10</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|-1">−1</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|+1">+1</button><button class="ss-ib t" data-act="bar" data-arg="${esc(b.name)}|+10">+10</button>${b.desc ? `<small class="ss-dim">${esc(b.desc)}</small>` : ''}</div>${(F.life?.needLine ?? (() => ''))(b, d)}</div>`).join('') || (d.bars.length ? '<p class="ss-hint">욕구 게이지는 「욕구」 탭에 있어요.</p>' : emptyBox('게이지가 없어요'))}</div>`)}
         ${sec('능력치', `<div class="ss-attrs">${d.attrs.map(a => `<div class="ss-attr" title="${esc(a.desc)}"><span>${esc(a.name)}${freshDot('stats', 'attrs', a.name)}</span><b>${a.val >= 0 ? '+' : ''}${a.val}</b></div>`).join('') || emptyBox('능력치가 없어요')}</div>`)}
         ${sec('상태 이상 · 버프', `<div class="ss-chips">${d.conds.map(c => `<span class="ss-chip warn" title="${esc(c.desc)}">${freshDot('stats', 'conds', c.name)}${esc(c.name)}<button class="ss-x" data-act="uncond" data-arg="${esc(c.name)}">×</button></span>`).join('') || '<span class="ss-hint">없음</span>'}</div>`)}
         ${needsTabOn() ? '' : '<div class="ss-row-btns ss-life-x"><button class="ss-btn sm ghost" data-act="lifetab" data-arg="needs" title="심즈 · 좀보이드처럼 저절로 줄어드는 욕구 게이지 — 다마고치 화면이 있는 탭이 생겨요 (이 채팅만)">🍞 욕구 탭 켜기</button></div>'}`,
-    needs: needsTab,
-    wear: wearTab,
+    needs: (s, d, ui) => need('life')?.needsTab(s, d, ui) ?? loadingHTML(), // ⚡ 생활 틀은 켠 채팅에서만 불러온다
+    wear: (s, d, ui) => need('life')?.wearTab(s, d, ui) ?? loadingHTML(),
     dice: diceView,
     wallet: (s, d, ui) => `${walletView(s, d, ui)}${walletExtra(s)}${wearTabOn() ? '' : '<div class="ss-row-btns ss-life-x"><button class="ss-btn sm ghost" data-act="lifetab" data-arg="wear" title="인물마다 도트 인형 · 내 소지품 입히기 (이 채팅만)">🎨 꾸미기 탭 켜기</button></div>'}`,
     fate: fateView,
@@ -1140,7 +1140,7 @@ export const VIEW_ACTIONS = {
     },
     helpcardoff: () => { settings().helpCardOff = true; saveSettings(); app.rerenderPanels?.(true); },
     newv5off: async () => { const meta = getMeta(); if (meta) { delete meta.newV5; await saveMeta(); app.refreshNow(); } },
-    ...SNS_ACTIONS, ...MUSIC_ACTIONS, ...CUSTOM_ACTIONS, ...REL_ACTIONS, ...ACH_ACTIONS, ...ALBUM_ACTIONS, ...MIND_ACTIONS, ...LIFE_ACTIONS,
+    ...SNS_ACTIONS, ...MUSIC_ACTIONS, ...CUSTOM_ACTIONS, ...REL_ACTIONS, ...ACH_ACTIONS, ...ALBUM_ACTIONS, ...MIND_ACTIONS, 
 };
 export const VIEW_CHANGES = {
     place: (el, t, s) => { if (!t.value) return; const nm = s.data.home.storage[Number(t.dataset.arg)]; return addAdjust({ ops: [['decor', `+${nm} | ${t.value}`]], label: `${t.value}에 ${nm} 배치` }); },

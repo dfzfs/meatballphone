@@ -12,6 +12,8 @@ globalThis.__SS_TEST__ = {};
 { const q = new URLSearchParams(location.search); if (q.get('ext2')) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = '/ext2/src/ext-status.css'; document.head.appendChild(l); const cls = q.get('ext2body'); if (cls) document.body.classList.add(cls); } }
 // ?oldset=1 → 예전 판을 쓰던 사람처럼 확장 설정이 이미 있는 채로 시작 (업데이트로 받은 경우 · 새 기본값이 기존 사용자에게 어떻게 오는지 보는 시나리오용)
 if (new URLSearchParams(location.search).get('oldset')) window.__st.extensionSettings.statussim = { enabled: true, contactReflect: 'detail', lastSeenVersion: '2.8.0', v27asked: true };
+// ?preset={...} → 확장이 켜지기 전부터 이 설정으로 (켤 때 무엇을 불러오는지 보는 시나리오용 · 예전 판을 쓰던 사람으로 시작)
+{ const ps = new URLSearchParams(location.search).get('preset'); if (ps) window.__st.extensionSettings.statussim = { enabled: true, lastSeenVersion: '2.9.0', v27asked: true, trFreeAsked: true, tidyAsked: true, ...JSON.parse(ps) }; }
 await import('/ext/index.js');
 await SillyTavern.getContext().eventSource.emit('app_ready');
 window.__ready = true;

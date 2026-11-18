@@ -9,7 +9,8 @@ import { addAdjust, sceneTester } from './engine.js';
 import { fetchMinds } from './ai.js';
 import { emptyBox, avatar, ai1, busyBtn } from './kit.js';
 import { MIND_NAMES, MIND_FREQ, addAlbum } from './extra.js';
-import { susOf, addSus } from './story.js';
+import { F } from './feat.js'; // 눈치(story.js)는 ⚡ 엿보기 대가를 켜면 불러와 있다 (feat.js) — 아직이면 0으로 본다
+const susOf = (n) => F.story?.susOf(n) ?? 0, addSus = (n, k) => F.story?.addSus(n, k);
 
 let busy = false;
 // 속마음이 뜨는 사람 = 관계에 있는 사람(빠진 사람 제외) + 프로필에만 있는 인물 (나 자신은 빼고) — 속마음은 관계 쪽에 있으면 거기, 없으면 프로필 쪽에 적힌다 (ops.js opMind)
