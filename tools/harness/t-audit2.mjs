@@ -62,7 +62,7 @@ try {
         const td = tr.trendData();
         out.trendData = td.xs.length > 3 && Array.isArray(td.aff.Leon) && td.aff.Leon.length === td.xs.length && td.cash.length === td.xs.length;
         out.trendHtml = tr.trendHTML().includes('<polyline');
-        out.version = (await import('/ext/src/core.js')).VERSION === '2.10.0';
+        out.version = (await import('/ext/src/core.js')).VERSION === '2.10.1';
         return out;
     });
     for (const [k, v] of Object.entries(r)) check(v === true, k);
