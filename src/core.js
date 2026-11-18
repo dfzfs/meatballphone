@@ -238,6 +238,10 @@ export const DEFAULTS = Object.freeze({
     offscreen: true,         // NPC 화면 밖 생활 (날이 지나면 가끔)
     favTabs: [],             // 즐겨찾기 탭
     bottomNav: false,        // 폰: 탭 바를 아래로 (한 손 모드)
+    quiet: false,            // 🔕 조용히: 저절로 뜨는 알림 · 안내 · 번역 경고를 화면에 띄우지 않고 알림함에만 (⚠️ 고장 알림 · 누른 것에 대한 대답은 그대로) — 새로 설치하면 켬
+    tidy: null,              // 🧹 기능 정리 (stylepick.js openTidy): { mods: [숨긴 칸], flags: [숨긴 부가 기능] } — 모든 채팅에서 꺼지고 관리 창에도 안 보임 · 자료는 그대로 (다시 꺼내면 돌아옴)
+    tidyAsked: false,        // 🧹 업데이트로 받은 사람에게 「기능 정리」 창을 한 번 보여 줬나 (새로 설치한 사람은 스타일로 고르기를 대신 봄)
+    stylePick: '',           // 🎨 스타일로 고르기 (stylepick.js): '' = 예전부터 쓰던 사람 (저절로 안 띄움) · 'ask' = 새로 설치 → 첫 채팅에서 한 번 · 'done' = 띄웠음
     autoStart: false,        // 🧆 상태창이 없는 채팅을 열면 틀을 바로 만든다 (AI 0회 · 추천 6칸) — 끄면 예전처럼 「만들기」를 눌러야 생긴다 (autostart.js)
                              //    기본 끔: 업데이트로 받은 사람의 옛 채팅에 틀이 저절로 생겨 본편 AI에게 가면 안 된다 → 새로 설치한 사람만 켠다 (index.js init)
     cardOffer: true,         // 카드에 붙은 상태창이 있으면 새 채팅에서 불러올지 물어봄
@@ -747,9 +751,22 @@ try {
 } catch (e) { ssNote('나갈 때 저장 걸기 실패', e); }
 // on: 주입문을 만드는 중 (가린 칸은 꺼진 것처럼) · skip: 이 칸 하나를 뺀 주입문을 재 볼 때 (칸별 토큰)
 export const INJ = { on: false, skip: null };
+// 🧹 기능 정리로 숨긴 것 (모든 채팅) — 숨긴 칸은 꺼진 것과 같고, 관리 창 · 추천 · 스타일 고르기에도 안 나온다
+export const tidyHidden = (kind, id) => { const t = settings().tidy; return !!t && Array.isArray(t[kind]) && t[kind].includes(id); };
+// 🧹 숨긴 부가 기능은 확장 설정 서랍 · 관리 › 전체 설정의 체크 칸도 안 보이게 (한 번 걸어 두면 다시 그려도 그대로 · 시작할 때와 정리할 때 부른다)
+export function applyTidyStyle() {
+    try {
+        const keys = (settings().tidy?.flags ?? []).filter(k => /^[A-Za-z0-9_]+$/.test(k));
+        let el = document.getElementById('ss-tidy-style');
+        if (!keys.length) { el?.remove(); return; }
+        if (!el) { el = document.createElement('style'); el.id = 'ss-tidy-style'; document.head.appendChild(el); }
+        el.textContent = `${keys.map(k => `body :is(#ss-settings, .ss-set-body, .ss-scope) label:has(> input[data-s="${k}"])`).join(',\n')} { display: none !important; }`;
+    } catch (e) { ssNote('기능 정리 숨김', e); }
+}
 export function modOnRaw(id, meta = getMeta()) {
     if (!meta) return false;
     if (INJ.skip === id) return false;
+    if (tidyHidden('mods', id)) return false;
     if (GLOBAL_OFF[id] && settings()[GLOBAL_OFF[id]] === false) return false; // v2.7.3: 모든 채팅에서 끈 칸
     if (meta.mods?.[id] === false) return false;
     const need = MOD[id]?.needs;

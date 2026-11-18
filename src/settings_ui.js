@@ -151,6 +151,7 @@ function settingsBody() {
             <label>팝업 위치<select class="text_pole" data-s="toastPos">${o('toastPos', 'top', '위')}${o('toastPos', 'bottom', '아래')}</select></label>
             <label>팝업이 보이는 시간 (초)<input type="number" min="2" max="20" class="text_pole" data-s="toastSec" value="${s.toastSec}"></label>
             <label class="checkbox_label"><input type="checkbox" data-s="daySummary" ${s.daySummary ? 'checked' : ''}> 하루가 지나면 「하루 정리」 카드</label>
+            <label class="checkbox_label"><input type="checkbox" data-s="quiet" ${s.quiet === true ? 'checked' : ''}> 🔕 조용히 — 저절로 뜨는 알림 · 안내 · 번역 경고를 화면에 띄우지 않고 알림함(🔔)에만 <small>(새로 설치하면 켜져 있어요 · ⚠️ 고장 알림과 누른 것에 대한 대답은 그대로)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="featureTips" ${s.featureTips !== false ? 'checked' : ''}> 💡 팁 · 주의 알림 — 안 쓰는 기능 추천 · 「이것도 아세요?」 · 설정 주의를 가끔 한 번씩 <small>(「알아요」 누르면 다시 안 나옴 · AI 0회)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="actionTips" ${s.actionTips !== false ? 'checked' : ''}> 　└ 칸에서 뭔가 할 때 「이것도 아세요?」 <small>(접속당 1번 · 3시간에 한 번 · 하루 2번까지)</small></label>
             <div class="ss-set-btns"><button class="menu_button" data-s-act="tipreset"><i class="fa-solid fa-rotate-left"></i> 넘긴 추천 · 팁 다시 보기</button></div>

@@ -158,7 +158,7 @@ export async function trJSON(obj, extra, o = null) {
             return rebuild(obj, map);
         } catch (e) {
             ssWarn(LOG, 'st translate json', e);
-            toastr.warning(`번역하지 못해 원문으로 둬요: ${esc(e.message)}`, TITLE);
+            trFailNote(e);
             return obj;
         }
     }
@@ -169,15 +169,22 @@ export async function trJSON(obj, extra, o = null) {
         return overlay(obj, parseJSON(out), '', false);
     } catch (e) {
         ssWarn(LOG, 'translate json', e);
-        toastr.warning(`번역하지 못해 원문으로 둬요: ${esc(e.message)}`, TITLE);
+        trFailNote(e);
         return obj;
     }
+}
+// 🌐 번역 실패 알림: 저절로 번역하다 실패하면 같은 말이 계속 떴다 → 한 접속에 한 번만 · 🔕 조용히면 알림함에만 (원문은 그대로 둔다)
+let trFailTold = false;
+function trFailNote(e) {
+    if (trFailTold) return; trFailTold = true;
+    if (settings().quiet === true) { try { app.notify?.({ kind: 'text', icon: '🌐', title: '번역하지 못해 원문으로 뒀어요', text: `${String(e?.message ?? e).slice(0, 120)} — 실리태번 확장 메뉴 › Chat Translation에서 번역기를 확인해요` }); } catch { /* 알림함이 없으면 그냥 넘어감 */ } return; }
+    toastr.warning(`번역하지 못해 원문으로 둬요: ${esc(e?.message ?? e)}<br><small>이번 접속에선 다시 안 알려요</small>`, TITLE);
 }
 export async function trText(text, o = null) {
     const set = settings();
     if (!String(text ?? '').trim()) return text;
     if (engineST(o)) {
-        try { return (await stTranslate(String(text))).trim() || text; } catch (e) { ssWarn(LOG, 'st translate text', e); toastr.warning(`번역하지 못해 원문으로 둬요: ${esc(e.message)}`, TITLE); return text; }
+        try { return (await stTranslate(String(text))).trim() || text; } catch (e) { ssWarn(LOG, 'st translate text', e); trFailNote(e); return text; }
     }
     try {
         const out = await aiGenerate('translate', P('ai.translateText', { lang: set.trLang || '한국어', glossary: glossary() }) + llmRules(), String(text), Math.min(4000, Math.max(400, Math.ceil(String(text).length * 1.5))), trOpts());
@@ -692,6 +699,7 @@ export function checkKorean() {
     const ko = koPanels();
     if (!ko.length) return;
     const names = ko.map(x => (x === 'core' ? '세계 핵심' : MOD[x]?.name ?? x)).join(', ');
+    if (settings().quiet === true) { app.notify?.({ kind: 'text', icon: '🌐', title: `한국어로 저장된 칸 ${ko.length}개`, text: `${names} — 확장 설정 › 상태창 언어 · 번역의 「한국어 칸을 영어로」` }); return; } // 🔕
     toastr.warning(`이 채팅엔 <b>한국어로 저장된 칸</b>이 ${ko.length}개 있어서 AI에게 한국어로 가요: ${esc(names)}<br><b>👉 여기를 누르면 영어 저장으로 바꿔요</b> (보이는 한국어는 그대로)`, TITLE, { timeOut: 15000, extendedTimeOut: 5000, escapeHtml: false, onclick: () => convertToEnglish(null) });
 }
 // 본편 AI가 새로 쓴 영어 글(새 아이템·메모·퀘스트 등)도 화면에선 번역돼 보이게 — 모르는 글만 모아서 가끔 한 번

@@ -1,6 +1,6 @@
 // 💡 기능 추천 (v2.7): 처음엔 꼭 필요한 칸만 켜 두고, 이야기에 맞는 순간에 「이런 기능도 있어요」를 한 번씩 알려 준다.
 // AI 호출 없음. 한 채팅에서 기능마다 한 번만 · 몇 턴에 한 번만 · 설정에서 끌 수 있음 · 「다시 안 볼래요」는 모든 채팅에 적용.
-import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, MOD, GENRES, normalize, TITLE, LOG, ssWarn, GLOBAL_OFF, isSimple } from './core.js';
+import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, MOD, GENRES, normalize, TITLE, LOG, ssWarn, GLOBAL_OFF, isSimple, tidyHidden } from './core.js';
 import { commit, stripStatus } from './engine.js';
 import { skeleton } from './skeleton.js';
 
@@ -39,7 +39,7 @@ export function maybeTip() {
         const never = set.tipNever ?? {};
         const text = (ctx().chat ?? []).slice(-4).map(m => stripStatus(m?.mes)).join('\n');
         const age = turn - (T.start ?? 0);
-        const open = TIPS.filter(t => !modOn(t.mod, meta) && !T.seen[t.mod] && !never[t.mod] && !(GLOBAL_OFF[t.mod] && settings()[GLOBAL_OFF[t.mod]] === false)); // 모든 채팅에서 끈 칸은 권하지 않음
+        const open = TIPS.filter(t => !tidyHidden('mods', t.mod) && !modOn(t.mod, meta) && !T.seen[t.mod] && !never[t.mod] && !(GLOBAL_OFF[t.mod] && settings()[GLOBAL_OFF[t.mod]] === false)); // 모든 채팅에서 끈 칸은 권하지 않음
         // 이야기에 관련 말이 나오면 우선 · 말이 안 나와도 권하는 건 간격을 두 배로 (광고처럼 자주 뜨지 않게)
         const tip = open.find(t => t.kw && t.kw.test(text)) ?? (since >= gap * 2 ? open.find(t => age >= t.after) : null);
         if (!tip) return;

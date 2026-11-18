@@ -4,7 +4,7 @@ import { serve } from './server.mjs';
 
 // bind: true → 연락 · 피드를 「채팅에 붙이기」(기록장에 쌓는 예전 방식)로 — 기록 · 되감기 · 되돌리기를 보는 시나리오용 (기본은 📦 따로 보관)
 // oldset: true → 예전 판의 설정이 이미 있는 채로 시작 (업데이트로 받은 사람)
-export async function open({ ext2 = false, width = 1300, height = 900, bind = false, defaults = false, auto = false, oldset = false } = {}) {
+export async function open({ ext2 = false, width = 1300, height = 900, bind = false, defaults = false, auto = false, oldset = false, style = false, tidy = false, quiet = false } = {}) {
     const srv = await serve(0);
     const port = srv.address().port;
     const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
@@ -16,6 +16,12 @@ export async function open({ ext2 = false, width = 1300, height = 900, bind = fa
     await page.goto(`http://127.0.0.1:${port}/${q ? `?${q}` : ''}`);
     await page.waitForFunction(() => window.__ready === true, null, { timeout: 15000 });
     // 🧆 시나리오는 「상태창 없음」에서 시작한다 — 바로 시작(autostart.js)은 auto: true 일 때만 (확장이 켜지고 1.5초 뒤에 도는 것보다 먼저 끈다)
+    // 🎨 새로 설치한 사람의 첫 채팅에 뜨는 「스타일로 고르기」 창은 style: true 일 때만 (다른 시나리오의 창 세기를 흐트리지 않게)
+    if (!style) await page.evaluate(async () => { const core = await import('/ext/src/core.js'); if (core.settings().stylePick === 'ask') { core.settings().stylePick = 'done'; core.saveSettings(); } });
+    // 🔕 새로 설치하면 「조용히」가 켜져 오지만, 시나리오들은 알림이 뜨는 화면을 본다 → quiet: true 일 때만 그대로 둔다
+    if (!quiet) await page.evaluate(async () => { const core = await import('/ext/src/core.js'); if (core.settings().quiet === true) { Object.assign(core.settings(), { quiet: false, featureTips: true, actionTips: true }); core.saveSettings(); } });
+    // 🧹 업데이트로 받은 사람에게 한 번 뜨는 「기능 정리」 창도 tidy: true 일 때만
+    if (!tidy) await page.evaluate(async () => { const core = await import('/ext/src/core.js'); if (core.settings().tidyAsked !== true) { core.settings().tidyAsked = true; core.saveSettings(); } });
     if (!auto) await page.evaluate(async () => { const core = await import('/ext/src/core.js'); core.settings().autoStart = false; core.saveSettings(); });
     // v2.8: 미니홈피 · HUD 같은 모양은 기본 끔으로 나간다 → 시나리오들은 켠 상태를 본다 (끈 상태 = 예전 화면은 defaults: true로)
     // v2.9: 점집 셋 · 새 지도도 기본 끔 → 같은 방식 (끈 상태는 t-v29off)

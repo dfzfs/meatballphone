@@ -2,7 +2,7 @@
 // 어떤 카드·세계관에도 붙는 상태창. 모든 칸은 AI가 처음 채우고, 직접 편집 · 추가 지시 · 다시 생성이 된다.
 import {
     rev, ctxReset, app, ctx, settings, saveSettings, migrateParts, getMeta, saveMeta, isActive,
-    ready, modOn, esc, splitBar, TITLE, LOG, VERSION, MODULE, rand, ssErr, ssWarn, ssNote, SLOT_SEL, isSlotEl, sealMeta, checkSeal, loadPure,
+    ready, modOn, esc, splitBar, TITLE, LOG, VERSION, MODULE, rand, ssErr, ssWarn, ssNote, SLOT_SEL, isSlotEl, sealMeta, checkSeal, loadPure, applyTidyStyle,
 } from './src/core.js';
 import { applyGuardLook } from './src/guard.js';
 import { opInfo, blockJunk } from './src/engine.js';
@@ -862,6 +862,7 @@ function checkOtherTrackers(m) {
         const found = otherTrackers(m);
         if (!found.length) return;
         meta.otherWarned = true; saveMeta();
+        if (settings().quiet === true) { notify({ kind: 'text', icon: '🤝', title: `${found.join(' · ')}도 같이 돌고 있어요`, text: '둘 다 켜 두면 토큰이 늘 수 있어요 — 확장 설정 › 다른 확장과 같이 쓰기' }); return; } // 🔕 조용히: 알림함에만
         toastr.info(`이 채팅에서 ${esc(found.join(' · '))}도 같이 돌고 있는 것 같아요. 둘 다 켜 두면 AI가 상태를 두 번 적느라 토큰이 늘 수 있어요. 일부러 같이 쓰시는 거라면 그대로 두셔도 돼요.`, TITLE, { timeOut: 12000, escapeHtml: false });
     } catch (e) { ssWarn(LOG, 'others', e); }
 }
@@ -969,9 +970,10 @@ function init() {
     settings();
     // v2.7: 처음 설치하면 「기본 (추천)」 = 가벼운 모델 맞춤으로 시작
     // 🧆 바로 시작(autoStart)은 새로 설치한 사람만 켠다 — 업데이트로 받은 사람의 옛 채팅에 틀이 저절로 생겨 AI에게 가지 않게 (확장 설정에서 직접 켤 수 있다)
-    if (fresh) { Object.assign(settings(), structuredClone(PRESETS.light.set)); settings().v27asked = true; settings().autoStart = true; saveSettings(); }
+    if (fresh) { Object.assign(settings(), structuredClone(PRESETS.light.set)); settings().v27asked = true; settings().autoStart = true; settings().stylePick = 'ask'; settings().tidyAsked = true; Object.assign(settings(), { quiet: true, featureTips: false, actionTips: false }); saveSettings(); } // 🔕 처음엔 조용히: 저절로 뜨는 알림 · 팁은 알림함에만
     try { if (!fresh && migrateParts()) toastr.info('「보일 것」에서 로봇 표시 항목은 이제 끄면 AI에게도 안 보내요. 예전에 꺼 둔 것은 화면에서만 숨긴 채로 뒀어요 — 다시 눌러 켰다 끄면 AI에서도 빠져요.', TITLE, { timeOut: 15000 }); else migrateParts(); } catch (e) { ssWarn(LOG, 'parts mig', e); }
     applyTheme();
+    applyTidyStyle(); // 🧹 기능 정리로 숨긴 부가 기능은 설정 칸에서도 안 보이게
     try { if (settings().guardData === true) loadPure().then(() => { ctxReset(); refreshNow(); }).catch(e => ssNote('데이터 보호 준비', e)); applyGuardLook(); if (settings().guardLook === true) applyTheme(); } catch (e) { ssWarn(LOG, 'guard', e); } // 🛡 간섭 차단 (둘 다 기본 끔)
     try { watchHide(); } catch (e) { ssWarn(LOG, 'hide', e); } // 🙈 숨긴 답 빼기 (기본 끔)
     initMascot();
@@ -1011,6 +1013,8 @@ function init() {
     setTimeout(async () => { // 묻는 창은 하나씩 차례로
         await askV27().catch(e => ssWarn(LOG, 'v27', e));
         await askTrFree().catch(e => ssWarn(LOG, 'trfree', e));
+        // 🧹 업데이트로 받은 사람: 「기능 정리」를 한 번 (쓸 것만 남기고 나머지는 숨김 · 필수 아님 · 닫으면 그대로)
+        if (settings().tidyAsked !== true) { settings().tidyAsked = true; saveSettings(); await import('./src/stylepick.js').then(m => m.openTidy({ why: 'update' })).catch(e => ssWarn(LOG, 'tidy', e)); }
     }, 3500);
     console.log(LOG, 'loaded', VERSION);
 }

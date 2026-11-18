@@ -5,6 +5,7 @@ import { app } from './core.js';
 const later = (load, name) => async (...a) => (await load())[name](...a);
 export const openHelp = later(() => import('./help.js'), 'openHelp');
 export const openWizard = later(() => import('./wizard.js'), 'openWizard');
+export const openStylePick = later(() => import('./stylepick.js'), 'openStylePick'); // 🎨 스타일로 고르기
 export const openPromptWindow = later(() => import('./windows.js'), 'openPromptWindow');
 export const openThemeWindow = later(() => import('./windows.js'), 'openThemeWindow');
 app.openHelp = openHelp; // help.js가 불리면 진짜 함수로 바뀐다

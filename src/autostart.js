@@ -3,7 +3,7 @@
 //   · AI를 부르는 것은 「세계관 맞추기」(1회)와 「고른 대로 채우기」(묶음마다 1회) 둘뿐 — 둘 다 단추를 눌렀을 때만
 //   · 어디까지 했는지는 meta.auto = { tpl: [아직 틀뿐인 칸], world: 세계관을 AI로 맞췄나 } (다 채우면 열쇠를 지운다)
 //   · 끄기: 설정 autoStart = false (그러면 예전처럼 「만들기」를 눌러야 생긴다) · 이 채팅에서 상태창을 끈 경우(meta.off) · 카드에 상태창이 붙어 있는 경우엔 만들지 않는다
-import { app, ctx, settings, getMeta, saveMeta, modOn, MOD, MOD_IDS, REC_MODS, normalize, normPlay, esc, TITLE, LOG, ssWarn, ssErr } from './core.js';
+import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, MOD, MOD_IDS, REC_MODS, normalize, normPlay, esc, TITLE, LOG, ssWarn, ssErr } from './core.js';
 import { setBase, commit, gatherSources, chatCharacters } from './engine.js';
 import { skeleton, skeletonCore } from './skeleton.js';
 import { cardPack } from './safe.js';
@@ -11,7 +11,8 @@ import { busyBtn, askConfirm } from './kit.js';
 
 let making = false;
 // force = 「바로 시작」 단추를 직접 눌렀을 때: 설정이 꺼져 있어도 · 카드 상태창을 거절했어도 만든다
-export async function autoStart({ force = false } = {}) {
+// quiet = 안내 알림 없이 (🎨 스타일로 고르기가 틀을 먼저 만들 때 — 그쪽에서 알려 준다)
+export async function autoStart({ force = false, quiet = false } = {}) {
     const st = settings();
     if (!st.enabled || making || (!force && st.autoStart === false)) return false;
     const c = ctx();
@@ -32,7 +33,10 @@ export async function autoStart({ force = false } = {}) {
         await setBase({ core: skeletonCore('', {}), data }, mods, st.difficulty, normPlay({ mode: chars.length > 1 ? 'multi' : 'rp' }));
         const m = getMeta(true); m.auto = { tpl: Object.keys(data), world: false }; await saveMeta();
         app.refreshNow?.(); app.rerenderPanels?.(true);
-        toastr.info('상태창 <b>틀</b>을 바로 만들었어요 (AI 0회). 이것저것 눌러 보고, <b>관리 › 쓸 기능</b>에서 쓸 칸을 고른 뒤 「고른 대로 채우기」를 누르면 이 이야기에 맞게 채워 드려요.<br><small>여기를 누르면 바로 가요</small>', TITLE, { timeOut: 12000, extendedTimeOut: 6000, escapeHtml: false, onclick: () => goMods() });
+        // 🎨 새로 설치한 사람의 첫 채팅: 틀을 만든 뒤 「어떻게 놀고 싶어요?」를 한 번 띄운다 (설정 stylePick = 'ask' · 닫아도 다시 안 뜸)
+        const ask = !force && st.stylePick === 'ask';
+        if (ask) { st.stylePick = 'done'; saveSettings(); setTimeout(() => import('./stylepick.js').then(m => m.openStylePick({ why: 'first' })).catch(e => ssWarn(LOG, 'style first', e)), 300); }
+        else if (!quiet && st.quiet !== true) toastr.info('상태창 <b>틀</b>을 바로 만들었어요 (AI 0회). 이것저것 눌러 보고, <b>관리 › 쓸 기능</b>에서 쓸 칸을 고른 뒤 「고른 대로 채우기」를 누르면 이 이야기에 맞게 채워 드려요.<br><small>여기를 누르면 바로 가요</small>', TITLE, { timeOut: 12000, extendedTimeOut: 6000, escapeHtml: false, onclick: () => goMods() });
         return true;
     } catch (e) { ssErr(LOG, 'autostart', e); return false; } finally { making = false; }
 }

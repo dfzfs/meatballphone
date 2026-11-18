@@ -80,6 +80,7 @@ export function notify(a, { save = true } = {}) {
     if (save) remember(n);
     // 🍙 심플 모드: 알림 창은 띄우지 않는다 — 고장을 알리는 ⚠️ 주의만. 알림함에는 그대로 쌓여서 기본 모드로 넓히면 볼 수 있다 (답 밑의 칩 · 오류는 이 함수를 거치지 않으니 그대로)
     if (isSimple() && n.icon !== '⚠️') return app.renderHud?.();
+    if (set.quiet === true && n.icon !== '⚠️') return app.renderHud?.(); // 🔕 조용히: 알림함에만 (HUD의 🔔 숫자는 오른다)
     if (set.toastMode === 'off') return app.renderHud?.();
     if (set.toastMode === 'toastr' || typeof document === 'undefined') {
         toastr.info(`${esc(n.icon)} ${esc(n.title)}${n.text ? `<br><small>${esc(n.text)}</small>` : ''}${n.kind === 'tip' ? '<br><small><b>눌러서 켜기</b></small>' : n.kind === 'hint' ? '<br><small>눌러서 「알아요」 (다시 안 보기)</small>' : ''}`, TITLE, { escapeHtml: false, ...(n.kind === 'tip' && n.mod ? { timeOut: 12000, onclick: () => app.enableTip?.(n.mod) } : n.kind === 'hint' && n.hint ? { timeOut: 10000, onclick: () => app.knowHint?.(n.hint) } : {}) });

@@ -5,6 +5,7 @@
 @import url("css/patches.css"); /* 판별 덧붙임 (v2.2 ~ v2.7.18) — 앞 파일의 규칙을 덮어쓰므로 순서를 지킨다 */
 @import url("css/tiles.css"); /* 타일 판 (v2.7.21) */
 @import url("css/routes.css"); /* 루트 비교 · 인물끼리 호감 · 칸별 토큰 · 원클릭 세트 (선택 기능) */
+@import url("css/stylepick.css"); /* 🎨 스타일로 고르기 (첫 화면 · 관리 › 쓸 기능) */
 @import url("css/hompy.css"); /* 📒 미니홈피 화면 (v2.8 · 전체화면일 때만) */
 @import url("css/life.css"); /* 🎨 생활 판 — 욕구 타일 · 기분 얼굴 · 상태 딱지 · 인형 (v2.9) */
 @import url("css/mind.css"); /* 💭 프로필 › 속마음 칸 (v2.9) */

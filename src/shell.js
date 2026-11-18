@@ -22,7 +22,7 @@ import { hintAfterAction } from './tips.js';
 import { storyPick, STORY_HOME, guideView } from './story_ui.js';
 import { hompyHTML, mountHompy, fitHompy, photoHTML, hpLayout, hpMinor , isDecoMode } from './hompy.js';
 import { setNoShort } from './util.js';
-import { openPromptWindow, openThemeWindow, openWizard } from './lazy.js';
+import { openPromptWindow, openThemeWindow, openWizard, openStylePick } from './lazy.js';
 import { setBase, startBlank } from './engine.js';
 export { setBase, startBlank, openWizard, openPromptWindow, openThemeWindow }; // 다른 파일은 예전처럼 여기서 받아도 된다 (창은 눌렀을 때 불러옴 — lazy.js)
 
@@ -140,8 +140,10 @@ function renderPanel0(el) {
             ${mascot('idle', 'lg', 'bob') || '<i class="fa-solid fa-wand-magic-sparkles"></i>'}<b>아직 이 채팅의 상태창이 없어요</b>
             ${pack ? `<button class="ss-btn pri big" data-act="cardload"><i class="fa-solid fa-id-card-clip"></i> 카드에 든 상태창 불러오기</button><small class="ss-hint">${esc(pack.title || '상태창')} · AI 호출 없이 바로 시작</small>` : ''}
             ${cr ? `<button class="ss-btn pri big" data-act="carrystart"><i class="fa-solid fa-clapperboard"></i> ${cr.round}회차로 시작</button><small class="ss-hint">${esc(cr.title || '')} — 지난 회차에서 이어받기</small>` : ''}
-            <p>누르면 꼭 필요한 6칸의 틀이 바로 생겨요 (AI 0회 · 고를 것 없음). 이것저것 눌러 본 뒤 <b>관리 › 쓸 기능</b>에서 쓸 칸을 고르면, 고른 칸만 이 이야기에 맞게 채워 드려요.</p>
-            <button class="ss-btn ${pack || cr ? '' : 'pri big'}" data-act="quickstart"><i class="fa-solid fa-bolt"></i> 바로 시작</button>
+            <button class="ss-btn ${pack || cr ? '' : 'pri big'}" data-act="stylepick"><i class="fa-solid fa-palette"></i> 스타일로 고르기</button>
+            <small class="ss-hint">연애 · 로판 · 학원 · 모험 · 생활… 고르면 어울리는 칸과 기능이 한 번에 켜져요 (AI 0회)</small>
+            <p>그냥 시작하려면 「바로 시작」 — 꼭 필요한 6칸의 틀이 바로 생겨요 (AI 0회 · 고를 것 없음). 나중에 <b>관리 › 쓸 기능</b>에서 쓸 칸을 고르면, 고른 칸만 이 이야기에 맞게 채워 드려요.</p>
+            <button class="ss-btn" data-act="quickstart"><i class="fa-solid fa-bolt"></i> 바로 시작</button>
             <button class="ss-btn ghost" data-act="wizard" title="장르 · 난이도 · 칸 · 읽을 자료를 하나씩 골라서 AI로 한 번에 만들어요"><i class="fa-solid fa-wand-magic-sparkles"></i> 하나씩 골라서 만들기</button>
             <button class="ss-btn ghost" data-act="blank"><i class="fa-regular fa-file"></i> 빈 상태창으로 시작</button>
             <button class="ss-btn ghost" data-act="filerestore"><i class="fa-solid fa-box-open"></i> 백업 · 파일에서 불러오기</button>
@@ -288,6 +290,8 @@ async function onPanelAction(el, act, arg, btn) {
     const mname = TAB_INFO(tab)?.name;
     const rr = () => renderPanel(el);
     switch (act) {
+        case 'stylepick': return openStylePick({ why: 'again' }).catch(e => ssErr(LOG, 'stylepick', e)); // 🎨 스타일로 고르기
+        case 'tidy': return import('./stylepick.js').then(m => m.openTidy({ why: 'again' })).catch(e => ssErr(LOG, 'tidy', e)); // 🧹 기능 정리
         case 'quickstart': return import('./autostart.js').then(m => m.quickStart()).catch(e => ssErr(LOG, 'quickstart', e)); // 🧆 설정 창 없이 틀을 바로
         case 'wizard': return openWizard();
         case 'blank': return startBlank();

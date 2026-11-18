@@ -1,7 +1,7 @@
 // 칸별 화면 · 대시보드 · 관리 (미니 위젯 · 타일 판은 tiles.js)
 import {
     app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, MODS, MOD, MOD_IDS, DIFFS, diffOf, esc, short, clamp, norm, findBy,
-    fmtNum, clone, splitBar, ssNote, parseNum, dateStr, dayIndex, eventsOn, nextTime, nextTimeWraps, CLOCK_STYLES, timeWords, upcoming, userName, TITLE, VERSION, EMPTY, CONTACT_MODES, stamp, weekday, viewTr, GLOBAL_OFF,
+    fmtNum, clone, splitBar, ssNote, parseNum, dateStr, dayIndex, eventsOn, nextTime, nextTimeWraps, CLOCK_STYLES, timeWords, upcoming, userName, TITLE, VERSION, EMPTY, CONTACT_MODES, stamp, weekday, viewTr, GLOBAL_OFF, tidyHidden,
 } from './core.js';
 import { tagKeysFor, buildInjection } from './engine.js';
 import { autoOf, fillTodo, fillChosen, fillWorld, fillCalls, goMods } from './autostart.js';
@@ -624,15 +624,15 @@ export const ADDON_FLAGS = [
     ['mapMetro', 'fa-train-subway', '새 지도', '노선도 지도 · 이동 모션 · 인물 이모지 핀 · 건물 정면도/층별 평면도 · 본거지 집 안 그림 · 지도 꾸미기 — 화면만 · 토큰 0'],
 ];
 // 🧭 이야기 장치 14개도 같은 모양으로 (story.js의 목록 그대로)
-const STORY_FLAGS = STORY_DEVICES.map(d => [STORY_KEY[d.id], d.icon, d.name, `${d.desc} · ${d.cost}`]);
+export const STORY_FLAGS = STORY_DEVICES.map(d => [STORY_KEY[d.id], d.icon, d.name, `${d.desc} · ${d.cost}`]);
 const FLAG_KEYS = new Set([...ADDON_FLAGS, ...STORY_FLAGS].map(x => x[0]));
 const FLAG_BY = Object.fromEntries([...ADDON_FLAGS, ...STORY_FLAGS].map(f => [f[0], f]));
 // 부가 기능 스위치를 한 번에 (확장 설정 창의 같은 체크 칸도 맞춘다): 'all' 전부 켬 · 'none' 전부 끔 · 'rec' 처음 값
 // 👕 옷차림 · 장비를 켜고 끄면 입은 옷의 욕구 보정도 맞춘다 (생활 탭의 켜기 · 끄기 단추와 같게 — life.js gearon/gearoff)
 async function gearSync() { try { await app.loadAddons?.(true); await (await import('./addons.js')).syncNeedMods(); } catch { /* 장비 자료가 없으면 할 일 없음 */ } }
 function setFlags(how) { const st = settings(), gear0 = st.gearOn === true; for (const k of FLAG_KEYS) { const v = how === 'all' ? true : how === 'rec' ? !!FLAG_BY[k][4] : false; st[k] = v; const box = document.querySelector(`#ss-settings input[data-s="${k}"]`); if (box) box.checked = v; } saveSettings(); if (gear0 !== (st.gearOn === true)) gearSync(); try { app.storyChanged?.(); } catch { /* 화면 표시일 뿐 */ } }
-const flagOn = (st, [k, , , , defOn]) => (defOn ? st[k] !== false : st[k] === true);
-const flagList = (st, list) => `<div class="ss-mods">${list.map(f => { const [k, icon, name, desc] = f, o = flagOn(st, f); return `<label class="ss-mod ${o ? 'on' : ''}"><input type="checkbox" class="ss-switch" data-chg="setflag" data-arg="${k}" ${o ? 'checked' : ''}>${icon.startsWith('fa-') ? `<i class="fa-solid ${icon}"></i>` : `<i class="ss-emo">${icon}</i>`}<span><b>${esc(name)}</b><small>${esc(desc)}</small></span></label>`; }).join('')}</div>`;
+export const flagOn = (st, [k, , , , defOn]) => (defOn ? st[k] !== false : st[k] === true);
+const flagList = (st, list) => `<div class="ss-mods">${list.filter(f => !tidyHidden('flags', f[0])).map(f => { const [k, icon, name, desc] = f, o = flagOn(st, f); return `<label class="ss-mod ${o ? 'on' : ''}"><input type="checkbox" class="ss-switch" data-chg="setflag" data-arg="${k}" ${o ? 'checked' : ''}>${icon.startsWith('fa-') ? `<i class="fa-solid ${icon}"></i>` : `<i class="ss-emo">${icon}</i>`}<span><b>${esc(name)}</b><small>${esc(desc)}</small></span></label>`; }).join('')}</div>`;
 // 🧩 부가 기능 탭 (관리 옆): 켠 선택 기능의 「화면」만 묶음별로 모은다 — 켜고 끄기는 관리 › 쓸 기능 › 부가 기능. 묶음은 전부 접힌 채로 시작
 export function extraHTML(s, ui = {}, part = {}) {
     const st = settings(), wave = st.hpWave === true;
@@ -759,8 +759,9 @@ function pickerHTML(s, meta, st, ui = {}) {
             ${syn.length ? `<div class="ss-pk-syn"><small>같이 켜면</small>${syn.map(([o, why]) => { const oo = isOn(MOD[o]); return oo ? `<span class="ss-chip" title="${esc(why)}"><i class="fa-solid fa-check"></i> ${MOD[o].name}</span>` : `<button type="button" class="ss-chip btn" data-act="pkon" data-arg="${o}" title="${esc(why)} — 눌러서 켜기"><i class="fa-solid fa-plus"></i> ${MOD[o].name}</button>`; }).join('')}</div>` : ''}
             <div class="ss-pk-sub"${on ? '' : ' hidden'}>${pkSub(m.id, s, st)}</div></div>`;
     };
-    const groups = GROUPS.filter(g => g.id !== 'manage').map(g => ({ ...g, tabs: g.tabs.filter(t => !PSEUDO.has(t) && MOD[TAB_MOD(t)]) })).filter(g => g.tabs.length);
-    const rest = [...ADDON_FLAGS, ...STORY_FLAGS].filter(f => !PK_CHILD.has(f[0]));
+    const groups = GROUPS.filter(g => g.id !== 'manage').map(g => ({ ...g, tabs: g.tabs.filter(t => !PSEUDO.has(t) && MOD[TAB_MOD(t)] && !tidyHidden('mods', TAB_MOD(t))) })).filter(g => g.tabs.length); // 🧹 숨긴 칸은 목록에서 뺀다
+    const rest = [...ADDON_FLAGS, ...STORY_FLAGS].filter(f => !PK_CHILD.has(f[0]) && !tidyHidden('flags', f[0]));
+    const tdy = settings().tidy, nHid = (tdy?.mods?.length ?? 0) + (tdy?.flags?.length ?? 0);
     const oRest = mgIsOpen('ex-rest'), nRest = rest.filter(f => flagOn(st, f)).length;
     const auto = autoOf(meta), todo = live ? fillTodo(s, meta) : [], needWorld = !!auto && !auto.world;
     const fillBox = auto || todo.length ? `<div class="ss-pk-fill">
@@ -769,6 +770,8 @@ function pickerHTML(s, meta, st, ui = {}) {
     const common = PK_COMMON.map(([id, name, keys]) => { const list = live ? pkOpts(keys) : []; if (!list.length) return ''; const o = mgIsOpen(`cm-${id}`); return `<div class="ss-modgrp ss-fold ${o ? 'open' : ''}"><button type="button" class="ss-mg-h" data-act="mgfold" data-arg="cm-${id}" aria-expanded="${o}"><b>${name}</b><small>세부 설정 ${list.length}개 · 모든 채팅에 걸려요</small><i class="fa-solid fa-chevron-down ss-mg-chev"></i></button><div class="ss-mg-b"${o ? '' : ' hidden'}><div class="ss-pk-det">${list.join('')}</div></div></div>`; }).join('');
     return `${sec('🎛 기능 고르기 <small>이 채팅만 · 끈 칸은 내용은 남고 AI에게만 안 보내요</small>', `${fillBox}
             <div class="ss-pk-sum"><span><i class="fa-solid fa-gauge-high"></i> 켠 칸 <b>${onIds.length}</b>개</span>${total !== null ? `<span>지금 매 턴 AI에게 가는 글 <b>약 ${fmtNum(total)} 토큰</b></span>` : ''}</div>
+            <div class="ss-sp-row"><button type="button" class="ss-btn ss-sp-open" data-act="stylepick"><i class="fa-solid fa-palette"></i> <span><b>🎨 스타일로 고르기</b><small>연애 · 로판 · 학원 · 모험 · 생활 … 고르면 칸 · 플레이 방식 · 부가 기능이 한 번에${meta?.style && meta.style !== 'light' ? ' · 지금: 고른 스타일 있음' : ''}</small></span></button>
+            <button type="button" class="ss-btn ss-sp-open" data-act="tidy"><i class="fa-solid fa-broom"></i> <span><b>🧹 기능 정리${nHid ? ` <em>숨김 ${nHid}</em>` : ''}</b><small>${nHid ? '숨긴 기능을 다시 꺼내거나 더 숨겨요' : '쓸 것만 남기고 나머지는 관리 창에서도 숨겨요 · 지우지 않아요'}</small></span></button></div>
             <div class="ss-seg wrap stack ss-pk-sets">
                 <button class="${recOnly ? 'on' : ''}" data-act="modset" data-arg="rec" title="꼭 필요한 6칸(프로필 · 수치 · 재산 · 관계 · 지도 · 달력)만 켜요"><i class="fa-solid fa-feather"></i> 가볍게<small>추천 6칸만</small></button>
                 ${PK_SETS.map(([id, icon, name, add, hint]) => `<button class="${setOn(add) ? 'on' : ''}" data-act="pkset" data-arg="${id}"><i class="fa-solid ${icon}"></i> ${name}<small>6칸 + ${hint}</small></button>`).join('')}
