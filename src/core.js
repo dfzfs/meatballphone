@@ -273,7 +273,7 @@ export const DEFAULTS = Object.freeze({
     genRead: 'short',        // 📖 만들기 · 다시 생성 때 채팅 읽기: short (최근 N개 · 앞 700자씩 — 예전 그대로) · last (+ 마지막 답은 전체) · recent (최근 N개를 길게) · all (채팅 전체)
     genReadCap: 120000,      // 「채팅 전체」로 읽을 때 최대 글자 수 — 넘으면 오래된 메시지부터 앞부분만 남긴다
     genNote: false,          // 📝 만들기 · 다시 생성 때 이 채팅의 작가 노트도 읽기 (페르소나 · 세계관을 작가 노트에 적는 사람용)
-    hideSkip: false,         // 🙈 눈 단추로 직접 숨긴 AI 답은 상태 계산에서 빼기 (요약 확장 · /hide로 숨겨진 답은 그대로 더한다)
+    hideSkip: true,          // 🙈 (v2.9.1 기본 켬) 눈 단추로 직접 숨긴 AI 답은 상태 계산에서 빼기 (요약 확장 · /hide로 숨겨진 답은 그대로 더한다)
     askDelete: true,         // 🗑 되돌릴 수 없는 지우기(알림함 비우기 · 비밀 · 기억 · 편지 · 답장 다시 받기)는 한 번 물어보기
     backClose: true,         // ◀ 폰 뒤로 가기로 미트볼 창 닫기 (앱 밖으로 나가지 않게)
     // ── 🛡 간섭 차단 (둘 다 기본 끔 — 끄면 예전과 글자 하나 안 다르다) ──
@@ -511,8 +511,21 @@ export function findBy(list, name, field = 'name') {
     if (aliasMap && Object.hasOwn(aliasMap, n)) n = norm(aliasMap[n]);
     if (!n || !Array.isArray(list)) return null;
     return list.find(x => norm(x?.[field]) === n)
-        ?? list.find(x => { const m = norm(x?.[field]); return m.length >= 2 && n.length >= 2 && (m.includes(n) || n.includes(m)); })
+        ?? list.find(x => nameWithin(x?.[field], name))
         ?? trFind(list, name, field);
+}
+// 이름이 다른 이름 안에 들어 있을 때 같은 사람 · 장소로 볼지 (v2.9.1 · 블루레몬 제보): 예전엔 두 글자 이상 「포함」이면 같다고 봐서
+// 「유나」와 「유나린」이 한 사람으로 합쳐지고 「Ann」이 「Anna」에 붙었다 → 낱말 경계로만 (「레온」 ↔ 「레온 하트」) · 뒤에 조사 · 호칭만 붙은 것(「레온이」 「유나 씨」 「Leon's」)은 같게
+const NAME_TAIL = /^(?:이|가|은|는|을|를|의|에게|한테|께|와|과|랑|이랑|도|만|님|씨|군|양|선배|형|누나|오빠|언니|'s|’s)$/i;
+const nameToks = (x) => String(x ?? '').toLowerCase().split(/[\s·・,，()（）\[\]{}「」『』"“”'_/|]+/).filter(Boolean);
+export function nameWithin(a, b) {
+    const A = nameToks(a), B = nameToks(b);
+    if (!A.length || !B.length) return false;
+    const [S, L] = A.join('').length <= B.join('').length ? [A, B] : [B, A];
+    if (S.join('').length < 2 || S.join('') === L.join('')) return S.join('') === L.join('') && S.join('').length >= 2;
+    for (let i = 0; i + S.length <= L.length; i++) if (S.every((t, j) => L[i + j] === t)) return true; // 낱말 그대로 들어 있음
+    const s = S.join(''), l = L.join('');
+    return l.startsWith(s) && NAME_TAIL.test(l.slice(s.length)); // 「레온이」 = 레온 + 조사
 }
 // ───── 화면만 번역 (v2.6): 상태창 데이터는 영어 그대로 (= AI에게도 영어), 화면에 그릴 때만 번역본 ─────
 // 번역 사전은 채팅마다 meta.tr = { 영어 원문: 번역 } 에 쌓인다.

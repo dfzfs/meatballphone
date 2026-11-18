@@ -521,6 +521,26 @@ export function shiftSwipeAnchors(meta, m, removed) {
 // 이야기와 상관없는 정리 · 설정 편집은 묶지 않음 (메시지를 지워도 남음): 번역 · 영어 저장(라벨 없는 칸 저장) · 완전 삭제 · 읽음 · 메모 · 업적 표시 · 애정 끄기 · 연인 확정
 const META_OPS = new Set(['_purge', '_read', '_nread', '_memo', '_achtog', '_nolove', '_love', '_bond', '_unbond', '_alert', '_merge']);
 export const isMetaEdit = (a) => (a?.ops?.length ? a.ops.every(([k]) => META_OPS.has(k)) : !!a?.set && !a.label && !a.silent) || a?.keep === true; // 조용한 저장(구매 때 상점 재고 −1 등)은 행동이라 묶음
+// 🗑 중간 메시지 지우기 (v2.9.1 · 블루레몬 제보): 묶이지 않은 편집(칸 저장 · 영어 저장 바꾸기 …)의 자리 at(그때 메시지 수)이 그대로라서,
+// 그보다 앞 답을 지우면 저장 뒤에 있던 답이 저장 앞으로 들어가 그 저장에 덮였다 (그 답의 변화가 사라짐)
+// → 마지막 계산 때의 메시지 목록과 견줘 지운 자리를 찾고, 그보다 뒤의 기록을 지운 만큼 당긴다
+let seenChat = null;
+export function noteChat(chat) { seenChat = { id: String(ctx().getCurrentChatId?.() ?? ''), list: chat.slice() }; }
+export function shiftForDelete(meta, chat = ctx().chat ?? []) {
+    const seen = seenChat;
+    if (!seen || seen.id !== String(ctx().getCurrentChatId?.() ?? '') || seen.list.length <= chat.length) { noteChat(chat); return 0; }
+    const gone = []; let j = 0;
+    for (let i = 0; i < seen.list.length; i++) { if (j < chat.length && seen.list[i] === chat[j]) j++; else gone.push(i); }
+    noteChat(chat);
+    if (j !== chat.length || gone.length !== seen.list.length - chat.length) return 0; // 지우기만 한 게 아니면 (다른 채팅 · 다시 불러옴) 손대지 않는다
+    let n = 0;
+    for (const a of meta?.adjust ?? []) {
+        if (a.an) continue; // 묶인 편집은 묶인 메시지를 따라간다
+        const before = gone.filter(g => g < a.at).length;
+        if (before) { a.at -= before; n++; }
+    }
+    return n;
+}
 export function clampAdjust(meta, len) {
     let n = 0;
     for (const e of meta?.adjust ?? []) if (!e.an && e.at > len) { e.at = len; n++; } // 묶인 편집은 당기지 않음 (묶인 메시지가 없으면 계산에서 빠짐)
@@ -568,6 +588,7 @@ export function compute(limit, opts = {}) {
     // 묶인 편집: 묶인 메시지가 지금 채팅에 그 스와이프로 있을 때만 · 자리는 그 메시지 바로 뒤
     moveContinued(meta, chat);
     const byKey = new Map(); chat.forEach((m, i) => { byKey.set(msgKey(m), i); rememberKey(m); });
+    if (!opts.bake && (limit ?? chat.length) >= chat.length) noteChat(chat); // 🗑 지운 자리를 찾을 수 있게 (shiftForDelete)
     let legacy = null;
     const live = (a) => {
         if (!a.an) return true;
@@ -592,7 +613,10 @@ export function compute(limit, opts = {}) {
         if (a._off) return; // 지운 · 바꾼 메시지 뒤의 행동 (그 스와이프로 돌아오면 다시)
         s.romActive = a.at >= romFrom;
         const info = { seed: `${seed}:adj:${a.t}`, labels: [], alerts: [], mods: meta.mods, meta, cut: 0 };
-        if (a.set?.patch) { // v2.7.7: 연락 · 피드는 바뀐 부분만 (칸 통째 복사본이 쌓여 채팅 파일이 MB로 불던 것)
+        if (a.set?.patch?.tx) { // v2.9.1: 영어 저장으로 바꾸기 = 글만 바꾸는 기록 (숫자는 그때 값으로 굳지 않음)
+            if (a.set.mod === 'core') s.core = swapTexts(s.core, a.set.patch.tx);
+            else if (s.data[a.set.mod]) s.data[a.set.mod] = swapTexts(s.data[a.set.mod], a.set.patch.tx);
+        } else if (a.set?.patch) { // v2.7.7: 연락 · 피드는 바뀐 부분만 (칸 통째 복사본이 쌓여 채팅 파일이 MB로 불던 것)
             if (DELTA_MODS.has(a.set.mod) && s.data[a.set.mod]) {
                 try {
                     const lk = FEED_LISTS[a.set.mod], md = s.data[a.set.mod];
@@ -981,6 +1005,13 @@ export function deltaOf(a, b) {
     return p;
 }
 const putVal = (cur, v) => (isList(v) ? (Array.isArray(cur) ? cur.slice(v.$d) : []).concat(clone(v.$p)) : clone(v));
+// 글 칸만 바꾸기: 값이 표에 그대로 있는 글자열만 (열쇠 · 숫자는 그대로)
+export function swapTexts(o, tx) {
+    if (typeof o === 'string') return Object.hasOwn(tx, o) ? tx[o] : o;
+    if (Array.isArray(o)) { for (let i = 0; i < o.length; i++) o[i] = swapTexts(o[i], tx); return o; }
+    if (o && typeof o === 'object') { for (const k of Object.keys(o)) o[k] = swapTexts(o[k], tx); return o; }
+    return o;
+}
 export function applyDelta(d, p) {
     for (const [k, v] of Object.entries(p.top ?? {})) d[k] = putVal(d[k], v);
     for (const k of p.del ?? []) delete d[k];

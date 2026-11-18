@@ -2,7 +2,7 @@
 // 「상태창 전체 번역」 버튼은 이미 있는 칸들을 통째로 번역한다.
 import { app, ctx, settings, esc, TITLE, LOG, MOD_IDS, MOD, modOn, getMeta, saveMeta, viewTr, trDict, ssWarn, SLOT_SEL, isSlotEl } from './core.js';
 import { P, aiGenerate, parseJSON, mainBusy } from './prompts.js';
-import { commit } from './engine.js';
+import { commit, addAdjust } from './engine.js';
 
 export const needTr = () => settings().ssGenLang === 'en' || settings().ssGenLang === 'enview';
 const trOpts = () => ({ profile: settings().trProfile || '' });
@@ -80,7 +80,8 @@ async function stMany(list, rev = false) {
     return out;
 }
 // 코드 값(상태·종류·id 같은 것)은 번역하면 안 된다
-const CODE_KEYS = new Set(['id', 'unit', 'genre', 'cls', 'repeat', 'icon', 'color', 'every', 'key', 'currencyCode', 'system', 'sys', 'judge', 'sort', 'show', 'pick', 'mesid', 'chatId', 'seed', 'url', 'link', 'src', 'img', 'avatar', 'handle']);
+// date: 미트볼이 찍는 날짜 도장(「101년 4월 4일 (금)」) — 영어 저장 모드에서도 한국어라서, 생활 기록이 하나 생길 때마다 관계 칸이 다시 「한국어로 저장된 칸」이 됐다 (v2.9.1)
+const CODE_KEYS = new Set(['date', 'id', 'unit', 'genre', 'cls', 'repeat', 'icon', 'color', 'every', 'key', 'currencyCode', 'system', 'sys', 'judge', 'sort', 'show', 'pick', 'mesid', 'chatId', 'seed', 'url', 'link', 'src', 'img', 'avatar', 'handle']);
 // 이 칸들은 코드일 때도 글일 때도 있다 (v2.7.12): role = 'npc' 또는 「Life Saver & Clown」, status = 'active' 또는 「Buried in treaty paperwork」
 // → 띄어쓰기 없는 소문자 낱말일 때만 코드로 본다 (예전엔 늘 코드로 봐서 직업 · 상태 메시지가 영어로 남았음)
 // v2.7.14: 소문자 한 낱말이라도 미트볼이 쓰는 코드 값일 때만 코드 (surgeon · sleeping 같은 직업 · 상태는 번역)
@@ -382,13 +383,33 @@ export async function clearTr(btn = null) {
     if (viewTr() && app.current?.state && await P.show.confirm(TITLE, '지금 바로 다시 번역할까요?<br><small>번역 담당(번역 모델 · 실리 기본 번역)으로 상태창 글을 새로 번역해요. 나중에 하려면 「상태창 전체 번역」을 눌러요.</small>')) await translateSheet(btn);
     return drop.length;
 } // 기본 틀 영어판이 화면 번역 짝을 넣을 때 (skeleton.js → 순환 import 없이)
+// 번역 모델이 원문에 없는 꺾쇠로 싸서 돌려준 것 바로잡기 (v2.9.1 · 블루레몬 제보): 「New Year / April Fools」 → 「새해「 / 」만우절」
+const QUOTES = /[「」『』]/g;
+export function cleanKo(en, ko) {
+    let x = String(ko ?? '');
+    if (!QUOTES.test(x)) return x;
+    x = x.replace(/[「『]\s*([\/|·,~\-–—]?)\s*[」』]/g, (m, sep) => (sep ? ` ${sep} ` : ' ')); // 비었거나 나눔표만 싼 괄호
+    if (!/[「」『』"“”'‘’]/.test(String(en ?? ''))) x = x.replace(QUOTES, ''); // 원문에 따옴표가 없으면 꺾쇠는 모두 군더더기
+    else { const o = (x.match(/[「『]/g) ?? []).length, c = (x.match(/[」』]/g) ?? []).length; if (o !== c) x = x.replace(QUOTES, ''); } // 짝이 안 맞으면
+    return x.replace(/\s{2,}/g, ' ').trim();
+}
+// 사전에 이미 굳은 것도 한 번 (채팅을 열 때 · 📌 고정한 짝은 그대로)
+export function fixDict() {
+    const meta = getMeta(); const d = meta?.tr;
+    if (!d || meta.trQuoteFix) return 0;
+    let n = 0;
+    for (const [en, ko] of Object.entries(d)) { if (meta.trLock?.[en]) continue; const k = cleanKo(en, ko); if (k && k !== ko) { d[en] = k; n++; } }
+    meta.trQuoteFix = true; trVer++;
+    Promise.resolve().then(() => saveMeta()).catch(() => { /* ignore */ });
+    return n;
+}
 export function addPairs(pairs) {
     const meta = getMeta(true);
     if (!meta) return 0;
     const d = (meta.tr ??= {});
     let n = 0;
     for (const [en0, ko0] of pairs) {
-        const en = String(en0 ?? '').trim(), ko = String(ko0 ?? '').trim();
+        const en = String(en0 ?? '').trim(), ko = cleanKo(en, String(ko0 ?? '').trim());
         if (!en || !ko || en === ko || !hasLatin(en)) continue;
         if (Object.hasOwn(d, en) && d[en] === ko) continue;
         if (meta.trLock?.[en]) continue; // 내가 「번역 고치기」로 고친 건 덮어쓰지 않음
@@ -779,6 +800,13 @@ export function fixContactKeys(cur, out, known = new Map()) {
     if (Array.isArray(out.recent)) out.recent = [...new Set(out.recent.map(to))];
     return out;
 }
+// 같은 자리의 글끼리 「바뀐 글 → 새 글」 표 (숫자 · 참거짓은 넣지 않는다) · 같은 글이 두 가지로 바뀌면 그 글은 뺀다
+export function textMap(cur, out) {
+    const m = {}, bad = new Set();
+    for (const [a, b] of pairsOf(cur, out)) { if (typeof b !== 'string' || a === b || !String(a).trim() || a === '__proto__') continue; if (Object.hasOwn(m, a) && m[a] !== b) bad.add(a); else m[a] = b; }
+    for (const a of bad) delete m[a];
+    return m;
+}
 export async function convertToEnglish(btn) {
     if (running) { stop = true; return; }
     const s = app.current?.state;
@@ -806,7 +834,11 @@ export async function convertToEnglish(btn) {
                 if (id === 'contact') out = fixContactKeys(cur, out, known);
                 for (const [en, ko] of pairs) { const a = String(ko ?? '').trim(), b = String(en ?? '').trim(); if (a && b && a !== b && a.length <= 30 && !known.has(a)) known.set(a, b); }
                 addPairs(pairs); // 영어 → 원래 있던 한국어
-                await commit(id, out, '');
+                // v2.9.1: 칸을 통째로 저장하지 않고 「글만 바꾸는」 기록으로 — 예전엔 그때의 애정 · 우정 · 돈이 이 기록에 굳어서, 앞 답을 지우거나 감춰도 숫자가 안 빠졌다
+                // (연락 칸은 대화방 열쇠(이름)까지 바꿔야 해서 예전처럼)
+                const tx = id === 'contact' ? null : textMap(cur, out);
+                if (tx) { if (Object.keys(tx).length) await addAdjust({ set: { mod: id, patch: { tx } } }); }
+                else await commit(id, out, '');
                 k++;
             } catch (e) { fail++; failed.push(id === 'core' ? '세계 핵심' : MOD[id]?.name ?? id); ssWarn(LOG, 'to english', id, e); }
         }

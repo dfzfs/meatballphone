@@ -7,7 +7,7 @@ import {
 import { applyGuardLook } from './src/guard.js';
 import { opInfo, blockJunk } from './src/engine.js';
 import {
-    shiftSwipeAnchors, clampAdjust, noteGeneration, compute, buildInjection, setInjection, addAdjust, stashStatus, stashAllSwipes,
+    shiftSwipeAnchors, clampAdjust, shiftForDelete, noteGeneration, compute, buildInjection, setInjection, addAdjust, stashStatus, stashAllSwipes,
     sideSweep, bakedLabels, rebindToUser, shiftSwipeKeys, drawerOps, setDrawer, extractOps, ssValue, undoLast, hasStatus, autoBake, slimLegacy,
 } from './src/engine.js';
 import { analyzeMessage } from './src/ai.js';
@@ -15,7 +15,7 @@ import { mainBusy } from './src/prompts.js';
 import { confirmPopup, applyTheme, mascot, popup } from './src/kit.js';
 import { ensureUI, rerenderPanels, openRoll, panels, renderHud } from './src/shell.js';
 import { F, loadWanted } from './src/feat.js'; // ⚡ 켠 기능만 불러오기 (연락 · 미니홈피 · 점집 · 새 지도)
-import { startViewTr, translateView, scheduleFill, checkKorean } from './src/translate.js';
+import { startViewTr, translateView, scheduleFill, checkKorean, fixDict } from './src/translate.js';
 import { notify } from './src/notify.js';
 import { offerCard, followBranch } from './src/safe.js';
 import { toggleStar, PRESETS } from './src/extra.js';
@@ -710,7 +710,7 @@ function refreshNow({ soft = false } = {}) {
             const ds = domSig();
             if (!same || ds !== lastDom) { try { decorateAll(); } catch (e) { ssErr(LOG, 'decorate', e); } }
             lastDom = ds;
-            try { scheduleFill(); checkKorean(); } catch (e) { ssWarn(LOG, 'viewtr', e); }
+            try { fixDict(); scheduleFill(); checkKorean(); } catch (e) { ssWarn(LOG, 'viewtr', e); }
         }
     } catch (e) { ssErr(LOG, e); }
     // 계산이 어디서 실패해도 상태창 화면은 그린다 (안 그리면 '창이 안 떠요'가 됨)
@@ -1001,7 +1001,7 @@ function init() {
     for (const ev of ['USER_MESSAGE_RENDERED', 'MORE_MESSAGES_LOADED', 'GENERATION_STOPPED']) on(ev, () => refresh());
     on('MESSAGE_UPDATED', () => refresh(true)); // 옛 메시지가 바뀌면 다시 계산
     on('MESSAGE_DELETED', async () => { // v2.7.20: 지운 메시지 뒤에 묶인 편집은 남은 끝으로 당겨서 계속 계산되게
-        try { const meta = getMeta(); if (meta?.base && clampAdjust(meta, ctx().chat?.length ?? 0)) await saveMeta(); } catch (e) { ssWarn(LOG, 'clamp', e); }
+        try { const meta = getMeta(); if (meta?.base && (shiftForDelete(meta) + clampAdjust(meta, ctx().chat?.length ?? 0))) await saveMeta(); } catch (e) { ssWarn(LOG, 'clamp', e); }
         refresh(true);
     });
     on('GENERATION_STARTED', (type, opts, dry) => { if (!dry) { app.generatingAt = Date.now(); try { noteGeneration(type); } catch (e) { ssNote('생성 시작 기록 실패', e); } } });

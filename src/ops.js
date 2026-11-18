@@ -899,10 +899,11 @@ function opRoom(s, val, info, L, T, key, rawKey) {
 function opLoc(s, val, info, L, T, key, rawKey) {
     const mp = ensure(s, 'map');
     let [nm, desc] = splitBar(val), inner = '';
-    nm = unquote(nm);
+    nm = unquote(String(nm ?? '').split(/\s*(?:→|->|=>|⇒|➡)\s*/).pop()); // 「집 -> 편의점」 = 편의점 (v2.9.1 · 예전엔 글 통째가 새 장소가 됐다)
     if (!nm) return;
     // 🏢 「loc: 학교 > 옥상」 — 건물 안에서 층 · 방을 옮김 (이름이 글자 그대로 「학교 > 옥상」인 장소가 따로 없을 때만 나눈다 · 예전엔 뒤쪽을 그냥 버렸다)
-    if (!mp.places.some(q => norm(q.name) === norm(nm))) { const m = nm.match(/^(.+?)\s*[>›»]\s*(.+)$/); if (m) { nm = m[1].trim(); inner = m[2].trim().slice(0, 40); } }
+    // 「사무실 - 5층 라운지」도 앞이 이미 아는 장소면 같은 뜻 (v2.9.1 · 예전엔 「사무실」로 떨어져 방 이름이 사라졌다)
+    if (!mp.places.some(q => norm(q.name) === norm(nm))) { const m = nm.match(/^(.+?)\s*[>›»]\s*(.+)$/) || (() => { const d = nm.match(/^(.+?)\s+[-–—]\s+(.+)$/); return d && mp.places.some(q => norm(q.name) === norm(d[1])) ? d : null; })(); if (m) { nm = m[1].trim(); inner = m[2].trim().slice(0, 40); } }
     let p = findBy(mp.places, nm);
     if (!p) {
         const from = findBy(mp.places, mp.here);
@@ -1135,8 +1136,16 @@ function opXNread(s, val, info, L, T, key, rawKey) { // 📰 기사 읽음 (v2.7
     const it = s.data.news?.items?.find(x => x.id === val); if (it) it.read = true;
     return;
 }
+const SIGN_SPLIT = /\s*[,，]\s*(?=[+\-−]\s*\p{L})/u;
 function opNpc(s, val, info, L, T, key, rawKey) {
     const pf = ensure(s, 'profile');
+    // 「npc: -A, -B, +C」 「+A | 설명, +B | 설명」 — 한 줄에 여럿 (v2.9.1 · 예전엔 이름에 쉼표가 있다고 줄 통째를 버리거나 첫 사람만 넣었다) · 「-」은 장면에서 빠지는 사람이라 새로 넣지 않는다
+    if (SIGN_SPLIT.test(val) || /^[+\-−]\s*\p{L}[^,，|]*[,，]\s*\p{L}/u.test(val)) {
+        const parts = SIGN_SPLIT.test(val) ? val.split(SIGN_SPLIT) : val.split(/\s*[,，]\s*/);
+        for (const p of parts) { const t = p.trim(); if (t && !/^[\-−]/.test(t)) opNpc(s, t.replace(/^\+\s*/, ''), info, L, T, key, rawKey); }
+        return;
+    }
+    if (/^[\-−]\s*\p{L}/u.test(val)) return;
     const [nm0, summary] = splitBar(val);
     const nm = personName(s, nm0);
     if (!nm) return;

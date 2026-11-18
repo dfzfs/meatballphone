@@ -1,6 +1,9 @@
 // 확장 AI가 하는 일 (모두 토큰이 드는 호출)
 import { letterMode, instantLetter, contactSimple, app, ctx, settings, getMeta, MOD, NORM, normalize, ensureLove, LOVE_AXES, relAxes, fixLoveLadder, short, findBy, norm, dateStr, stamp, MODULE, LOG, DIFFS, diffOf, CONTACT_MODES, uid, msgText, fmtNum, playOf, normPlay, ssWarn, dayIndex, heroIsUser, userName } from './core.js';
 import { P, aiGenerate, parseJSON, aiJSON } from './prompts.js';
+// 긴 글은 앞 · 뒤를 반씩 (v2.9.1 · 예전엔 앞 4,000자만 읽어 답 끝의 사건 · 이동 · 시간을 놓쳤다 — 사건은 대개 답 끝에 있다)
+const headTail = (t, n) => { const x = String(t ?? ''); if (x.length <= n) return x; const h = Math.floor(n / 2); return `${x.slice(0, h)}\n[…]\n${x.slice(-(n - h))}`; };
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 import { SCHEMA, modOn, parseNum } from './core.js';
 import { compute, buildInjection, tagKeysFor, extractOps, stripStatus, recentChat, chatCharacters, setDrawer, MIND_FMT } from './engine.js';
 import { finJSON, finText, finLines } from './translate.js';
@@ -127,7 +130,7 @@ export async function analyzeMessage(idx) {
     (app.pipState ??= new Map()).set(pk, 'running'); app.decorate?.(); // 🔍 칩 점검이 「분석 중」을 알 수 있게 (v2.7.3)
     const prevUser = [...c.chat.slice(0, idx)].reverse().find(x => x.is_user);
     const inj = buildInjection(r, { noOutput: true, full: true });
-    const prompt = `${inj.main}\n${inj.people}\n\nKeys: ${tagKeysFor(getMeta()).join(' · ')}\n\n=== {{user}} ===\n${short(prevUser?.mes ?? '', 1500)}\n\n=== REPLY ===\n${short(stripStatus(m.mes), 4000)}`;
+    const prompt = `${inj.main}\n${inj.people}\n\nKeys: ${tagKeysFor(getMeta()).join(' · ')}\n\n=== {{user}} ===\n${headTail(prevUser?.mes ?? '', 1500)}\n\n=== REPLY ===\n${headTail(stripStatus(m.mes), clamp(parseInt(settings().fixReadCap, 10) || 8000, 2000, 40000))}`;
     try {
         const out = await aiGenerate('analyze', P('ai.analyze'), prompt, 600);
         const o2 = String(out ?? '').replace(/<(\/?)status>/gi, '<$1meatball>'); // 분석 모델이 옛 <status>로 답해도 읽는다
