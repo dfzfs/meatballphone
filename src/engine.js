@@ -1113,7 +1113,7 @@ function relKeyHint() {
 }
 const noLoveNote = (rl) => { const n = (rl?.user ?? []).filter(x => x.noLove).map(x => x.name); return n.length ? ` · platonic only, never raise aff: ${n.slice(0, 8).join(', ')}` : ''; };
 // 🕐 간결 · 초압축 · 변화 위주는 키 이름만 보내서 period가 「지금 시간」인지 몰랐다 (제보: 시간이 안 흐름 · {{user}}가 「5분 뒤」라고 써도 그대로) → 한 줄 덧붙임
-const timeKeyShort = (meta) => (!modOnRaw('calendar', meta) ? '' : calClock() ? ' (period = clock time now HH:MM — write it whenever time passes, even minutes, incl. skips in {{user}}\'s message)' : ' (period = time slot now — write it when the slot changes, incl. skips in {{user}}\'s message)');
+const timeKeyShort = (meta) => (!modOnRaw('calendar', meta) ? '' : calClock() ? ' (period = clock time now HH:MM — write it whenever time passes, even minutes)' : ' (period = time slot now — write it when the slot changes)');
 const relKeyShort = (rl) => { const A = relAxes(rl, viewTr()); return (A.love ? ` (aff = ${A.aff}: romantic interest, raise it on any romantic/flustered moment · trust = ${A.trust}${noLoveNote(rl)})` : noLoveNote(rl) ? ` (${noLoveNote(rl).slice(3)})` : ''); };
 // 📌 고정 메모를 몇 개까지 보낼지 (검수): 0 = 안 보냄 — 예전엔 0이 기본 8로 바뀌었고, 진짜 0이어도 slice(-0)이 전부를 돌려줬다
 const pinCapOf = (set) => { const n = parseInt(set.pinCap, 10); return clamp(Number.isFinite(n) ? n : 8, 0, 30); };
