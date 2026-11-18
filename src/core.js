@@ -5,7 +5,7 @@ export { clamp, clone, esc, num, str, arr, norm, fmtNum, signed, uid, short, spl
 export const MODULE = 'statussim';
 export const LOG = '[미트볼 상태창]';
 export const TITLE = '미트볼 상태창';
-export const VERSION = '2.9.0';
+export const VERSION = '2.9.1';
 export const INJECT_KEY = 'statussim_state';
 export const INJECT_KEY2 = 'statussim_people';
 export const INJECT_KEY3 = 'statussim_romance'; // 로맨스 보정 · 내 주입문 (v2.6)
@@ -108,6 +108,13 @@ export const DEFAULTS = Object.freeze({
     radius: 12,
     defaultMods: null,
     ssGenLang: 'ko',         // 상태창(확장 AI) 생성 언어: ko = 바로 한국어 | en = 영어로 생성 → 번역본 저장 | enview = 영어로 저장 · 화면만 번역 (v2.6)
+    aiModelOnly: '',         // 🧠 연결 프로필 없이 모델 이름만 (메인 연결과 같은 회사 · 채팅 완성) — 프로필을 고르면 프로필이 먼저 (v2.9.1)
+    trModelOnly: '',         //   └ 번역에만 쓸 모델 이름
+    popX: true,              // ✨ 「닫기」뿐인 창은 오른쪽 위 ✕로 닫기 (아래 닫기 줄을 숨겨 폰에서 내용 자리를 넓힘 · v2.9.1)
+    blurFx: true,            // ✨ 옆 서랍 · 알림의 뒤 흐림 (끄면 글이 또렷하고 폰에서 가벼워요)
+    albumBtn: true,          // ✨ 답마다 「추억 앨범에 담기」 단추 (끄면 단추만 숨김 · 앨범 탭은 그대로)
+    iconStyle: 'emoji',      // ✨ 화면의 그림 글자: emoji (그대로) | line (선 아이콘 · 화면만 — 저장 · AI 글은 그대로)
+    uiFont: '',              // 🔤 미트볼 화면 글꼴 (v2.9.1): '' = 기본 · 'theme' = 실리 테마 글꼴 따라감 · 'dot' = 미트볼 도트 글꼴 · 그 밖 = 글꼴 이름 그대로
     trProfile: '',           // 번역 모델 (연결 프로필, '' = 확장 AI 모델 → 없으면 메인)
     trLang: '한국어',
     trEngine: 'st',          // 번역 담당: st = 실리 기본 번역 (Chat Translation의 Google·DeepL 등 · 무료 · v2.7.2부터 기본) | llm = 번역 모델 (지침 이해 · 토큰)
@@ -277,7 +284,7 @@ export const DEFAULTS = Object.freeze({
     trAutoConvert: false,    // 🔁 한국어로 저장된 칸이 있는 채팅을 열면 저절로 영어 저장으로 (실리 기본 번역일 때만 · 토큰 0 · 기본 끔)
     genReadCap: 120000,      // 「채팅 전체」로 읽을 때 최대 글자 수 — 넘으면 오래된 메시지부터 앞부분만 남긴다
     genNote: false,          // 📝 만들기 · 다시 생성 때 이 채팅의 작가 노트도 읽기 (페르소나 · 세계관을 작가 노트에 적는 사람용)
-    hideSkip: true,          // 🙈 (v2.9.1 기본 켬) 눈 단추로 직접 숨긴 AI 답은 상태 계산에서 빼기 (요약 확장 · /hide로 숨겨진 답은 그대로 더한다)
+    hideSkip: false,         // 🙈 눈 단추로 직접 숨긴 AI 답은 상태 계산에서 빼기 (요약 확장 · /hide로 숨겨진 답은 그대로 더한다)
     askDelete: true,         // 🗑 되돌릴 수 없는 지우기(알림함 비우기 · 비밀 · 기억 · 편지 · 답장 다시 받기)는 한 번 물어보기
     backClose: true,         // ◀ 폰 뒤로 가기로 미트볼 창 닫기 (앱 밖으로 나가지 않게)
     // ── 🛡 간섭 차단 (둘 다 기본 끔 — 끄면 예전과 글자 하나 안 다르다) ──

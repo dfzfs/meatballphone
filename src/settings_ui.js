@@ -16,7 +16,7 @@ import { terms, matchText } from './find.js';
 
 // ───── 확장 설정 서랍 ─────
 // 바꾸면 화면을 바로 다시 그려야 하는 스위치 (v2.7.3)
-const VIEW_KEYS = new Set(['fortuneTarot', 'fortuneOrb', 'fortuneShaman', 'mapMetro', 'hompyFull', 'hpLite', 'hpSkinHud', 'loopMode', 'swipeGhost', 'fateDebt', 'tensionOn', 'realGap', 'glitchView', 'ledgerKnow', 'ledgerPromise', 'guideOn', 'peekCost', 'relScar', 'memoryDrift', 'meddleOn', 'tasteBook', 'crossMail', 'groupChat', 'extraJudge', 'questExpire', 'memoOn', 'albumOn', 'peekOn', 'recordOn', 'freshDot', 'pipCheck', 'questJudge', 'msgCard', 'chipOutside', 'contactSimple', 'contactSimpleReflect', 'relStagesOn', 'relShowMemo', 'relShowWants', 'relShowLife', 'relShowPairs', 'relShowBtns', 'relShowNext', 'relShowUnlock']);
+const VIEW_KEYS = new Set(['uiFont', 'iconStyle', 'blurFx', 'albumBtn', 'fortuneTarot', 'fortuneOrb', 'fortuneShaman', 'mapMetro', 'hompyFull', 'hpLite', 'hpSkinHud', 'loopMode', 'swipeGhost', 'fateDebt', 'tensionOn', 'realGap', 'glitchView', 'ledgerKnow', 'ledgerPromise', 'guideOn', 'peekCost', 'relScar', 'memoryDrift', 'meddleOn', 'tasteBook', 'crossMail', 'groupChat', 'extraJudge', 'questExpire', 'memoOn', 'albumOn', 'peekOn', 'recordOn', 'freshDot', 'pipCheck', 'questJudge', 'msgCard', 'chipOutside', 'contactSimple', 'contactSimpleReflect', 'relStagesOn', 'relShowMemo', 'relShowWants', 'relShowLife', 'relShowPairs', 'relShowBtns', 'relShowNext', 'relShowUnlock']);
 // 「부가 기능 한 번에 끄기」 — 상태 계산 · 본편 롤플에 꼭 필요하지 않은 것만
 const LIGHT_OFF = { memoOn: false, albumOn: false, mindMode: 'off', recordOn: false, daySummary: false, featureTips: false, showMascot: false, mascotBuddy: false, musicToast: false };
 const ADDON_SET = new Set(['gearOn', 'ambientOn', 'giftTaste', 'promiseClock', 'mergeContact', 'guestbook', 'hpWave', 'socialAff']); // index.js의 ADDON_KEYS와 같은 목록
@@ -115,6 +115,8 @@ function settingsBody() {
             <label>확장 AI에 쓸 모델 (연결 프로필)
                 <div class="ss-set-inline"><select class="text_pole" data-s="aiProfile">${profileOptions(s.aiProfile)}</select><button class="menu_button" data-s-act="profiles" title="새로고침"><i class="fa-solid fa-rotate"></i></button></div>
                 <small>만들기·추가 지시·연락 답장·뉴스 등에만 쓰여요. 롤플 본문은 메인 연결.</small></label>
+            <label>🧠 연결 프로필 없이 모델 이름만 <small>(메인 연결과 같은 회사로 모델만 바꿔 보내요 · 채팅 완성 API일 때 · 위에서 프로필을 고르면 프로필이 먼저 · 예: gpt-4o-mini, gemini-2.5-flash)</small><input class="text_pole" data-s="aiModelOnly" value="${esc(s.aiModelOnly ?? '')}" placeholder="비우면 메인 모델"></label>
+            <label>└ 번역에만 쓸 모델 이름 <small>(비우면 위 칸)</small><input class="text_pole" data-s="trModelOnly" value="${esc(s.trModelOnly ?? '')}" placeholder="비우면 위와 같음"></label>
             <details class="ss-set-more"><summary>기능별 모델 따로 고르기</summary>
                 <small>비워 두면 위의 확장 AI 모델을 써요.</small>
                 <label>연락 (메신저·편지 답장 · 선톡)<select class="text_pole" data-s="profContact">${featOptions(s.profContact)}</select></label>
@@ -227,6 +229,11 @@ function settingsBody() {
             <label class="checkbox_label"><input type="checkbox" data-s="fortuneShaman" ${s.fortuneShaman === true ? 'checked' : ''}> <b>🪭 점집: 무당 · 굿</b> <small>(v2.9 · 기본 끔 — 박보살 할매의 사주 · 신점, 굿으로 저주 풀기 · 한 번에 AI 1회 · 복채)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="mapMetro" ${s.mapMetro === true ? 'checked' : ''}> <b>🚇 새 지도</b> <small>(v2.9 · 기본 끔 — 노선도 · 이동 모션 · 인물 이모지 핀 · 건물 정면도/층별 평면도 · 본거지 집 안 그림 · 지도 꾸미기. 끄면 예전 지도 · 화면만 · 토큰 0)</small></label>
             <b class="ss-set-h">데이터 · 화면</b>
+            <label>🔤 미트볼 화면 글꼴<select class="text_pole" data-s="uiFont">${o('uiFont', '', '기본 (IBM Plex Sans KR)')}${o('uiFont', 'theme', '실리 테마 글꼴 따라가기')}${o('uiFont', 'dot', '미트볼 도트 글꼴')}${s.uiFont && !['theme', 'dot'].includes(s.uiFont) ? o('uiFont', s.uiFont, s.uiFont) : ''}</select></label>
+            <label>🖼 화면의 그림 글자<select class="text_pole" data-s="iconStyle">${o('iconStyle', 'emoji', '이모지 그대로 (기본)')}${o('iconStyle', 'line', '선 아이콘 (화면만 · 기기마다 모양이 같아요)')}</select></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="popX" ${s.popX !== false ? 'checked' : ''}> 「닫기」뿐인 창은 오른쪽 위 ✕로 닫기 <small>(아래 닫기 줄이 사라져 폰에서 내용이 넓어져요)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="blurFx" ${s.blurFx !== false ? 'checked' : ''}> 옆 서랍 · 알림 뒤 흐림 효과 <small>(끄면 글이 또렷하고 폰에서 가벼워요)</small></label>
+            <label class="checkbox_label"><input type="checkbox" data-s="albumBtn" ${s.albumBtn !== false ? 'checked' : ''}> 답마다 「추억 앨범에 담기」 단추 <small>(끄면 단추만 숨겨요 · 앨범 탭은 그대로)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="hompyFull" ${s.hompyFull !== false ? 'checked' : ''}> <b>📒 전체화면은 미니홈피 모양으로</b> <small>(v2.8 새 화면 · 기본 끔 — 켜면 상태창의 전체화면이 위에 메뉴, 옆에 프로필 · 상태 · 일촌 창, 가운데에 지금 탭이 있는 미니홈피로 열려요. 화면만 바뀌고 계산 · 토큰은 그대로예요)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="hpLite" ${s.hpLite === true ? 'checked' : ''}> 🪶 미니홈피 가볍게 <small>(옆 창 없이 가운데 창만 그려요 — 큰 상태창 · 폰에서 화면이 가벼워져요. 꾸미기 › 창에서도 바꿔요)</small></label>
             <label class="checkbox_label"><input type="checkbox" data-s="hpSkinHud" ${s.hpSkinHud === true ? 'checked' : ''}> 🪟 HUD · 보통 상태창도 미니홈피와 같은 모양으로 <small>(기본 끔 — 끄면 예전 모양 그대로)</small></label>
@@ -288,6 +295,7 @@ function bindSettings(el) {
         if (k === 'ssGenLang' && e.target.value === 'enview') toastr.info('이제부터 만드는 상태창은 영어로 저장되고 화면에만 번역돼요. 이미 한국어로 저장된 칸은 그대로예요.', TITLE);
         if (k === 'mascotSound' || k === 'mascotVolume') playMascotSound(); // 고르면 바로 들려주기
         app.storyChanged?.(); // 🧭 이야기 장치를 켜고 껐을 수 있음 (화면 깨짐 표시 맞추기)
+        if (k === 'uiFont' || k === 'blurFx' || k === 'albumBtn') app.ensureUI?.(); // ✨ 글꼴 · 흐림 · 앨범 단추는 바로 (kit.js applyTheme)
         if (VIEW_KEYS.has(k)) { try { app.applyRetro?.(); } catch { /* 꾸밈일 뿐 */ } app.redecorate(); app.refreshNow(); rerenderPanels(true); app.renderHud?.(); return; } // 화면 모양이 바뀌는 스위치는 바로 다시 그림
         app.refreshNow();
     });

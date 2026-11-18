@@ -1802,6 +1802,20 @@ export function setLorePick(linked, on) {
     const meta = getMeta(true); if (!meta) return;
     meta.lorePick = { off, add }; saveMeta();
 }
+// 🏢 로어북의 층 안내 읽기 (v2.9.1) — 채팅을 열 때 한 번 → app.loreFloors (지도 이름표에 「7F」)
+//   카드 · 채팅에 걸린 로어북만 (전역 로어북 목록은 실리 모듈을 불러와야 해서 · 채팅을 열 때마다 하지 않게) · 노선도 지도를 처음 그릴 때 한 번
+let loreFloorsFor = null;
+export async function loadLoreFloors() {
+    const c = ctx(), id = String(c.getCurrentChatId?.() ?? '');
+    if (loreFloorsFor === id) return; loreFloorsFor = id; app.loreFloors = null;
+    if (!c.loadWorldInfo) return;
+    const books = new Set(); for (const ch of chatCharacters()) { const w = ch?.data?.extensions?.world; if (w) books.add(w); } if (c.chatMetadata?.world_info) books.add(c.chatMetadata.world_info);
+    const texts = [];
+    try { for (const name of books) { const book = await c.loadWorldInfo(name); for (const e of Object.values(book?.entries ?? {})) if (!e.disable && /\d\s*F|층/i.test(String(e.content ?? ''))) texts.push(e.content); } } catch (e) { ssNote('로어북 층 읽기', e); }
+    const { loreFloorMap } = await import('./iso.js');
+    const m = loreFloorMap(texts); app.loreFloors = m.size ? m : null;
+}
+app.wantLoreFloors = () => { const id = String(ctx().getCurrentChatId?.() ?? ''); if (loreFloorsFor === id) return; loadLoreFloors().then(() => { if (app.loreFloors) app.rerenderPanels?.(true); }).catch(e => ssNote('로어북 층', e)); };
 export async function loreText(limit) {
     const c = ctx();
     if (!c.loadWorldInfo || limit <= 0) return '';
@@ -1876,7 +1890,7 @@ export function changeLedger() {
             if (k === 'aff' || k === 'trust') for (const p of v.split(/\s*[,，]\s*/)) { const mm = p.match(/^(.+?)\s*([+\-−]\s*\d{1,3})\b/); if (mm) { const nm = mm[1].trim(), d = sgn(mm[2]); if (nm && Number.isFinite(d) && nm.length <= 30) (k === 'aff' ? A : T)[nm] = ((k === 'aff' ? A : T)[nm] ?? 0) + d; } }
             else if (k === 'cash') { const mm = v.match(/^([+\-−])\s*([\d,]+(?:\.\d+)?)/); if (mm) { cash += (mm[1] === '+' ? 1 : -1) * Number(mm[2].replace(/,/g, '')); cashN++; } }
             else if (k === 'loc') loc = String(v.split('|')[0]).split(/\s*(?:→|->|=>)\s*/).pop().trim();
-            else if (k === 'time') time = v.split(/\s*(?:→|->|=>)\s*/).pop().trim();
+            else if (k === 'time') { const t = v.split(/\s*(?:→|->|=>)\s*/).pop().trim(); if (t && !/^[+\-]/.test(t)) time = t; } // 「+1」 같은 넘김은 빼고
             else if (k === 'event' || k === 'quest' || k === 'ach') ev.push(short(v.split('|')[0].trim(), 50));
         }
     }

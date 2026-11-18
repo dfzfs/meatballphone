@@ -26,7 +26,9 @@ function glossary(extra) {
 
 // ───── 번역 지침 (v2.6) ─────
 const rulesText = () => String(settings().trRules ?? '').trim();
-const llmRules = () => { const lk = lockedPairs(); return (rulesText() ? `\n\nExtra rules from the user (follow them exactly):\n${rulesText()}` : '') + (lk.length ? `\n\nFixed translations (always use exactly these): ${lk.map(([a, b]) => `${a} = ${b}`).join('; ')}` : ''); };
+// 📚 용어집이 길면 이번 글에 나온 이름 줄만 (v2.9.1 · 블루레몬 — 「원문 = 번역」 줄이 수백 개면 번역마다 다 실려 토큰이 컸다) · 짝이 아닌 지시 줄은 늘
+const rulesFor = (src) => { const t = rulesText(); if (!src || t.length < 1500) return t; const s = String(src).toLowerCase(); return t.split(/\r?\n/).filter(l => { const m = l.match(/^\s*(.+?)\s*(?:=|->|→)\s*(.+?)\s*$/); return !m || !/[A-Za-z]/.test(m[1]) || s.includes(m[1].toLowerCase()); }).join('\n').trim(); };
+const llmRules = (src = '') => { const lk = lockedPairs().filter(([a]) => !src || String(src).toLowerCase().includes(a.toLowerCase())), rt = rulesFor(src); return (rt ? `\n\nExtra rules from the user (follow them exactly):\n${rt}` : '') + (lk.length ? `\n\nFixed translations (always use exactly these): ${lk.map(([a, b]) => `${a} = ${b}`).join('; ')}` : ''); };
 // 「원문 = 번역」 · 「원문 -> 번역」 · 「원문 → 번역」 줄 → 이름·용어 고정
 // 📌 「번역 고치기」로 고정한 이름 (이 채팅 · 40자 이하 = 이름 · 낱말) — 지침의 「원문 = 번역」처럼 새 글을 번역할 때도 미리 바꿔 넣는다 (v2.7.2)
 export const lockedPairs = () => { try { const m = getMeta(); const d = m?.tr ?? {}; return Object.keys(m?.trLock ?? {}).filter(en => en.length <= 40 && d[en]).map(en => [en, d[en]]); } catch { return []; } };
@@ -165,7 +167,7 @@ export async function trJSON(obj, extra, o = null) {
     }
     const src = JSON.stringify(obj);
     try {
-        const out = await aiGenerate('translate', P('ai.translate', { lang: set.trLang || '한국어', glossary: glossary(extra) }) + llmRules(), src, Math.min(16000, Math.max(1000, Math.ceil(src.length * 1.3))), trOpts());
+        const out = await aiGenerate('translate', P('ai.translate', { lang: set.trLang || '한국어', glossary: glossary(extra) }) + llmRules(src), src, Math.min(16000, Math.max(1000, Math.ceil(src.length * 1.3))), trOpts());
         // v2.7.3: 원본 모양에 덮어씌운다 — 번역 모델이 칸을 빼먹거나 숫자 · id · 상태 코드를 바꿔도 데이터가 안 망가지게 (「영어로 생성 → 번역본 저장」은 이 결과를 그대로 저장해요)
         return overlay(obj, parseJSON(out), '', false);
     } catch (e) {
@@ -189,7 +191,7 @@ export async function trText(text, o = null) {
         try { return (await stTranslate(String(text))).trim() || text; } catch (e) { ssWarn(LOG, 'st translate text', e); trFailNote(e); return text; }
     }
     try {
-        const out = await aiGenerate('translate', P('ai.translateText', { lang: set.trLang || '한국어', glossary: glossary() }) + llmRules(), String(text), Math.min(4000, Math.max(400, Math.ceil(String(text).length * 1.5))), trOpts());
+        const out = await aiGenerate('translate', P('ai.translateText', { lang: set.trLang || '한국어', glossary: glossary() }) + llmRules(text), String(text), Math.min(4000, Math.max(400, Math.ceil(String(text).length * 1.5))), trOpts());
         return String(out ?? '').replace(/^```[a-z]*\s*|```\s*$/g, '').trim() || text;
     } catch (e) { ssWarn(LOG, 'translate text', e); return text; }
 }
@@ -200,6 +202,7 @@ let trVer = 0; // 사전이 바뀔 때마다 +1 (화면 번역기 캐시 갱신)
 app.trEpoch = () => `${trVer}/${settings().ssGenLang ?? ''}`; // 미니홈피의 「바뀐 창만 갈아 끼우기」가 번역이 바뀌면 통째로 다시 그리도록
 const hasLatin = (x) => /[A-Za-z]/.test(x);
 app.addTrPairs = (p) => addPairs(p);
+app.trShow = (v) => { try { return typeof v === 'string' && trDict() ? trString(v) : v; } catch { return v; } }; // 알림 · 칩처럼 화면에만 보일 글 (notify.js)
 // ───── 🌐 번역 고치기 (v2.7.2): 화면에 보이는 한국어가 이상할 때 직접 고친다 (토큰 0 · 이 채팅만) ─────
 // 고친 짝은 잠가서 자동 번역이 다시 덮어쓰지 않고, 이름을 고치면 그 이름이 든 다른 번역 문장 속 옛 이름도 같이 바꾼다
 export async function openTrFix(only = null, tab = null) {
@@ -393,8 +396,24 @@ export function cleanKo(en, ko) {
     else { const o = (x.match(/[「『]/g) ?? []).length, c = (x.match(/[」』]/g) ?? []).length; if (o !== c) x = x.replace(QUOTES, ''); } // 짝이 안 맞으면
     return x.replace(/\s{2,}/g, ' ').trim();
 }
+// 📚 늘 같은 낱말은 번역기를 부르지 않고 사전에 바로 (v2.9.1 · 블루레몬): 요일 · 달 · 시간대 · 날씨 — 번역 언어가 한국어일 때만 · 채팅마다 한 번
+const FIXED_KO = Object.entries({
+    Mon: '월', Tue: '화', Wed: '수', Thu: '목', Fri: '금', Sat: '토', Sun: '일',
+    Monday: '월요일', Tuesday: '화요일', Wednesday: '수요일', Thursday: '목요일', Friday: '금요일', Saturday: '토요일', Sunday: '일요일',
+    January: '1월', February: '2월', March: '3월', April: '4월', May: '5월', June: '6월', July: '7월', August: '8월', September: '9월', October: '10월', November: '11월', December: '12월',
+    Dawn: '새벽', Morning: '아침', Noon: '정오', Afternoon: '오후', Evening: '저녁', Night: '밤', Midnight: '자정', 'Late Night': '늦은 밤', Daytime: '낮',
+    Sunny: '맑음', Clear: '맑음', Cloudy: '흐림', Overcast: '흐림', Rain: '비', Rainy: '비', Snow: '눈', Snowy: '눈', Storm: '폭풍', Fog: '안개', Foggy: '안개', Windy: '바람', 'Heat Wave': '폭염', 'Cold Snap': '한파',
+});
+export function seedFixed() {
+    const meta = getMeta(); if (!meta || meta.trSeed === 1 || !viewTr()) return 0;
+    if (!/한국|korean|^ko/i.test(String(settings().trLang || '한국어'))) return 0;
+    meta.trSeed = 1;
+    const d = meta.tr ?? {};
+    return addPairs(FIXED_KO.filter(([en]) => !Object.hasOwn(d, en))); // 이미 있는 짝(내가 고친 것 포함)은 그대로
+}
 // 사전에 이미 굳은 것도 한 번 (채팅을 열 때 · 📌 고정한 짝은 그대로)
 export function fixDict() {
+    try { seedFixed(); } catch (e) { ssWarn(LOG, 'seed', e); }
     const meta = getMeta(); const d = meta?.tr;
     if (!d || meta.trQuoteFix) return 0;
     let n = 0;
@@ -492,7 +511,11 @@ function fixLocked(t) {
     return t;
 }
 const SEG = /(\s+(?:→|->|—|–|·|\|)\s+|[:：]\s+|\s*\n\s*)/;
-export function trString(v, d = trDict()) {
+// 칩 · 날짜 속 「(Mon)」 「4/1(Fri)」 요일 한 글자 (v2.9.1 · 블루레몬) — 사전에 요일 짝이 있을 때만
+const WD_RE = /\((Mon|Tue|Wed|Thu|Fri|Sat|Sun)\)/g;
+const wdFix = (x, d) => (typeof x === 'string' && d && x.includes('(') ? x.replace(WD_RE, (m, w) => (Object.hasOwn(d, w) ? `(${d[w]})` : m)) : x);
+export function trString(v, d = trDict()) { return wdFix(trString0(v, d), d); }
+function trString0(v, d = trDict()) {
     if (!d || !v || !hasLatin(v)) return v;
     const k = v.trim();
     if (Object.hasOwn(d, k)) return v.replace(k, () => fixLocked(String(d[k])));

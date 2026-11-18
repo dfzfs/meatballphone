@@ -1,7 +1,7 @@
 // 틀: 상태창 패널 · HUD · 사이드(미니) · 떠 있는 버튼 (만들기는 wizard.js · 프롬프트/꾸미기 창은 windows.js)
 import {
     app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, isActive, ready, MOD, MOD_IDS, EMPTY, DIFFS, diffOf,
-    esc, short, clone, clamp, h, dateShort, userName, TITLE, LOG, VERSION, MODULE, relFromProfiles, ssErr, isHidden,
+    esc, short, clone, clamp, h, dateShort, userName, TITLE, LOG, VERSION, MODULE, relFromProfiles, ssErr, ssNote, isHidden,
 } from './core.js';
 import { commit, wipeModule, gatherSources, unreadCount, dueLetters } from './engine.js';
 import { genModule, instructModule } from './ai.js';
@@ -83,6 +83,30 @@ function groupBadge(g, s, meta) {
 // ───── 패널 ─────
 // 🏷 아이콘만 있는 단추 (v2.8 · 애플 HIG: 뜻이 분명하지 않은 아이콘엔 이름): 화면 읽기용 이름(aria-label)은 전부, 눈에 보이는 이름은 헷갈리기 쉬운 것에
 const IB_LABEL = { peek: '속마음', talk: '연락', leave: (b) => (b.classList.contains('on') ? '다시 등장' : '퇴장'), nolove: '애정 끄기', love: '애정 켜기', relmerge: '합치기', memotog: (b) => (b.classList.contains('on') ? '고정됨' : '고정'), tostore: '창고로', dec: '버리기', ctext: '고치기', setweather: '날씨', cmenu: '더보기', trashit: '버리기' };
+// ✨ 이름표 → 값 목록을 두 열로 (v2.9.1 · 블루레몬): dt · dd 짝을 .ss-dli로 묶고, 긴 값은 한 줄 통째
+function pairDl(el) {
+    for (const dl of el.querySelectorAll('dl.ss-dl:not(.ss-dl2)')) {
+        if (dl.children.length < 4 || dl.closest('.ss-editor')) continue; // 짝이 둘 이상일 때만
+        const kids = [...dl.children]; if (!kids.every((k, i) => k.tagName === (i % 2 ? 'DD' : 'DT'))) continue;
+        const frag = document.createDocumentFragment();
+        for (let i = 0; i < kids.length; i += 2) { const w = document.createElement('div'); w.className = 'ss-dli'; if ((kids[i + 1]?.textContent ?? '').length > 26 || kids[i + 1]?.querySelector('ul, ol, .ss-chips')) w.classList.add('wide'); w.append(kids[i], kids[i + 1]); frag.appendChild(w); }
+        dl.appendChild(frag); dl.classList.add('ss-dl2');
+    }
+}
+// ✨ 선 아이콘 (설정 iconStyle = line · v2.9.1 · 블루레몬): 화면의 그림 글자를 Font Awesome 선 아이콘으로 — 글자는 aria-label · title로 남아 복사 · 저장 · AI 글은 그대로
+const LINE_ICON = { '💰': 'fa-coins', '💵': 'fa-money-bill', '💗': 'fa-heart', '❤️': 'fa-heart', '🤝': 'fa-handshake', '📍': 'fa-location-dot', '🕐': 'fa-clock', '🗺️': 'fa-map', '🗺': 'fa-map', '📜': 'fa-scroll', '🎲': 'fa-dice', '📱': 'fa-mobile-screen', '📰': 'fa-newspaper', '🏠': 'fa-house', '👤': 'fa-user', '👥': 'fa-users', '📝': 'fa-pen-to-square', '🏆': 'fa-trophy', '🔔': 'fa-bell', '🎒': 'fa-bag-shopping', '📦': 'fa-box', '🗑': 'fa-trash-can', '🗑️': 'fa-trash-can', '🔮': 'fa-wand-sparkles', '📅': 'fa-calendar', '🛒': 'fa-cart-shopping', '⭐': 'fa-star', '🔒': 'fa-lock', '🔓': 'fa-lock-open', '💬': 'fa-comment', '✉️': 'fa-envelope', '📈': 'fa-chart-line', '🎵': 'fa-music', '♪': 'fa-music', '☀️': 'fa-sun', '🌙': 'fa-moon', '🌧️': 'fa-cloud-rain', '❄️': 'fa-snowflake', '☁️': 'fa-cloud', '⚔️': 'fa-khanda', '🛡️': 'fa-shield', '📊': 'fa-chart-simple', '⚙️': 'fa-gear', '🧭': 'fa-compass', '🏢': 'fa-building', '🎁': 'fa-gift', '💡': 'fa-lightbulb', '⚠️': 'fa-triangle-exclamation', '✅': 'fa-check', '❔': 'fa-question' };
+const LI_RE = new RegExp(`(${Object.keys(LINE_ICON).sort((a, b) => b.length - a.length).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gu');
+function lineIcons(el) {
+    if (settings().iconStyle !== 'line') return;
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, { acceptNode: (n) => (n.parentElement?.closest('textarea, input, script, style, svg, .ss-editor, [contenteditable], .ss-li') ? NodeFilter.FILTER_REJECT : LI_RE.test(n.data) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP) });
+    const hits = []; for (let n = w.nextNode(); n; n = w.nextNode()) hits.push(n);
+    for (const n of hits) {
+        LI_RE.lastIndex = 0; const frag = document.createDocumentFragment(); let last = 0;
+        for (const m of n.data.matchAll(LI_RE)) { if (m.index > last) frag.append(n.data.slice(last, m.index)); const i = document.createElement('i'); i.className = `ss-li fa-solid ${LINE_ICON[m[1]]}`; i.title = m[1]; i.setAttribute('aria-label', m[1]); frag.append(i); last = m.index + m[1].length; }
+        if (last < n.data.length) frag.append(n.data.slice(last));
+        n.replaceWith(frag);
+    }
+}
 function labelIcons(el) {
     for (const b of el.querySelectorAll('button[title]:not([aria-label]), [role="button"][title]:not([aria-label]), summary[title]:not([aria-label])')) {
         if (b.textContent.trim()) continue;
@@ -196,7 +220,7 @@ function renderPanel0(el) {
             <button class="ss-tool" data-act="json" title="JSON 편집"><i class="fa-solid fa-code"></i><span>JSON 편집</span></button>
             ${mod !== 'core' ? `<button class="ss-tool danger" data-act="wipemod" title="이 칸 전체 삭제 — 내용과 기록을 찌꺼기 없이 (되돌릴 수 없음)"><i class="fa-solid fa-broom"></i><span>전부 지우기</span></button>` : ''}</div></details></div>` : (favBtn || hideBtn) && (pseudo || !data) ? `<div class="ss-tools">${favBtn}${hideBtn}</div>` : '';
     const instruct = st.ui.instructOpen && editable && data ? `<div class="ss-instruct"><textarea class="ss-in" rows="2" placeholder="${esc(INSTRUCT_HINT[mod] ?? '예: 스토리에 맞게 ○○를 추가하고 △△는 바꿔줘')}">${esc(st.ui.instructText ?? '')}</textarea>
-        <div class="ss-row-btns"><button class="ss-btn pri sm" data-act="instruct">${ai1} 보내기</button><small class="ss-hint">바뀌는 내용을 먼저 보여 드려요.</small></div></div>` : '';
+        <div class="ss-row-btns"><button class="ss-btn pri sm" data-act="instruct">${ai1} 보내기</button>${String(ctx().chatMetadata?.note_prompt ?? '').trim() ? '<button class="ss-btn sm" data-act="instructnote" title="이 채팅의 작가 노트를 지시칸 끝에 붙여요">📝 작가 노트 넣기</button>' : ''}<small class="ss-hint">바뀌는 내용을 먼저 보여 드려요.</small></div></div>` : '';
     const c = s.core, cal = s.data.calendar, here = s.data.map?.here;
     const sub2 = [cal && modOn('calendar', meta) ? `${dateShort(cal)} ${cal.time}` : '', here && modOn('map', meta) ? `📍 ${here}` : ''].filter(Boolean).join(' · ');
     const d0 = DIFFS[diffOf(meta)];
@@ -230,7 +254,7 @@ function renderPanel0(el) {
             <div class="ss-head-t"><b>${esc(c.title || TITLE)}</b>${sub2 ? `<small>${esc(sub2)}</small>` : ''}</div>
             <div class="ss-head-a">
                 <button class="ss-chip btn diff-${diffOf(meta)}" data-act="tab" data-arg="manage" title="난이도"><i class="fa-solid ${d0.icon}"></i> ${d0.name}</button>
-                <button class="ss-ib" data-act="inbox" title="알림함"><i class="fa-${nNew ? 'solid' : 'regular'} fa-bell"></i>${nNew ? `<i class="ss-badge">${nNew > 99 ? '99+' : nNew}</i>` : ''}</button>
+                <button class="ss-ib" data-act="inbox" title="알림함"><i class="fa-${nNew ? 'solid' : 'regular'} fa-bell"></i>${nNew ? `<i class="ss-badge">${nNew > 9 ? '9+' : nNew}</i>` : ''}</button>
                 <button class="ss-ib" data-act="search" title="검색"><i class="fa-solid fa-magnifying-glass"></i></button>
                 <button class="ss-ib ${meta.paused ? 'on' : ''}" data-act="pause" title="${meta.paused ? '재개' : '일시정지 (AI에게 상태를 보내지 않음)'}"><i class="fa-solid ${meta.paused ? 'fa-play' : 'fa-pause'}"></i></button>
                 ${viewTr() ? (() => { const nTr = missingTr().length; return `<button class="ss-ib" data-act="trfix" title="🌐 번역 — ${nTr ? `아직 영어로 남은 글 ${nTr}개 번역하기 · ` : ''}이상하게 번역된 이름·낱말 고치기"><i class="fa-solid fa-language"></i>${nTr ? `<i class="ss-badge">${nTr > 99 ? '99+' : nTr}</i>` : ''}</button>`; })() : ''}
@@ -248,7 +272,7 @@ function renderPanel0(el) {
         ${hidden ? `<div class="ss-hidebar"><i class="fa-solid fa-eye-slash"></i><span>가린 칸 — AI에게 이 칸을 안 보내는 중이에요. 화면·직접 편집·변화 기록은 그대로예요.</span><button class="ss-btn sm" data-act="hidetog">다시 보내기</button></div>` : ''}
         ${tools || instruct ? `<div class="ss-toolrow"><div class="ss-toolrow-t"><i class="fa-solid ${info.icon}"></i>${esc(info.name)}</div>${tools}</div>${instruct}` : ''}
         ${pack && minors.includes(tab) && !merged ? `<button class="ss-btn sm ss-hp-back" data-hp="all"><i class="fa-solid fa-layer-group"></i> 모음으로</button>` : ''}
-        <main class="ss-body ${merged ? 'ss-hp-merged' : ''}" data-tab="${tab}">${body}</main>`;
+        <main class="ss-body ${merged ? 'ss-hp-merged' : ''}" data-tab="${tab}">${body}</main><button class="ss-totop" data-act="totop" title="맨 위로" aria-label="맨 위로"><i class="fa-solid fa-arrow-up"></i></button>`;
     const enter = hp && !st.hpShown; st.hpShown = hp;
     const html = hp ? F.hompy.hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, s, meta, nNew, enter, homeGroup: tab === 'home' && st.mode === 'view' && !!data })
         : `<div class="${rootCls}">${headHTML}${pauseHTML}${groupsHTML}${restHTML}</div>`;
@@ -262,6 +286,7 @@ function renderPanel0(el) {
     if (secH?.length) { const ns = el.querySelectorAll(SEC_Q); if (ns.length === secH.length) ns.forEach((n, i) => { if (secH[i] > 0) n.style.containIntrinsicSize = `auto ${secH[i]}px`; }); }
     if (!merged && st.mode !== 'edit' && st.mode !== 'json' && tab !== 'manage' && tab !== 'extra' && tab !== 'guest' && (pseudo || data)) applyParts(el, tab); // 👁 보일 것 (v2.7.19)
     labelIcons(el);
+    try { pairDl(el); lineIcons(el); } catch (e) { ssNote('화면 다듬기', e); }
     if (!isFloat) queueMicrotask(placeCtFloat); else compactFloat(el);
     if (hp) F.hompy.fitHompy(el); // 📐 미니홈피: 홈 쪽 · 프로필 쪽을 한 화면에 맞춘다
     if (st.mode === 'edit' && el.querySelector('.ss-editor')) bindEditor(el.querySelector('.ss-editor'), st.work, EDIT[mod], () => { // 편집 틀이 안 그려진 탭(편집 중에 탭이 바뀐 경우 등)에서는 묶지 않는다
@@ -270,6 +295,7 @@ function renderPanel0(el) {
         const all = [...box.querySelectorAll('details')]; open.forEach(i => all[i]?.setAttribute('open', ''));
     });
     el.querySelector('.ss-instruct textarea')?.addEventListener('input', (e) => { st.ui.instructText = e.target.value; });
+    if (!el._ssTop) { el._ssTop = true; el.addEventListener('scroll', (e) => { const t = e.target; if (!(t instanceof Element) || !(t === el || t.classList.contains('ss-body'))) return; el.querySelector('.ss-totop')?.classList.toggle('show', t.scrollTop > 500); }, { capture: true, passive: true }); } // ⬆ 길게 내렸을 때만
     el.querySelector('.ss-cin')?.addEventListener('input', (e) => { st.ui.draft = e.target.value; });
     const th = el.querySelector('.ss-thread, .ss-letter-list'); if (th) th.scrollTop = th.scrollHeight;
     { const h = el.querySelector('[data-set-host]'); if (h && !h.hidden && !h.closest('[hidden]')) app.mountSettings?.(h); } // ⚙ 관리 › 전체 설정 = 확장 설정 서랍과 같은 칸 (settings_ui.js · 그 탭을 볼 때만 그린다)
@@ -334,6 +360,8 @@ async function onPanelAction(el, act, arg, btn) {
         case 'filerestore': return restoreFile(setBase);
         case 'tab': st.tab = arg === 'mind' ? (modOn('profile') ? 'profile' : 'rel') : arg; st.mode = 'view'; st.ui = {}; if (el.classList.contains('ss-panel-side') && settings().sideState !== 'full') { settings().sideState = 'full'; saveSettings(); ensureUI(); } return rr();
         case 'instructtog': st.ui.instructOpen = !st.ui.instructOpen; return rr();
+        case 'instructnote': { const n = String(ctx().chatMetadata?.note_prompt ?? '').trim(); if (!n) return; const cur = String(st.ui.instructText ?? '').trim(); if (!cur.includes(n)) st.ui.instructText = `${cur ? `${cur}\n\n` : ''}[작가 노트 — 참고할 설정]\n${n}`; return rr(); } // 📝 (v2.9.1 · 블루레몬)
+        case 'totop': { const b = el.querySelector('.ss-body'); (b && b.scrollHeight > b.clientHeight ? b : el).scrollTo?.({ top: 0, behavior: 'smooth' }); return; } // ⬆ 맨 위로
         case 'edit': st.work = clone((mod === 'core' ? s.core : s.data[mod]) ?? EMPTY[mod]()); st.mode = 'edit'; return rr();
         case 'json': st.mode = 'json'; return rr();
         case 'wipemod': {

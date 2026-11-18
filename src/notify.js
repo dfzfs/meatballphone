@@ -66,7 +66,7 @@ function remember(n) {
 export const unreadNotes = (meta = getMeta()) => (meta?.notes ?? []).filter(n => !n.read).length;
 
 export function notify(a, { save = true } = {}) {
-    const n = toNote(a);
+    let n = toNote(a);
     if (!n || !n.title) return;
     const set = settings();
     if (n.kind === 'music' && !set.musicToast) { if (save) remember({ ...n, id: uid(), t: Date.now() }); return; }
@@ -82,6 +82,8 @@ export function notify(a, { save = true } = {}) {
     if (isSimple() && n.icon !== '⚠️') return app.renderHud?.();
     if (set.quiet === true && n.icon !== '⚠️') return app.renderHud?.(); // 🔕 조용히: 알림함에만 (HUD의 🔔 숫자는 오른다)
     if (set.toastMode === 'off') return app.renderHud?.();
+    // 🌐 화면만 번역: 알림 글도 사전으로 바꿔 보여 준다 (v2.9.1 · 블루레몬 — 화면은 한국어인데 알림만 영어였다 · 알림함엔 원문 그대로 두어 나중에 사전이 늘면 따라감)
+    { const tr = app.trShow; if (tr) { const n0 = n; n = { ...n0, title: tr(n0.title), text: n0.text ? tr(n0.text) : n0.text }; } }
     if (set.toastMode === 'toastr' || typeof document === 'undefined') {
         toastr.info(`${esc(n.icon)} ${esc(n.title)}${n.text ? `<br><small>${esc(n.text)}</small>` : ''}${n.kind === 'tip' ? '<br><small><b>눌러서 켜기</b></small>' : n.kind === 'hint' ? '<br><small>눌러서 「알아요」 (다시 안 보기)</small>' : ''}`, TITLE, { escapeHtml: false, ...(n.kind === 'tip' && n.mod ? { timeOut: 12000, onclick: () => app.enableTip?.(n.mod) } : n.kind === 'hint' && n.hint ? { timeOut: 10000, onclick: () => app.knowHint?.(n.hint) } : {}) });
         return app.renderHud?.();

@@ -5,7 +5,8 @@
 //   · 🎨 꾸미기: 채팅 메타 mapStyle = { e: { 'A|B': { c, w, bend } }, s: { 이름: { shape, c } }, pos: { 이름: { x, y } } } — 화면만 (AI에게 안 감)
 import { esc, short, norm } from './core.js';
 import { placeIcon } from './tiles.js';
-import { furnIcon, ROOM_COLOR } from './iso.js';
+import { furnIcon, ROOM_COLOR, placeFloor } from './iso.js';
+import { app } from './core.js';
 
 const R = (v) => Math.round(v * 100) / 100;
 export const LINE_COLORS = ['#e5484d', '#2f7de1', '#2fa56b', '#f08c2e', '#8b5bd6', '#16a3a8', '#d6409f', '#8d6e4f', '#6c7a89', '#c2a000'];
@@ -114,6 +115,7 @@ function stn(shape, cx, cy, r) {
 const textW = (t) => { let w = 0; for (const ch of String(t)) w += ch.codePointAt(0) > 0x2000 ? 3.4 : 2; return w; };
 const hit = (a, b) => a[0] < b[0] + b[2] && b[0] < a[0] + a[2] && a[1] < b[1] + b[3] && b[1] < a[1] + a[3];
 export function lineNodes(places, o) {
+    app.wantLoreFloors?.(); // 🏢 로어북 층 안내 (채팅마다 한 번 · engine.js)
     const taken = places.map(p => { const q = o.pos.get(p.name); return [q.x - 3, q.y - 3, 6, 6]; });
     const ext = [Infinity, Infinity, -Infinity, -Infinity], grow = (b) => { ext[0] = Math.min(ext[0], b[0]); ext[1] = Math.min(ext[1], b[1]); ext[2] = Math.max(ext[2], b[0] + b[2]); ext[3] = Math.max(ext[3], b[1] + b[3]); };
     const svg = [...places].sort((a, b) => (o.pos.get(a.name).y - o.pos.get(b.name).y) || (o.pos.get(a.name).x - o.pos.get(b.name).x)).map(p => {
@@ -138,7 +140,7 @@ export function lineNodes(places, o) {
         return `<g class="node ln-n ${here ? 'here' : ''} ${isSel ? 'sel' : ''} ${p.known ? '' : 'unk'} ${xfer && !ss.c ? 'xfer' : ''}" style="--c:${c}" data-act="${o.act ?? 'selplace'}" data-arg="${esc(o.arg ? o.arg(p) : p.name)}" data-name="${esc(p.name)}" data-x="${cx}" data-y="${cy}">
             <circle class="hitbox" cx="${cx}" cy="${cy}" r="5"/>${here ? `<circle class="ring" cx="${cx}" cy="${cy}" r="5.2"/>` : ''}${isSel ? `<circle class="halo" cx="${cx}" cy="${cy}" r="${xfer ? 4.3 : 3.8}"/>` : ''}
             ${stn(shape, cx, cy, xfer ? 2.9 : 2.3)}${here ? `<circle class="me" cx="${cx}" cy="${cy}" r="1.25"/>` : ''}
-            <text class="lb" x="${R(cx + lb.dx)}" y="${R(cy + lb.dy)}" style="text-anchor:${lb.anchor}"><tspan class="pi">${esc(ico)} </tspan><tspan class="pn">${esc(nm)}</tspan>${n ? `<tspan class="ppl"> 👥${n}</tspan>` : ''}</text>${pinBubble(cx, cy - (xfer ? 3.6 : 3), pins)}</g>`;
+            <text class="lb" x="${R(cx + lb.dx)}" y="${R(cy + lb.dy)}" style="text-anchor:${lb.anchor}"><tspan class="pi">${esc(ico)} </tspan><tspan class="pn">${esc(nm)}</tspan>${(() => { const f = placeFloor(p, app.loreFloors); return f ? `<tspan class="pf"> ${esc(f)}</tspan>` : ''; })()}${n ? `<tspan class="ppl"> 👥${n}</tspan>` : ''}</text>${pinBubble(cx, cy - (xfer ? 3.6 : 3), pins)}</g>`;
     }).join('');
     return { svg, ext };
 }

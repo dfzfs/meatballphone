@@ -10,6 +10,31 @@ const poly = (cls, pts) => `<polygon class="${cls}" points="${P(pts)}"/>`;
 
 // ───── 기본 모양 ─────
 const flat = (cx, cy, a, cls = 'f-t') => poly(cls, [[cx, cy - a * K], [cx + a, cy], [cx, cy + a * K], [cx - a, cy]]);
+// 🏢 글에서 층 읽기 (v2.9.1 · 블루레몬): 「7F」 「B2」 「지하 1층」 「12층」 → 「7F」 「B2」 꼴 하나 (없으면 '')
+//   「75°F」 「75F 날씨」처럼 화씨 온도로 보이는 것은 뺀다 (°가 붙었거나 · 기온 · 온도 · 날씨 · degrees가 옆에 있으면)
+export function floorTag(text) {
+    const t = String(text ?? '');
+    let m = t.match(/(?:^|[^\p{L}\d°])지하\s*(\d{1,2})\s*층/u); if (m) return `B${+m[1]}`;
+    m = t.match(/(?:^|[^\p{L}\d])B(\d{1,2})(?:F|층)?(?![\p{L}\d])/u); if (m) return `B${+m[1]}`;
+    for (const x of t.matchAll(/(?:^|[^\p{L}\d°.])(\d{1,3})\s*(F|층)(?![\p{L}\d])/gu)) {
+        const near = t.slice(Math.max(0, x.index - 12), x.index + x[0].length + 12);
+        if (x[2] === 'F' && (/°|기온|온도|날씨|degrees?|temp/i.test(near) || +x[1] > 163)) continue;
+        if (+x[1] >= 1) return `${+x[1]}F`;
+    }
+    return '';
+}
+// 로어북의 층 안내 「7F: 이름, 이름」 → 이름 → 층 (채팅을 열 때 한 번 · app.loreFloors)
+export function loreFloorMap(texts) {
+    const out = new Map();
+    for (const tx of texts ?? []) for (const line of String(tx ?? '').split(/\r?\n/)) {
+        const m = line.match(/^\s*[-*•·]?\s*((?:B\d{1,2}|\d{1,3})\s*F|지하\s*\d{1,2}\s*층|\d{1,3}\s*층)\s*[:：\-–]\s*(.+)$/i); if (!m) continue;
+        const f = floorTag(m[1]); if (!f) continue;
+        for (const nm of m[2].split(/\s*[,，·/|]\s*/)) { const k = norm(nm.replace(/[()（）].*$/, '')); if (k && k.length <= 30 && !out.has(k)) out.set(k, f); }
+    }
+    return out;
+}
+// 장소 하나의 층: 직접 적은 floor → 설명 → 로어북 안내
+export const placeFloor = (p, lore) => (p?.floor ? floorTag(String(p.floor)) || String(p.floor) : '') || floorTag(p?.desc) || lore?.get(norm(p?.name ?? '')) || '';
 // 층 한 줄 「2층: 교실/복도/화장실」 → 이름 「2층」 · 방 [교실, 복도, 화장실] (방은 / · | 로 나눔 · 안 적으면 통째로 한 칸)
 export function parseFloors(floors) {
     return (floors ?? []).slice(0, 12).map(x => {
