@@ -2,8 +2,8 @@
 import { app, modOn, esc, short, clone, findBy, num, fmtNum, splitBar, dayIndex, TITLE } from './core.js';
 import { addAdjust, commit, ruleTrue } from './engine.js';
 import { sec, emptyBox, chip, seg, askInput, askConfirm } from './kit.js';
-import { fortuneView, FORTUNE_ACTIONS, FORTUNE_CHANGES } from './fortune.js';
-export const FATE_CHANGES = FORTUNE_CHANGES;
+import { need, wanted } from './feat.js'; // 🔮 점집(fortune.js)은 ⚡ 점쟁이를 하나라도 켠 사람만 불러온다 — 단추 동작은 불러온 뒤 shell.js가 붙인다
+export const FATE_CHANGES = {};
 
 const KIND_NAME = { luck: '행운', bad: '불운', event: '사건' };
 function daysLeft(s, c) {
@@ -40,12 +40,11 @@ export function fateView(s, d, ui) {
             </div>
             ${ui.game ? `<div class="ss-card ss-gres ${ui.game.win ? 'win' : 'lose'}"><b>${esc(ui.game.text)}</b></div>` : ''}
             <p class="ss-hint">결과는 다음 답에서 AI가 이야기에 반영해요. 토큰은 들지 않아요.</p></div>`) : ''}
-        ${fortuneView(s, d, ui)}`;
+        ${wanted('fortune') ? (need('fortune')?.fortuneView(s, d, ui) ?? '') : ''}`;
 }
 
 const R = (n) => Math.floor(Math.random() * n);
 export const FATE_ACTIONS = {
-    ...FORTUNE_ACTIONS,
     flift: async (el, arg) => {
         if (!(await askConfirm(`「${esc(arg)}」을(를) 풀까요?`))) return;
         return addAdjust({ ops: [['curse', `-${arg}`]], label: `${arg}이(가) 풀렸다` });

@@ -12,7 +12,7 @@ import { fullBackup, restoreFile, saveSlot, loadSlot, deleteSlot, attachToCard, 
 import { applyPreset } from './extra.js';
 import { unreadNotes } from './notify.js';
 import { DICE_ACTIONS, DICE_CHANGES } from './dice.js';
-import { CONTACT_ACTIONS , CONTACT_CHANGES } from './contact.js';
+import { F, need } from './feat.js'; // ⚡ 연락 · 미니홈피는 켠 사람만 불러온다 — 단추 동작은 불러온 뒤 아래 featLoaded에서 붙인다
 import { FEED_ACTIONS, FEED_CHANGES } from './feeds.js';
 import { MONEY_ACTIONS } from './money.js';
 import { FATE_ACTIONS, FATE_CHANGES } from './fate.js';
@@ -20,7 +20,6 @@ import { EDIT, viewTr, letterMode, GLOBAL_OFF, isSimple } from './core.js';
 import { translateSheet, missingTr } from './translate.js';
 import { hintAfterAction } from './tips.js';
 import { storyPick, STORY_HOME, guideView } from './story_ui.js';
-import { hompyHTML, mountHompy, fitHompy, photoHTML, hpLayout, hpMinor , isDecoMode } from './hompy.js';
 import { setNoShort } from './util.js';
 import { openPromptWindow, openThemeWindow, openWizard, openStylePick } from './lazy.js';
 import { setBase, startBlank } from './engine.js';
@@ -104,7 +103,7 @@ const FB_VAL = {
 function featureBoard(s, meta) {
     if (settings().hpBoard === false) return '';
     const st = settings(), groups = GROUPS.filter(g => g.id !== 'manage').map(g => ({ g, tabs: g.tabs.filter(t => !PSEUDO.has(t) && MOD[TAB_MOD(t)]) })).filter(x => x.tabs.length).sort((a, b) => (a.g.id === 'home') - (b.g.id === 'home')); // 「그 밖에」(홈 묶음의 기능)는 맨 뒤
-    const deco = isDecoMode();
+    const deco = F.hompy?.isDecoMode?.() ?? false;
     const card = (t) => {
         const m = MOD[TAB_MOD(t)], gOff = GLOBAL_OFF[m.id] && st[GLOBAL_OFF[m.id]] === false, on = meta.mods?.[m.id] !== false && !gOff, d = s.data[m.id];
         let val = ''; try { val = on && d ? String(FB_VAL[m.id]?.(d) ?? '') : ''; } catch { val = ''; }
@@ -205,9 +204,9 @@ function renderPanel0(el) {
     const nNew = unreadNotes(meta);
     // 조각으로 만들어 두고 → 평소엔 그대로 이어 붙이고, 전체화면(미니홈피)일 땐 수첩 틀 안에 넣는다 (hompy.js)
     const dlg0 = el.closest('dialog'), isFull = dlg0 ? dlg0.classList.contains('ss-full') : !!st.full; // 창이 뜨기 전(첫 그리기)엔 여는 쪽이 적어 둔 값으로
-    const hp = !simple && !inSide && !isFloat && isFull && settings().hompyFull !== false;
+    const hp = !simple && !inSide && !isFloat && isFull && settings().hompyFull !== false && !!need('hompy'); // ⚡ 아직 안 불러왔으면 이번엔 보통 화면 → 불러오면 다시 그림
     // 📒 미니홈피: 한 묶음의 칸들을 탭으로 나누지 않고 작은 창으로 한 화면에 (창 제목을 누르면 그 칸만 크게 — 편집 · AI로 수정은 거기서)
-    const gTabs = groupTabs(g, meta), minorSet = hpMinor(), minors = hp ? gTabs.filter(t => minorSet.includes(t)) : [];
+    const gTabs = groupTabs(g, meta), minorSet = hp ? F.hompy.hpMinor() : [], minors = hp ? gTabs.filter(t => minorSet.includes(t)) : [];
     const pack = minors.length >= 2, navTabs = pack ? gTabs.filter(t => !minors.includes(t)) : gTabs; // 「모음」으로 합쳐진 탭은 탭 줄에서 빠진다
     const merged = pack && st.mode === 'view' && minors.includes(tab) && st.hpSolo !== tab;
     if (merged) {
@@ -215,9 +214,9 @@ function renderPanel0(el) {
         if (!st.hpOpen?.length || !minors.includes(st.hpOpen[0])) st.hpOpen = minors.length ? [minors[0]] : [];
         const open = st.hpOpen; // 「모음」: 탭처럼 한 번에 하나만 — 처음엔 첫 칸, 다른 제목을 누르면 그 칸으로 바뀐다 (예전엔 누른 칸이 아래로 계속 쌓였음)
         body = `<div class="ss-hp-all">${minors.map(t => `<section class="ss-hp-win sub ${open.includes(t) ? 'open' : 'shut'}" data-sub="${t}"><div class="ss-hp-wt" data-hp="fold" data-arg="${t}" role="button" title="${open.includes(t) ? '접기' : '눌러서 펼치기'}"><b><i class="fa-solid ${TAB_INFO(t).icon}"></i> ${esc(TAB_INFO(t).name)}</b>${open.includes(t) ? `<button class="ss-ib sm" data-hp="solo" data-arg="${t}" title="이 칸만 크게 열기 — 편집 · AI로 수정 · 다시 생성"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button>` : '<i class="fa-solid fa-chevron-down"></i>'}</div>${open.includes(t) ? `<div class="ss-hp-wb">${one(t)}</div>` : ''}</section>`).join('')}</div>`;
-    } else if (hp && tab === 'home' && st.mode === 'view' && data && !hpLayout().off.includes('photo')) {
+    } else if (hp && tab === 'home' && st.mode === 'view' && data && !F.hompy.hpLayout().off.includes('photo')) {
         // 홈: 큰 사진 옆에 홈 칸들 (사진이 없으면 「사진 넣기」 한 줄만)
-        body = `<div class="ss-hp-homewrap ${meta.hpPhoto?.src ? 'has' : ''} ${meta.hpPhoto?.pos === 'top' ? 'flip' : ''}">${photoHTML(meta)}<div class="ss-hp-homebody">${body}${featureBoard(s, meta)}</div></div>`;
+        body = `<div class="ss-hp-homewrap ${meta.hpPhoto?.src ? 'has' : ''} ${meta.hpPhoto?.pos === 'top' ? 'flip' : ''}">${F.hompy.photoHTML(meta)}<div class="ss-hp-homebody">${body}${featureBoard(s, meta)}</div></div>`;
     }
     const rootCls = `ss-root ss-scope ${simple ? 'simple' : ''} ${document.body.classList.contains('ss-retro') ? 'ss-rt' : ''} ${inSide ? 'in-side' : ''} ${meta.paused ? 'paused' : ''} ${settings().bottomNav && !hp ? 'navbottom' : ''}`;
     const headHTML = simple ? `<header class="ss-head">
@@ -252,7 +251,7 @@ function renderPanel0(el) {
         ${pack && minors.includes(tab) && !merged ? `<button class="ss-btn sm ss-hp-back" data-hp="all"><i class="fa-solid fa-layer-group"></i> 모음으로</button>` : ''}
         <main class="ss-body ${merged ? 'ss-hp-merged' : ''}" data-tab="${tab}">${body}</main>`;
     const enter = hp && !st.hpShown; st.hpShown = hp;
-    const html = hp ? hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, s, meta, nNew, enter, homeGroup: tab === 'home' && st.mode === 'view' && !!data })
+    const html = hp ? F.hompy.hompyHTML({ rootCls, headHTML, pauseHTML, groupsHTML, restHTML, s, meta, nNew, enter, homeGroup: tab === 'home' && st.mode === 'view' && !!data })
         : `<div class="${rootCls}">${headHTML}${pauseHTML}${groupsHTML}${restHTML}</div>`;
     // ⚡ 옆 창 미니 채팅: 한꺼번에 다시 그릴 때 내용이 그대로면 건드리지 않는다 — 턴마다 대화창을 새로 붙이고 맨 아래로 내리느라 화면 배치를 한 번 더 계산했다 (재 보니 창 셋 중 가장 컸음). 단추를 눌러 그릴 때는 늘 새로.
     if (isFloat) { const key = `${app.trEpoch?.() ?? ''}|${html}`; if (softRender && el._ssKey === key && el.firstElementChild) return; el._ssKey = key; }
@@ -260,12 +259,12 @@ function renderPanel0(el) {
     //   건너뛴 묶음은 높이를 어림값으로 잡으므로, 다시 그릴 때 스크롤 자리가 튀지 않게 지난번 실제 높이를 넘겨 준다.
     const SEC_Q = '.ss-body[data-tab="manage"] > .ss-sec'; let secH = null;
     if (tab === 'manage') { try { secH = [...el.querySelectorAll(SEC_Q)].map(n => n.offsetHeight); } catch { secH = null; } }
-    if (!(hp && mountHompy(el, html))) el.innerHTML = html; // ⚡ 미니홈피는 바뀐 창만 갈아 끼운다 (hompy.js)
+    if (!(hp && F.hompy.mountHompy(el, html))) el.innerHTML = html; // ⚡ 미니홈피는 바뀐 창만 갈아 끼운다 (hompy.js)
     if (secH?.length) { const ns = el.querySelectorAll(SEC_Q); if (ns.length === secH.length) ns.forEach((n, i) => { if (secH[i] > 0) n.style.containIntrinsicSize = `auto ${secH[i]}px`; }); }
     if (!merged && st.mode !== 'edit' && st.mode !== 'json' && tab !== 'manage' && tab !== 'extra' && tab !== 'guest' && (pseudo || data)) applyParts(el, tab); // 👁 보일 것 (v2.7.19)
     labelIcons(el);
     if (!isFloat) queueMicrotask(placeCtFloat); else compactFloat(el);
-    if (hp) fitHompy(el); // 📐 미니홈피: 홈 쪽 · 프로필 쪽을 한 화면에 맞춘다
+    if (hp) F.hompy.fitHompy(el); // 📐 미니홈피: 홈 쪽 · 프로필 쪽을 한 화면에 맞춘다
     if (st.mode === 'edit' && el.querySelector('.ss-editor')) bindEditor(el.querySelector('.ss-editor'), st.work, EDIT[mod], () => { // 편집 틀이 안 그려진 탭(편집 중에 탭이 바뀐 경우 등)에서는 묶지 않는다
         const box = el.querySelector('.ss-editor'); const all0 = [...box.querySelectorAll('details')]; const open = all0.filter(d => d.open).map(d => all0.indexOf(d));
         box.innerHTML = editorHTML(st.work, EDIT[mod]);
@@ -279,8 +278,20 @@ function renderPanel0(el) {
 }
 app.renderPanel = renderPanel;
 
-const ACTIONS = { ...PARTS_ACTIONS, ...VIEW_ACTIONS, ...DICE_ACTIONS, ...CONTACT_ACTIONS, ...FEED_ACTIONS, ...MONEY_ACTIONS, ...FATE_ACTIONS };
-const CHANGES = { ...VIEW_CHANGES, ...DICE_CHANGES, ...FEED_CHANGES, ...CONTACT_CHANGES, ...FATE_CHANGES };
+const ACTIONS = { ...PARTS_ACTIONS, ...VIEW_ACTIONS, ...DICE_ACTIONS, ...FEED_ACTIONS, ...MONEY_ACTIONS, ...FATE_ACTIONS };
+const CHANGES = { ...VIEW_CHANGES, ...DICE_CHANGES, ...FEED_CHANGES, ...FATE_CHANGES };
+// ⚡ 나중에 불러온 기능의 단추 동작 붙이기 (feat.js) — 이미 있는 이름은 덮지 않는다 (예전 순서에서도 겹치는 이름이 없었다)
+const addActs = (acts, chg) => { for (const [k, v] of Object.entries(acts ?? {})) if (!(k in ACTIONS)) ACTIONS[k] = v; for (const [k, v] of Object.entries(chg ?? {})) if (!(k in CHANGES)) CHANGES[k] = v; };
+{
+    const prev = app.featLoaded;
+    app.featLoaded = (name, m) => {
+        try { prev?.(name, m); } catch (e) { ssErr(LOG, 'feat hook', e); }
+        if (name === 'contact') addActs(m.CONTACT_ACTIONS, m.CONTACT_CHANGES);
+        else if (name === 'fortune') addActs(m.FORTUNE_ACTIONS, m.FORTUNE_CHANGES);
+        else if (name === 'hompy') { try { m.initHompy(); } catch (e) { ssErr(LOG, 'hompy', e); } } // 📒 미니홈피 준비 (예전엔 시작할 때 늘)
+    };
+    for (const [n, m] of Object.entries(F)) app.featLoaded(n, m); // 이 파일보다 먼저 불러온 것
+}
 
 async function onPanelAction(el, act, arg, btn) {
     const st = el._ss;

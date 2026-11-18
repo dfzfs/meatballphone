@@ -14,7 +14,7 @@ import { analyzeMessage } from './src/ai.js';
 import { mainBusy } from './src/prompts.js';
 import { confirmPopup, applyTheme, mascot, popup } from './src/kit.js';
 import { ensureUI, rerenderPanels, openRoll, panels, renderHud } from './src/shell.js';
-import { receivePing, sweepSent } from './src/contact.js';
+import { F, loadWanted } from './src/feat.js'; // ⚡ 켠 기능만 불러오기 (연락 · 미니홈피 · 점집 · 새 지도)
 import { startViewTr, translateView, scheduleFill, checkKorean } from './src/translate.js';
 import { notify } from './src/notify.js';
 import { offerCard, followBranch } from './src/safe.js';
@@ -28,7 +28,6 @@ import { registerCommands } from './src/commands.js';
 import { renderSettings } from './src/settings_ui.js';
 import { initStory } from './src/story.js';
 import { initStoryUI } from './src/story_ui.js';
-import { initHompy } from './src/hompy.js';
 
 try { startErrorCapture(); } catch { /* 오류 기록은 없어도 동작 */ }
 
@@ -719,6 +718,7 @@ function refreshNow({ soft = false } = {}) {
     // 계산이 어디서 실패해도 상태창 화면은 그린다 (안 그리면 '창이 안 떠요'가 됨)
     try { ensureUI(); if (!same) rerenderPanels(); } catch (e) { ssErr(LOG, 'ui', e); }
     sealMeta(); // 🛡 꺼져 있으면 아무것도 안 함
+    loadWanted().catch(() => { /* feat.js가 적음 */ }); // ⚡ 방금 켠 기능이 있으면 불러오고, 다 되면 다시 그린다
 }
 app.refreshNow = () => refreshNow();
 // 🛡 간섭 차단 스위치를 바꿨을 때 (settings_ui.js가 부른다) · 시작할 때
@@ -887,7 +887,7 @@ function onCharRendered(id, type) {
         if (pingCounter >= Math.max(2, set.autoPingEvery) && rand(100) <= 50) {
             pingCounter = 0;
             const cs = app.current.state.data.contact.contacts.filter(c => !c.blocked);
-            if (cs.length) receivePing(cs[rand(cs.length) - 1].name, true).catch(e => ssWarn(LOG, 'autoping', e));
+            if (cs.length && F.contact) F.contact.receivePing(cs[rand(cs.length) - 1].name, true).catch(e => ssWarn(LOG, 'autoping', e)); // 연락을 켜면 불러와 있다
         }
     }
     if (set.sync !== 'analyze' && set.sync !== 'tagPlus') return;
@@ -917,6 +917,7 @@ app.loadAddons = loadAddons;
 async function onChatChanged() {
     try { loadAddons(); } catch (e) { ssWarn(LOG, 'addons', e); }
     ctxReset(); lastFp = ''; lastDom = ''; app.lastGenSkipped = false;
+    try { await loadWanted(); } catch (e) { ssWarn(LOG, 'feat', e); } // ⚡ 이 채팅에서 켠 기능만 불러온다
     try { app.sweepHidden(); } catch (e) { ssNote('숨긴 답 표식 정리', e); }
     notified = new Set();
     pingCounter = 0;
@@ -926,7 +927,7 @@ async function onChatChanged() {
     try { const meta = getMeta(); if (meta?.base && rebindToUser(meta)) saveMeta(); } catch (e) { ssNote('행동 묶음 옮기기 실패', e); } // 예전에 한 행동도 그 다음 내 메시지에 묶는다
     try { if (isActive() && ready()) { const n = slimLegacy(); if (n) { saveMeta(); console.log(LOG, `옛 연락 · 피드 기록 ${n}개를 줄였어요`); } } } catch (e) { ssWarn(LOG, 'slim', e); }
     refreshNow();
-    try { if (sweepSent()) { saveMeta(); refreshNow(); } } catch (e) { ssNote('지운 연락 기록 정리 실패', e); } // 업데이트 전에 지운 말풍선의 기록
+    try { if (F.contact?.sweepSent()) { saveMeta(); refreshNow(); } } catch (e) { ssNote('지운 연락 기록 정리 실패', e); } // 연락 자료가 있는 채팅이면 위에서 불러와 있다 // 업데이트 전에 지운 말풍선의 기록
     try { app.sideSweep(); } catch (e) { ssNote('따로 보관 옮기기 실패', e); } // 📦 예전 방식으로 쌓인 연락 · 피드 기록을 덩어리 하나로
     // 카드에 상태창이 들어 있으면 (이 채팅에 아직 없을 때) 한 번 물어본다
     setTimeout(() => { offerCard(setBase).catch(e => ssWarn(LOG, 'card', e)).then(() => import('./src/autostart.js')).then(m => m.autoStart()).catch(e => ssWarn(LOG, 'autostart', e)); }, 400); // 🧆 그다음: 상태창이 없으면 틀을 바로 (AI 0회)
@@ -968,6 +969,7 @@ function init() {
     const { eventSource, event_types: E } = ctx();
     const fresh = !ctx().extensionSettings?.[MODULE]; // 처음 설치한 사람에겐 「바뀐 점」을 안 띄운다
     settings();
+    loadWanted().catch(() => { /* feat.js가 적음 */ }); // ⚡ 켜 둔 기능만 미리 불러오기 시작 (기다리지 않음 · 다 되면 다시 그린다)
     // v2.7: 처음 설치하면 「기본 (추천)」 = 가벼운 모델 맞춤으로 시작
     // 🧆 바로 시작(autoStart)은 새로 설치한 사람만 켠다 — 업데이트로 받은 사람의 옛 채팅에 틀이 저절로 생겨 AI에게 가지 않게 (확장 설정에서 직접 켤 수 있다)
     if (fresh) { Object.assign(settings(), structuredClone(PRESETS.light.set)); settings().v27asked = true; settings().autoStart = true; settings().stylePick = 'ask'; settings().tidyAsked = true; Object.assign(settings(), { quiet: true, featureTips: false, actionTips: false }); saveSettings(); } // 🔕 처음엔 조용히: 저절로 뜨는 알림 · 팁은 알림함에만
@@ -980,7 +982,7 @@ function init() {
     renderSettings();
     registerCommands();
     registerMacros();
-    try { initHompy(); } catch (e) { ssWarn(LOG, 'hompy', e); } // 📒 미니홈피 화면의 사진 단추
+    // 📒 미니홈피: 켠 사람만 불러와서 그때 준비한다 (shell.js의 app.featLoaded)
     try { initStory(); initStoryUI(); } catch (e) { ssWarn(LOG, 'story', e); } // 🧭 이야기 장치 (v2.8 · 켠 장치가 없으면 아무 일도 안 함)
     try { loadAddons(); } catch (e) { ssWarn(LOG, 'addons', e); } // 📝 방명록 자동 (설정 guestbook · guestbookAuto — 기본 끔이면 아무 일도 안 함)
     if (settings().autoRegex) installRegex(false);
