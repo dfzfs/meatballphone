@@ -174,11 +174,13 @@ export async function editApp(appId) {
         }
         case 'news': {
             const fv = await form('✏️ 소식 쓰기', [
-                { k: 'who', label: '누구 이야기', type: 'pick', opts: [['', '세계'], ...b.people.map((p) => [p.name, `${p.face} ${esc(p.name)}`])] },
+                { k: 'kind', label: '종류', type: 'pick', v: 'world', opts: [['world', '📰 뉴스'], ['rumor', '💬 소문'], ['feed', '📱 피드'], ['life', '🌙 화면 밖']] },
+                { k: 'who', label: '누구 이야기 (피드 · 화면 밖)', type: 'pick', opts: [['', '없음'], ...b.people.map((p) => [p.name, `${p.face} ${esc(p.name)}`])] },
                 { k: 'text', label: '내용', type: 'area', ph: '경비 교대 뒤 술집에 들렀다' },
             ]);
             if (!fv?.text.trim()) return;
-            handLines([fv.who ? `life: ${fv.who} | ${fv.text.trim()}` : `newsline: ${fv.text.trim()}`], '직접 씀');
+            const nt = fv.text.trim(), nk = fv.who && (fv.kind === 'feed' || fv.kind === 'life') ? fv.kind : fv.who ? 'life' : fv.kind === 'rumor' ? 'rumor' : 'world';
+            handLines([nk === 'feed' || nk === 'life' ? `${nk}: ${fv.who} | ${nt}` : `newsline: ${nk === 'rumor' ? '소문' : '뉴스'} | ${nt}`], '직접 씀');
             return;
         }
         case 'custom':

@@ -13,6 +13,7 @@ import { personOf, placeOf, bookTokens, personTokens, normBook, PLACE_KINDS, LIM
 import { musicView, quoteView, songLine, quoteLine, musicAct } from './music.js';
 import { LEVELS, GAUGES, PRESETS, level, gaugeCfg, levelCost } from '../rules/inject.js';
 import { fillBook } from '../rules/ai.js';
+import { newsView, newsAct } from './newskinds.js';
 
 const lastAI = () => { const c = ctx().chat ?? []; for (let i = c.length - 1; i >= 0; i--) if (!c[i].is_user && !c[i].is_system) return i; return -1; };
 const money = (r, n) => `${fmt(n)} ${esc(r.book.world.currency)}`;
@@ -442,13 +443,7 @@ function cal(r) {
     return h;
 }
 // ───── 세계 소식: 화면 밖 생활 · 속셈 · 기념일 · 하루 사건 (AI 0회) ─────
-function news(r) {
-    const { book, S } = r, L = [];
-    const ev = worldEvent(Math.floor(S.t / DAY)); if (ev) L.push(row({ icon: ev.icon ?? '🎌', title: esc(ev.name), sub: '공휴일' }));
-    for (const n of S.news.slice(0, 20)) L.push(row({ icon: n.icon, title: esc(n.text), sub: dateText(book.world.start, n.t, false) }));
-    for (const [n, x] of Object.entries(S.rel)) if (x.want && !x.gone) L.push(row({ icon: '🎯', title: `${esc(n)}의 속셈`, sub: esc(x.want), faint: true }));
-    return L.length ? card('세계 소식', L.join('')) : empty('조용한 하루예요.');
-}
+const news = (r) => newsView(r); // 종류 · 탭 · 피드: ui/newskinds.js
 // ───── 기록 · 되돌아보기 (채팅 메시지에서 매번 만든다) ─────
 const REC_F = [['all', '전체'], ['need', '수치'], ['cash', '돈'], ['item', '물건'], ['rel', '관계'], ['loc', '장소'], ['status', '딱지']];
 let recF = 'all';
@@ -608,6 +603,9 @@ export const RENDER = { music, quote, now, dice, bag, rel, map, cal, news, rec, 
 export async function onAct(act, v, el) {
     const meta = getMeta(), r = fold();
     switch (act) {
+        case 'nk-tab': case 'nk-on':
+            if (newsAct(act, v)) app.refresh?.();
+            return;
         case 'say':
             putInput(v);
             app.closeSheet?.();

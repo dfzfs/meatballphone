@@ -154,7 +154,7 @@ export const KEY_MOD = {
     ate: 'stats', slept: 'stats', washed: 'stats', rest: 'stats', status: 'stats', need: 'stats',
     worked: 'wallet', buy: 'wallet', sell: 'wallet', earn: 'wallet', cash: 'wallet', got: 'wallet', item: 'wallet', used: 'wallet', lost: 'wallet', wear: 'wallet', unwear: 'wallet',
     act: 'rel', gift: 'rel', memory: 'rel', jealous: 'rel', pair: 'rel', npc: 'rel', gone: 'rel', aff: 'rel', trust: 'rel', meddle: 'rel', taste: 'rel',
-    roll: 'dice', bgm: 'music', quote: 'quote', mind: 'mind', watch: 'mind', cell: 'mind', life: 'news', newsline: 'news', custom: 'custom',
+    roll: 'dice', bgm: 'music', quote: 'quote', mind: 'mind', watch: 'mind', cell: 'mind', life: 'news', newsline: 'news', feed: 'news', custom: 'custom',
 };
 export function aiNoOf(i) { const c = ctx().chat ?? []; let n = 0; for (let k = 0; k <= i && k < c.length; k++) if (!c[k].is_user && !c[k].is_system) n++; return n; }
 export const nextAiNo = () => aiNoOf((ctx().chat?.length ?? 0) - 1) + 1;

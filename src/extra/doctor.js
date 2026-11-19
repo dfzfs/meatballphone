@@ -15,7 +15,7 @@ const KIND_APP = { need: '📊 수치', ate: '📊 수치', slept: '📊 수치'
     cash: '💰 재산', earn: '💰 재산', buy: '💰 재산', sell: '💰 재산', item: '👜 소지품', got: '👜 소지품', used: '👜 소지품', lost: '👜 소지품', wear: '👕 착용', unwear: '👕 착용',
     gift: '💞 관계', aff: '💞 관계', trust: '💞 관계', act: '💞 관계', memory: '💞 관계', jealous: '💞 관계', npc: '💞 관계', gone: '💞 관계', want: '💞 관계', taste: '💞 관계', pair: '🔗 인물끼리', meddle: '💞 관계',
     loc: '🗺 지도', with: '🗺 지도', time: '📅 달력', pass: '📅 달력', date: '📅 달력', weather: '📅 달력', promise: '📅 달력', anniv: '📅 달력',
-    roll: '🎲 주사위', mind: '💭 속마음', watch: '💭 속마음', cell: '💭 속마음', life: '📰 소식', newsline: '📰 소식', bgm: '🎵 음악', custom: '🧩 내 탭' };
+    roll: '🎲 주사위', mind: '💭 속마음', watch: '💭 속마음', cell: '💭 속마음', life: '📰 소식', newsline: '📰 소식', feed: '📰 소식', bgm: '🎵 음악', custom: '🧩 내 탭' };
 const SRC = { tag: '태그', cls: '분류 모델', hand: '손 고침', ai: 'AI 고침', meddle: '장난' };
 export function chipCheck(i) {
     const r = fold(), m = ctx().chat?.[i]; if (!r || !m) return '';
