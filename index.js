@@ -2,10 +2,11 @@
 import { app, ctx, settings, saveSettings, getMeta, saveMeta, msgData, syncSwipe, ready, MODULE, OLD, VERSION, TITLE, INJ, MODS, DATA_V, bumpMeta, modOn } from './src/base/st.js';
 import { esc, short, tokens, dateOf } from './src/base/util.js';
 import { readOps, stripTags, hasTag } from './src/rules/tags.js';
-import { fold, resetCache } from './src/rules/engine.js';
+import { fold, resetCache, noteRules } from './src/rules/engine.js';
 import { normBook, personOf } from './src/rules/book.js';
 import { ruleText, factText, injTokens } from './src/rules/inject.js';
-import { fillBook, templateBook, supplement, stats as aiStats } from './src/rules/ai.js';
+import { fillBook, templateBook } from './src/rules/ai.js';
+import { mode, modeNote, profiles, enqueue, fingerprint, newPeople, fillPerson, clsStats } from './src/rules/classify.js';
 import { drawFrame, drawChips, drawSheet, openSheet, closeSheet, openPast, bindOuter } from './src/ui/frame.js';
 import { sheet, toast, row, card } from './src/ui/kit.js';
 import { findAll } from './src/extra/find.js';
@@ -21,6 +22,7 @@ let pending = 0;
 export function refresh(force = false) {
     if (resting) return;
     if (force) resetCache();
+    { const meta = getMeta(); if (ready(meta) && noteRules(meta, ctx().chat?.length ?? 0)) saveMeta(); } // 📐 숫자 규칙을 고쳤으면 「여기부터」 새 판
     cancelAnimationFrame(pending);
     pending = requestAnimationFrame(() => {
         const t0 = performance.now();
@@ -43,7 +45,7 @@ export function inject() {
     const r = fold(); if (!r) return setInj({});
     const chat = ctx().chat ?? []; let li = chat.length - 1; while (li >= 0 && (chat[li].is_user || chat[li].is_system)) li--;
     const ft = factText(r, li >= 0 ? r.changes[li] ?? [] : []);
-    setInj({ rule: ruleText(r.book), ...ft });
+    setInj({ rule: mode() === 'A' ? ruleText(r.book) : '', ...ft }); // B: 본편은 소설만 (적는 법 규칙 뺌)
 }
 app.refresh = refresh; app.inject = inject; app.applyLook = () => applyLook(); app.lastInj = () => lastInj; app.perfLast = () => perf.turns.at(-1) ?? null; app.perfData = () => perf; app.openSheet = openSheet; app.closeSheet = closeSheet; app.openPast = openPast;
 app.find = () => findAll();
@@ -70,31 +72,64 @@ async function onBeforeGen(type, opts, dry) {
 async function onReceived(i, type) {
     const meta = getMeta(); const m = ctx().chat?.[i];
     if (!m || m.is_user || !ready(meta) || !settings().enabled) return;
-    if ((type === 'quiet' || quietGen) && settings().skipQuiet) { quietGen = false; const q = msgData(m, true); q.ops = []; q.skip = true; q.rev = (q.rev ?? 0) + 1; bumpMeta(); syncSwipe(m); refresh(); return; } // 조용한 생성: 태그가 있어도 안 셈
-    const t0 = performance.now(), calls0 = aiStats.calls;
     const sl = msgData(m, true);
-    if (meta.paused || skipThis) {
+    const skip = (type === 'quiet' || quietGen) && settings().skipQuiet;
+    const t0 = performance.now();
+    if (skip || meta.paused || skipThis) {
+        // 조용한 생성 · 일시정지 · 다음 1번 건너뛰기 · OOC → 이 답은 셈하지 않음 (분류도 안 부름)
         sl.ops = []; sl.skip = true; m.mes = stripTags(m.mes);
         if (skipThis && meta.skipNext) { meta.skipNext = false; saveMeta(); }
-        skipThis = false;
-    } else if (hasTag(m.mes)) {
-        sl.ops = readOps(m.mes); sl.fill = false; m.mes = stripTags(m.mes);
-    } else if (settings().fillMissing) {
-        // 빠졌을 때만 작게 보충 (AI 1회)
-        try { const raw = await supplement(m.mes, fold()); sl.ops = readOps(raw); sl.fill = true; } catch (e) { sl.ops = []; console.warn(`[${TITLE}] 보충 실패`, e); }
-    } else sl.ops = [];
+        skipThis = false; quietGen = false;
+    } else if (mode() === 'B') {
+        // B: 본편은 소설만 → 답은 바로 보여 주고, 분류 모델이 고른 결과가 오면 칩을 붙임
+        delete sl.skip; m.mes = stripTags(m.mes); sl.src = 'cls';
+        if (sl.fp !== fingerprint(i)) { sl.ops = []; delete sl.fp; }
+        enqueue(i);
+    } else {
+        // A: 본편이 적은 태그만 (추가 호출 0회)
+        delete sl.skip; sl.src = 'tag'; delete sl.fp;
+        sl.ops = hasTag(m.mes) ? readOps(m.mes) : []; m.mes = stripTags(m.mes);
+    }
+    delete sl.fill;
     sl.rev = (sl.rev ?? 0) + 1; bumpMeta();
     if (Array.isArray(m.swipes) && typeof m.swipe_id === 'number') m.swipes[m.swipe_id] = m.mes;
     syncSwipe(m);
     ctx().saveChatDebounced?.();
-    perf.turns.push({ ms: performance.now() - t0, calls: aiStats.calls - calls0, tok: injTokens(lastInj) }); if (perf.turns.length > 30) perf.turns.shift();
+    perf.turns.push({ ms: performance.now() - t0, mode: mode(), calls: 0, tok: injTokens(lastInj), inj: Object.values(lastInj).join('').length });
+    if (perf.turns.length > 30) perf.turns.shift();
     { const q = /weave this line once[^「]*「([^」]+)」/.exec(lastInj.hint ?? ''); if (q) { meta.quoteSent = q[1]; saveMeta(); } }
     refresh(); setTimeout(alerts, 300);
+}
+// 분류 결과가 왔을 때: 칩 · 알림 · 처음 나온 인물 규칙 채우기 (그 인물당 한 번)
+app.afterClassify = (i) => {
+    const t = perf.turns.at(-1); if (t) { t.calls = (t.calls ?? 0) + 1; t.cls = clsStats.lastTok; }
+    refresh(); setTimeout(alerts, 300);
+    if (mode() === 'B') for (const [n, why] of newPeople()) fillPerson(n, why);
+};
+app.reclassify = (i) => { if (mode() !== 'B') return toast('분류 모델(B)일 때만 다시 고를 수 있어요'); enqueue(i, true); };
+app.fillPerson = (n) => fillPerson(n);
+// 옛 스와이프로 돌아오면 저장된 결과 · 결과가 없는 스와이프면 (같은 글이면 저장된 것으로) 고르기
+function onSwiped(i) {
+    bumpMeta(); refresh();
+    if (mode() !== 'B') return;
+    setTimeout(() => {
+        const m = ctx().chat?.[i]; if (!m || m.is_user || !ready()) return;
+        const sl = msgData(m), txt = stripTags(m.mes ?? '').trim();
+        if (txt.length < 2 || sl?.skip || (sl?.src === 'cls' && sl.fp === fingerprint(i))) return;
+        if (sl) enqueue(i); // 새로 만드는 스와이프는 받기(MESSAGE_RECEIVED)에서
+    }, 0);
 }
 function onEdited(i) {
     bumpMeta(); // 앞쪽 메시지를 고쳐도 다시 계산되게
     const m = ctx().chat?.[i]; if (!m || m.is_user) return refresh();
-    if (hasTag(m.mes)) { const sl = msgData(m, true); sl.ops = readOps(m.mes); sl.rev = (sl.rev ?? 0) + 1; bumpMeta(); m.mes = stripTags(m.mes); syncSwipe(m); ctx().saveChatDebounced?.(); }
+    const sl = msgData(m);
+    if (mode() === 'B') {
+        // 글이 바뀌었을 때만 다시 고르기
+        if (hasTag(m.mes)) { m.mes = stripTags(m.mes); syncSwipe(m); ctx().saveChatDebounced?.(); }
+        if (!sl?.skip && sl?.fp !== fingerprint(i)) enqueue(i);
+    } else if (hasTag(m.mes)) {
+        const s2 = msgData(m, true); s2.ops = readOps(m.mes); s2.src = 'tag'; s2.rev = (s2.rev ?? 0) + 1; bumpMeta(); m.mes = stripTags(m.mes); syncSwipe(m); ctx().saveChatDebounced?.();
+    }
     refresh();
 }
 
@@ -143,6 +178,12 @@ async function create(useAI) {
 function settingsHTML() {
     const s = settings();
     const sw = (k, label) => `<label class="checkbox_label"><input type="checkbox" data-ml-s="${k}" ${s[k] ? 'checked' : ''}> ${label}</label>`;
+    // 실리태번 연결 프로필 고르기 (목록이 없으면 이름을 직접)
+    const prof = (k, label, none) => {
+        const P = profiles();
+        if (!P.length) return `<label>${label} <input class="text_pole" data-ml-s="${k}" value="${esc(s[k])}" placeholder="연결 프로필 id · 비우면 ${none}"></label>`;
+        return `<label>${label} <select class="text_pole" data-ml-s="${k}"><option value="">${esc(none)}</option>${P.map(p => `<option value="${esc(p.id)}" ${s[k] === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></label>`;
+    };
     const sel = (k, label, opts) => `<label>${label} <select class="text_pole" data-ml-s="${k}">${opts.map(([v, l]) => `<option value="${v}" ${String(s[k]) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`;
     return `<div class="inline-drawer ml-set"><div class="inline-drawer-toggle inline-drawer-header"><b>😼 ${TITLE} <small>v${VERSION}</small></b><div `
         + `class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div><div class="inline-drawer-content">
@@ -158,9 +199,10 @@ ${sw('enabled', '켜기')}
         + `data-ml-look="radius" value="${s.look.radius}"></label> <label>테두리 <input type="range" min="0" max="3" step="1" data-ml-look="border" `
         + `value="${s.look.border}"></label> <label>그림자 <input type="range" min="0" max="3" step="1" data-ml-look="shadow" value="${s.look.shadow}">`
         + `</label> <label>글꼴 <input class="text_pole" data-ml-look="font" value="${esc(s.look.font)}" placeholder="비우면 실리태번 글꼴"></label>
-<h4>AI</h4>${sel('preset', '본편 지시', [['flash', '플래시용 (짧은 키 + 예시)'], ['general', '일반']])}${sw('fillMissing', '태그가 빠졌을 때만 보충 (AI 1회)')}`
+<h4>AI</h4>${sel('preset', '본편 지시', [['flash', '플래시용 (짧은 키 + 예시)'], ['general', '일반']])}`
         + `${sw('skipQuiet', '퀵리플라이 · /gen 답엔 안 붙이기')}${sw('ooc', 'OOC 메시지는 건너뛰기')}
-<label>미트볼 AI 연결 프로필 <input class="text_pole" data-ml-s="profile" value="${esc(s.profile)}" placeholder="비우면 지금 연결"></label>
+${sel('mode', '사건 고르기', [['B', 'B. 분류 모델 (본편은 소설만 · 답마다 1회)'], ['A', 'A. 본편 태그 (추가 호출 0회)']])}${prof('clsProfile', '분류 모델 연결 (가벼운 모델)', '고르지 않음 → A로')}`
+        + `${modeNote() ? `<small class="ml-set-note">⚠ ${esc(modeNote())}</small>` : ''}${prof('profile', '상태창 만들기 · 번역 연결', '지금 연결')}
 ${sel('pinBook', '장면 인물의 증상 한 줄 본편에', [['auto', '붙이기'], ['off', '안 붙이기']])}
 <h4>번역</h4>${sel('saveLang', '상태창 저장 언어', [['ko', '한국어'], ['en', '영어 (화면만 한국어로)']])}`
         + `${sel('trAuto', '모르는 말', [['ai', '모아서 AI로 번역 (1회씩)'], ['off', '직접 고친 것만']])}
@@ -180,6 +222,7 @@ function mountSettings() {
         if (k === 'mascotSound' || k === 'mascotVolume') playMascotSound();
         if (lk) settings().look[lk] = t.type === 'range' ? Number(t.value) : t.value;
         saveSettings(); applyLook(); document.getElementById('ml-hud')?.remove(); refresh();
+        if (k === 'mode' || k === 'clsProfile') mountSettings(); // 「A로 돌아감」 알림 다시 그리기
     });
     box.addEventListener('click', async (e) => {
         const a = e.target.closest('[data-ml]')?.dataset.ml; if (!a) return;
@@ -241,7 +284,8 @@ async function boot() {
     on(E.MESSAGE_RECEIVED, onReceived);
     on(E.MESSAGE_EDITED, onEdited);
     for (const n of [E.CHAT_CHANGED]) on(n, () => { closeSheet(); fromCard(); refresh(true); });
-    for (const n of [E.CHARACTER_MESSAGE_RENDERED, E.USER_MESSAGE_RENDERED, E.MESSAGE_SWIPED, E.MESSAGE_DELETED, E.MESSAGE_SWIPE_DELETED, E.MORE_MESSAGES_LOADED, E.MESSAGE_UPDATED]) on(n, () => { bumpMeta(); refresh(); });
+    on(E.MESSAGE_SWIPED, onSwiped);
+    for (const n of [E.CHARACTER_MESSAGE_RENDERED, E.USER_MESSAGE_RENDERED, E.MESSAGE_DELETED, E.MESSAGE_SWIPE_DELETED, E.MORE_MESSAGES_LOADED, E.MESSAGE_UPDATED]) on(n, () => { bumpMeta(); refresh(); });
     c.SlashCommandParser?.addCommandObject?.(c.SlashCommand.fromProps({ name: 'ml', callback: () => { openSheet('now'); return ''; }, helpString: '미트볼 라이트 열기' }));
     refresh(true);
 }

@@ -6,6 +6,7 @@ import { kindOf } from '../rules/tags.js';
 import { stats as aiStats } from '../rules/ai.js';
 import { injTokens } from '../rules/inject.js';
 import { trOn, trBusy } from './translate.js';
+import { mode, modeNote, clsStats } from '../rules/classify.js';
 import { oldActive } from './safe.js';
 import { sheet, btn } from '../ui/kit.js';
 
@@ -15,7 +16,7 @@ const KIND_APP = { need: '📊 수치', ate: '📊 수치', slept: '📊 수치'
     gift: '💞 관계', aff: '💞 관계', trust: '💞 관계', act: '💞 관계', memory: '💞 관계', jealous: '💞 관계', npc: '💞 관계', gone: '💞 관계', want: '💞 관계', taste: '💞 관계', pair: '🔗 인물끼리', meddle: '💞 관계',
     loc: '🗺 지도', with: '🗺 지도', time: '📅 달력', pass: '📅 달력', date: '📅 달력', weather: '📅 달력', promise: '📅 달력', anniv: '📅 달력',
     roll: '🎲 주사위', mind: '💭 속마음', watch: '💭 속마음', cell: '💭 속마음', life: '📰 소식', newsline: '📰 소식', bgm: '🎵 음악', custom: '🧩 내 탭' };
-const SRC = { tag: '태그', fill: '보충', hand: '손 고침', ai: 'AI 고침', scene: '본문', meddle: '장난' };
+const SRC = { tag: '태그', cls: '분류 모델', hand: '손 고침', ai: 'AI 고침', meddle: '장난' };
 export function chipCheck(i) {
     const r = fold(), m = ctx().chat?.[i]; if (!r || !m) return '';
     const book = getMeta().book, ch = r.changes[i] ?? [], fl = r.flags[i] ?? [], sl = msgData(m);
@@ -26,7 +27,7 @@ export function chipCheck(i) {
             + ` ${typeof c.to === 'number' && typeof c.from === 'number' ? (c.to - c.from > 0 ? '+' : '') + Math.round(c.to - c.from) : esc(String(c.to))}`).join(' · ')] : ['mid', '읽었지만 바뀐 것 없음'];
         return `<div class="ml-row ml-chk ${st[0]}"><span class="ml-tx"><b><code>${esc(short(o.k, 16))}: ${esc(short(o.v, 40))}</code></b><small>${app ?? (kind === 'unknown' ? '❓' : '—')} · ${SRC[o.src] ?? o.src} · ${esc(st[1])}</small></span></div>`;
     });
-    const head = `<div class="ml-hint">${sl?.skip ? '⏭ 이 답은 건너뛴 답이에요 (조용한 생성 · 건너뛰기 · OOC)' : sl?.fill ? '🩹 태그가 없어 보충 AI가 채운 답이에요' : sl?.ops ? '🏷 본편 AI가 쓴 태그로 읽었어요' : '본문에서 태그를 다시 읽었어요'}</div>`;
+    const head = `<div class="ml-hint">${sl?.skip ? '⏭ 이 답은 건너뛴 답이에요 (조용한 생성 · 건너뛰기 · OOC)' : sl?.clsFail ? '⚠ 분류 모델이 실패한 답이에요 (칩의 「다시」)' : sl?.src === 'cls' ? '🧭 분류 모델이 목록에서 고른 답이에요' : sl?.ops ? '🏷 본편 AI가 쓴 태그로 읽었어요' : '본문에서 태그를 다시 읽었어요'}</div>`;
     return head + `<div class="ml-card">${rows.join('') || '<div class="ml-row"><span class="ml-tx"><small>이 답에는 줄이 없어요</small></span></div>'}</div>`;
 }
 
@@ -41,12 +42,23 @@ export function doctor(app, perf) {
     // 태그 비율 (최근 AI 답 12개)
     const ais = []; for (let i = chat.length - 1; i >= 0 && ais.length < 12; i--) if (!chat[i].is_user && !chat[i].is_system) ais.push(i);
     if (ais.length) {
-        let tag = 0, fill = 0, skip = 0, none = 0; const unk = {};
+        let tag = 0, cls = 0, fail = 0, skip = 0, none = 0; const unk = {};
         const needs = meta?.book ? [...meta.book.me.needs.flatMap(n => [n.name, n.key]), ...meta.book.me.gauges.flatMap(g => [g.name, g.key])] : [];
-        for (const i of ais) { const sl = msgData(chat[i]); if (sl?.skip) skip++; else if (sl?.fill) fill++; else if (/<meatball>/i.test(chat[i].mes ?? '') || sl?.ops?.length) tag++; else none++; for (const o of opsOf(chat[i])) if (kindOf(o.k, needs) === 'unknown') unk[o.k] = (unk[o.k] ?? 0) + 1; }
-        const rate = Math.round(tag / Math.max(1, ais.length - skip) * 100);
-        add(rate >= 70 ? 'good' : rate >= 40 ? 'mid' : 'bad', `태그 쓴 답 ${rate}%`, `최근 ${ais.length}답 · 태그 ${tag} · 보충 ${fill} · 건너뜀 ${skip} · 없음 ${none}${rate < 70 ? ' · 모델 프리셋을 바꾸거나 주입 깊이를 얕게 해 보세요' : ''}`, rate < 70 ? btn('게이지', 'doc-open', 'gauge', 'xs') : '');
-        if (none && set.fillMissing === false) add('mid', '보충 꺼짐', `태그 없는 답 ${none}개가 그냥 지나갔어요`, btn('보충 켜기', 'doc-fill', '', 'xs'));
+        for (const i of ais) {
+            const sl = msgData(chat[i]);
+            if (sl?.skip) skip++; else if (sl?.clsFail) fail++; else if (sl?.src === 'cls') cls++;
+            else if (/<meatball>/i.test(chat[i].mes ?? '') || sl?.ops?.length) tag++; else none++;
+            for (const o of opsOf(chat[i])) if (kindOf(o.k, needs) === 'unknown') unk[o.k] = (unk[o.k] ?? 0) + 1;
+        }
+        const B = mode() === 'B', base = Math.max(1, ais.length - skip);
+        add(modeNote() ? 'mid' : 'good', `사건 고르기: ${B ? 'B 분류 모델' : 'A 본편 태그'}`, modeNote() || (B ? `분류 ${clsStats.calls}회 · 마지막 ≈${clsStats.lastTok}토큰` : '추가 호출 0회'));
+        if (B) {
+            const rate = Math.round(cls / base * 100);
+            add(fail ? 'bad' : rate >= 70 ? 'good' : 'mid', `분류된 답 ${rate}%`, `최근 ${ais.length}답 · 분류 ${cls} · 실패 ${fail} · 태그 ${tag} · 건너뜀 ${skip} · 없음 ${none}${fail ? ' · 칩의 「다시」를 눌러 보세요' : ''}`);
+        } else {
+            const rate = Math.round(tag / base * 100);
+            add(rate >= 70 ? 'good' : rate >= 40 ? 'mid' : 'bad', `태그 쓴 답 ${rate}%`, `최근 ${ais.length}답 · 태그 ${tag} · 건너뜀 ${skip} · 없음 ${none}${rate < 70 ? ' · B(분류 모델)로 바꾸거나 주입 깊이를 얕게 해 보세요' : ''}`, rate < 70 ? btn('게이지', 'doc-open', 'gauge', 'xs') : '');
+        }
         const uk = Object.entries(unk).sort((a, b) => b[1] - a[1]);
         if (uk.length) add('mid', `모르는 키 ${uk.length}종`, uk.slice(0, 6).map(([k, n]) => `${esc(k)}×${n}`).join(' · ') + ' · 그 줄은 건너뛰어요');
     }

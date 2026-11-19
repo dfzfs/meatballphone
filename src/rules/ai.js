@@ -1,6 +1,6 @@
-// 미트볼이 부르는 AI (설정집 채우기 · 태그가 빠졌을 때 작은 보충). 본편이 아니므로 설정집을 여기서만 본다.
+// 미트볼이 부르는 AI (설정집 채우기 · 번역). 사건 고르기(B 모드)는 classify.js. 본편이 아니므로 설정집을 여기서만 본다.
 import { ctx, settings, userName } from '../base/st.js';
-import { normBook, emptyBook, bookText } from './book.js';
+import { normBook, emptyBook } from './book.js';
 import { short, hash } from '../base/util.js';
 import { gloss } from '../base/gloss.js';
 import { TRAITS } from '../../data/traits.js';
@@ -75,12 +75,4 @@ export function templateBook() {
     ];
     b.src.from = 'template';
     return normBook(b);
-}
-// 태그가 빠졌을 때만: 마지막 답 + 짧은 현재 상태 → 사건 줄
-export async function supplement(text, r) {
-    const now = `money ${r.S.cash} · place ${r.S.loc || '-'} · with ${r.S.with.join(', ') || '-'}`;
-    const raw = await ask(`Read the reply and write ONLY the event lines that happened, in "key: value" form, inside <meatball></meatball>. Keys: loc, time(+2h or 14:30), ate, `
-        + `slept(6h), washed, buy(item | price), earn, got, used, gift(name | item), act(name | what), with(names), weather, status(name | 3d), `
-        + `memory(name | event). Nothing else.\n${gloss()}\nNow: ${now}\n${bookText(r.book, r.S.with).slice(0, 1200)}\n\nReply:\n${short(text, 3000)}`, 'You extract events. Output only the <meatball> block.');
-    return raw;
 }

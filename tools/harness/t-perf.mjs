@@ -29,12 +29,18 @@ try {
         await window.__addAI('Story end.\n<meatball>\ncash: +1\n</meatball>');
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
         out.fullTurn = +(performance.now() - a).toFixed(1);
-        // 10턴 (태그 6번 · 빠짐 4번) 동안 미트볼 AI 호출
+        const P = window.__prompts, len = (k) => String(P[k]?.value ?? '').length;
+        // A: 10턴 (태그 6번 · 빠짐 4번) — 추가 호출 0회
         for (let k = 0; k < 10; k++) await window.__addAI(k % 3 === 0 ? 'no tag here' : 'x\n<meatball>\ncash: +1\n</meatball>');
-        out.calls10 = calls;
-        const P = window.__prompts, tok = (s) => Math.ceil(String(s ?? '').length / 3);
-        out.injChars = ['meatlite_rule', 'meatlite_facts', 'meatlite_hint'].reduce((q, k) => q + String(P[k]?.value ?? '').length, 0);
-        out.injFactsHint = ['meatlite_facts', 'meatlite_hint'].reduce((q, k) => q + String(P[k]?.value ?? '').length, 0);
+        out.A = { calls10: calls, injChars: len('meatlite_rule') + len('meatlite_facts') + len('meatlite_hint'), rule: len('meatlite_rule') };
+        // B: 분류 모델 (가짜) — 10턴 태그 없이
+        const st = await import('/ext/src/base/st.js'), C = await import('/ext/src/rules/classify.js');
+        st.settings().mode = 'B'; st.settings().clsProfile = 'p-flash'; window.__sent = [];
+        window.__cls = () => '<meatball>\nact: Leon | 칭찬\ntime: +1h\n</meatball>';
+        const tok0 = C.clsStats.tok, c0 = C.clsStats.calls;
+        for (let k = 0; k < 10; k++) { await window.__addAI(`Story b${k}. `.repeat(30)); for (let w = 0; w < 100 && !C.idle(); w++) await new Promise(r => setTimeout(r, 10)); }
+        __ML__.inject();
+        out.B = { calls10: C.clsStats.calls - c0, clsTokAvg: Math.round((C.clsStats.tok - tok0) / Math.max(1, C.clsStats.calls - c0)), injChars: len('meatlite_rule') + len('meatlite_facts') + len('meatlite_hint'), rule: len('meatlite_rule') };
         out.chips = document.querySelectorAll('.ml-msg').length; out.mes = window.__st.chat.length;
         return out;
     });

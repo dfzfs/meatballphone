@@ -1,5 +1,6 @@
 // 🔌 다른 미트볼 확장(미트볼 선택지 등)이 읽는 통로 — 읽기만. 바꾸는 건 늘 본편 답의 사건 태그로.
-import { getMeta, ready, VERSION, ctx } from '../base/st.js';
+import { getMeta, saveMeta, ready, VERSION, ctx, msgKey } from '../base/st.js';
+import { mode } from '../rules/classify.js';
 import { norm, signed, periodName, dateOf } from '../base/util.js';
 import { fold, priceMul, derived, diceParts, whereNow } from '../rules/engine.js';
 import { placeOf, personOf } from '../rules/book.js';
@@ -72,12 +73,22 @@ function scene() {
         .map(n => ({ name: n, want: S.rel[n].want || personOf(book, n)?.want || '' }));
     return structuredClone({ goods, people });
 }
+// 🎲 선택지 → 분류 모델: 이 사용자 메시지에서 고른 선택과 결과 (주사위 · 대가 · 함정)
+//   data를 주면 적어 두고, 안 주면 지금 적힌 것(사용자 메시지 extra.mbc 또는 여기 적힌 것)을 돌려준다
+function pendingChoice(i, data) {
+    const m = ctx().chat?.[i], meta = getMeta(); if (!m?.is_user || !meta) return null;
+    if (data !== undefined) { meta.choices ??= {}; if (data) meta.choices[msgKey(m)] = structuredClone(data); else delete meta.choices[msgKey(m)]; saveMeta(); }
+    return structuredClone(m.extra?.mbc ?? meta.choices?.[msgKey(m)] ?? null);
+}
 export function mount() {
     globalThis.MeatballLite = Object.freeze({
         version: VERSION,
         ready: () => ready(),
         state,
         scene,
+        // 지금 사건 고르기 모드: 'A' 본편 태그 · 'B' 분류 모델 (B면 본편에 「사건 줄을 적어라」를 넣지 않음)
+        mode,
+        pendingChoice,
         // 🎲 주사위 보정 내역 [{ why, n }] — 능력치 · 욕구 위험 · 상태 딱지(운명 포함) · 착용 장비. 선택지는 여기에 자기 보정만 더한다
         diceParts: (attr = '') => { const r = ready() ? fold() : null; return r ? structuredClone(diceParts(r.book, r.S, attr)) : []; },
         preview,

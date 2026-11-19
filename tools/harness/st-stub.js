@@ -67,7 +67,7 @@
         chatId: 'test-chat',
         chat: [],
         chatMetadata: {},
-        extensionSettings: { regex: [] },
+        extensionSettings: { regex: [], connectionManager: { profiles: [{ id: 'p-flash', name: 'Gemini Flash' }, { id: 'p-main', name: 'Main' }] } },
     };
     window.__st = state;
 
@@ -133,6 +133,24 @@
         await eventSource.emit(event_types.GENERATION_ENDED, i);
         return i;
     };
+    // 새 스와이프(리롤): 마지막 답에 새 글을 만들어 넣음
+    window.__swipe = async (text) => {
+        const i = state.chat.length - 1, m = state.chat[i];
+        m.swipe_info[m.swipe_id] = { ...(m.swipe_info[m.swipe_id] ?? {}), extra: structuredClone(m.extra) };
+        m.swipes.push(text); m.swipe_id = m.swipes.length - 1; m.swipe_info.push({ send_date: String(t0 += 60000), extra: {} }); m.extra = {}; m.mes = text;
+        await eventSource.emit(event_types.MESSAGE_SWIPED, i);
+        await eventSource.emit(event_types.GENERATION_AFTER_COMMANDS, 'swipe', {}, false);
+        await eventSource.emit(event_types.MESSAGE_RECEIVED, i, 'swipe'); renderMes(i);
+        await eventSource.emit(event_types.CHARACTER_MESSAGE_RENDERED, i, 'swipe');
+    };
+    // 있던 스와이프로 넘기기 (실리처럼 그 스와이프의 extra로 돌아감)
+    window.__swipeTo = async (k) => {
+        const i = state.chat.length - 1, m = state.chat[i];
+        m.swipe_info[m.swipe_id] = { ...(m.swipe_info[m.swipe_id] ?? {}), extra: structuredClone(m.extra) };
+        m.swipe_id = k; m.mes = m.swipes[k]; m.extra = structuredClone(m.swipe_info[k]?.extra ?? {});
+        await eventSource.emit(event_types.MESSAGE_SWIPED, i); renderMes(i);
+    };
+    window.__edit = async (i, text) => { const m = state.chat[i]; m.mes = text; if (m.swipes) m.swipes[m.swipe_id] = text; await eventSource.emit(event_types.MESSAGE_EDITED, i); renderMes(i); };
     window.__changeChat = async (id) => { state.chatId = id; state.chat = []; state.chatMetadata = {}; window.__renderAll(); await eventSource.emit(event_types.CHAT_CHANGED); };
 
     const ctx = {
@@ -160,7 +178,16 @@
         substituteParams: (t) => String(t ?? '').replace(/\{\{user\}\}/gi, 'Me').replace(/\{\{char\}\}/gi, 'Leon'),
         getTokenCountAsync: async (t) => Math.ceil(String(t ?? '').length / 4),
         generateRaw: async (opts) => window.__ai(typeof opts === 'string' ? opts : String(opts?.prompt ?? ''), String(opts?.systemPrompt ?? '')),
-        ConnectionManagerRequestService: { sendRequest: async (id, prompt) => ({ content: window.__ai(JSON.stringify(prompt)) }) },
+        // 연결 프로필: 시험이 window.__cls(prompt, info)를 바꿔 끼움 (없으면 __ai) · 보낸 것을 __sent에 남김
+        ConnectionManagerRequestService: {
+            sendRequest: async (id, prompt, max, custom, over) => {
+                (window.__sent ??= []).push({ id, prompt, max, over });
+                const f = window.__cls && id === 'p-flash' ? window.__cls : window.__ai;
+                const out = await f(JSON.stringify(prompt), { id, max, over });
+                if (out instanceof Error) throw out;
+                return { content: out };
+            },
+        },
         loadWorldInfo: async () => null,
         writeExtensionField: async () => {},
         macros: { register() {}, category: { MISC: 'misc' }, valueType: { STRING: 'string' } },

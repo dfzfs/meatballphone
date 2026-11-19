@@ -75,6 +75,7 @@ export function normPerson(p) {
         day: line(p.day, 24),
         want: line(p.want),
         noLove: !!p.noLove,
+        auto: p.auto === 'npc' ? 'npc' : undefined, // 이야기 중 npc로 나와 규칙을 채운 인물
         traits: migrateTraitIds(arr(p.traits).map(String)), // 지운 특성은 가장 가까운 것으로
     };
 }

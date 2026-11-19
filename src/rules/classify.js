@@ -1,0 +1,192 @@
+// 🧭 B 모드: 가벼운 모델(분류 모델)이 답을 읽고, 미트볼이 준 목록 안에서만 일어난 사건을 고른다.
+//   본편은 소설만 쓰고, 숫자는 지금처럼 설정집 규칙으로 계산한다.
+//   결과는 그 메시지 · 그 스와이프의 칸(msgData)에 src: 'cls'로 저장 → 다시 열기 · 다시 계산에는 다시 부르지 않음.
+import { ctx, settings, getMeta, saveMeta, msgData, syncSwipe, bumpMeta, msgKey, app, TITLE } from '../base/st.js';
+import { short, hash, norm, tokens, safeKey } from '../base/util.js';
+import { readOps, kindOf, parts, stripTags } from './tags.js';
+import { fold } from './engine.js';
+import { personOf, normBook } from './book.js';
+import { gloss } from '../base/gloss.js';
+
+// ───── 모드 ─────
+// B를 골라도 분류 연결이 없으면 A로 돌아간다 (설정 화면에 한 줄로 알림)
+export const mode = () => (settings().mode !== 'A' && settings().clsProfile ? 'B' : 'A');
+export const modeNote = () => (settings().mode !== 'A' && !settings().clsProfile ? '분류 모델 연결을 고르지 않아서 지금은 A(본편 태그)로 돌아요' : '');
+// 실리태번 연결 프로필 목록 [{ id, name }]
+export const profiles = () => (ctx().extensionSettings?.connectionManager?.profiles ?? []).map(p => ({ id: p.id, name: p.name ?? p.id }));
+
+// ───── 고를 수 있는 목록 ─────
+// 지금 파서가 읽는 키만 (쓰는 법과 함께)
+const KEYS = [
+    ['loc', '장소 이름', '장소를 옮겼을 때'], ['time', '+2h 또는 14:30', '시간이 흘렀을 때'], ['with', '이름, 이름', '장면에 같이 있는 사람이 바뀌었을 때'],
+    ['ate', '음식', '먹었을 때'], ['slept', '7h', '잤을 때'], ['washed', '-', '씻었을 때'], ['rest', '1h', '쉬었을 때'], ['worked', '3h | +30', '일했을 때 (번 돈)'],
+    ['buy', '물건 | 값', '샀을 때'], ['earn', '30 | 이유', '돈을 받았을 때'], ['got', '물건', '얻었을 때'], ['used', '물건', '썼을 때'], ['lost', '물건', '잃었을 때'],
+    ['wear', '옷', '입었을 때'], ['gift', '이름 | 물건', '선물했을 때'], ['act', '이름 | 행동', '아래 목록의 행동을 그 사람에게 했을 때 (목록에 있는 행동만)'],
+    ['memory', '이름 | 큰 사건', '그 사람이 오래 기억할 일'], ['jealous', '이름 | 이유', '질투했을 때'], ['pair', '이름 | 이름 | 라이벌', '두 인물 사이가 바뀌었을 때'],
+    ['promise', '내용 | 3/14', '약속 · 마감이 생겼을 때'], ['weather', '비', '날씨가 바뀌었을 때'], ['status', '감기 | 3d', '아프거나 상태가 생겼을 때'],
+    ['npc', '이름 | 성격 한 줄', '처음 나온 인물'], ['gone', '이름 | 사유', '이야기에서 빠진 인물'],
+    ['conflict', '내용', '답 글이 [STATE]와 분명히 부딪칠 때만 (예: 없는 돈을 씀)'],
+];
+const MIND = [['mind', '이름 | 짧은 속마음', '장면 속 인물의 속마음']];
+const keyList = () => [...KEYS, ...(getMeta()?.mods?.mind ? MIND : [])];
+export const ALLOW = () => new Set(keyList().map(([k]) => kindOf(k)));
+
+// 인물마다 오르는 · 내리는 행동 (장면에 있는 사람 먼저 · 없으면 가까운 둘)
+function actionsOf(book, S) {
+    const live = Object.keys(S.rel).filter(n => !S.rel[n].gone);
+    const who = S.with.length ? S.with : live.sort((a, b) => S.rel[b].aff + S.rel[b].trust - S.rel[a].aff - S.rel[a].trust).slice(0, 2);
+    return who.map(n => personOf(book, n)).filter(p => p && (p.up.length || p.down.length))
+        .map(p => ({ name: p.name, up: p.up.map(a => a.act), down: p.down.map(a => a.act) }));
+}
+// 이 턴 고른 선택과 결과 (미트볼 선택지: 사용자 메시지 extra.mbc 또는 통로로 받은 것)
+function choiceOf(u) {
+    const m = ctx().chat?.[u]; if (!m?.is_user) return null;
+    return m.extra?.mbc ?? getMeta()?.choices?.[msgKey(m)] ?? null;
+}
+export function choiceText(c) {
+    if (!c) return '';
+    const L = [`{{user}} chose: 「${short(c.shown ?? c.label ?? '', 80)}」${c.kind ? ` (${c.kind}${c.risk ? ` · ${c.risk}` : ''})` : ''}`];
+    const k = c.check;
+    if (k) L.push(`dice d20 ${k.roll}${k.mod ? ` ${k.mod > 0 ? '+' : '−'}${Math.abs(k.mod)}` : ''} vs DC ${k.dc} → ${k.crit ? 'CRITICAL SUCCESS' : k.fumble ? 'CRITICAL FAILURE' : k.ok ? 'SUCCESS' : 'FAILURE'}`);
+    if (c.risk === 'price' || c.cost) L.push(`it had a cost${c.cost ? `: ${short(c.cost, 60)}` : ''}`);
+    if (c.risk === 'trap' || c.trap) L.push('a trap could trigger');
+    if (c.result) L.push(short(String(c.result), 120));
+    return L.join(' · ');
+}
+// 앞 사용자 메시지 번호
+const userBefore = (i) => { const chat = ctx().chat ?? []; for (let k = i - 1; k >= 0; k--) if (chat[k].is_user) return k; return -1; };
+// 답 글의 지문 (같은 글이면 저장된 결과 그대로)
+export function fingerprint(i) {
+    const chat = ctx().chat ?? [], m = chat[i], u = userBefore(i);
+    return hash(`${stripTags(m?.mes ?? '')}|${u >= 0 ? chat[u].mes : ''}|${JSON.stringify(choiceOf(u) ?? '')}`);
+}
+
+// 분류 모델에 보낼 글 (짧게)
+export function buildPrompt(i) {
+    const r = fold(); if (!r) return null;
+    const chat = ctx().chat ?? [], m = chat[i], u = userBefore(i), { book } = r;
+    const S = r.stateAt?.(i - 1) ?? r.S; // 이 답 바로 앞 상태
+    const items = S.items.map(it => it.name).slice(0, 20).join(', ') || '-';
+    const acts = actionsOf(book, S).map(a => `${a.name} — up: ${a.up.join(', ') || '-'} / down: ${a.down.join(', ') || '-'}`);
+    const places = book.world.places.map(p => `${p.name}${p.goods.length ? `(${p.goods.map(g => g.name).join('·')})` : ''}`).join(', ');
+    const keys = keyList().map(([k, v, when]) => `${k}: ${v}  — ${when}`).join('\n');
+    const ch = choiceText(choiceOf(u));
+    const system = 'You label what happened in ONE roleplay reply for a status tracker. Use ONLY the keys and actions listed. '
+        + 'If the wording differs, map it to the closest listed action (e.g. "spoke sweetly" → the listed "칭찬"). '
+        + 'Never write an event that did not happen in the reply. No numbers except the formats shown. '
+        + 'Output ONLY a <meatball> block, one "key: value" per line. If nothing happened, output an empty <meatball></meatball>.';
+    const user = [
+        `[STATE] place ${S.loc || '-'} · time ${Math.floor(((S.t % 1440) + 1440) % 1440 / 60)}h · with ${S.with.join(', ') || '-'} · money ${S.cash} ${book.world.currency} · items ${items}`,
+        ch && `[CHOICE] ${ch} — pick events that match this result (cost, trap, success or failure).`,
+        acts.length ? `[ACTIONS]\n${acts.join('\n')}` : '[ACTIONS] (none)',
+        `[PLACES] ${places || '-'}`,
+        `[KEYS]\n${keys}`,
+        gloss(),
+        u >= 0 ? `[USER] ${short(chat[u].mes, 300)}` : '',
+        `[REPLY]\n${short(stripTags(m.mes), 4000)}`,
+    ].filter(Boolean).join('\n\n');
+    return { system, user, tok: tokens(system) + tokens(user) };
+}
+// 분류 연결로 보냄 (온도 0 · 출력 짧게)
+export const clsStats = { calls: 0, tok: 0, lastTok: 0, fails: 0 };
+async function send(system, user) {
+    const c = ctx(), prof = settings().clsProfile;
+    if (!prof || !c.ConnectionManagerRequestService) throw new Error('분류 연결 없음');
+    clsStats.calls++;
+    const r = await c.ConnectionManagerRequestService.sendRequest(prof, [{ role: 'system', content: system }, { role: 'user', content: user }], 300,
+        { stream: false, extractData: true, includePreset: false, includeInstruct: false }, { temperature: 0 });
+    return String(r?.content ?? r ?? '');
+}
+
+// 받은 줄 거르기: 목록 밖의 키 · 행동은 조용히 버림 · 비슷한 말은 목록 행동으로 맞춤
+export function filterOps(raw, book, S) {
+    if (!/<meatball>/i.test(String(raw))) throw new Error('형식 오류');
+    const allow = ALLOW(), out = [];
+    for (const [k, v] of readOps(raw)) {
+        const kind = kindOf(k); if (!allow.has(kind)) continue;
+        if (kind === 'act') {
+            const [a = '', b = ''] = parts(v), p = personOf(book, a); if (!p) continue;
+            const list = [...p.up, ...p.down].map(x => x.act), t = norm(b);
+            const hit = list.find(x => norm(x) === t) ?? list.find(x => t.includes(norm(x)) || norm(x).includes(t));
+            if (!hit || !t) continue;
+            out.push(['act', `${p.name} | ${hit}`]); continue;
+        }
+        out.push([k, v]);
+    }
+    return out;
+}
+
+// ───── 줄 세우기: 메시지마다 마지막 것만 · 차례로 하나씩 ─────
+const queue = [];
+let busy = false;
+const waiting = new Set(); // 지금 고르는 중인 메시지 번호 (칩 「…」)
+export const isWaiting = (i) => waiting.has(i);
+export function enqueue(i, force = false) {
+    const k = queue.findIndex(q => q.i === i); if (k >= 0) queue.splice(k, 1); // 같은 메시지는 마지막 것만
+    queue.push({ i, force }); waiting.add(i); app.refresh?.();
+    if (!busy) pump();
+}
+async function pump() {
+    busy = true;
+    try { while (queue.length) { const q = queue.shift(); try { await run(q.i, q.force); } catch (e) { console.warn(`[${TITLE}] 분류`, e); } waiting.delete(q.i); app.refresh?.(); } }
+    finally { busy = false; }
+}
+export const idle = () => !busy && !queue.length;
+
+// 한 메시지 고르기
+async function run(i, force) {
+    const chat = ctx().chat ?? [], m = chat[i], meta = getMeta();
+    if (!m || m.is_user || m.is_system || !meta?.book) return;
+    const sid = m.swipe_id ?? 0, fp = fingerprint(i), sl = msgData(m, true);
+    if (sl.skip) return;
+    if (!force && sl.src === 'cls' && sl.fp === fp && !sl.clsFail) return; // 이미 고른 같은 글
+    // 같은 글이면 저장된 결과 (리롤로 같은 글이 나왔을 때 · 옛 스와이프로 돌아왔을 때)
+    const cached = !force && meta.clsCache?.[fp];
+    let ops = cached ?? null, tok = 0;
+    if (!ops) {
+        const P = buildPrompt(i); if (!P) return;
+        tok = P.tok; clsStats.lastTok = tok; clsStats.tok += tok;
+        const r = fold(), S = r.stateAt?.(i - 1) ?? r.S;
+        for (let n = 0; n < 2 && !ops; n++) {
+            try { ops = filterOps(await send(P.system, P.user), r.book, S); } catch (e) { if (n) { clsStats.fails++; console.info(`[${TITLE}] 분류 실패 (칩의 「다시」)`, e.message); } }
+        }
+    }
+    // 그새 다른 스와이프로 넘어갔거나 글이 바뀌었으면 이 칸엔 안 씀 (결과는 지문으로 남겨 둠)
+    if (ops) { meta.clsCache ??= {}; meta.clsCache[fp] = ops; const keys = Object.keys(meta.clsCache); if (keys.length > 300) delete meta.clsCache[keys[0]]; }
+    if ((m.swipe_id ?? 0) !== sid || fingerprint(i) !== fp) { saveMeta(); return; }
+    const s2 = msgData(m, true);
+    if (ops) { s2.ops = ops; s2.src = 'cls'; s2.fp = fp; delete s2.clsFail; if (tok) s2.tok = tok; }
+    else { s2.ops = s2.ops ?? []; s2.src = 'cls'; s2.clsFail = true; }
+    s2.rev = (s2.rev ?? 0) + 1; bumpMeta(); syncSwipe(m); saveMeta(); ctx().saveChatDebounced?.();
+    app.afterClassify?.(i);
+}
+
+// ───── 6-2 새 인물 규칙 채우기: npc로 처음 나온 인물은 그 인물당 한 번만 ─────
+export async function fillPerson(name, why = '') {
+    const meta = getMeta(); if (!meta?.book || personOf(meta.book, name)) return false;
+    (meta.npcTried ??= {})[name] = 'try'; saveMeta();
+    const sys = 'You write a tiny rule card for a new roleplay character. Output JSON only, Korean values: '
+        + '{"line":"성격 한 줄","face":"이모지 하나","up":[{"act":"칭찬","d":3},{"act":"","d":2},{"act":"","d":4}],"down":[{"act":"거짓말","d":-5},{"act":"","d":-3},{"act":"","d":-4}],"start":{"aff":10,"trust":10}}. '
+        + 'up = 3 actions that raise their affection, down = 3 that lower it. Short words.';
+    const chat = ctx().chat ?? [], last = [...chat].reverse().find(m => !m.is_user && m.mes?.includes(name));
+    try {
+        const raw = settings().clsProfile && ctx().ConnectionManagerRequestService
+            ? await send(sys, `Character: ${name}${why ? ` — ${why}` : ''}\nScene:\n${short(stripTags(last?.mes ?? ''), 1500)}`)
+            : await (await import('./ai.js')).ask(`Character: ${name}${why ? ` — ${why}` : ''}\nScene:\n${short(stripTags(last?.mes ?? ''), 1500)}`, sys);
+        const j = JSON.parse(String(raw).slice(String(raw).indexOf('{'), String(raw).lastIndexOf('}') + 1));
+        const m2 = getMeta(); if (personOf(m2.book, name)) return false; // 그새 직접 넣었으면 건드리지 않음
+        const up = (j.up ?? []).filter(a => a?.act).slice(0, 3), down = (j.down ?? []).filter(a => a?.act).slice(0, 3);
+        m2.book = normBook({ ...m2.book, people: [...m2.book.people, { name: safeKey(name), face: j.face, line: j.line, up, down, start: j.start, auto: 'npc' }] });
+        m2.npcTried[name] = 'ok'; saveMeta(); app.refresh?.(true);
+        return true;
+    } catch (e) {
+        console.warn(`[${TITLE}] 새 인물 규칙 채우기 실패`, e);
+        getMeta().npcTried[name] = 'fail'; saveMeta(); app.refresh?.();
+        return false;
+    }
+}
+// 방금 계산에 처음 나온 인물(설정집에 없음) → 한 번만 채우기
+export function newPeople() {
+    const r = fold(), meta = getMeta(); if (!r || !meta) return [];
+    return Object.entries(r.S.rel).filter(([n, x]) => x.extra && !x.gone && !personOf(r.book, n) && !meta.npcTried?.[n]).map(([n, x]) => [n, x.line ?? '']);
+}

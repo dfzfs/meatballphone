@@ -4,7 +4,7 @@ import { normBook } from '../rules/book.js';
 
 export const MODULE = 'meatlite';
 export const OLD = 'statussim';
-export const VERSION = '0.26.0';
+export const VERSION = '0.27.0';
 export const DATA_V = 2;
 export const TITLE = '미트볼 라이트';
 export const INJ = { facts: 'meatlite_facts', hint: 'meatlite_hint', rule: 'meatlite_rule' };
@@ -27,12 +27,13 @@ export const DEFAULTS = Object.freeze({
     look: { accent: '#e07a5f', font: '', size: 1, radius: 14, border: 1, shadow: 1, dark: 'auto' },
     influence: { all: 2, by: {} },  // 이야기 영향력 게이지 (전체 기본값 · 채팅마다 덮어쓸 수 있음)
     preset: 'flash',        // 본편 지시 프리셋: flash | general
-    fillMissing: true,      // 태그가 빠졌을 때만 작은 보충 호출
+    mode: 'B',              // 사건 고르기: A 본편 태그 · B 분류 모델(가벼운 모델이 답마다 목록에서 고름)
+    clsProfile: '',         // 분류 모델 연결 프로필 (비우면 B는 A로)
     skipQuiet: true,        // 퀵리플라이 · /gen 답엔 상태창 안 붙임
     ooc: true,
     oocPattern: '^\\s*(\\(\\(|\\[?\\(?\\s*ooc\\b|//)',
     injectDepth: 1,
-    profile: '',            // 미트볼 AI 호출에 쓸 연결 프로필 (비우면 지금 연결)
+    profile: '',            // 상태창 만들기 · 번역에 쓸 연결 프로필 (비우면 지금 연결)
     saveLang: 'ko',         // 상태창 저장 언어: ko | en (en이면 화면 번역)
     trAuto: 'ai',            // 영어 저장일 때 모르는 말: ai(모아서 1회) | off(직접만)
     musicApp: 'youtube',
@@ -48,7 +49,7 @@ export function settings() {
     for (const k of Object.keys(DEFAULTS.look)) if (!Object.hasOwn(s.look, k)) s.look[k] = DEFAULTS.look[k];
     if (typeof s.mascotSound === 'boolean') s.mascotSound = s.mascotSound ? 'meow' : 'off';
     // 한 번 정리: 지금 쓰지 않는 옛 설정 키는 지운다
-    if (!s.tidied) { for (const k of Object.keys(s)) if (!Object.hasOwn(DEFAULTS, k) && !SETTING_EXTRA.has(k)) delete s[k]; s.tidied = 1; }
+    if ((s.tidied ?? 0) < 2) { for (const k of Object.keys(s)) if (!Object.hasOwn(DEFAULTS, k) && !SETTING_EXTRA.has(k)) delete s[k]; s.tidied = 2; }
     return s;
 }
 

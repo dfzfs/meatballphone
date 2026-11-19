@@ -1,5 +1,5 @@
 // 화면은 셋뿐: HUD · 미니바 · 전체화면
-import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, ready, TITLE } from '../base/st.js';
+import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, ready, msgData, TITLE } from '../base/st.js';
 import { esc, dateText, periodName, short, fmt } from '../base/util.js';
 import { fold, derived, needStage } from '../rules/engine.js';
 import { placeOf } from '../rules/book.js';
@@ -11,6 +11,7 @@ import { traitsView, traitAct, TRAIT_ACTS } from './traits.js';
 import { chip, sheet, bar } from './kit.js';
 
 import { mascot } from './mascot.js';
+import { isWaiting } from '../rules/classify.js';
 import { chipCheck } from '../extra/doctor.js';
 let cur = 'home', past = null;
 
@@ -24,8 +25,12 @@ function hudHTML(r) {
     // 🛒 가게에 있으면 HUD에 물건 한 줄 (누르면 사는 말이 입력창에)
     if (modOn('wallet') && S.loc) { const pl = placeOf(book, S.loc); if (pl?.goods.length) L.push(...pl.goods.slice(0, 3).map(g => `<span class="ml-h tap shop${S.cash < g.price ? ' poor' : ''}" data-act="say" data-v="${esc(g.name)} 하나 주세요.">${esc(g.name)} ${g.price}</span>`)); }
     if (S.status.length) L.push(`<span class="ml-h">🏷${S.status.length}</span>`);
-    // 🔤 토큰 계기판: 이번 턴 본편 주입 · 미트볼 AI 호출 · 걸린 시간 (작게)
-    const pt = app.perfLast?.(); if (pt) L.push(`<span class="ml-h meter" title="이번 턴: 본편 주입 ≈${pt.tok}토큰 · 미트볼 AI ${pt.calls}회 · ${pt.ms.toFixed(0)}ms">🔤${pt.tok}${pt.calls ? ` · 🤖${pt.calls}` : ''}</span>`);
+    // 🔤 토큰 계기판: 이번 턴 본편 주입 · 분류 모델에 보낸 토큰(B) · 걸린 시간 (작게)
+    const pt = app.perfLast?.();
+    if (pt) {
+        const title = `이번 턴: 본편 주입 ≈${pt.tok}토큰${pt.cls ? ` · 분류 모델에 보냄 ≈${pt.cls}토큰 (${pt.calls}회)` : ''} · ${pt.ms.toFixed(0)}ms`;
+        L.push(`<span class="ml-h meter" title="${title}">🔤${pt.tok}${pt.cls ? ` · 🧭${pt.cls}` : ''}</span>`);
+    }
     return L.join('');
 }
 // ───── 미니바: 접힌 사이드 모양 · 「펼치기」 → 전체화면 ─────
@@ -144,8 +149,10 @@ export function drawChips() {
         const el = document.querySelector(`#chat .mes[mesid="${i}"] .mes_text`); if (!el) continue;
         const ch = (r.changes[i] ?? []).filter(c => c.src !== 'time'), fl = (r.flags[i] ?? []);
         let box = el.parentElement.querySelector('.ml-msg');
-        if (!ch.length && !fl.length) { box?.remove(); continue; }
-        const h = fl.map(f => chip(`⚠ 확인 필요 · ${esc(short(f.text, 24))}`, 'bad')).join('') + ch.slice(0, 8).map(c => chip(`${c.icon} ${esc(c.label)} ${typeof c.to === 'number' && typeof c.from === 'number' ? (c.f === 'time' ? '' : signed2(c.to - c.from)) : esc(c.to)}`
+        const sl = msgData(chat[i]), wait = isWaiting(i), failed = !wait && sl?.clsFail, B = !chat[i].is_user && sl?.src === 'cls' && !wait && !failed;
+        if (!ch.length && !fl.length && !wait && !failed) { box?.remove(); continue; }
+        const cls = wait ? chip('…', 'mid') : failed ? chip('⚠ 분류 실패 · 다시', 'bad', 'cls-redo', String(i)) : B ? chip('🔄', 'mid', 'cls-redo', String(i)) : '';
+        const h = cls + fl.map(f => chip(`⚠ 확인 필요 · ${esc(short(f.text, 24))}`, 'bad')).join('') + ch.slice(0, 8).map(c => chip(`${c.icon} ${esc(c.label)} ${typeof c.to === 'number' && typeof c.from === 'number' ? (c.f === 'time' ? '' : signed2(c.to - c.from)) : esc(c.to)}`
             + `${c.why ? ` · ${esc(short(c.why, 12))}` : ''}`, c.kind === 'bad' || (typeof c.to === 'number' && c.to < c.from) ? 'bad' : 'good', 'turncard', String(i))).join('') + (ch.length > 8 ? chip(`+${ch.length - 8}`, 'mid', 'turncard', String(i)) : '');
         if (!box) { box = document.createElement('div'); box.className = 'ml-msg ml-scope'; el.after(box); }
         if (box.dataset.h !== h) { box.innerHTML = h; box.dataset.h = h; applyTr(box); }

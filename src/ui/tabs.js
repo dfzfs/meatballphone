@@ -32,7 +32,7 @@ export function turnCard(r, i) {
     const ch = (r.changes[i] ?? []).filter(c => c.src !== 'time');
     const fl = r.flags[i] ?? [];
     if (!ch.length && !fl.length) return '';
-    return card('이번 답에서 바뀐 것', fl.map(f => row({ icon: '⚠️', title: '확인 필요', sub: esc(f.text), value: `${f.fix ? btn('상태 고치기', 'flagfix', `${f.fix}`, 'xs') : ''}${btn('무시', 'flagok', `${i}:${f.i}`, 'xs')}` })).join('') + ch.map(c => changeRow(c, i)).join(''));
+    return card('이번 답에서 바뀐 것', fl.map(f => row({ icon: '⚠️', title: '확인 필요', sub: esc(f.text), value: btn('무시', 'flagok', `${i}:${f.i}`, 'xs') })).join('') + ch.map(c => changeRow(c, i)).join(''));
 }
 
 // ───── ❤️ 수치: 상태 딱지 · 욕구 · 게이지 · 능력치 · 이 장면 · 이번 답 (dev 수치 카드 기준 + 이유 · 다음 경계까지 · 회복 방법) ─────
@@ -278,7 +278,9 @@ function relCard(r, name, inSheet = false) {
         const day = p?.day || x.day, meta2 = [nowAt && `📍 ${esc(nowAt)}`, day && `🎂 ${esc(day)}`].filter(Boolean);
         if (V('place') && meta2.length) L.push(`<div class="ml-rl dim"><i></i>${meta2.join('<span>·</span>')}</div>`);
     }
-    const acts = x.gone ? btn('돌아옴', 'gone', name, 'xs') : `${btn('🎁<span> 선물</span>', 'say', `${name}에게 선물을 건넨다.`, 'xs')}${inSheet ? '' : btn('더보기', 'person', name, 'xs')}`;
+    // 이야기 중에 처음 나온 인물: 설정집에 규칙이 없으면 (B는 저절로 한 번 · 실패했거나 A면) 버튼으로
+    const tried = getMeta().npcTried?.[name], fillBtn = !p && !x.gone && tried !== 'try' ? btn(tried === 'fail' ? '⚠ 규칙 채우기' : '📋 규칙 채우기', 'npc-fill', name, 'xs') : '';
+    const acts = x.gone ? btn('돌아옴', 'gone', name, 'xs') : `${fillBtn}${btn('🎁<span> 선물</span>', 'say', `${name}에게 선물을 건넨다.`, 'xs')}${inSheet ? '' : btn('더보기', 'person', name, 'xs')}`;
     return `<div class="ml-rc${x.gone ? ' gone' : ''}"><div class="ml-rc-h"><span class="ml-face"${inSheet ? '' : ` data-act="person" data-v="${esc(name)}"`}`
         + `>${p?.face || x.face || '🙂'}</span><b${inSheet ? '' : ` class="tap" data-act="person" data-v="${esc(name)}"`}>${esc(name)}</b>${pills}`
         + `<span class="ml-sp"></span>${acts}`
@@ -540,6 +542,9 @@ function custom(r) {
 function book(r) {
     const b = r.book;
     let h = `<div class="ml-hint">본편에는 영향 없음 · 상태창을 만들고 계산할 때 긴 로어북 대신 이걸 봅니다</div>`;
+    // 📐 숫자 규칙 판: 오르는 · 내리는 폭 · 줄어드는 속도를 고치면 그 메시지부터 새 규칙 (앞은 옛 규칙 그대로)
+    const V = getMeta().ruleVers ?? [];
+    h += `<div class="ml-hint">📐 숫자 규칙 ${V.length + 1}판${V.length ? ` · #${V[V.length - 1].until}부터 지금 규칙 (그 앞 메시지는 그때 규칙으로 계산)` : ''} · 성격 · 취향 · 루틴 · 시작 값은 판을 나누지 않아요</div>`;
     h += card(
         '세계',
         row({
@@ -971,9 +976,6 @@ export async function onAct(act, v, el) {
             toast('되돌렸어요');
             return;
         }
-        case 'flagfix':
-            hand(v, '어긋남 고침');
-            return;
         case 'flagok': {
             const [i] = v.split(':').map(Number);
             const m = ctx().chat[i],
@@ -1026,6 +1028,8 @@ export async function onAct(act, v, el) {
             app.openPast?.(i);
             return;
         }
+        case 'cls-redo': app.reclassify?.(Number(v)); return; // 🔄 다시 고르기 (B)
+        case 'npc-fill': { toast(`${v} 규칙을 채우는 중…`); const ok = await app.fillPerson?.(v); toast(ok ? `${v} 규칙을 채웠어요` : '못 채웠어요 · 설정집에서 직접 넣을 수 있어요', ok ? 'good' : 'bad'); return; }
         case 'doctor': {
             const d = await import('../extra/doctor.js');
             d.doctor(app, app.perfData?.());
@@ -1036,12 +1040,6 @@ export async function onAct(act, v, el) {
             saveMeta();
             el?.closest('.ml-bs')?.remove();
             app.refresh?.();
-            return;
-        case 'doc-fill':
-            settings().fillMissing = true;
-            saveSettings();
-            el?.closest('.ml-bs')?.remove();
-            toast('보충 켰어요', 'good');
             return;
         case 'doc-open':
             el?.closest('.ml-bs')?.remove();

@@ -2,7 +2,7 @@
 // 원본은 메시지(extra.meatlite.sw)에 있고, 여기서는 매번 처음부터 접어 만든다(바뀐 곳부터만 다시).
 import { clamp, num, norm, short, safeKey, parseDelta, spanOf, clockOf, dayOfDate, DAY, hash, periodName } from '../base/util.js';
 import { msgData, getMeta, ctx, metaRev } from '../base/st.js';
-import { readOps, kindOf, parts, stripTags } from './tags.js';
+import { readOps, kindOf, parts } from './tags.js';
 import { match } from './names.js';
 import { NEED_STAGES, NEED_SYMPTOM, personOf, placeOf } from './book.js';
 import { glossList } from '../base/gloss.js';
@@ -45,7 +45,7 @@ export function initState(book) {
         cash: 0, items: [], status: [], promises: [], news: [], rel: {},
         mind: {}, watch: {}, cell: {}, bgm: '', custom: {}, turn: 0, rolls: [], pairs: {},
     };
-    for (const p of book.people) S.rel[p.name] = relOf(p);
+    for (const p of book.people) if (p.auto !== 'npc') S.rel[p.name] = relOf(p); // 이야기 중에 나온 인물은 처음 나온 답부터
     for (const p of book.people) for (const s of p.syn ?? []) if (personOf(book, s.to)) { const k = pairKey(p.name, personOf(book, s.to).name); S.pairs[k] ??= { v: 0, label: s.text, why: '' }; }
     return S;
 }
@@ -543,6 +543,7 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             news(S, '🌙', `${name} — ${short(b, 40)}`, 'life', name);
             return;
         }
+        case 'conflict': if (v) x.flag(short(v, 60), i); return; // 분류 모델이 본 「답 글 ↔ 지금 상태」 어긋남 → 확인 필요
         case 'pair': {
             // 🔗 인물끼리: pair: A | B | +5 | 이유  ·  pair: A | B | 라이벌
             const A = x.who(a) ?? safeKey(a),
@@ -605,7 +606,7 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
         case 'npc': {
             const name = x.who(a) ?? safeKey(a);
             if (!name || S.rel[name]) return;
-            S.rel[name] = relOf(null);
+            S.rel[name] = relOf(personOf(book, name)); // 규칙을 채운 새 인물이면 그 시작 값
             S.rel[name].line = short(b, 40);
             S.rel[name].face = short(c, 4);
             ch.push({ f: `npc.${name}`, label: name, icon: '👤', from: '', to: '새 인물', why: short(b, 20), src, sure: true, i, who: name });
@@ -703,6 +704,42 @@ export function diceParts(book, S, attr = '', luck = null) {
     return out;
 }
 
+// ───── 📐 숫자 규칙 판: 오르는 폭 · 내리는 폭 · 줄어드는 속도를 고치면 「그 메시지부터」 새 규칙 ─────
+//   meta.ruleVers = [{ n, until, rules }] — until 앞의 메시지는 rules(그때 규칙)로 계산 · 설명 글(성격 · 취향 · 루틴)과 시작 값은 판을 나누지 않음
+export const ruleSnap = (book) => structuredClone({
+    needs: Object.fromEntries(book.me.needs.map(n => [n.key, n.rate])),
+    people: Object.fromEntries(book.people.map(p => [p.name, { up: p.up, down: p.down }])),
+});
+// 둘 다에 있는 칸만 비교 (인물이 새로 들어오거나 빠진 건 판을 나누지 않음)
+function rulesDiffer(a, b) {
+    for (const k of Object.keys(a.needs)) if (k in b.needs && a.needs[k] !== b.needs[k]) return true;
+    for (const n of Object.keys(a.people)) if (n in b.people && JSON.stringify(a.people[n]) !== JSON.stringify(b.people[n])) return true;
+    return false;
+}
+// 설정집이 바뀌었으면 판을 하나 올린다 → 저장이 필요하면 true
+export function noteRules(meta, chatLen) {
+    if (!meta?.book) return false;
+    const snap = ruleSnap(meta.book);
+    if (!meta.ruleSnap) { meta.ruleSnap = snap; return true; }
+    if (rulesDiffer(meta.ruleSnap, snap)) {
+        const V = (meta.ruleVers ??= []), last = V[V.length - 1];
+        // 같은 자리에서 또 고치면 그 앞 메시지들은 처음 규칙 그대로
+        if (!last || last.until !== chatLen) V.push({ n: V.length + 1, until: chatLen, rules: meta.ruleSnap });
+    }
+    if (JSON.stringify(meta.ruleSnap) === JSON.stringify(snap)) return false;
+    meta.ruleSnap = snap;
+    return true;
+}
+const bookCache = new WeakMap();
+function bookFor(meta, i) {
+    const v = (meta.ruleVers ?? []).find(x => i < x.until); if (!v) return meta.book;
+    const hit = bookCache.get(v); if (hit?.src === meta.book) return hit.book;
+    const needs = meta.book.me.needs.map(n => (n.key in v.rules.needs ? { ...n, rate: v.rules.needs[n.key] } : n));
+    const b = { ...meta.book, me: { ...meta.book.me, needs } };
+    b.people = meta.book.people.map(p => (v.rules.people[p.name] ? { ...p, ...v.rules.people[p.name] } : p));
+    bookCache.set(v, { src: meta.book, book: b });
+    return b;
+}
 // ───── 접기 (캐시: 메시지마다 서명이 같으면 다시 계산하지 않음) ─────
 let cache = { chatId: null, bookSig: '', sig: [], states: [], changes: [], flags: [], base: null };
 const sigOf = (m) => (m.is_user ? `u${m.mes?.length}` : `${m.swipe_id ?? 0}:${m.mes?.length}:${msgData(m)?.rev ?? 0}:${m.is_system ? 1 : 0}`);
@@ -710,8 +747,8 @@ const sigOf = (m) => (m.is_user ? `u${m.mes?.length}` : `${m.swipe_id ?? 0}:${m.
 export function opsOf(m, book = null) {
     if (!m || m.is_user || m.is_system) return [];
     const sl = msgData(m);
-    const ops = (sl?.ops ?? readOps(m.mes)).map(([k, v], j) => ({ k, v, src: sl?.fill ? 'fill' : 'tag', j }));
-    if (book && !sl?.skip) ops.push(...sceneOps(m.mes, book, ops));
+    const src = sl?.src ?? 'tag'; // tag: 본편 태그 · cls: 분류 모델
+    const ops = (sl?.ops ?? readOps(m.mes)).map(([k, v], j) => ({ k, v, src, j }));
     for (const [j, h] of (sl?.hand ?? []).entries()) ops.push({ k: h.k, v: h.v, src: h.src ?? 'hand', why: h.why, j: 1000 + j });
     const undo = new Set(sl?.undo ?? []);
     return ops.filter(o => !undo.has(o.j));
@@ -725,7 +762,7 @@ export function fold(force = false) {
     // 빠른 길: 채팅 · 마지막 메시지 · 스와이프 · 설정집 저장 번호가 그대로면 지난 결과 (선택지 미리 보기처럼 한 화면에 여러 번 부를 때)
     const last = chat[chat.length - 1], qk = `${id}|${chat.length}|${last ? sigOf(last) : ''}|${metaRev}|${meta.book === quick.book ? 1 : 0}`;
     if (!force && quick.r && quick.key === qk) return quick.r;
-    const bsig = hash(JSON.stringify(meta.book) + JSON.stringify(meta.start ?? {}) + (meta.startAt ?? 0));
+    const bsig = hash(JSON.stringify(meta.book) + JSON.stringify(meta.start ?? {}) + (meta.startAt ?? 0) + JSON.stringify(meta.ruleVers ?? []));
     if (force || cache.chatId !== id || cache.bookSig !== bsig) cache = { chatId: id, bookSig: bsig, sig: [], snap: [], needs: [], changes: [], flags: [], base: null, last: null };
     if (!cache.base) cache.base = startState(meta);
     let from = 0;
@@ -742,14 +779,13 @@ export function fold(force = false) {
         const m = chat[i], ch = [], flags = [];
         if (!m.is_user && !m.is_system && i >= (meta.startAt ?? 0)) {
             S.mind = {}; S.watch = {}; S.cell = {}; S.turn++;
-            const x = makeCtx(meta.book, S, ch, flags);
-            const W = wantsOf(meta.book, S), P = { tasted: S.tasted?.length ?? 0, visited: S.visited?.length ?? 0, rolls: S.rolls?.length ?? 0, kept: (S.promises ?? []).filter(q => q.done).length, custom: JSON.stringify(S.custom) }; // ⭐ 이 답 전에 원하던 것 · 그때 개수
-            for (const o of opsOf(m, meta.book)) { const n0 = ch.length; try { applyOp(meta.book, S, x, o.k, o.v, o.j, o.src, ch); } catch (e) { console.warn('[미트볼 라이트] 줄 건너뜀', o, e); } if (o.why) for (let q = n0; q < ch.length; q++) if (ch[q].src === o.src) ch[q].why = o.why; }
+            const bk = bookFor(meta, i), x = makeCtx(bk, S, ch, flags);
+            const W = wantsOf(bk, S), P = { tasted: S.tasted?.length ?? 0, visited: S.visited?.length ?? 0, rolls: S.rolls?.length ?? 0, kept: (S.promises ?? []).filter(q => q.done).length, custom: JSON.stringify(S.custom) }; // ⭐ 이 답 전에 원하던 것 · 그때 개수
+            for (const o of opsOf(m, bk)) { const n0 = ch.length; try { applyOp(bk, S, x, o.k, o.v, o.j, o.src, ch); } catch (e) { console.warn('[미트볼 라이트] 줄 건너뜀', o, e); } if (o.why) for (let q = n0; q < ch.length; q++) if (ch[q].src === o.src) ch[q].why = o.why; }
             for (const e of S.mindLog ?? []) e.m ??= i; // 💭 몇 번째 메시지에서 떴나
-            afterTurn(meta.book, S, x, ch, W, i, P);
-            if (!msgData(m)?.skip && !msgData(m)?.flagOk) drift(meta.book, S, m.mes, ch, flags, i);
+            afterTurn(bk, S, x, ch, W, i, P);
         }
-        cache.sig[i] = sigOf(m); cache.changes[i] = ch; cache.flags[i] = flags; cache.needs[i] = { ...S.needs, ...Object.fromEntries(Object.entries(S.gauges ?? {}).map(([g, v]) => [`g:${g}`, v])) };
+        cache.sig[i] = sigOf(m); cache.changes[i] = ch; cache.flags[i] = msgData(m)?.flagOk ? [] : flags; cache.needs[i] = { ...S.needs, ...Object.fromEntries(Object.entries(S.gauges ?? {}).map(([g, v]) => [`g:${g}`, v])) };
         if (i % SNAP === 0) cache.snap[i] = structuredClone(S);
     }
     cache.last = { i: chat.length - 1, S };
@@ -765,9 +801,9 @@ export function stateAt(i) {
     for (let j = k + 1; j <= i && j < chat.length; j++) {
         const m = chat[j]; if (m.is_user || m.is_system || j < (meta.startAt ?? 0)) continue;
         const ch = [], flags = []; S.mind = {}; S.watch = {}; S.cell = {}; S.turn++;
-        const x = makeCtx(meta.book, S, ch, flags), W = wantsOf(meta.book, S), P = { tasted: S.tasted?.length ?? 0, visited: S.visited?.length ?? 0, custom: JSON.stringify(S.custom) };
-        for (const o of opsOf(m, meta.book)) { try { applyOp(meta.book, S, x, o.k, o.v, o.j, o.src, ch); } catch { /* 건너뜀 */ } }
-        afterTurn(meta.book, S, x, ch, W, j, P);
+        const bk = bookFor(meta, j), x = makeCtx(bk, S, ch, flags), W = wantsOf(bk, S), P = { tasted: S.tasted?.length ?? 0, visited: S.visited?.length ?? 0, custom: JSON.stringify(S.custom) };
+        for (const o of opsOf(m, bk)) { try { applyOp(bk, S, x, o.k, o.v, o.j, o.src, ch); } catch { /* 건너뜀 */ } }
+        afterTurn(bk, S, x, ch, W, j, P);
     }
     return S;
 }
@@ -917,20 +953,3 @@ function afterTurn(book, S, x, ch, W, i, P) {
     }
 }
 
-// 🎬 장면 자동 인식: 답 글에 장소 이름 + 움직이는 말이 있으면 장소, 인물 이름이 나오면 같이 있는 사람 (태그에 없을 때만)
-const MOVE = /(으로|로|에)\s*(갔|간다|가서|도착|들어|향했|향한|돌아왔|돌아갔|나왔|들렀|옮겼)|arriv|went to|entered/;
-function sceneOps(text, book, ops) {
-    const t = stripTags(String(text ?? '')), out = [], has = (k) => ops.some(o => kindOf(o.k) === k);
-    if (!has('loc')) for (const p of book.world.places) { const at = t.indexOf(p.name); if (at >= 0 && MOVE.test(t.slice(at, at + p.name.length + 12))) { out.push({ k: 'loc', v: p.name, src: 'scene', j: 2000 }); break; } }
-    // 이름이 두 번 넘게 나오면 장면에 있다고 본다 (한 번 스친 이름은 빼고)
-    if (!has('with')) { const cnt = (n) => (n ? t.split(n).length - 1 : 0); const who = book.people.filter(p => [p.name, ...p.aka].reduce((q, n) => q + cnt(n), 0) >= 2).map(p => p.name); if (who.length) out.push({ k: 'with', v: who.join(', '), src: 'scene', j: 2001 }); }
-    return out;
-}
-// ⚠ 어긋남 감지: 답 글이 상태와 부딪히면 (이야기에서 빠진 사람 등장 · 가진 돈보다 큰 돈을 씀 · 장소가 다른 것 같음) → 확인 필요 칩 + 「상태 고치기」
-function drift(book, S, text, ch, flags, i) {
-    const t = stripTags(String(text ?? ''));
-    for (const [n, r] of Object.entries(S.rel)) if (r.gone && t.includes(n) && !ch.some(c => c.f === `gone.${n}`)) flags.push({ text: `이야기에서 빠진 ${n}이(가) 나왔어요`, i: 3000, fix: `gone: ${n} | -` });
-    const cur = book.world.currency, m = new RegExp(`(\\d[\\d,]*)\\s*${cur.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^.!?\\n]{0,12}(냈|지불|건넸|썼|주고)`).exec(t);
-    if (m) { const n = Number(m[1].replace(/,/g, '')); if (n > S.cash && !ch.some(c => c.f === 'cash')) flags.push({ text: `가진 돈(${S.cash})보다 많은 ${n}${cur}을 쓴 것 같아요`, i: 3001, fix: '' }); }
-    if (!ch.some(c => c.f === 'loc')) for (const p of book.world.places) if (p.name !== S.loc && t.includes(p.name) && MOVE.test(t.slice(t.indexOf(p.name), t.indexOf(p.name) + p.name.length + 12))) { flags.push({ text: `장소가 ${p.name}(으)로 바뀐 것 같아요`, i: 3002, fix: `loc: ${p.name}` }); break; }
-}
