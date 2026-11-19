@@ -6,6 +6,7 @@ import { readOps, kindOf, parts } from './tags.js';
 import { match } from './names.js';
 import { NEED_STAGES, NEED_SYMPTOM, personOf, placeOf, BASIC_ACTS } from './book.js';
 import { glossList } from '../base/gloss.js';
+import { readNewsline, kindInfo } from './newskinds.js';
 const isHome = (book, S) => /home/.test(placeOf(book, S.loc)?.kind ?? '');
 
 // ───── 처음 상태 (설정집에서) ─────
@@ -653,9 +654,16 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             ch.push({ f: 'quote', label: '한 구절', icon: '📜', from: '', to: short(t, 24), why: short(from2, 20), src, sure: true, i });
             return;
         }
-        case 'newsline':
-            if (v) news(S, '📰', short(v, 240), 'world', '');
+        case 'newsline': {
+            const nl = readNewsline(v), k = kindInfo(nl.kind);
+            if (nl.text) news(S, k.icon, short(nl.text, 240), nl.kind, '');
             return;
+        }
+        case 'feed': {
+            const name = x.who(a) ?? safeKey(a);
+            if (name && b) news(S, '📱', `${name} — ${short(parts(v).slice(1).join(' | '), 240)}`, 'feed', name);
+            return;
+        }
         case 'custom': {
             const tab = safeKey(a),
                 f = safeKey(b);

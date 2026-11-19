@@ -6,6 +6,7 @@ import { clamp, dateText, short, tokens, DAY } from '../base/util.js';
 import { derived, relStage, worldEvent, fold } from './engine.js';
 import { tasteOf, recentQuotes } from './classify.js';
 import { personOf } from './book.js';
+import { ruleKeys as newsRuleKeys } from './newskinds.js';
 
 export const LEVELS = [
     { n: 0, name: '기록만', what: '상태창에만 적어요. 본편에는 한 글자도 안 넣어요.' },
@@ -45,7 +46,7 @@ export function ruleText(book) {
     if (onNow('rel')) K.push('act: 이름 | 한 일 (맞는 게 없으면 「기쁘게 함」 · 「상처 줌」)', 'gift: 이름 | 물건', 'memory: 이름 | 큰 사건', 'jealous: 이름 | 이유', ...(level('rel') >= 3 ? ['pair: 이름 | 이름 | +3 | 이유'] : []), 'promise: 내용 | 3/14');
     if (onNow('calendar')) K.push('weather: 비');
     K.push('status: 감기 | 3d', 'npc: 이름 | 성격 한 줄', 'gone: 이름 | 사유');
-    if (onNow('news') && level('news') >= 3) K.push('life: 이름 | 화면 밖에서 한 일 (가끔)');
+    if (onNow('news')) K.push(...newsRuleKeys(level('news')));
     if (onNow('rel') && level('rel') >= 4) K.push('meddle: 이름 | 칸 | +5 | 장난');
     if (onNow('dice')) K.push('roll: 판정할 일');
     // 🎵 📜 장면 분위기가 바뀌었을 때만 (dev처럼 본편이 고름)
