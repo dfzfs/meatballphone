@@ -98,5 +98,26 @@ try {
     check(!all(await inj()).trim(), '⏸ 멈춤: 주입 0');
     await page.evaluate(() => { __ML__.getMeta().paused = false; });
 
+    // ── 6. ⚡ 바로 받기 (다음 답 1번) ──
+    if (await page.evaluate(() => (__ML__.fold().S.turn + 1) % 8 === 0)) { await page.evaluate(() => window.__addUser('응')); await page.evaluate(() => window.__addAI('…')); }
+    await page.evaluate(() => { const c = __ML__.getMeta().cal; c.notes = { 5: { text: '바로 메모', show: false, at: 2 } }; __ML__.app.openSheet('cal'); }); await sleep(200);
+    await click('[data-act="c-day"][data-v="6"]');
+    check(await page.evaluate(() => !!document.querySelector('[data-act="cp-now-peek"][data-v="5"]') && !!document.querySelector('[data-act="cp-now-sneak"][data-v="5"]')), '날짜 칸에 ⚡ 바로 받기 버튼 둘');
+    check(!(await inj()).hint.includes('calendar note'), '바로 받기 전: 8번째 답이 아니면 메모 힌트 없음');
+    await click('[data-act="cp-now-peek"][data-v="5"]');
+    o = await inj();
+    check(o.hint.split('\n').filter(l => l.includes('calendar note')).length === 1 && o.hint.includes('on 3/6: "바로 메모"'), '👀 바로: 보여 주기를 안 켠 메모도 다음 답에 1줄', o.hint);
+    check(await page.evaluate(() => document.querySelector('[data-act="cp-now-peek"]').classList.contains('on')), '👀 바로 버튼 켜짐 표시');
+    await click('[data-act="cp-now-sneak"][data-v="5"]');
+    o = await inj();
+    check(o.hint.includes('Leon secretly writes a short, sweet note in Me\'s calendar on 3/6') && o.hint.includes('meddle: Leon | 달력 | 3/6'), '✍ 바로: 그 날짜에 몰래 적기 1줄', o.hint);
+    await page.evaluate(async () => { (await import('/ext/src/base/st.js')).setEyes('rel', 'on'); });
+    check(!(await inj()).hint.includes('secretly writes'), '😌 관계 눈 감기면 ✍ 바로도 0');
+    await page.evaluate(async () => { (await import('/ext/src/base/st.js')).setEyes('rel', ''); });
+    await page.evaluate(() => window.__addUser('응')); await page.evaluate(() => window.__addAI('Leon: 메모 봤어\n<meatball>\nnoted: Leon | 3/6\nmeddle: Leon | 달력 | 3/6 | 같이 가자\n</meatball>')); await sleep(100);
+    o = await inj();
+    check(!/calendar note|secretly writes/.test(o.hint), '답이 오면 바로 받기는 저절로 꺼짐', o.hint);
+    check(await page.evaluate(() => (__ML__.fold().S.sneak ?? []).some(e => e.kind === 'cal' && e.who === 'Leon')), '✍ 몰래 적은 메모가 달력에 생김');
+
     check(!logs.length && !(await page.evaluate(() => window.__errors.length)), '콘솔 오류 없음', logs.join('\n'));
 } finally { await close(); }
