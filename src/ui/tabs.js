@@ -1131,7 +1131,8 @@ export async function onAct(act, v, el) {
         case 'bk-refill': {
             // 바뀐 로어북 항목만 보고, 거기 나오는 인물만 다시 채운다 (안 바뀐 인물 · 직접 고친 인물은 그대로)
             const { sources } = await import('../rules/ai.js');
-            const src = await sources(),
+            const pick = await (await import('./srcpick.js')).pickSources('📚 다시 채울 때 읽을 곳'); if (!pick) return;
+            const src = await sources(pick),
                 old = meta.book.src?.sig ?? {};
             const changed = Object.keys(src.sig).filter((k) => old[k] !== src.sig[k]);
             if (Object.keys(old).length && !changed.length) {
@@ -1144,7 +1145,7 @@ export async function onAct(act, v, el) {
                       .map((p) => p.name)
                 : null;
             toast(names?.length ? `바뀐 인물 ${names.length}명을 다시 채우는 중…` : '로어북을 읽는 중…');
-            const { book } = await fillBook(names?.length ? names : null);
+            const { book } = await fillBook(names?.length ? names : null, pick);
             if (!book) {
                 toast('채우지 못했어요', 'bad');
                 return;

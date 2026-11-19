@@ -467,3 +467,12 @@ a.ml-play,a.ml-scene{text-decoration:none;color:inherit}
 #mbp .mbp-new[hidden]{display:none}
 #mbp.big{width:min(360px,calc(100vw - 16px));grid-template-columns:1fr}
 #mbp.big .mbp-v{width:100%}
+/* 📚 설정집이 읽을 곳 */
+.ml-srcs{display:flex;flex-direction:column;gap:6px}
+.ml-src{display:flex;align-items:center;gap:10px;padding:9px 11px;border:var(--bd) solid var(--line);border-radius:12px;cursor:pointer}
+.ml-src.empty{opacity:.45;cursor:default}
+.ml-src>span{display:flex;flex-direction:column;min-width:0;overflow-wrap:anywhere}
+.ml-src small{opacity:.65}
+.ml-src-tag{display:inline-block;padding:0 6px;border-radius:999px;background:color-mix(in srgb,var(--a) 15%,transparent);opacity:1!important}
+.ml-src-acts{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.ml-src-sum{margin-top:12px;font-size:.92em;line-height:1.5}

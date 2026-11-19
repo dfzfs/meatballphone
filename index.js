@@ -182,7 +182,8 @@ function alerts() {
 async function create(useAI) {
     const meta = getMeta(true), first = !meta.book;
     let b = null;
-    if (useAI) { toast('로어북 · 카드를 읽고 설정집을 채우는 중…'); try { const { book, src } = await fillBook(); if (book) { b = normBook(book); b.src = { from: 'ai', at: Date.now(), sig: src.sig }; } } catch (e) { console.warn(e); } if (!b) toast('AI로 못 채워서 기본 틀로 시작해요', 'bad'); }
+    let pick; if (useAI) { pick = await (await import('./src/ui/srcpick.js')).pickSources(); if (!pick) return; }
+    if (useAI) { toast('로어북 · 카드를 읽고 설정집을 채우는 중…'); try { const { book, src } = await fillBook(null, pick); if (book) { b = normBook(book); b.src = { from: 'ai', at: Date.now(), sig: src.sig }; } } catch (e) { console.warn(e); } if (!b) toast('AI로 못 채워서 기본 틀로 시작해요', 'bad'); }
     b ??= templateBook();
     if (!b.people.length) b.people = templateBook().people;
     // 시작 상태: 첫 메시지의 돈 · 시각 · 장소를 먼저 (못 읽으면 끼니 값 × 5 · 집)

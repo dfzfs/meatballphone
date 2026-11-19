@@ -1,5 +1,5 @@
 // 미트볼이 부르는 AI (설정집 채우기 · 번역). 사건 고르기(B 모드)는 classify.js. 본편이 아니므로 설정집을 여기서만 본다.
-import { ctx, settings, userName } from '../base/st.js';
+import { ctx, settings, userName, getMeta } from '../base/st.js';
 import { normBook, emptyBook } from './book.js';
 import { short, hash } from '../base/util.js';
 import { gloss } from '../base/gloss.js';
@@ -22,38 +22,66 @@ export function parseJSON(t) {
     try { return JSON.parse(s.slice(a, b + 1)); } catch { try { return JSON.parse(s.slice(a, b + 1).replace(/,\s*([}\]])/g, '$1')); } catch { return null; } }
 }
 // 로어북 · 캐릭터 카드 읽기 (한 번만)
-export async function sources() {
+// ───── 📚 설정집이 읽을 곳 ─────
+// 고를 수 있는 것: 카드 · 페르소나 · 첫 메시지 · 최근 대화 · 실리태번에 있는 모든 로어북. 고른 건 잘라 내지 않고 다 읽는다.
+//   기본으로 켜지는 로어북: 이 채팅 · 이 캐릭터 · 캐릭터 추가 · 전체로 켜 둔 것. 고른 건 채팅마다 기억(meta.srcPick).
+const HARD_MAX = 200000; // 안전선 (이보다 길면 뒤를 자름 · 고르는 화면에 경고)
+async function wiMod() { try { return await import('/scripts/world-info.js'); } catch { return null; } }
+async function linkedBooks() {
+    const c = ctx(), ch = c.characters?.[c.characterId] ?? {}, wi = await wiMod();
+    const on = new Set([c.chatMetadata?.world_info, ch.data?.extensions?.world].filter(Boolean));
+    for (const n of wi?.selected_world_info ?? []) on.add(n);
+    const file = ch.avatar && String(ch.avatar).replace(/\.[^.]+$/, '');
+    for (const x of wi?.world_info?.charLore ?? []) if (x?.name === file) for (const n of x.extraBooks ?? []) on.add(n);
+    const all = new Set([...(wi?.world_names ?? []), ...on]);
+    return { on, all: [...all] };
+}
+const loreText = (e) => `[LORE${e.constant ? ' ALWAYS' : ''} ${(e.key ?? []).join(', ') || e.comment || ''}]\n${String(e.content ?? '')}`;
+const chatPart = (kind) => {
+    const c = ctx(), ch = c.characters?.[c.characterId] ?? {}, chat = (c.chat ?? []).filter(m => !m.is_system);
+    if (kind === 'card') return `[CARD ${ch.name ?? ''}]\n${[ch.description, ch.personality, ch.scenario, ch.mes_example].filter(Boolean).join('\n')}`;
+    if (kind === 'persona') return `[USER ${userName()}]\n${c.powerUserSettings?.persona_description ?? ''}`;
+    if (kind === 'first') { const t = chat[0]?.mes ?? ch.first_mes ?? ''; return t ? `[FIRST MESSAGE]\n${t}` : ''; }
+    if (kind === 'recent') { const r = chat.slice(Math.max(1, chat.length - 6)); return r.length ? `[RECENT CHAT]\n${r.map(m => `${m.name}: ${String(m.mes ?? '').replace(/<meatball>[\s\S]*?<\/meatball>/g, '')}`).join('\n')}` : ''; }
+    return '';
+};
+// 고르는 화면용 목록: [{ id, label, size, on, linked }]
+export async function sourceList() {
+    const c = ctx(), meta = getMeta(), saved = meta?.srcPick ?? null, { on, all } = await linkedBooks(), out = [];
+    for (const [id, label] of [['card', '🃏 캐릭터 카드'], ['persona', '🙋 내 페르소나'], ['first', '💬 첫 메시지'], ['recent', '🕰 최근 대화 6개']]) {
+        const t = chatPart(id); out.push({ id, label, size: t.length, on: saved ? saved.includes(id) : !!t, linked: true });
+    }
+    for (const name of all) {
+        let size = 0, n = 0;
+        try { const wb = await c.loadWorldInfo?.(name); for (const e of Object.values(wb?.entries ?? {})) if (!e.disable) { size += loreText(e).length; n++; } } catch { /* 못 읽음 */ }
+        const id = `wi:${name}`;
+        out.push({ id, label: `📚 ${name}`, size, n, on: saved ? saved.includes(id) : on.has(name), linked: on.has(name) });
+    }
+    return out;
+}
+export async function sources(pick = getMeta()?.srcPick ?? null) {
     const c = ctx(), ch = c.characters?.[c.characterId] ?? {};
-    const L = [`[CARD ${ch.name ?? ''}] ${ch.description ?? ''}\n${ch.personality ?? ''}\n${ch.scenario ?? ''}`, `[USER ${userName()}] ${c.powerUserSettings?.persona_description ?? ''}`];
-    // 첫 메시지 · 최근 대화 (AU · 현재 상황이 여기에 적힌 경우가 많음)
-    const chat = (c.chat ?? []).filter(m => !m.is_system);
-    const first = chat[0]?.mes ?? ch.first_mes ?? '';
-    if (first) L.push(`[FIRST MESSAGE] ${short(first, 1500)}`);
-    const recent = chat.slice(Math.max(1, chat.length - 6));
-    if (recent.length) L.push(`[RECENT CHAT]\n${recent.map(m => `${m.name}: ${short(String(m.mes ?? '').replace(/<meatball>[\s\S]*?<\/meatball>/g, ''), 400)}`).join('\n')}`);
-    // 로어북: 채팅 · 캐릭터 · 캐릭터 추가 로어북 · 전체(global)로 켜 둔 것까지
-    const books = new Set([c.chatMetadata?.world_info, ch.data?.extensions?.world].filter(Boolean));
-    try {
-        const wi = await import('/scripts/world-info.js');
-        for (const n of wi.selected_world_info ?? []) books.add(n);
-        const file = ch.avatar && String(ch.avatar).replace(/\.[^.]+$/, '');
-        for (const x of wi.world_info?.charLore ?? []) if (x?.name === file) for (const n of x.extraBooks ?? []) books.add(n);
-    } catch { /* 실리태번 밖(시험장) */ }
+    const want = pick ? new Set(pick) : new Set([...['card', 'persona', 'first', 'recent'], ...[...(await linkedBooks()).on].map(n => `wi:${n}`)]);
+    const L = [];
+    for (const id of ['card', 'persona', 'first', 'recent']) if (want.has(id)) { const t = chatPart(id); if (t) L.push(t); }
     const sig = {}, texts = {}, lore = [];
-    for (const name of books) {
+    for (const id of want) {
+        if (!id.startsWith('wi:')) continue;
+        const name = id.slice(3);
         try {
             const wb = await c.loadWorldInfo?.(name);
             for (const e of Object.values(wb?.entries ?? {})) {
                 if (e.disable) continue;
                 const k = `${name}:${e.uid}`; sig[k] = hash(String(e.content ?? '')); texts[k] = String(e.content ?? '');
-                lore.push({ on: !!e.constant, t: `[LORE${e.constant ? ' ALWAYS' : ''} ${short((e.key ?? []).join(','), 40) || short(e.comment ?? '', 40)}] ${short(e.content, e.constant ? 2500 : 900)}` });
+                lore.push({ on: !!e.constant, t: loreText(e) });
             }
         } catch { /* 로어북 없음 */ }
     }
-    // 늘 켜진(세계관) 항목을 먼저
-    lore.sort((x, y) => y.on - x.on); L.push(...lore.map(x => x.t));
-    return { text: L.join('\n').slice(0, 22000), sig, texts, char: ch.name ?? '' };
+    lore.sort((x, y) => y.on - x.on); L.push(...lore.map(x => x.t)); // 늘 켜진(세계관) 항목 먼저
+    const text = L.join('\n\n');
+    return { text: text.slice(0, HARD_MAX), cut: text.length > HARD_MAX, sig, texts, char: ch.name ?? '' };
 }
+export const SRC_HARD_MAX = HARD_MAX;
 const SCHEMA = `{"world":{"genre":"","currency":"골드","meal":10,"weather":["맑음","비"],"start":{"y":2026,"m":3,"d":1,"clock":480},"places":[{"name":"","kind":"home|shop|food|bath|work|street|school|other","line":"노선 `
     + `이름","near":["이어진 장소"],"floors":[],"goods":[{"name":"","price":3,"fx":{"hunger":20}}],"rest":{"energy":20},"note":""}]},
 "me":{"name":"","traits":"","day":"3월 14일","needs":[{"key":"hunger","name":"허기","icon":"🍞","start":80,"rate":4}]},
@@ -61,8 +89,8 @@ const SCHEMA = `{"world":{"genre":"","currency":"골드","meal":10,"weather":["�
     + `줄","start":{"aff":10,"trust":10},"up":[{"act":"칭찬","d":3}],"down":[{"act":"거짓말","d":-5}],"signs":[{"at":60,"text":"눈을 `
     + `피함"}],"syn":[{"to":"","text":""}],"haunt":[],"routine":[{"at":"아침","place":""}],"likes":[],"hates":[],"day":"3월 14일 생일","want":"지금 원하는 `
     + `것","noLove":false}]}`;
-export async function fillBook(only = null) {
-    const src = await sources();
+export async function fillBook(only = null, pick = undefined) {
+    const src = await sources(pick);
     const en = settings().saveLang === 'en';
     const sys = `You build a compact status-sheet rulebook for a roleplay. Output JSON only. ${en ? 'English values.' : 'Korean values.'} `
         + 'Keep every person and place NAME exactly as spelled in the source (never translate or transliterate names); put other spellings or readings (e.g. a Korean reading of an English name) in "aka". '
