@@ -7,7 +7,7 @@ import { luckOf } from '../rules/luck.js';
 import { QUOTES } from '../../data/quotes.js';
 import { vis } from './tools.js';
 const QN = QUOTES.length;
-const d20Svg = (n, c) => `<svg class="ml-d20 big ${c}" viewBox="0 0 100 100"><polygon class="f0" points="50,4 92,28 92,72 50,96 8,72 8,28"/><polygon class="f1" points="50,22 78,66 22,66"/><polyline class="ed" points="50,4 50,22 92,28 78,66 92,72 50,96 78,66 22,66 8,72 22,66 8,28 50,22 22,66"/><text x="50" y="56">${n}</text></svg>`;
+const d20Svg = (n, c) => `<svg class="ml-d20 big ${c}" viewBox="0 0 100 100">${n === 1 ? '<polyline class="crack" points="38,8 46,30 36,44 52,60 44,78 54,94"/>' : ''}<polygon class="f0" points="50,4 92,28 92,72 50,96 8,72 8,28"/><polygon class="f1" points="50,22 78,66 22,66"/><polyline class="ed" points="50,4 50,22 92,28 78,66 92,72 50,96 78,66 22,66 8,72 22,66 8,28 50,22 22,66"/><text x="50" y="56">${n}</text></svg>`;
 import { layout, lineEdges, lineNodes, route, floorsOf } from './metro.js';
 import { personOf, placeOf, bookTokens, personTokens, normBook, PLACE_KINDS, LIMIT } from '../rules/book.js';
 import { moodTags, pickQuote, pickMusic } from '../rules/mood.js';
@@ -107,7 +107,7 @@ function dice(r) {
     h += `<h4 class="ml-h4">난이도</h4><div class="ml-chips">${DCS.map(([n, v]) => `<button class="ml-btn xs${diceSel.dc === v ? ' on' : ''}" data-act="dset" data-v="dc:${v}">${n} ${v}</button>`).join('')}</div>`;
     h += `<h4 class="ml-h4">보정 내역 ${on ? '' : '<span>상태 보정은 영향력 3부터 적용</span>'}</h4><div class="ml-rc">${P.length ? P.map(x => `<div class="ml-rl${on || x.why === diceSel.attr || x.why.endsWith('착용') ? '' : ' dim'}"><i>${x.fate ? '🔮' : x.n < 0 ? '⬇️' : '⬆️'}</i>${esc(x.why)} <b class="${x.n < 0 ? 'neg' : 'pos'}">${signed(x.n)}</b></div>`).join('') : '<div class="ml-rl dim"><i>·</i>보정 없음</div>'}<div class="ml-rl"><i>🎯</i>d20 ${signed(mod)} ≥ ${diceSel.dc} <span>성공 확률 ${Math.round(ok / 20 * 100)}%</span></div></div>`;
     const last = getMeta().recent?.rolls?.[0];
-    h = `<div class="ml-dhero"><button class="ml-dbtn big" data-act="roll" data-v="${mod}">${d20Svg(last?.d ?? 20, last ? (last.res.includes('성공') ? 'ok' : 'no') : '')}</button><div class="ml-dres">${last ? `<b class="${last.res.includes('성공') ? 'pos' : 'neg'}">${esc(last.res)}</b><span>${last.d}${signed(last.tot - last.d)} = ${last.tot}</span>` : '<b>굴려 볼까요?</b><span>주사위를 눌러요</span>'}</div><div class="ml-dodds"><span style="--p:${Math.round(ok / 20 * 100)}%"></span><b>${Math.round(ok / 20 * 100)}%</b><small>성공</small></div></div>` + h;
+    h = `<div class="ml-dhero"><button class="ml-dbtn big${last && Date.now() - (last.at ?? 0) < 2500 ? (last.d === 20 ? ' burst' : last.d === 1 ? ' shake' : '') : ''}" data-act="roll" data-v="${mod}">${d20Svg(last?.d ?? 20, last ? `${last.res.includes('성공') ? 'ok' : 'no'}${last.d === 20 ? ' crit' : last.d === 1 ? ' fumble' : ''}` : '')}${last?.d === 20 && Date.now() - (last.at ?? 0) < 2500 ? `<span class="ml-spark">${[0, 1, 2, 3, 4, 5, 6, 7].map(i => `<i style="--a:${i * 45}deg">✦</i>`).join('')}</span>` : ''}</button><div class="ml-dres">${last ? `<b class="${last.res.includes('성공') ? 'pos' : 'neg'}">${esc(last.res)}</b><span>${last.d}${signed(last.tot - last.d)} = ${last.tot}</span>` : '<b>굴려 볼까요?</b><span>주사위를 눌러요</span>'}</div><div class="ml-dodds"><span style="--p:${Math.round(ok / 20 * 100)}%"></span><b>${Math.round(ok / 20 * 100)}%</b><small>성공</small></div></div>` + h;
     h += `<h4 class="ml-h4">오늘 운세 주사위</h4>${lk.rolled ? `<div class="ml-scene luck"><i>🍀</i><span><b>${esc(lk.text)}</b><small>🎲 ${lk.d} · 이야기 속 하루에 한 번</small></span></div>` : `<div class="ml-scene luck tap" data-act="luckroll"><i>🎲</i><span><b>오늘 운세 굴리기</b><small>선택지에 🍀 · ⚠로 반영돼요</small></span><em>굴리기</em></div>`}`;
     const hist = getMeta().recent?.rolls ?? [];
     if (hist.length) h += `<h4 class="ml-h4">최근 굴림</h4><div class="ml-dhist">${hist.map(x => `<span class="${x.res.includes('성공') ? 'ok' : 'no'}" title="${esc(x.text)}">${x.d ?? '?'}</span>`).join('')}</div>`;
@@ -377,7 +377,7 @@ export async function onAct(act, v, el) {
             const res = d === 20 ? '대성공' : d === 1 ? '대실패' : tot >= diceSel.dc ? '성공' : '실패';
             const text = `(🎲 ${diceSel.attr} 판정: d20 ${d}${mod ? ` ${signed(mod)}` : ''} = ${tot} vs ${diceSel.dc} → ${res})`;
             document.querySelectorAll('.ml-d20').forEach(x => x.classList.add('spin')); await new Promise(res => setTimeout(res, 650));
-            meta.recent.rolls = [{ text, res, d, tot }, ...(meta.recent.rolls ?? [])].slice(0, 5); saveMeta();
+            meta.recent.rolls = [{ text, res, d, tot, at: Date.now() }, ...(meta.recent.rolls ?? [])].slice(0, 5); saveMeta();
             toast(`${res}! ${d}${mod ? signed(mod) : ''} = ${tot}`, res.includes('성공') ? 'good' : 'bad'); putInput(text); app.refresh?.(); return;
         }
         case 'edit-val': {

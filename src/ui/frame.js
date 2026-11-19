@@ -4,7 +4,7 @@ import { esc, dateText, slotName, short, fmt } from '../base/util.js';
 import { fold, derived, needStage } from '../rules/engine.js';
 import { placeOf } from '../rules/book.js';
 import { TABS, RENDER, onAct, changeRow, setRecFilter } from './tabs.js';
-import { home, market, cat, APPS, appOf, installed } from './home.js';
+import { home, market, cat, APPS, appOf, installed, markSeen } from './home.js';
 import { toolbar, onTool, TOOL_ACTS, applyGloss } from './tools.js';
 import { chip, sheet, bar } from './kit.js';
 
@@ -70,6 +70,7 @@ export function drawSheet() {
     el.innerHTML = `<header class="ml-top">${cur === 'home' ? `${mascot('head')}<b>${TITLE}</b>` : `<button class="ml-ib back" data-tab="home" title="홈">‹</button><b>${a ? `${a.icon} ${a.name}` : ''}</b>`}${past != null ? chip(`🕰 #${past} 시점 · 읽기 전용`, 'mid', 'past-off') : ''}<span class="ml-sp"></span><button class="ml-ib" data-act="pause" title="일시정지">${meta.paused ? '▶' : '⏸'}</button><button class="ml-ib" data-act="skip" title="다음 1번 건너뛰기">${meta.skipNext ? '⏭✓' : '⏭'}</button><button class="ml-ib" data-act="find" title="검색">🔍</button><button class="ml-ib" data-act="close">✕</button></header>`
         + `<main class="ml-body" data-tab="${cur}">${a && !a.sys ? toolbar(cur) : ''}${R2[cur](view)}</main>`;
     applyGloss(el.querySelector('.ml-body'));
+    if (a && !a.sys) markSeen(cur, r);
     if (keep) el.appendChild(keep);
     if (same) el.querySelector('.ml-body').scrollTop = scroll;
 }

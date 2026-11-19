@@ -238,3 +238,18 @@ body.ml-open #ml-mini{display:none}
 .ml-empty .ss-mascot{margin-bottom:8px}
 #ml-mini .ss-mascot{width:48px;height:48px}
 .ml-get.loading[style*="--pct"]{animation:none;background:conic-gradient(var(--a) var(--pct),var(--line) 0)}
+/* ✋ 지금 할 수 있는 일 */
+.ml-doable{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.ml-do{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--a) 5%,transparent);color:inherit;font:inherit;text-align:left;cursor:pointer;min-height:48px}
+.ml-do i{font-style:normal;font-size:20px}.ml-do span{display:flex;flex-direction:column;min-width:0}.ml-do b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ml-do small{font-size:11px;color:var(--sub)}.ml-do.poor{opacity:.45;cursor:default}
+/* 🔴 앱 배지 */
+.ml-app i{position:relative}.ml-badge{position:absolute;top:-4px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#e5484d;color:#fff;font:700 11px/18px system-ui,sans-serif;font-style:normal;box-shadow:0 0 0 2px var(--bg)}.ml-badge.warn{background:#f08c2e}
+/* 🎲 대성공 · 대실패 */
+.ml-dbtn{position:relative}
+.ml-d20.crit .f0{fill:#e0a400}.ml-d20.crit .f1{fill:#ffd23f}.ml-d20.crit{filter:drop-shadow(0 0 10px #ffd23f)}
+.ml-d20.fumble .f0{fill:#5a1f1f}.ml-d20.fumble .f1{fill:#8a2c2c}.ml-d20 .crack{fill:none;stroke:#1b0b0b;stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
+.ml-dbtn.shake .ml-d20{animation:ml-shake .5s}
+@keyframes ml-shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px) rotate(-4deg)}40%{transform:translateX(6px) rotate(4deg)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+.ml-spark{position:absolute;inset:0;pointer-events:none}.ml-spark i{position:absolute;left:50%;top:50%;font-style:normal;color:#ffc300;font-size:16px;animation:ml-spark 1.1s ease-out forwards;transform:rotate(var(--a)) translateY(0)}
+@keyframes ml-spark{0%{opacity:1;transform:rotate(var(--a)) translateY(0) scale(.6)}100%{opacity:0;transform:rotate(var(--a)) translateY(-70px) scale(1.2)}}
+@media (prefers-reduced-motion:reduce){.ml-spark,.ml-dbtn.shake .ml-d20{animation:none}}

@@ -14,7 +14,7 @@ export { glossList, gloss };
 export const APP_GAUGE = { now: 'stats', bag: 'wallet', rel: 'rel', map: 'map', cal: 'calendar', dice: 'dice', news: 'news', mind: 'mind', quote: 'quote' };
 // 👁 보일 것 — 앱 안의 칸
 export const PARTS = {
-    home: [['hero', '오늘 · 장소'], ['tags', '상태 딱지'], ['scene', '이 장면'], ['stats', '수치'], ['dice', '주사위'], ['with', '같이 있는 사람'], ['turn', '이번 답'], ['cal', '달력'], ['news', '세계 소식']],
+    home: [['hero', '오늘 · 장소'], ['tags', '상태 딱지'], ['scene', '이 장면'], ['doable', '지금 할 수 있는 일'], ['soon', '곧 일어날 일'], ['stats', '수치'], ['dice', '주사위'], ['with', '같이 있는 사람'], ['turn', '이번 답'], ['cal', '달력'], ['news', '세계 소식']],
     now: [['tags', '상태 딱지'], ['scene', '이 장면'], ['needs', '욕구'], ['gauges', '게이지'], ['attrs', '능력치'], ['turn', '이번 답'], ['with', '같이 있는 사람']],
     rel: [['line', '성격 한 줄'], ['meters', '애정 · 우정 막대'], ['call', '호칭 · 행동'], ['next', '다음 단계'], ['last', '최근 변화'], ['want', '속셈'], ['mem', '감정 기억'], ['taste', '취향'], ['place', '장소 · 생일']],
     map: [['map', '노선도'], ['pins', '인물 목록'], ['goods', '물가'], ['building', '건물 안 · 사진']],
