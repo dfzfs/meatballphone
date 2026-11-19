@@ -55,6 +55,8 @@ export function normPerson(p) {
         start: { aff: clamp(num(p.start?.aff, 10), 0, 100), trust: clamp(num(p.start?.trust, 10), 0, 100) },
         up: acts(p.up), down: acts(p.down),
         signs: arr(p.signs).map(s => ({ at: clamp(num(s?.at, 60), 0, 100), text: line(s?.text, 40) })).filter(s => s.text).slice(0, 4),
+        // 💞 이 사람만의 관계 단계 (비우면 설정집 공통 단계)
+        stages: arr(p.stages).length >= 2 ? arr(p.stages).map(s => ({ at: clamp(num(s?.at), 0, 100), name: line(s?.name, 10), call: line(s?.call, 20), act: line(s?.act, 40) })).filter(s => s.name).sort((a, b) => a.at - b.at) : null,
         syn: arr(p.syn).map(s => ({ to: safeKey(s?.to), text: line(s?.text, 30) })).filter(s => s.to).slice(0, 4),
         haunt: list(p.haunt, 3),
         routine: arr(p.routine).map(r => ({ at: line(r?.at, 6), place: line(r?.place, 24) })).filter(r => r.at && r.place).slice(0, 4),

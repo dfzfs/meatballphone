@@ -43,17 +43,22 @@ export function initState(book) {
         needs: Object.fromEntries(book.me.needs.map(n => [n.key, n.start])),
         gauges: Object.fromEntries(book.me.gauges.map(g => [g.key, g.start])), attrs: Object.fromEntries(book.me.attrs.map(a => [a.name, a.v])),
         cash: 0, items: [], status: [], promises: [], news: [], rel: {},
-        mind: {}, watch: {}, cell: {}, bgm: '', custom: {}, turn: 0, rolls: [],
+        mind: {}, watch: {}, cell: {}, bgm: '', custom: {}, turn: 0, rolls: [], pairs: {},
     };
     for (const p of book.people) S.rel[p.name] = relOf(p);
+    for (const p of book.people) for (const s of p.syn ?? []) if (personOf(book, s.to)) { const k = pairKey(p.name, personOf(book, s.to).name); S.pairs[k] ??= { v: 0, label: s.text, why: '' }; }
     return S;
 }
 const relOf = (p) => ({ aff: p?.start?.aff ?? 10, trust: p?.start?.trust ?? 10, mem: [], gone: null, jealous: '', life: '', want: p?.want ?? '', seen: { likes: [], hates: [] }, last: [], extra: !p });
 
 // 단계 (욕구 · 관계)
 export function needStage(v) { for (const s of NEED_STAGES) if (v >= s.at) return s.name; return '위험'; }
-export function relStage(book, v) { let st = book.stages[0]; for (const s of book.stages) if (v >= s.at) st = s; return st; }
-export function nextStage(book, v) { return book.stages.find(s => s.at > v) ?? null; }
+// 💞 인물마다 다른 단계 (설정집 인물 → 단계) · 없으면 공통
+export const stagesOf = (book, name) => { const p = name ? personOf(book, name) : null; return p?.stages?.length >= 2 ? p.stages : book.stages; };
+export function relStage(book, v, name) { const L = stagesOf(book, name); let st = L[0]; for (const s of L) if (v >= s.at) st = s; return st; }
+export function nextStage(book, v, name) { return stagesOf(book, name).find(s => s.at > v) ?? null; }
+// 🔗 인물끼리: 이름 둘을 정렬한 열쇠
+export const pairKey = (a, b) => [a, b].sort().join('|');
 
 // ───── 하루의 작은 세계 사건 (AI 0회 · 날짜로 정해짐 · 가끔) ─────
 const WORLD_EV = [
@@ -107,7 +112,7 @@ function makeCtx(book, S, ch, flags) {
         if (axis === 'aff' && p?.noLove) axis = 'trust'; // 💔 애정 꺼 두기 — 우정으로만
         // 💗 로맨스 보정: 같은 행동을 연달아 하면 반만 · 한 답에 ±8까지 · 단계 하나를 건너뛰지 못함
         if (src !== 'hand' && src !== 'meddle' && src !== 'ai') {
-            let shy = T.some(t => t.shy) ? (relStage(book, r.aff).at < 40 ? 0.8 : 1.2) : 1;
+            let shy = T.some(t => t.shy) ? (relStage(book, r.aff, name).at < 40 ? 0.8 : 1.2) : 1;
             // 💗 애정 60 전후로 다른 특성 (구속 싫음 · 키스 장인) · 일편단심: 가장 가까운 한 명에게만
             if (axis === 'aff') { shy *= tmul(T, r.aff < 60 ? 'early' : 'late'); if (T.some(t => t.one)) { const top = Object.entries(S.rel).filter(([, q]) => !q.gone).sort((x, y) => y[1].aff - x[1].aff)[0]?.[0]; shy *= top === name ? tmul(T, 'one') : 0.9; } }
             d = d > 0 ? d * relMul(book, name, axis, true, S) * (axis === 'aff' ? shy : 1) : d * relMul(book, name, axis, false, S);
@@ -117,13 +122,13 @@ function makeCtx(book, S, ch, flags) {
             r.last = [key, ...r.last].filter(Boolean).slice(0, 3);
             const done = ch.filter(c => c.f === `rel.${name}.${axis}` && c.src !== 'hand').reduce((a, c) => a + c.to - c.from, 0);
             d = clamp(d, -8 - done, 8 - done);
-            if (axis === 'aff' && d > 0) { const nx = nextStage(book, r.aff); const nx2 = nx && nextStage(book, nx.at); if (nx2 && r.aff + d >= nx2.at) d = nx2.at - 1 - r.aff; }
+            if (axis === 'aff' && d > 0) { const nx = nextStage(book, r.aff, name); const nx2 = nx && nextStage(book, nx.at, name); if (nx2 && r.aff + d >= nx2.at) d = nx2.at - 1 - r.aff; }
         }
         const from = r[axis], to = clamp(Math.round(from + d), 0, 100);
         if (to === from) return;
         r[axis] = to;
         ch.push({ f: `rel.${name}.${axis}`, label: `${name} ${axis === 'aff' ? '애정' : '우정'}`, icon: axis === 'aff' ? '💗' : '🤝', from, to, why, src, sure, i, who: name });
-        const a = relStage(book, from), b = relStage(book, to);
+        const a = relStage(book, from, name), b = relStage(book, to, name);
         // 😇 착한 사람 · 🦹 악당: 남과 사이가 오르고 틀어질 때 내 기분
         if (src !== 'hand' && src !== 'auto') { const jw = T.reduce((q, t) => q + (to > from ? t.joy?.up ?? 0 : t.joy?.down ?? 0), 0); if (jw && !ch.some(c => c.f === 'need.mood' && /^🧬 (흐뭇|고소)/.test(c.why ?? ''))) setNeed('mood', jw, to > from ? '🧬 흐뭇함' : '🧬 고소함', 'auto', true, i); }
         if (axis === 'aff' && a.name !== b.name) ch.push({ f: `stage.${name}`, label: `${name} 단계`, icon: '💞', from: a.name, to: b.name, why: to > from ? '단계가 올랐어요' : '단계가 내려갔어요', src: 'auto', sure: true, i, cross: true, who: name });
@@ -273,6 +278,13 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
         case 'mind': case 'watch': case 'cell': { if (a && b) S[kind][x.who(a) ?? safeKey(a)] = short(parts(v).slice(1).join(' | '), 120); return; }
         case 'jealous': { const name = x.who(a); if (!name) return; const r = x.rel(name); r.jealous = short(b || '질투', 40); remember(S, r, `질투: ${b}`); x.setRel(name, 'trust', -Math.max(1, Math.round(tmul(x.T, 'jealousSelf') * tmul(x.T, 'jealousy') * 1.4)), '질투', src, false, i); news(S, '💢', `${name} — ${short(b || '질투가 남', 30)}`, 'jealous', name); return; }
         case 'life': { const name = x.who(a) ?? safeKey(a); if (!name || !b) return; x.rel(name).life = short(b, 60); news(S, '🌙', `${name} — ${short(b, 40)}`, 'life', name); return; }
+        case 'pair': { // 🔗 인물끼리: pair: A | B | +5 | 이유  ·  pair: A | B | 라이벌
+            const A = x.who(a) ?? safeKey(a), B = x.who(b) ?? safeKey(b); if (!A || !B || A === B) return;
+            const key = pairKey(A, B); S.pairs ??= {}; const pr = (S.pairs[key] ??= { v: 0, label: '', why: '' }), dd = parseDelta(c), d4 = parts(v)[3] ?? '';
+            if (dd) { const from = pr.v, to = clamp(Math.round(from + clamp(dd.n, -15, 15)), -100, 100); if (to === from) return; pr.v = to; pr.why = short(d4 || '변화', 30); ch.push({ f: `pair.${key}`, label: `${A}↔${B}`, icon: '🔗', from, to, why: pr.why, src, sure: true, i }); }
+            else if (c) { const was = pr.label; pr.label = short(c, 16); if (d4) pr.why = short(d4, 30); if (was !== pr.label) ch.push({ f: `pair.${key}`, label: `${A}↔${B}`, icon: '🔗', from: was || '-', to: pr.label, why: pr.why || '관계가 바뀜', src, sure: true, i, cross: true }); }
+            return;
+        }
         case 'want': { const name = x.who(a); if (name && b) x.rel(name).want = short(b, 60); return; }
         case 'memory': { const name = x.who(a); if (name && b) remember(S, x.rel(name), b); return; }
         case 'taste': { const name = x.who(a); if (!name) return; const r = x.rel(name); for (const t of parts(v).slice(1)) { const n = t.replace(/^[+\-−]\s*/, ''); if (!n) continue; const L = /^[-−]/.test(t) ? r.seen.hates : r.seen.likes; if (!L.includes(n)) L.push(short(n, 16)); } return; }
@@ -473,7 +485,7 @@ export function wantsOf(book, S) {
     // 관계: 같이 있는 사람 먼저, 없으면 가까운 사람
     const live = Object.entries(S.rel).filter(([, r]) => !r.gone), near = S.with.filter(n => S.rel[n] && !S.rel[n].gone);
     for (const n of (near.length ? near : live.sort((x, y) => (y[1].aff + y[1].trust) - (x[1].aff + x[1].trust)).slice(0, 2).map(([k]) => k)).slice(0, 3)) {
-        const r = S.rel[n], here = near.includes(n), nx = nextStage(book, r.aff);
+        const r = S.rel[n], here = near.includes(n), nx = nextStage(book, r.aff, n);
         const it = here && S.items.find(i => r.seen.likes.some(l => i.name.includes(l)));
         if (it) add('rel', 3, `gift-${n}`, ['🎁', `${n}에게 ${it.name} 주기`, `${n}에게 ${it.name}을(를) 건넨다.`, (ch) => ch.some(c => c.f === `rel.${n}.aff` && /🎁/.test(c.why ?? ''))]);
         else if (r.seen.likes[0] && !here) add('rel', 1.5, `like-${n}`, ['🛒', `${n}가 좋아하는 ${r.seen.likes[0]} 구하기`, `${r.seen.likes[0]}을(를) 구하러 간다.`, (ch) => ch.some(c => c.f === 'item' && c.from === 0 && c.label.includes(r.seen.likes[0]))]);

@@ -37,6 +37,7 @@ export const KEYMAP = Object.fromEntries([
     ...K('watch', 'watch', 'spectator', 'viewer', '관전', '관전자'),
     ...K('cell', 'cell', 'cells', '세포'),
     ...K('jealous', 'jealous', 'jealousy', '질투'),
+    ...K('pair', 'pair', 'between', '인물끼리', '사이', 'pairaff'),
     ...K('life', 'life', 'offscreen', '근황', '화면밖'),
     ...K('promise', 'promise', 'deadline', 'hook', '약속', '마감', '떡밥'),
     ...K('memory', 'memory', 'remember', '기억', '감정기억'),
@@ -50,7 +51,7 @@ export const KEYMAP = Object.fromEntries([
     ...K('newsline', 'newsline', 'worldnews', '세계소식'),
     ...K('meddle', 'meddle', 'touch', '손댐', '낙서'),
     // 지운 칸 · 옛 미트볼 키 — 오류 없이 조용히 건너뛴다
-    ...K('skip', 'quest', 'quests', 'mission', '퀘스트', '의뢰', 'news', '뉴스', '소식', 'rumor', 'gossip', '소문', 'post', '게시판', 'ach', '업적', 'msg', 'message', '연락', '문자', '편지', 'sns', 'feed', 'decor', '가구', 'room', '방', 'stock', '상품', 'memo', '메모', 'note', 'event', '일정', 'alert', '알림', 'rel', '관계', 'pair', 'pairaff', 'attr', '능력치', 'confess', 'concern', 'concern', 'confess'),
+    ...K('skip', 'quest', 'quests', 'mission', '퀘스트', '의뢰', 'news', '뉴스', '소식', 'rumor', 'gossip', '소문', 'post', '게시판', 'ach', '업적', 'msg', 'message', '연락', '문자', '편지', 'sns', 'feed', 'decor', '가구', 'room', '방', 'stock', '상품', 'memo', '메모', 'note', 'event', '일정', 'alert', '알림', 'rel', '관계', 'attr', '능력치', 'confess', 'concern', 'concern', 'confess'),
 ].map(([k, v]) => [norm(k), v]));
 // 옛 미트볼의 수치 · 이름 키 (stat: 체력 -3) — 수치 칸이 이어받는다
 const STATISH = new Set(['stat', '수치', 'gauge', '게이지', 'hp']);

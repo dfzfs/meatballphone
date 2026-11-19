@@ -38,7 +38,7 @@ export function ruleText(book) {
     if (cs.months?.length) K.push(`date: ${cs.months[0].name} 3일 (달: ${cs.months.map(x => x.name).join('·')})`);
     if (modOn('stats')) K.push('ate: 음식', 'slept: 6h', 'washed: -', 'rest: 1h', 'worked: 4h | +30');
     if (modOn('wallet')) K.push('buy: 물건 | 가격', 'earn: 30 | 이유', 'got: 물건', 'used: 물건', 'wear: 옷');
-    if (modOn('rel')) K.push('act: 이름 | 한 일', 'gift: 이름 | 물건', 'memory: 이름 | 큰 사건', 'jealous: 이름 | 이유', 'promise: 내용 | 3/14');
+    if (modOn('rel')) K.push('act: 이름 | 한 일', 'gift: 이름 | 물건', 'memory: 이름 | 큰 사건', 'jealous: 이름 | 이유', ...(level('rel') >= 3 ? ['pair: 이름 | 이름 | +3 | 이유'] : []), 'promise: 내용 | 3/14');
     if (modOn('calendar')) K.push('weather: 비');
     K.push('status: 감기 | 3d', 'npc: 이름 | 성격 한 줄', 'gone: 이름 | 사유');
     if (modOn('news') && level('news') >= 3) K.push('life: 이름 | 화면 밖에서 한 일 (가끔)');
@@ -82,13 +82,14 @@ export function factText(r, lastChanges = []) {
         const r2 = S.rel[name], p = personOf(book, name); if (!r2) continue;
         if (r2.gone && lv('rel') >= 1) { L.push(`${name} has left the story (${r2.gone}) — must not appear`); continue; }
         if (lv('rel') >= 2) {
-            const st = relStage(book, r2.aff);
+            const st = relStage(book, r2.aff, name);
             L.push(`${name}: ${p?.noLove ? 'friend' : `${st.name} (${st.act})`}${r2.mem[0] ? ` · remembers: ${r2.mem[0].text}` : ''}${r2.jealous ? ` · jealous: ${r2.jealous}` : ''}`);
             // 📘 설정집 예외: 장면에 나온 인물만 증상 한 줄
             const sign = p?.signs?.filter(s => r2.aff >= s.at).pop(); if (sign && settings().pinBook !== 'off') L.push(`${name} shows: ${sign.text}`);
         }
-        if (lv('rel') >= 3) L.push(`${name}: no actions beyond 「${relStage(book, r2.aff).name}」 yet`);
+        if (lv('rel') >= 3) L.push(`${name}: no actions beyond 「${relStage(book, r2.aff, name).name}」 yet`);
     }
+    if (lv('rel') >= 2 && scene.length > 1) for (const [k, pr] of Object.entries(S.pairs ?? {})) { const [A, B] = k.split('|'); if (scene.includes(A) && scene.includes(B) && (pr.label || pr.v)) L.push(`${A}↔${B}: ${pr.label || (pr.v >= 30 ? 'close' : pr.v <= -30 ? 'hostile' : pr.v > 0 ? 'friendly' : 'tense')}${lv('rel') >= 3 && pr.why ? ` (${pr.why})` : ''}`); }
     if (lv('rel') >= 4 && S.turn % 6 === 3) H.push('add one small heart-flutter moment this reply (설렘 한 스푼)');
     // 바뀐 단계 · 딱지
     for (const c of lastChanges) if (c.cross && lv('rel') >= 1) H.push(`${c.label}: ${c.from} → ${c.to}`);

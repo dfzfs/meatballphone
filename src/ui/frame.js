@@ -89,6 +89,7 @@ async function clickHandler(e) {
         if (name === 'hide') meta.hideNums = v === '1';
         if (name === 'scope') { meta.influence = v === 'chat' ? structuredClone(settings().influence) : null; }
         if (name === 'recf') setRecFilter(v);
+        if (name === 'relv') meta.relView = v;
         saveMeta(); drawSheet(); return; }
     const a = e.target.closest('[data-act]'); if (!a) return;
     const act = a.dataset.act, v = a.dataset.v;

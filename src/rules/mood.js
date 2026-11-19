@@ -7,7 +7,7 @@ export function moodTags(r, last = []) {
     const { S, book } = r, T = new Set();
     for (const d of derived(book, S)) { if (d.key === 'energy') T.add('tired'); if (d.key === 'hunger') T.add('hungry'); if (d.key === 'mood') T.add('sad'); }
     if (/비|눈|rain|snow/i.test(S.weather)) T.add('rain');
-    for (const n of S.with) { const r2 = S.rel[n]; if (r2 && relStage(book, r2.aff).at >= 60) T.add('love'); if (r2?.jealous) T.add('jealous'); }
+    for (const n of S.with) { const r2 = S.rel[n]; if (r2 && relStage(book, r2.aff, n).at >= 60) T.add('love'); if (r2?.jealous) T.add('jealous'); }
     if (last.some(c => c.f.startsWith('rel.') && c.to < c.from)) T.add('conflict');
     if (last.some(c => c.kind === 'bad')) T.add('bad');
     if (last.some(c => c.kind === 'good')) T.add('good');

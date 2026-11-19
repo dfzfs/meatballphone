@@ -70,7 +70,7 @@ export function home(r) {
         h += W('주사위', `<div class="ml-wdice"><button class="ml-dbtn" data-act="roll" data-v="${mod}" title="굴리기">${d20(hist?.d ?? 20, hist ? `${hist.res.includes('성공') ? 'ok' : 'no'}${hist.d === 20 ? ' crit' : hist.d === 1 ? ' fumble' : ''}` : '')}</button><div><b>${esc(attr || '판정')} ${signed(mod)} · 목표 ${ds.dc}</b><small>${hist ? esc(hist.text) : '주사위를 눌러 굴려요'}</small></div></div>`, 'dice', '', 'dice');
     }
     // 같이 있는 사람
-    if (modOn('rel') && S.with.length) h += W('같이 있는 사람', S.with.map(n => { const x = S.rel[n], p = personOf(book, n); if (!x) return ''; const st = relStage(book, x.aff); return `<div class="ml-wp tap" data-act="person" data-v="${esc(n)}"><span>${p?.face || '🙂'}</span><b>${esc(n)}</b><span class="ml-pill love">${esc(p?.noLove ? '친구' : st.name)}</span><span class="ml-bar love"><i style="width:${p?.noLove ? x.trust : x.aff}%"></i></span><em>${p?.noLove ? x.trust : x.aff}</em></div>`; }).join(''), 'rel', '', 'with');
+    if (modOn('rel') && S.with.length) h += W('같이 있는 사람', S.with.map(n => { const x = S.rel[n], p = personOf(book, n); if (!x) return ''; const st = relStage(book, x.aff, n); return `<div class="ml-wp tap" data-act="person" data-v="${esc(n)}"><span>${p?.face || '🙂'}</span><b>${esc(n)}</b><span class="ml-pill love">${esc(p?.noLove ? '친구' : st.name)}</span><span class="ml-bar love"><i style="width:${p?.noLove ? x.trust : x.aff}%"></i></span><em>${p?.noLove ? x.trust : x.aff}</em></div>`; }).join(''), 'rel', '', 'with');
     // 이번 답
     const tc = turnCard(r, li); if (tc && vis('home', 'turn')) h += tc;
     // 달력: 이번 주 + 다가오는 것
