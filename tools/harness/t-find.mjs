@@ -3,7 +3,7 @@ import { open, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open();
 try {
     await page.evaluate(async () => { const st = await import('/ext/src/base/st.js'); st.settings().saveLang = 'en'; st.saveSettings(); });
-    await page.evaluate(() => document.querySelector('[data-ml="create-tpl"]').click()); await sleep(300);
+    await page.evaluate(() => window.__quickStart()); await sleep(300);
     let prompt = '';
     await page.exposeFunction('__p', (p) => { prompt = p; });
     await page.evaluate(() => { window.__ai = (p) => { window.__p(p); return JSON.stringify({ 'Rusty Sword': '녹슨 검' }); }; });

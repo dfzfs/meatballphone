@@ -2,7 +2,7 @@
 import { open, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open();
 try {
-    await page.evaluate(() => document.querySelector('[data-ml="create-tpl"]').click()); await sleep(300);
+    await page.evaluate(() => window.__quickStart()); await sleep(300);
     await page.evaluate(() => window.__addUser('1'));
     await page.evaluate(() => window.__addAI('a\n<meatball>\ncash: +30 | 용돈\nbogus: 이상한 키\nused: 없는물건\n</meatball>')); await sleep(300);
     const h = await page.evaluate(async () => { const d = await import('/ext/src/extra/doctor.js'); return d.chipCheck(1); });

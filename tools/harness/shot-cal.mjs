@@ -1,7 +1,7 @@
 import { open, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open({ width: 1440, height: 900 });
 try {
-    await page.evaluate(() => document.querySelector('[data-ml="create-tpl"]').click()); await sleep(300);
+    await page.evaluate(() => window.__quickStart()); await sleep(300);
     await page.evaluate(async () => { const st = await import('/ext/src/base/st.js'); const m = st.getMeta(); m.book.people[0].day = '3월 9일 생일'; m.book.me.day = '3월 20일'; st.saveMeta(); });
     await page.evaluate(() => window.__addUser('가자')); await page.evaluate(() => window.__addAI('…\n<meatball>\nloc: 시장\npromise: Leon과 저녁 | 3/4\n</meatball>')); await sleep(300);
     await page.evaluate(() => __ML__.app.openSheet('cal')); await sleep(200);

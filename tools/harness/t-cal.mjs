@@ -11,7 +11,7 @@ const fill = (vals, picks = {}) =>
         [vals, picks],
     );
 try {
-    await page.evaluate(() => document.querySelector('[data-ml="create-tpl"]').click()); await sleep(300);
+    await page.evaluate(() => window.__quickStart()); await sleep(300);
     await page.evaluate(() => __ML__.app.openSheet('book')); await sleep(150);
     const has = await page.evaluate(() => !!document.querySelector('[data-act="bk-world"]'));
     check(has, '세계 편집 버튼');

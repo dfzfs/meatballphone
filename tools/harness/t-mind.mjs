@@ -3,7 +3,7 @@ import { open, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open();
 const fill = (vals) => page.evaluate((vals) => { for (const [k, v] of Object.entries(vals)) document.querySelector(`#mlf-${k}`).value = v; document.querySelector('.ml-bs [data-bs="ok"]').click(); }, vals);
 try {
-    await page.evaluate(() => document.querySelector('[data-ml="create-tpl"]').click()); await sleep(300);
+    await page.evaluate(() => window.__quickStart()); await sleep(300);
     await page.evaluate(() => { const m = __ML__.getMeta(); m.mods.mind = true; __ML__.app.refresh?.(true); });
     await page.evaluate(() => __ML__.app.openSheet('mind')); await sleep(150);
     await page.evaluate(() => document.querySelector('.ml-seg[data-seg="mindmode"] [data-v="kaomoji"]').click()); await sleep(150);

@@ -13,6 +13,7 @@ import { findAll } from './src/extra/find.js';
 import { initMascot, playMascotSound, MASCOT_SOUNDS } from './src/ui/mascot.js';
 import { mount as mountApi, announce } from './src/extra/api.js';
 import { backup, restore, toCard, fromCard, migrateOld, oldActive } from './src/extra/safe.js';
+import { initLog, reportSheet } from './src/extra/report.js';
 
 const perf = { turns: [], refresh: [] };
 let resting = false;
@@ -41,12 +42,13 @@ function setInj(o) {
 }
 export function inject() {
     const meta = getMeta();
-    if (!settings().enabled || !ready(meta) || meta.paused || meta.off) return setInj({});
+    if (!settings().enabled || !ready(meta) || meta.paused || meta.off || meta.setup) return setInj({}); // 앱을 고르기 전엔 본편에 아무것도
     const r = fold(); if (!r) return setInj({});
     const chat = ctx().chat ?? []; let li = chat.length - 1; while (li >= 0 && (chat[li].is_user || chat[li].is_system)) li--;
     const ft = factText(r, li >= 0 ? r.changes[li] ?? [] : []);
     setInj({ rule: mode() === 'A' ? ruleText(r.book) : '', ...ft }); // B: 본편은 소설만 (적는 법 규칙 뺌)
 }
+app.create = (useAI) => create(useAI);
 app.refresh = refresh; app.inject = inject; app.applyLook = () => applyLook(); app.lastInj = () => lastInj; app.perfLast = () => perf.turns.at(-1) ?? null; app.perfData = () => perf; app.openSheet = openSheet; app.closeSheet = closeSheet; app.openPast = openPast;
 app.find = () => findAll();
 app.jump = async (i) => {
@@ -71,7 +73,7 @@ async function onBeforeGen(type, opts, dry) {
 }
 async function onReceived(i, type) {
     const meta = getMeta(); const m = ctx().chat?.[i];
-    if (!m || m.is_user || !ready(meta) || !settings().enabled) return;
+    if (!m || m.is_user || !ready(meta) || !settings().enabled || meta.setup) return;
     const sl = msgData(m, true);
     const skip = (type === 'quiet' || quietGen) && settings().skipQuiet;
     const t0 = performance.now();
@@ -97,7 +99,6 @@ async function onReceived(i, type) {
     ctx().saveChatDebounced?.();
     perf.turns.push({ ms: performance.now() - t0, mode: mode(), calls: 0, tok: injTokens(lastInj), inj: Object.values(lastInj).join('').length });
     if (perf.turns.length > 30) perf.turns.shift();
-    { const q = /weave this line once[^「]*「([^」]+)」/.exec(lastInj.hint ?? ''); if (q) { meta.quoteSent = q[1]; saveMeta(); } }
     refresh(); setTimeout(alerts, 300);
 }
 // 분류 결과가 왔을 때: 칩 · 알림 · 처음 나온 인물 규칙 채우기 (그 인물당 한 번)
@@ -147,6 +148,11 @@ function alerts() {
             if (d.m === Number(m[1]) && d.d === Number(m[2])) out.push([`b|${p.name}|${d.y}`, `🎂 ${k ? '내일' : '오늘'} ${p.name} ${p.day}`]);
         }
     }
+    // 🎵 곡이 바뀌면 작은 알림 (설정에서 끄기)
+    if (modOn('music') && settings().musicPop !== 'off' && S.bgm) {
+        const chat = ctx().chat ?? []; let li = chat.length - 1; while (li >= 0 && (chat[li].is_user || chat[li].is_system)) li--;
+        if (S.bgm.m === li) out.push([`s|${li}|${chat[li]?.swipe_id ?? 0}|${S.bgm.title}`, `🎵 ${S.bgm.title}${S.bgm.artist ? ` · ${S.bgm.artist}` : ''}`]);
+    }
     // 💭 속마음이 뜨면 알림 (방금 답의 것만 · 같은 건 한 번)
     if (modOn('mind') && meta.mindPop !== 'off') {
         const chat = ctx().chat ?? [];
@@ -165,13 +171,15 @@ function alerts() {
 }
 // ───── 상태창 만들기 ─────
 async function create(useAI) {
-    const meta = getMeta(true);
+    const meta = getMeta(true), first = !meta.book;
     let b = null;
     if (useAI) { toast('로어북 · 카드를 읽고 설정집을 채우는 중…'); try { const { book, src } = await fillBook(); if (book) { b = normBook(book); b.src = { from: 'ai', at: Date.now(), sig: src.sig }; } } catch (e) { console.warn(e); } if (!b) toast('AI로 못 채워서 기본 틀로 시작해요', 'bad'); }
     b ??= templateBook();
     if (!b.people.length) b.people = templateBook().people;
     meta.book = b; meta.start ??= { cash: b.world.meal * 5, loc: b.world.places.find(p => p.kind === 'home')?.name ?? '' };
-    saveMeta(); refresh(true); openSheet('book');
+    // 처음 만든 설정집이면 앱은 아직 안 깔림 → 🛍️ 쓸 앱 고르기 한 화면 (직접 쓰기면 시작 뒤 설정집으로)
+    if (first) { meta.setup = true; meta.setupThen = useAI ? 'home' : 'book'; for (const k of Object.keys(meta.mods)) meta.mods[k] = false; }
+    saveMeta(); refresh(true); openSheet(first ? 'home' : 'book');
 }
 
 // ───── 확장 설정 서랍 (남긴 설정만) ─────
@@ -206,7 +214,7 @@ ${sel('mode', '사건 고르기', [['B', 'B. 분류 모델 (본편은 소설만 
 ${sel('pinBook', '장면 인물의 증상 한 줄 본편에', [['auto', '붙이기'], ['off', '안 붙이기']])}
 <h4>번역</h4>${sel('saveLang', '상태창 저장 언어', [['ko', '한국어'], ['en', '영어 (화면만 한국어로)']])}`
         + `${sel('trAuto', '모르는 말', [['ai', '모아서 AI로 번역 (1회씩)'], ['off', '직접 고친 것만']])}
-<h4>저장 · 옮기기</h4><div class="ml-set-btns"><button class="menu_button" data-ml="perf">🏎 부하 재기</button><button class="menu_button" data-ml="doctor">🩺 `
+<h4>저장 · 옮기기</h4><div class="ml-set-btns"><button class="menu_button" data-ml="perf">🏎 부하 재기</button><button class="menu_button" data-ml="report">📋 전체 복사</button><button class="menu_button" data-ml="doctor">🩺 `
         + `자가 진단</button><button class="menu_button" data-ml="backup">💾 백업</button><button class="menu_button" data-ml="restore">📂 불러오기</button>`
         + `<button class="menu_button" data-ml="card">🃏 카드에 붙이기</button><button class="menu_button" data-ml="migrate">🍖 옛 미트볼 옮겨 오기</button></div>
 </div></div>`;
@@ -228,8 +236,9 @@ function mountSettings() {
         const a = e.target.closest('[data-ml]')?.dataset.ml; if (!a) return;
         if (a === 'create-ai') return create(true);
         if (a === 'create-tpl') return create(false);
-        if (a === 'open') return ready() ? openSheet('now') : toast('먼저 상태창을 만들어 주세요');
+        if (a === 'open') return openSheet(ready() ? 'now' : 'home');
         if (a === 'perf') return showPerf();
+        if (a === 'report') return reportSheet();
         if (a === 'doctor') { const d = await import('./src/extra/doctor.js'); return d.doctor(app, perf); }
         if (a === 'cat') return ready() ? openSheet('cat') : toast('먼저 상태창을 만들어 주세요');
         if (a === 'backup') return backup();
@@ -276,7 +285,7 @@ function showPerf() {
 }
 // ───── 시작 ─────
 async function boot() {
-    settings(); applyLook(); // 테마 변수는 늘 열어 둔다 (선택지 확장이 라이트 디자인을 따름)
+    initLog(); settings(); applyLook(); // 테마 변수는 늘 열어 둔다 (선택지 확장이 라이트 디자인을 따름)
     if (oldActive()) { resting = true; console.info(`[${TITLE}] 옛 미트볼이 켜져 있어서 쉽니다.`); return; }
     mountSettings(); bindOuter(); mountApi(); initMascot();
     const c = ctx(), E = c.event_types, on = (n, f) => n && c.eventSource.on(n, f);

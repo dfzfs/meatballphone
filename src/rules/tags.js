@@ -49,6 +49,7 @@ export const KEYMAP = Object.fromEntries(
         ...K('want', 'want', 'goal', 'plan', '속셈', '목표'),
         ...K('anniv', 'anniv', 'anniversary', 'birthday', '기념일', '생일'),
         ...K('bgm', 'bgm', 'music', 'song', 'ost', '음악', '노래', '추천곡'),
+        ...K('quote', 'quote', 'phrase', '구절', '한구절', '명언'),
         ...K('custom', 'custom', 'tab', '내탭'),
         ...K('newsline', 'newsline', 'worldnews', '세계소식'),
         ...K('meddle', 'meddle', 'touch', '손댐', '낙서'),

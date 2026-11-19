@@ -2,7 +2,7 @@ import { open, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open({ width: 1440, height: 900 });
 try {
     await page.addStyleTag({ content: 'input[type="range"]{width:100%}' });
-    await page.evaluate(() => document.querySelector('[data-ml="create-tpl"]').click()); await sleep(300);
+    await page.evaluate(() => window.__quickStart()); await sleep(300);
     await page.evaluate(() => window.__addUser('가자')); await page.evaluate(() => window.__addAI('…\n<meatball>\nloc: 시장\nbuy: 빵\n</meatball>')); await sleep(300);
     check(await page.evaluate(() => [...document.querySelectorAll('.ml-msg .ml-chip')].some(c => c.textContent.includes('🧾'))), '영수증 칩');
     check(await page.evaluate(() => document.querySelectorAll('#ml-hud .ml-h.shop').length >= 2), 'HUD 가게 한 줄');

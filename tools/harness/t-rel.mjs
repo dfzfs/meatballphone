@@ -2,7 +2,7 @@
 import { open, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open();
 try {
-    await page.evaluate(() => document.querySelector('[data-ml="create-tpl"]').click()); await sleep(300);
+    await page.evaluate(() => window.__quickStart()); await sleep(300);
     const people = await page.evaluate(() => __ML__.getMeta().book.people.map(p => p.name));
     const A = people[0], B = 'Mia';
     // A만 다른 단계

@@ -2,7 +2,7 @@
 import { open, sleep } from './lib.mjs';
 const { page, close } = await open();
 try {
-    await page.evaluate(() => document.querySelector('[data-ml="create-tpl"]').click()); await sleep(300);
+    await page.evaluate(() => window.__quickStart()); await sleep(300);
     await page.evaluate(() => window.__addUser('시장 가자'));
     await page.evaluate(() => window.__addAI('Leon이 웃었다.\n<meatball>\nloc: 시장\nwith: Leon\nbuy: 빵 | 3\nact: Leon | 칭찬\ngift: Leon | 꽃\ntime: +5h\nstatus: 감기 | 1d\n</meatball>'));
     await sleep(400);

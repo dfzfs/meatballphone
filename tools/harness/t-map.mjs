@@ -2,7 +2,7 @@
 import { open, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open({ width: 1440, height: 900 });
 try {
-    await page.evaluate(() => document.querySelector('[data-ml="create-tpl"]').click()); await sleep(300);
+    await page.evaluate(() => window.__quickStart()); await sleep(300);
     await page.evaluate(() => window.__addUser('가자')); await page.evaluate(() => window.__addAI('…\n<meatball>\nloc: 집\n</meatball>')); await sleep(300);
     await page.evaluate(() => __ML__.app.openSheet('map')); await sleep(150);
     const n = await page.evaluate(() => ({ nodes: document.querySelectorAll('.ml-map .node').length, places: __ML__.getMeta().book.world.places.length, edges: document.querySelectorAll('.ml-map .edges .ln').length }));

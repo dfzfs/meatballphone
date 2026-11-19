@@ -17,7 +17,7 @@ const fill = async (vals) => {
 };
 try {
     await page.addStyleTag({ content: 'input[type="range"]{width:100%}' });
-    await page.evaluate(() => document.querySelector('[data-ml="create-tpl"]').click()); await sleep(300);
+    await page.evaluate(() => window.__quickStart()); await sleep(300);
     await page.evaluate(() => window.__addUser('가자')); await page.evaluate(() => window.__addAI('…\n<meatball>\nloc: 시장\n</meatball>')); await sleep(300);
     await page.evaluate(() => __ML__.app.openSheet('map')); await sleep(150);
     check(await page.evaluate(() => !!document.querySelector('.ml-tools2 [data-act="t-edit"]')), '지도에 도구줄');

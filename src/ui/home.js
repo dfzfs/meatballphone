@@ -4,7 +4,7 @@ import { ctx, getMeta, saveMeta, settings, modOn } from '../base/st.js';
 import { esc, signed, dateText, dateOf, DAY, periodName, clockText, fmt, num } from '../base/util.js';
 import { derived, needStage, relStage, worldEvent, priceMul, diceParts, whereNow, wantsOf } from '../rules/engine.js';
 import { personOf, placeOf, PLACE_KINDS } from '../rules/book.js';
-import { moodTags, pickQuote, pickMusic } from '../rules/mood.js';
+import { songLine, quoteLine } from './music.js';
 import { luckOf } from '../rules/luck.js';
 import { level } from '../rules/inject.js';
 import { upcoming, lastAI, turnCard, getDice } from './tabs.js';
@@ -21,8 +21,8 @@ export const APPS = [
     { id: 'map', to: 'main', main: '지금 장소 · 같이 있는 사람', icon: '🗺️', name: '지도', mod: 'map', desc: '노선도 · 인물 핀 · 건물 안 · 사진', c: '#2f9e7a' },
     { id: 'cal', to: 'main', main: '날짜 · 시간 · 날씨 · 약속', icon: '📅', name: '달력', mod: 'calendar', desc: '날짜 · 시간 · 날씨 · 약속 · 기념일', c: '#3a8ee6' },
     { id: 'news', to: 'aux', main: '', icon: '📰', name: '세계 소식', mod: 'news', desc: '화면 밖 생활 · 속셈 · 기념일 · 오늘 사건', c: '#6c7a89' },
-    { id: 'music', to: 'aux', main: '', icon: '🎵', name: '추천 음악', mod: 'music', desc: '장면 분위기에 맞는 곡', c: '#ff8fab' },
-    { id: 'quote', to: 'main', main: '한 구절 (영향력을 올렸을 때만)', icon: '📜', name: '한 구절', mod: 'quote', desc: '장면에 맞는 고전 · 사자성어 · 속담', c: '#b08968' },
+    { id: 'music', to: 'aux', main: '', icon: '🎵', name: '추천 음악', mod: 'music', desc: 'AI가 장면을 보고 고른 실제 곡 · 곡 3개 추천 · 지난 곡', c: '#ff8fab' },
+    { id: 'quote', to: 'main', main: '한 구절 (영향력을 올렸을 때만)', icon: '📜', name: '한 구절', mod: 'quote', desc: 'AI가 고른 속담 · 명대사 · 책 · 시 · 명언 · 사자성어', c: '#b08968' },
     { id: 'rec', to: 'aux', main: '', icon: '📒', name: '기록', mod: 'record', desc: '타임라인 · 책갈피 · 그때 상태 · 그래프', c: '#e9c46a' },
     { id: 'mind', to: 'main', main: '속마음을 적어 달라는 지시', icon: '💭', name: '속마음', mod: 'mind', desc: '인물 · 관전자 · 세포들의 속마음', c: '#a78bfa' },
     { id: 'traits', to: 'aux', main: '', icon: '🧬', name: '특성', mod: 'traits', desc: '특성 3개 · 나만의 특성 · 지금 원하는 것 · 궁합', c: '#06d6a0' },
@@ -45,7 +45,7 @@ export const d20 = (n = 20, cls = '') => `<svg class="ml-d20 ${cls}" viewBox="0 
     + `78,66 22,66 8,72 22,66 8,28 50,22 22,66"/><polyline class="ed" points="92,28 78,66"/><text x="50" y="56">${n}</text></svg>`;
 
 export function home(r) {
-    const { book, S } = r, meta = getMeta(), li = lastAI(), last = r.changes[li] ?? [];
+    const { book, S } = r, meta = getMeta(), li = lastAI();
     const ev = worldEvent(Math.floor(S.t / DAY)), dz = derived(book, S);
     let h = `<div class="ml-hero"><div class="ml-hero-d"><small>${esc(dateOf(book.world.start, S.t).mn)}</small><b>${dateOf(book.world.start, S.t).d}</b>`
         + `<small>${dateOf(book.world.start, S.t).w}요일</small></div>
@@ -59,9 +59,9 @@ export function home(r) {
     if (!vis('home', 'hero')) h = '';
     if (tags.length && vis('home', 'tags')) h += `<div class="ml-chips">${tags.join('')}</div>`;
     // 이 장면: 음악 · 구절 · 운세
-    const tg = moodTags(r, last), L = [];
-    if (modOn('music')) { const m = S.bgm ? { label: S.bgm, query: S.bgm } : pickMusic(tg, settings().musicTaste); L.push(`<div class="ml-scene tap" data-act="music" data-v="${esc(m.query)}"><i>🎵</i><span><b>${esc(m.label)}</b><small>지금 공기</small></span><em>▶</em></div>`); }
-    if (modOn('quote')) { const q = pickQuote(tg, meta.recent?.quote ?? [], S.turn); if (q) L.push(`<div class="ml-scene tap" data-act="quote" data-v="${esc(`${q.text}\n\n${q.mean}\n— ${q.src}`)}"><i>📜</i><span><b>${esc(q.text)}</b><small>${esc(q.src)}</small></span><em>ⓘ</em></div>`); }
+    const L = [];
+    if (modOn('music')) L.push(songLine(S));
+    if (modOn('quote')) L.push(quoteLine(S));
     const lk = luckOf(book, S, ctx().getCurrentChatId?.(), meta.luckRoll);
     L.push(lk.rolled ? `<div class="ml-scene luck"><i>🍀</i><span><b>${esc(lk.text)}</b><small>오늘 운세 · 🎲 ${lk.d}</small></span></div>` : `<div class="ml-scene luck tap" data-act="luckroll"><i>🎲</i><span><b>오늘 운세 굴리기</b><small>이야기 속 하루에 한 번 · 선택지에 🍀 · ⚠</small></span><em>굴리기</em></div>`);
     h += W('이 장면', `<div class="ml-scenes">${L.join('')}</div>`, '', '', 'scene');
@@ -123,6 +123,32 @@ export function home(r) {
     return h;
 }
 // 🛍 마켓
+// ───── 첫 화면: 설정집이 없는 채팅 → 설정집 카드 하나만 ─────
+export function firstView() {
+    return `<div class="ml-first"><div class="ml-mk big"><i style="--c:#4361ee">📘</i><span><b>설정집</b><small>이 이야기의 세계 · 장소 · 물가 · 인물 · 욕구 규칙을 한 곳에 적어요. `
+        + `상태창은 이걸 보고 계산하고, 본편에는 결과만 가요.</small></span></div>`
+        + `<div class="ml-acts">${btn('📘 로어북 · 카드로 채우기 <small>(AI 1회)</small>', 'mk-ai', '', 'main')}${btn('✏️ 직접 쓰기', 'mk-self', '')}</div>`
+        + '<div class="ml-hint">설정집을 만들면 쓸 앱을 고르는 화면이 떠요. 그 전에는 본편에 아무것도 넣지 않고, AI도 부르지 않아요.</div></div>';
+}
+// 장르에 맞는 추천 (미리 체크만 · 「시작」을 눌러야 깔림)
+export function recommend(book) {
+    const g = String(book?.world?.genre ?? ''), on = new Set(['stats', 'wallet', 'rel', 'map', 'calendar', 'dice', 'record', 'traits']);
+    if (/연애|로맨스|학원|romance/i.test(g)) ['mind', 'music', 'quote'].forEach(x => on.add(x));
+    if (/판타지|무협|SF|아포칼립스|fantasy/i.test(g)) on.add('news');
+    if (/현대|일상|modern/i.test(g)) on.add('music');
+    return on;
+}
+// ───── 설정집을 만든 뒤 한 번: 쓸 앱 고르기 ─────
+export function setupView(r) {
+    const rec = recommend(r.book), apps = APPS.filter(a => !a.sys);
+    const row = (a) => `<label class="ml-mk ml-pick"><input type="checkbox" class="ml-setup-cb" data-mod="${a.mod}" ${rec.has(a.mod) ? 'checked' : ''}>`
+        + `<i style="--c:${a.c}">${a.icon}</i><span><b>${a.name}</b><small>${esc(a.desc)}</small>`
+        + `${a.to === 'main' ? `<small class="ml-to main">📤 본편: ${esc(a.main)}</small>` : '<small class="ml-to aux">🔒 상태창 안에서만</small>'}</span></label>`;
+    return `<div class="ml-hint">🛍️ 쓸 앱을 고르세요. ${esc(r.book.world.genre || '이 이야기')}에 맞는 것을 미리 체크해 뒀어요. 「시작」을 눌러야 깔리고, 나중에 마켓에서 더하거나 뺄 수 있어요.</div>`
+        + `<h4 class="ml-h4">📤 본편 반영</h4><div class="ml-mks">${apps.filter(a => a.to === 'main').map(row).join('')}</div>`
+        + `<h4 class="ml-h4">🔒 보조</h4><div class="ml-mks">${apps.filter(a => a.to !== 'main').map(row).join('')}</div>`
+        + `<div class="ml-acts">${btn('▶ 시작', 'setup-start', '', 'main')}</div>`;
+}
 export function market() {
     const row = (a) => { const on = installed(a); return `<div class="ml-mk"><i style="--c:${a.c}">${a.icon}</i><span><b>${a.name}</b><small>${esc(a.desc)}`
         + `</small>${a.to === 'main' ? `<small class="ml-to main">📤 본편: ${esc(a.main)}</small>` : '<small class="ml-to aux">🔒 상태창 안에서만</small>'}`

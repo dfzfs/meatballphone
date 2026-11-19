@@ -32,9 +32,10 @@ export function chipCheck(i) {
 }
 
 // 🩺 자가 진단: 지금 채팅이 잘 돌아가는지 한눈에 · 고칠 곳은 바로 가기
-export function doctor(app, perf) {
+// 진단 줄 목록 [{ lv, title, sub, fix }] — 화면(doctor)과 전체 복사(report)가 같이 씀
+export function doctorRows(app, perf) {
     const set = settings(), meta = getMeta(), chat = ctx().chat ?? [], r = meta?.book ? fold() : null, L = [];
-    const add = (lv, title, sub, fix = '') => L.push(`<div class="ml-row ml-chk ${lv}"><span class="ml-tx"><b>${lv === 'good' ? '✅' : lv === 'mid' ? '🟡' : '🔴'} ${title}</b><small>${sub}</small></span>${fix ? `<span class="ml-val">${fix}</span>` : ''}</div>`);
+    const add = (lv, title, sub, fix = '') => L.push({ lv, title, sub, fix });
     add(set.enabled ? 'good' : 'bad', '켜짐', set.enabled ? '미트볼 라이트가 켜져 있어요' : '확장 설정에서 켜 주세요');
     if (oldActive()) add('bad', '옛 미트볼과 같이 켜짐', '둘이 같이 켜져 있으면 라이트는 쉬어요 · 옛 미트볼을 끄거나 「옮겨 오기」');
     add(meta?.book ? 'good' : 'bad', '이 채팅 상태창', meta?.book ? `설정집 있음 · 인물 ${meta.book.people.length} · 장소 ${meta.book.world.places.length}` : '아직 없어요 · 홈에서 「만들기」');
@@ -77,6 +78,11 @@ export function doctor(app, perf) {
     let bytes = 0; for (const m of chat) if (m.extra?.[MODULE]) bytes += JSON.stringify(m.extra[MODULE]).length; bytes += JSON.stringify(meta ?? {}).length;
     add(bytes < 400000 ? 'good' : 'mid', `채팅에 붙은 상태창 데이터 ${Math.round(bytes / 1024)}KB`, bytes < 400000 ? '가벼워요' : '조금 커요 · 오래된 채팅은 새 채팅으로 이어 가 보세요');
     if (trOn()) add(trBusy() ? 'mid' : 'good', '상태창 번역', `영어 저장 · 사전 ${Object.keys(meta?.tr ?? {}).length}개${trBusy() ? ' · 번역 기다리는 중' : ''}`);
-    const ok = L.filter(x => x.includes('ml-chk good')).length;
-    sheet('🩺 자가 진단', `<div class="ml-hint">AI 부르지 않고 이 채팅만 봤어요 · ${ok}/${L.length} 좋음</div><div class="ml-card">${L.join('')}</div>`);
+    return L;
+}
+export function doctor(app, perf) {
+    const L = doctorRows(app, perf), ok = L.filter(x => x.lv === 'good').length;
+    const row = (x) => `<div class="ml-row ml-chk ${x.lv}"><span class="ml-tx"><b>${x.lv === 'good' ? '✅' : x.lv === 'mid' ? '🟡' : '🔴'} ${x.title}</b><small>${x.sub}</small></span>${x.fix ? `<span class="ml-val">${x.fix}</span>` : ''}</div>`;
+    sheet('🩺 자가 진단', `<div class="ml-hint">AI 부르지 않고 이 채팅만 봤어요 · ${ok}/${L.length} 좋음</div><div class="ml-card">${L.map(row).join('')}</div>`
+        + `<div class="ml-acts">${btn('📋 전체 복사 (문제 보고용)', 'report', '', 'sm')}</div>`);
 }

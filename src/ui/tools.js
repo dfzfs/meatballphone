@@ -197,24 +197,8 @@ export async function editApp(appId) {
                 'ctab-new',
                 '칸을 누르면 값 · 단계 · 경계 문구를 고쳐요',
             );
-        case 'music': {
-            const fv = await form('✏️ 추천 음악', [
-                { k: 'taste', label: '내 취향 (검색에 붙음)', v: settings().musicTaste, ph: '예: 시티팝 · 재즈 · 일본 애니 OST' },
-            ]);
-            if (fv) {
-                settings().musicTaste = fv.taste;
-                saveSettings();
-                app.refresh?.();
-            }
-            return;
-        }
-        case 'quote': {
-            meta.recent.quote = [];
-            saveMeta();
-            toast('최근에 본 구절 목록을 비웠어요');
-            app.refresh?.();
-            return;
-        }
+        case 'music': return (await import('./music.js')).musicAct('taste-edit', '', null, null).then((d) => { if (d) app.refresh?.(); });
+        case 'quote': return (await import('./tabs.js')).onAct('quote-new', '');
         case 'mind': {
             const fv = await form('✏️ 속마음', [
                 {

@@ -3,7 +3,7 @@ import { open, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open();
 const S = () => page.evaluate(() => { const r = __ML__.fold(); return { cash: r.S.cash, loc: r.S.loc, items: r.S.items.map(i => i.name), n: window.__st.chat.length }; });
 try {
-    await page.evaluate(() => document.querySelector('[data-ml="create-tpl"]').click()); await sleep(300);
+    await page.evaluate(() => window.__quickStart()); await sleep(300);
     await page.evaluate(() => window.__addUser('1')); await page.evaluate(() => window.__addAI('a\n<meatball>\ncash: +10\n</meatball>')); await sleep(200);
     // 스와이프: 새 답(다른 변화) → 돌아가면 옛 값
     await page.evaluate(async () => {

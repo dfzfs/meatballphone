@@ -4,7 +4,7 @@ import { normBook } from '../rules/book.js';
 
 export const MODULE = 'meatlite';
 export const OLD = 'statussim';
-export const VERSION = '0.27.0';
+export const VERSION = '0.28.0';
 export const DATA_V = 2;
 export const TITLE = '미트볼 라이트';
 export const INJ = { facts: 'meatlite_facts', hint: 'meatlite_hint', rule: 'meatlite_rule' };
@@ -37,7 +37,8 @@ export const DEFAULTS = Object.freeze({
     saveLang: 'ko',         // 상태창 저장 언어: ko | en (en이면 화면 번역)
     trAuto: 'ai',            // 영어 저장일 때 모르는 말: ai(모아서 1회) | off(직접만)
     musicApp: 'youtube',
-    musicTaste: '',
+    musicTaste: '',         // 음악 취향 기본값 (채팅마다 덮어쓰기 가능)
+    musicPop: 'on',         // 곡이 바뀌면 작은 알림
     pinBook: 'auto',        // 설정집 한두 줄을 본편에 붙일지: auto | off
 });
 const SETTING_EXTRA = new Set(['glossary', 'trRules', 'partsOff', 'tidied']);
@@ -76,7 +77,7 @@ export function newMeta() {
     return {
         app: 'lite3', v: DATA_V, book: null, start: null,
         mods: Object.fromEntries(MOD_IDS.map(id => [id, id !== 'mind'])),
-        paused: false, skipNext: false, influence: null, marks: [], hideNums: false, custom: [], recent: { quote: [], music: [] }, mindWho: ['cast'],
+        paused: false, skipNext: false, influence: null, marks: [], hideNums: false, custom: [], recent: {}, mindWho: ['cast'],
     };
 }
 // 한 번 정리: v0.26에서 지운 기능이 채팅에 남긴 데이터 (설정집은 지금 모양으로 다시 맞춤 · 지운 특성은 가장 가까운 것으로)

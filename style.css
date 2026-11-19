@@ -349,3 +349,14 @@ to{background:conic-gradient(var(--a) 360deg,var(--line) 360deg)}
 .ml-chk.good b { color: inherit; } .ml-chk.bad { background: color-mix(in srgb, var(--bad, #d0463b) 7%, transparent); } .ml-chk.mid { background: color-mix(in srgb, #e8b33d 7%, transparent); }
 .ml-chk code { font-size: 12px; background: none; padding: 0; white-space: normal; word-break: break-all; }
 .ml-det { margin-top: 10px; } .ml-det summary { cursor: pointer; font-size: 12.5px; opacity: .75; padding: 6px 2px; }
+/* 🎵 추천 음악 · 📜 한 구절 (AI가 고름) */
+.ml-song{border:var(--bd) solid var(--line);border-radius:var(--r);padding:10px 12px;box-shadow:var(--sh)}
+.ml-song-h{display:flex;align-items:center;gap:10px}
+.ml-song-h > i{font-style:normal;font-size:24px}
+.ml-song-h > span{flex:1;display:flex;flex-direction:column;min-width:0}
+.ml-song-h small{color:var(--sub)}
+a.ml-play,a.ml-scene{text-decoration:none;color:inherit}
+.ml-qcard u.ml-ai{text-decoration:none;font-size:10px;padding:1px 6px;border-radius:999px;background:color-mix(in srgb,var(--a) 14%,transparent);margin-left:4px}
+#ml-full .ml-top > b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex-shrink:1}
+.ml-song > .ml-sub{display:block;margin-top:6px;font-size:11px}
+@media (max-width:480px){#ml-full .ml-top{gap:2px}#ml-full .ml-top .ml-ib{min-width:36px}#ml-full .ml-top > b{min-width:6.5em}}

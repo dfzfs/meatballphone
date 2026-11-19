@@ -1,8 +1,8 @@
 // 본편 주입: 이야기 영향력 게이지(0~4)를 따라 켜고 끈다
 import { settings, getMeta, modOn, userName, ctx } from '../base/st.js';
 import { clamp, dateText, short, tokens, DAY } from '../base/util.js';
-import { derived, relStage, worldEvent } from './engine.js';
-import { moodTags, pickQuote } from './mood.js';
+import { derived, relStage, worldEvent, fold } from './engine.js';
+import { tasteOf, recentQuotes } from './classify.js';
 import { personOf } from './book.js';
 
 export const LEVELS = [
@@ -46,6 +46,9 @@ export function ruleText(book) {
     if (modOn('news') && level('news') >= 3) K.push('life: 이름 | 화면 밖에서 한 일 (가끔)');
     if (modOn('rel') && level('rel') >= 4) K.push('meddle: 이름 | 칸 | +5 | 장난');
     if (modOn('dice')) K.push('roll: 판정할 일');
+    // 🎵 📜 장면 분위기가 바뀌었을 때만 (dev처럼 본편이 고름)
+    if (modOn('music')) K.push(`bgm: 곡 제목 - 가수 | 분위기 한 단어 | 왜 (장면 분위기가 바뀌었을 때만 · 실제로 있는 곡${tasteOf() ? ` · 취향: ${tasteOf()}` : ''})`);
+    if (modOn('quote')) { const rq = recentQuotes(fold()?.S ?? {}); K.push(`quote: 구절 원문 | 출처 | 한국어 뜻(외국어일 때) | 왜 (분위기가 바뀌었을 때만 · 속담 · 명대사 · 책 · 시 · 유명인의 말 · 사자성어 · 노래 가사 금지 · 한두 문장${rq.length ? ` · 피할 것: ${rq.join(' / ')}` : ''})`); }
     if (modOn('mind') && level('mind') > 0) {
         const who = meta?.mindWho ?? ['cast'];
         const mm = meta?.mindMode ?? 'thought', form = { thought: '짧은 속마음 한 줄', emoji: '이모티콘 2~3개만 (글자 없이)', kaomoji: '카모지 하나 + 아주 짧은 말', mix: '짧은 속마음 + 끝에 카모지' }[mm] ?? '짧은 속마음 한 줄';
@@ -110,7 +113,7 @@ export function factText(r, lastChanges = []) {
     // 🧩 내 탭 경계 문구 (넘은 턴에만)
     for (const c of lastChanges) if (c.say && lv('stats') >= 1) H.push(`${c.label}: ${c.say}`);
     // 📜 한 구절 — 영향력 1부터, 구절이 바뀐 턴에만 한 번
-    if (lv('quote') >= 1) { const q = pickQuote(moodTags(r, lastChanges), getMeta()?.recent?.quote ?? [], S.turn); if (q && getMeta()?.quoteSent !== q.text) H.push(`weave this line once, naturally (a character may say or recall it): 「${q.text}」 (${q.src})`); }
+    if (lv('quote') >= 1) { const q = lastChanges.some(c => c.f === 'quote') && S.quote; if (q) H.push(`weave this line once, naturally (a character may say or recall it): 「${q.text}」 (${q.src})`); }
     // 🎯 속셈 → 화면 밖 사건 (4: 주도 · 여섯 턴에 한 번)
     if (lv('news') >= 4 && S.turn % 6 === 1) { const p = book.people.find(q => !S.with.includes(q.name) && !S.rel[q.name]?.gone && (S.rel[q.name]?.want || q.want)); if (p) H.push(`off-screen, ${p.name} acts on what they want (${S.rel[p.name]?.want || p.want}); record it as life: ${p.name} | …`); }
     // ✍ 손댄다 (관계 4 · 애정 60↑ 또는 질투 · 여덟 턴에 한 번)

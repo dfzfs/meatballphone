@@ -3,7 +3,7 @@ import { open, sleep } from './lib.mjs';
 for (const [w, h, tag] of [[1440, 900, 'pc'], [390, 844, 'ph']]) {
     const { page, close } = await open({ width: w, height: h });
     try {
-        await page.evaluate(() => document.querySelector('[data-ml="create-tpl"]').click()); await sleep(300);
+        await page.evaluate(() => window.__quickStart()); await sleep(300);
         await page.evaluate(() => { const m = __ML__.getMeta(); m.book.me.traitIds = ['romantic', 'glutton', 'brave']; m.book.people[0].traits = ['romantic']; m.book.people[0].want = '동맹의 무사 항해'; __ML__.app.refresh(true); });
         await page.evaluate(() => window.__addUser('시장 가자'));
         await page.evaluate(() => window.__addAI('…\n<meatball>\nnpc: Mia | 꽃집 주인\nloc: 시장\nwith: Leon, Mia\nact: Leon | 칭찬\ngot: 꽃\nworked: 3h | +40\nstatus: 감기 | 1d\npair: Leon | Mia | 라이벌\n</meatball>'));

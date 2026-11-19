@@ -2,7 +2,7 @@
 import { open, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open({ width: 1440, height: 900 });
 try {
-    await page.evaluate(() => document.querySelector('[data-ml="create-tpl"]').click()); await sleep(300);
+    await page.evaluate(() => window.__quickStart()); await sleep(300);
     await page.evaluate(async () => { const st = await import('/ext/src/base/st.js'), { normBook } = await import('/ext/src/rules/book.js'); const m = st.getMeta();
         m.book.me.traitIds = ['romantic', 'glutton', 'brave'];
         m.book.people[0].traits = ['romantic']; m.book.people.push({ ...m.book.people[0], name: 'Mia', traits: ['stoic'], aka: [] });

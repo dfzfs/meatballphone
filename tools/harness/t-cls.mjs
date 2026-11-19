@@ -5,7 +5,7 @@ const calls = () => page.evaluate(() => (window.__sent ?? []).filter(x => x.id =
 const settle = () => page.evaluate(async () => { const c = await import('/ext/src/rules/classify.js'); for (let k = 0; k < 100 && !c.idle(); k++) await new Promise(r => setTimeout(r, 30)); await new Promise(r => setTimeout(r, 60)); });
 const S = () => page.evaluate(() => { const r = __ML__.fold(); return { loc: r.S.loc, aff: r.S.rel.Leon?.aff, cash: r.S.cash, flags: Object.values(r.flags).flat().length }; });
 try {
-    await page.evaluate(() => document.querySelector('[data-ml="create-tpl"]').click()); await sleep(300);
+    await page.evaluate(() => window.__quickStart()); await sleep(300);
     // 분류 연결 고르기 · Leon의 행동 목록
     await page.evaluate(async () => {
         const st = await import('/ext/src/base/st.js'); st.settings().mode = 'B'; st.settings().clsProfile = 'p-flash'; st.saveSettings();

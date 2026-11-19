@@ -151,6 +151,17 @@
         await eventSource.emit(event_types.MESSAGE_SWIPED, i); renderMes(i);
     };
     window.__edit = async (i, text) => { const m = state.chat[i]; m.mes = text; if (m.swipes) m.swipes[m.swipe_id] = text; await eventSource.emit(event_types.MESSAGE_EDITED, i); renderMes(i); };
+    // 시험용 빠른 시작: 설정집(틀) 만들기 → 🛍️ 앱 고르기에서 속마음만 빼고 다 깔기 (예전 기본값과 같게)
+    window.__quickStart = async () => {
+        document.querySelector('[data-ml="create-tpl"]').click();
+        await new Promise(r => setTimeout(r, 250));
+        const box = document.getElementById('ml-full');
+        if (box?.querySelector('.ml-setup-cb')) {
+            box.querySelectorAll('.ml-setup-cb').forEach(c => { c.checked = c.dataset.mod !== 'mind'; });
+            box.querySelector('[data-act="setup-start"]').click();
+            await new Promise(r => setTimeout(r, 150));
+        }
+    };
     window.__changeChat = async (id) => { state.chatId = id; state.chat = []; state.chatMetadata = {}; window.__renderAll(); await eventSource.emit(event_types.CHAT_CHANGED); };
 
     const ctx = {

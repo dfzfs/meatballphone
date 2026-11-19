@@ -2,7 +2,7 @@
 import { open, sleep } from './lib.mjs';
 const { page, close } = await open();
 try {
-    await page.evaluate(() => document.querySelector('[data-ml="create-tpl"]').click()); await sleep(300);
+    await page.evaluate(() => window.__quickStart()); await sleep(300);
     await page.evaluate(async () => {
         const st = await import('/ext/src/base/st.js');
         const m = st.getMeta();

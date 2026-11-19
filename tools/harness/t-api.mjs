@@ -2,7 +2,7 @@
 import { open, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open();
 try {
-    await page.evaluate(() => document.querySelector('[data-ml="create-tpl"]').click()); await sleep(300);
+    await page.evaluate(() => window.__quickStart()); await sleep(300);
     await page.evaluate(() => window.__addUser('가자')); await page.evaluate(() => window.__addAI('…\n<meatball>\nloc: 시장\nstatus: 감기 | 1d\n</meatball>')); await sleep(300);
     const r = await page.evaluate(() => { const M = globalThis.MeatballLite; const s = M.state(); return { attrs: s.attrs, date: s.date, parts: M.diceParts('힘'), p: M.preview('빵 하나 주세요') }; });
     console.log(JSON.stringify(r));

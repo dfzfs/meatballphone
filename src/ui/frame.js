@@ -4,7 +4,7 @@ import { esc, dateText, periodName, short, fmt } from '../base/util.js';
 import { fold, derived, needStage } from '../rules/engine.js';
 import { placeOf } from '../rules/book.js';
 import { RENDER, onAct, changeRow, setRecFilter } from './tabs.js';
-import { home, market, cat, look, appOf, installed, markSeen } from './home.js';
+import { home, market, cat, look, appOf, installed, markSeen, firstView, setupView } from './home.js';
 import { toolbar, onTool, TOOL_ACTS, applyGloss } from './tools.js';
 import { applyTr, trOn, trBusy } from '../extra/translate.js';
 import { traitsView, traitAct, TRAIT_ACTS } from './traits.js';
@@ -41,8 +41,22 @@ function miniHTML(r) {
     return `${mascot('sm', face, 'ml-mascot')}${needs}<div class="ml-mb-t">${dateText(book.world.start, S.t, false)}</div><button class="ml-btn sm" data-act="open" data-v="now">펼치기</button>`;
 }
 export function drawFrame() {
-    const on = settings().enabled && ready() && !getMeta()?.off;
+    const meta = getMeta(), on = settings().enabled && ready() && !meta?.off && !meta?.setup;
     let hud = document.getElementById('ml-hud'), mb = document.getElementById('ml-mini');
+    // 설정집이 없거나 앱을 고르는 중이면 HUD · 미니바에 한 줄만
+    if (settings().enabled && !on && ctx().chatMetadata && !meta?.off && (ctx().chat?.length || ctx().getCurrentChatId?.())) {
+        const line = meta?.setup && ready() ? '🛍️ 쓸 앱 고르기' : '📘 설정집 만들기';
+        const one = `<button class="ml-h tap ml-first-line" data-act="open" data-v="home">${line}</button>`;
+        if (settings().hud) {
+            if (!hud) { hud = document.createElement('div'); hud.id = 'ml-hud'; hud.className = 'ml-scope'; (document.getElementById('sheld') ?? document.body).prepend(hud); }
+            if (hud.dataset.h !== one) { hud.innerHTML = one; hud.dataset.h = one; }
+        } else hud?.remove();
+        if (settings().minibar) {
+            if (!mb) { mb = document.createElement('div'); mb.id = 'ml-mini'; mb.className = 'ml-scope'; document.body.appendChild(mb); }
+            const h = `${mascot('sm', '', 'ml-mascot')}<button class="ml-btn sm" data-act="open" data-v="home">${line}</button>`; if (mb.innerHTML !== h) mb.innerHTML = h;
+        } else mb?.remove();
+        return;
+    }
     if (!on) { hud?.remove(); mb?.remove(); return; }
     const r = fold(); if (!r) return;
     if (settings().hud) {
@@ -72,7 +86,14 @@ export function openSheet(tab = 'home') {
 export function closeSheet() { document.getElementById('ml-full')?.remove(); document.body.classList.remove('ml-open'); }
 export function drawSheet() {
     const el = document.getElementById('ml-full'); if (!el) return;
-    const r = fold(); if (!r) { closeSheet(); return; }
+    if (!ctx().chatMetadata) { closeSheet(); return; }
+    const meta0 = getMeta(), r = fold();
+    if (!r || meta0?.setup) {
+        // 📘 설정집이 없으면 설정집 하나만 · 🛍️ 만든 뒤에는 쓸 앱 고르기 한 화면
+        el.innerHTML = `<header class="ml-top">${mascot('head')}<b>${r ? '🛍️ 쓸 앱 고르기' : TITLE}</b><span class="ml-sp"></span><button class="ml-ib" data-act="report" title="전체 복사">📋</button><button class="ml-ib" data-act="close">✕</button></header>`
+            + `<main class="ml-body" data-tab="${r ? 'setup' : 'first'}">${r ? setupView(r) : firstView()}</main>`;
+        return;
+    }
     const R2 = { ...RENDER, home, market, cat, look, traits: traitsView };
     if (!R2[cur] || (appOf(cur) && !installed(appOf(cur)))) cur = 'home';
     const view = past != null ? { ...r, S: r.stateAt(past) ?? r.S } : r;
@@ -82,7 +103,7 @@ export function drawSheet() {
     el.innerHTML = `<header class="ml-top">${cur === 'home' ? `${mascot('head')}<b>${TITLE}</b>` : `<button class="ml-ib back" data-tab="home" title="홈">‹</button><b>${a ? `${a.icon} ${a.name}` : ''}</b>`}`
         + `${past != null ? chip(`🕰 #${past} 시점 · 읽기 전용`, 'mid', 'past-off') : ''}<span class="ml-sp"></span><button class="ml-ib" data-act="pause" `
         + `title="일시정지">${meta.paused ? '▶' : '⏸'}</button><button class="ml-ib" data-act="skip" title="다음 1번 건너뛰기">${meta.skipNext ? '⏭✓' : '⏭'}`
-        + `</button><button class="ml-ib" data-act="find" title="검색">🔍</button><button class="ml-ib" data-act="close">✕</button></header>`
+        + `</button><button class="ml-ib" data-act="find" title="검색">🔍</button><button class="ml-ib" data-act="report" title="📋 전체 복사">📋</button><button class="ml-ib" data-act="close">✕</button></header>`
         + `<main class="ml-body" data-tab="${cur}">${a && !a.sys ? toolbar(cur) : ''}${R2[cur](view)}</main>`;
     applyGloss(el.querySelector('.ml-body')); applyTr(el.querySelector('.ml-body'));
     if (trOn() && trBusy()) el.querySelector('.ml-sp')?.insertAdjacentHTML('beforebegin', '<span class="ml-pill">🌐 번역 중…</span>');

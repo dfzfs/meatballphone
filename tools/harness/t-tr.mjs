@@ -3,7 +3,7 @@ import { open, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open({ width: 1440, height: 900 });
 try {
     await page.evaluate(async () => { const st = await import('/ext/src/base/st.js'); st.settings().saveLang = 'en'; st.saveSettings(); });
-    await page.evaluate(() => document.querySelector('[data-ml="create-tpl"]').click()); await sleep(300);
+    await page.evaluate(() => window.__quickStart()); await sleep(300);
     let calls = 0;
     await page.exposeFunction('__count', () => { calls++; });
     await page.evaluate(() => { window.__ai = (p) => { window.__count(); return JSON.stringify({ 'Rusty Sword': '녹슨 검', 'Old Tavern': '낡은 선술집', 'Cold': '감기' }); }; });

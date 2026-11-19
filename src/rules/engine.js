@@ -646,9 +646,28 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             if (name) x.rel(name).day = short(b, 16);
             return;
         }
-        case 'bgm':
-            S.bgm = short(v, 60);
+        case 'bgm': {
+            // 🎵 bgm: 곡 제목 - 가수 | 분위기 한 단어 | 왜 어울리는지 (AI가 장면을 보고 고른 실제 곡)
+            const [head = '', mood = '', why2 = ''] = parts(v);
+            const hm = /^(.+?)\s+(?:-|–|—|by|\/)\s+(.+)$/i.exec(head), unq = (t) => String(t).replace(/^["“'「『]|["”'」』]$/g, '').trim();
+            const title = short(unq(hm ? hm[1] : head), 60), artist = short(hm ? unq(hm[2]) : '', 40);
+            if (!title || /^(없음|none|-)$/i.test(title) || norm(title) === norm(S.bgm?.title)) return;
+            const from = S.bgm?.title ?? '';
+            S.bgm = { title, artist, mood: short(mood, 12), why: short(why2, 60) };
+            S.bgmLog = [...(S.bgmLog ?? []), S.bgm].slice(-30);
+            ch.push({ f: 'bgm', label: '추천 음악', icon: '🎵', from, to: title, why: artist || short(mood, 12), src, sure: true, i });
             return;
+        }
+        case 'quote': {
+            // 📜 quote: 구절 원문 | 출처(작품 · 사람 · 나라) | 한국어 뜻(외국어일 때) | 왜 어울리는지
+            const [text = '', from2 = '', mean = '', why2 = ''] = parts(v);
+            const t = short(text.replace(/^["“'「『]|["”'」』]$/g, '').trim(), 120);
+            if (!t || /^(없음|none|-)$/i.test(t) || norm(t) === norm(S.quote?.text)) return;
+            S.quote = { text: t, src: short(from2, 40), mean: short(mean, 120), why: short(why2, 60) };
+            S.quoteLog = [...(S.quoteLog ?? []), S.quote].slice(-30);
+            ch.push({ f: 'quote', label: '한 구절', icon: '📜', from: '', to: short(t, 24), why: short(from2, 20), src, sure: true, i });
+            return;
+        }
         case 'newsline':
             if (v) news(S, '📰', short(v, 60), 'world', '');
             return;
@@ -782,7 +801,7 @@ export function fold(force = false) {
             const bk = bookFor(meta, i), x = makeCtx(bk, S, ch, flags);
             const W = wantsOf(bk, S), P = { tasted: S.tasted?.length ?? 0, visited: S.visited?.length ?? 0, rolls: S.rolls?.length ?? 0, kept: (S.promises ?? []).filter(q => q.done).length, custom: JSON.stringify(S.custom) }; // ⭐ 이 답 전에 원하던 것 · 그때 개수
             for (const o of opsOf(m, bk)) { const n0 = ch.length; try { applyOp(bk, S, x, o.k, o.v, o.j, o.src, ch); } catch (e) { console.warn('[미트볼 라이트] 줄 건너뜀', o, e); } if (o.why) for (let q = n0; q < ch.length; q++) if (ch[q].src === o.src) ch[q].why = o.why; }
-            for (const e of S.mindLog ?? []) e.m ??= i; // 💭 몇 번째 메시지에서 떴나
+            for (const e of [...(S.mindLog ?? []), ...(S.bgmLog ?? []), ...(S.quoteLog ?? []), S.bgm, S.quote]) if (e) e.m ??= i; // 💭🎵📜 몇 번째 메시지에서 떴나
             afterTurn(bk, S, x, ch, W, i, P);
         }
         cache.sig[i] = sigOf(m); cache.changes[i] = ch; cache.flags[i] = msgData(m)?.flagOk ? [] : flags; cache.needs[i] = { ...S.needs, ...Object.fromEntries(Object.entries(S.gauges ?? {}).map(([g, v]) => [`g:${g}`, v])) };

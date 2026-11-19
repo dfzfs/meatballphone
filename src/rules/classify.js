@@ -28,7 +28,9 @@ const KEYS = [
     ['conflict', '내용', '답 글이 [STATE]와 분명히 부딪칠 때만 (예: 없는 돈을 씀)'],
 ];
 const MIND = [['mind', '이름 | 짧은 속마음', '장면 속 인물의 속마음']];
-const keyList = () => [...KEYS, ...(getMeta()?.mods?.mind ? MIND : [])];
+const BGM = [['bgm', '곡 제목 - 가수 | 분위기 한 단어 | 왜 어울리는지', '장면 분위기가 바뀌었을 때만 · 실제로 있는 곡 · [NOW]의 취향 참고 · 안 바뀌었으면 쓰지 않음']];
+const QUOTE = [['quote', '구절 원문 | 출처(작품 · 사람 · 나라) | 한국어 뜻(외국어일 때만) | 왜 어울리는지', '장면 분위기가 바뀌었을 때만 · 속담 · 영화/드라마 명대사 · 책/시 한 줄 · 유명인의 말 · 사자성어 · 노래 가사는 안 됨 · 한두 문장 · [NOW]의 최근 구절은 피함']];
+const keyList = () => { const M = getMeta()?.mods ?? {}; return [...KEYS, ...(M.mind ? MIND : []), ...(M.music ? BGM : []), ...(M.quote ? QUOTE : [])]; };
 export const ALLOW = () => new Set(keyList().map(([k]) => kindOf(k)));
 
 // 인물마다 오르는 · 내리는 행동 (장면에 있는 사람 먼저 · 없으면 가까운 둘)
@@ -61,6 +63,15 @@ export function fingerprint(i) {
     return hash(`${stripTags(m?.mes ?? '')}|${u >= 0 ? chat[u].mes : ''}|${JSON.stringify(choiceOf(u) ?? '')}`);
 }
 
+// 지금 곡 · 지금 구절 · 음악 취향 · 최근 구절 10개 (음악 · 구절 앱을 켰을 때만)
+export const tasteOf = () => (getMeta()?.musicTaste || settings().musicTaste || '').trim();
+export const recentQuotes = (S) => (S.quoteLog ?? []).slice(-10).map(q => short(q.text, 40));
+function nowLine(S) {
+    const M = getMeta()?.mods ?? {}, L = [];
+    if (M.music) L.push(`song ${S.bgm ? `${S.bgm.title}${S.bgm.artist ? ` - ${S.bgm.artist}` : ''} (${S.bgm.mood || '-'})` : '-'}${tasteOf() ? ` · taste ${tasteOf()}` : ''}`);
+    if (M.quote) L.push(`quote ${S.quote ? `「${short(S.quote.text, 40)}」` : '-'}${recentQuotes(S).length ? ` · recent quotes (avoid): ${recentQuotes(S).join(' / ')}` : ''}`);
+    return L.length ? `[NOW] ${L.join(' · ')}` : '';
+}
 // 분류 모델에 보낼 글 (짧게)
 export function buildPrompt(i) {
     const r = fold(); if (!r) return null;
@@ -79,6 +90,7 @@ export function buildPrompt(i) {
         `[STATE] place ${S.loc || '-'} · time ${Math.floor(((S.t % 1440) + 1440) % 1440 / 60)}h · with ${S.with.join(', ') || '-'} · money ${S.cash} ${book.world.currency} · items ${items}`,
         ch && `[CHOICE] ${ch} — pick events that match this result (cost, trap, success or failure).`,
         acts.length ? `[ACTIONS]\n${acts.join('\n')}` : '[ACTIONS] (none)',
+        nowLine(S),
         `[PLACES] ${places || '-'}`,
         `[KEYS]\n${keys}`,
         gloss(),
@@ -92,12 +104,18 @@ export const clsStats = { calls: 0, tok: 0, lastTok: 0, fails: 0 };
 async function send(system, user) {
     const c = ctx(), prof = settings().clsProfile;
     if (!prof || !c.ConnectionManagerRequestService) throw new Error('분류 연결 없음');
-    clsStats.calls++;
+    clsStats.calls++; clsStats.lastSent = { system, user };
     const r = await c.ConnectionManagerRequestService.sendRequest(prof, [{ role: 'system', content: system }, { role: 'user', content: user }], 300,
         { stream: false, extractData: true, includePreset: false, includeInstruct: false }, { temperature: 0 });
-    return String(r?.content ?? r ?? '');
+    clsStats.lastReply = String(r?.content ?? r ?? '');
+    return clsStats.lastReply;
 }
 
+// 가벼운 모델 한 번 (버튼 · 새 인물 규칙): 분류 연결이 있으면 그것, 없으면 상태창 만들기 연결
+export async function askLight(system, user) {
+    if (settings().clsProfile && ctx().ConnectionManagerRequestService) return send(system, user);
+    return (await import('./ai.js')).ask(user, system);
+}
 // 받은 줄 거르기: 목록 밖의 키 · 행동은 조용히 버림 · 비슷한 말은 목록 행동으로 맞춤
 export function filterOps(raw, book, S) {
     if (!/<meatball>/i.test(String(raw))) throw new Error('형식 오류');
@@ -170,9 +188,7 @@ export async function fillPerson(name, why = '') {
         + 'up = 3 actions that raise their affection, down = 3 that lower it. Short words.';
     const chat = ctx().chat ?? [], last = [...chat].reverse().find(m => !m.is_user && m.mes?.includes(name));
     try {
-        const raw = settings().clsProfile && ctx().ConnectionManagerRequestService
-            ? await send(sys, `Character: ${name}${why ? ` — ${why}` : ''}\nScene:\n${short(stripTags(last?.mes ?? ''), 1500)}`)
-            : await (await import('./ai.js')).ask(`Character: ${name}${why ? ` — ${why}` : ''}\nScene:\n${short(stripTags(last?.mes ?? ''), 1500)}`, sys);
+        const raw = await askLight(sys, `Character: ${name}${why ? ` — ${why}` : ''}\nScene:\n${short(stripTags(last?.mes ?? ''), 1500)}`);
         const j = JSON.parse(String(raw).slice(String(raw).indexOf('{'), String(raw).lastIndexOf('}') + 1));
         const m2 = getMeta(); if (personOf(m2.book, name)) return false; // 그새 직접 넣었으면 건드리지 않음
         const up = (j.up ?? []).filter(a => a?.act).slice(0, 3), down = (j.down ?? []).filter(a => a?.act).slice(0, 3);

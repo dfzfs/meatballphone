@@ -5,15 +5,13 @@ import { row, card, chip, seg, bar, empty, btn, sheet, toast, putInput, form } f
 import { fold, derived, needStage, relStage, nextStage, stagesOf, pairKey, diceParts, worldEvent, priceMul, whereNow, matchOf, myTraits } from '../rules/engine.js';
 import { traitOf } from '../../data/traits.js';
 import { luckOf } from '../rules/luck.js';
-import { QUOTES } from '../../data/quotes.js';
 import { vis, handLines } from './tools.js';
-const QN = QUOTES.length;
 const d20Svg = (n, c) => `<svg class="ml-d20 big ${c}" viewBox="0 0 100 100">${n === 1 ? '<polyline class="crack" points="38,8 46,30 36,44 52,60 44,78 54,94"/>' : ''}<polygon `
     + `class="f0" points="50,4 92,28 92,72 50,96 8,72 8,28"/><polygon class="f1" points="50,22 78,66 22,66"/><polyline class="ed" points="50,4 50,22 `
     + `92,28 78,66 92,72 50,96 78,66 22,66 8,72 22,66 8,28 50,22 22,66"/><text x="50" y="56">${n}</text></svg>`;
 import { layout, lineEdges, lineNodes, route, floorsOf } from './metro.js';
 import { personOf, placeOf, bookTokens, personTokens, normBook, PLACE_KINDS, LIMIT } from '../rules/book.js';
-import { moodTags, pickQuote, pickMusic } from '../rules/mood.js';
+import { musicView, quoteView, songLine, quoteLine, musicAct } from './music.js';
 import { LEVELS, GAUGES, PRESETS, level, gaugeCfg, levelCost } from '../rules/inject.js';
 import { fillBook } from '../rules/ai.js';
 
@@ -70,16 +68,15 @@ function gaugeCard(r, g, last) {
         <div class="ml-gc-f"><span class="ml-steps2">${[-10, -1, 1, 10].map(d => `<button class="ml-mini2" data-act="gstep" data-v="${esc(g.name)}:${d}">${d > 0 ? '+' : '−'}${Math.abs(d)}</button>`).join('')}</span><span class="dim">${esc(g.desc)}</span></div></div>`;
 }
 function now(r) {
-    const { S, book } = r, meta = getMeta(), li = lastAI(), last = r.changes[li] ?? [];
+    const { S, book } = r, li = lastAI(), last = r.changes[li] ?? [];
     const dz = derived(book, S);
     const tags = [...S.status.map(s => chip(`${s.src === 'fate' ? '🔮 ' : ''}${esc(s.name)}${s.until ? ` · ${Math.max(1, Math.round((s.until - S.t) / 60))}h` : ''}${s.dice ? ` · 🎲${signed(s.dice)}` : ''}`, s.kind === 'good' ? 'good' : s.kind === 'bad' ? 'bad' : 'mid')),
         ...dz.filter(d => d.stage === '위험').map(d => chip(`${d.icon} ${esc(d.name)} 위험 · 🎲${d.dice}`, 'bad'))];
     const V = (k) => vis('now', k);
     let h = !V('tags') ? '' : `<h4 class="ml-h4">상태 딱지</h4><div class="ml-chips">${tags.join('') || '<span class="ml-sub">없음</span>'}</div>`;
-    const tg = moodTags(r, last), side = [];
-    if (modOn('music')) { const m = S.bgm ? { label: S.bgm, query: S.bgm, why: '답에 나온 곡' } : pickMusic(tg, settings().musicTaste); side.push(`<div class="ml-scene tap" data-act="music" data-v="${esc(m.query)}"><i>🎵</i><span><b>${esc(m.label)}</b>`
-        + `<small>${esc(tg.map(t => MOOD_KO[t] ?? t).slice(0, 3).join(' · '))}</small></span><em>▶</em></div>`); }
-    if (modOn('quote')) { const q = pickQuote(tg, meta.recent?.quote ?? [], S.turn); if (q) side.push(`<div class="ml-scene tap" data-act="quote" data-v="${esc(`${q.text}\n\n${q.mean}\n— ${q.src}`)}"><i>📜</i><span><b>${esc(q.text)}</b><small>${esc(q.src)}</small></span><em>ⓘ</em></div>`); }
+    const side = [];
+    if (modOn('music')) side.push(songLine(S));
+    if (modOn('quote')) side.push(quoteLine(S));
     { const l = luckOf(book, S, ctx().getCurrentChatId?.()); side.push(`<div class="ml-scene luck"><i>🍀</i><span><b>${esc(l.text)}</b><small>오늘 운세 · 선택지에 🍀 · ⚠로 보여요</small></span></div>`); }
     if (side.length && V('scene')) h += `<h4 class="ml-h4">이 장면</h4><div class="ml-scenes">${side.join('')}</div>`;
     if (modOn('stats')) {
@@ -100,7 +97,6 @@ function now(r) {
     if (S.with.length && modOn('rel') && V('with')) h += `<h4 class="ml-h4">같이 있는 사람</h4><div class="ml-rcs">${S.with.map(n => relCard(r, n)).join('')}</div>`;
     return h;
 }
-const MOOD_KO = { love: '설렘', sad: '울적', tired: '나른함', hungry: '허기', rain: '비', conflict: '갈등', jealous: '질투', festive: '들뜸', friend: '함께', hope: '희망', money: '빠듯함', bad: '불운', good: '행운', calm: '잔잔함' };
 // ───── 🎲 주사위: 능력치 + 보정 내역 → d20 · 결과는 입력창에 (이야기에 남게) ─────
 const DCS = [['쉬움', 8], ['보통', 12], ['어려움', 15], ['매우 어려움', 18], ['극한', 22]];
 let diceSel = { attr: '', dc: 12 };
@@ -603,28 +599,7 @@ const slider = (id, v, name = '전체') => { const c = levelCost(v); return `<di
     + `<div class="ml-gauge-t">${LEVELS.map(l => `<span class="${l.n === v ? 'on' : ''}">${l.name}</span>`).join('')}</div></div>`; };
 
 export { upcoming, lastAI, relCard };
-function music(r) {
-    const { S } = r, last = r.changes[lastAI()] ?? [], tg = moodTags(r, last), m = pickMusic(tg, settings().musicTaste);
-    const why = tg.map(t => MOOD_KO[t] ?? t);
-    let h = `<div class="ml-scene tap" data-act="music" data-v="${esc(S.bgm || m.query)}"><i>🎵</i><span><b>${esc(S.bgm || m.label)}</b><small>${S.bgm ? '이번 답에 나온 곡' : '지금 장면에 맞춰 고름'}</small></span><em>▶</em></div>`;
-    h += `<h4 class="ml-h4">왜 이 곡</h4><div class="ml-chips">${why.map(w => `<span class="ml-chip">${esc(w)}</span>`).join('')}</div>`;
-    h +=
-        `<h4 class="ml-h4">다른 ` +
-        `분위기</h4>${['love', 'calm', 'tired', 'rain', 'festive', 'conflict']
-            .filter((t) => !tg.includes(t))
-            .slice(0, 4)
-            .map((t) => {
-                const x = pickMusic([t], settings().musicTaste);
-                return `<div class="ml-rl tap" data-act="music" data-v="${esc(x.query)}"><i>🎧</i>${esc(x.label)} <span>${esc(MOOD_KO[t])}</span></div>`;
-            })
-            .join('')}`;
-    h += `<h4 class="ml-h4">어디서 틀까</h4><div class="ml-picks">${[['youtube', 'YouTube'], ['spotify', 'Spotify']].map(([k, n]) => `<button class="ml-btn xs${settings().musicApp === k ? ' on' : ''}" data-act="musicapp" data-v="${k}">${n}</button>`).join('')}</div>`;
-    return h;
-}
-function quote(r) {
-    const { S } = r, meta = getMeta(), tg = moodTags(r, r.changes[lastAI()] ?? []), q = pickQuote(tg, meta.recent?.quote ?? [], S.turn);
-    return `<div class="ml-qcard"><b>${esc(q.text)}</b><p>${esc(q.mean)}</p><small>— ${esc(q.src)}</small></div><div class="ml-hint">AI가 고르지 않아요. 확인된 구절 ${QN}개 중에서 지금 분위기(${tg.map(t => MOOD_KO[t] ?? t).join(' · ')})로 골라요. 영향력을 올리면 대사나 내레이션에 한 번 녹아들어요.</div>`;
-}
+const music = (r) => musicView(r), quote = (r) => quoteView(r);
 export const RENDER = { music, quote, now, dice, bag, rel, map, cal, news, rec, mind, custom, book, gauge };
 
 // ───── 누르기 ─────
@@ -635,22 +610,8 @@ export async function onAct(act, v, el) {
             putInput(v);
             app.closeSheet?.();
             return;
-        case 'music':
-            window.open(
-                settings().musicApp === 'spotify'
-                    ? `https://open.spotify.com/search/${encodeURIComponent(v)}`
-                    : `https://www.youtube.com/results?search_query=${encodeURIComponent(v)}`,
-                '_blank',
-            );
-            return;
-        case 'quote': {
-            sheet('한 구절', `<p class="ml-quote">${esc(v).replace(/\n/g, '<br>')}</p>`);
-            const t = el?.querySelector('b')?.textContent;
-            if (t) {
-                meta.recent.quote = [t, ...(meta.recent.quote ?? [])].slice(0, 8);
-                saveMeta();
-            }
-            return;
+        case 'song3': case 'quote-new': case 'musicapp': case 'musicpop': case 'taste-edit': {
+            const done = await musicAct(act, v, r, hand); if (done === 'refresh') app.refresh?.(); return;
         }
         case 'person':
             personSheet(r, v);
@@ -1030,6 +991,17 @@ export async function onAct(act, v, el) {
         }
         case 'cls-redo': app.reclassify?.(Number(v)); return; // 🔄 다시 고르기 (B)
         case 'npc-fill': { toast(`${v} 규칙을 채우는 중…`); const ok = await app.fillPerson?.(v); toast(ok ? `${v} 규칙을 채웠어요` : '못 채웠어요 · 설정집에서 직접 넣을 수 있어요', ok ? 'good' : 'bad'); return; }
+        // 📘 첫 화면 → 설정집 만들기 → 🛍️ 쓸 앱 고르기 → 시작
+        case 'mk-ai': return app.create?.(true);
+        case 'mk-self': return app.create?.(false);
+        case 'setup-start': {
+            const box = el?.closest('#ml-full') ?? document; if (!meta) return;
+            for (const cb of box.querySelectorAll('.ml-setup-cb')) meta.mods[cb.dataset.mod] = cb.checked;
+            const then = meta.setupThen; delete meta.setup; delete meta.setupThen; saveMeta();
+            toast(`앱 ${[...box.querySelectorAll('.ml-setup-cb')].filter(c => c.checked).length}개를 깔았어요`, 'good');
+            app.refresh?.(true); app.openSheet?.(then === 'book' ? 'book' : 'home'); return;
+        }
+        case 'report': return (await import('../extra/report.js')).reportSheet();
         case 'doctor': {
             const d = await import('../extra/doctor.js');
             d.doctor(app, app.perfData?.());

@@ -1,0 +1,111 @@
+// 🎵 추천 음악 · 📜 한 구절 — dev처럼 AI가 장면을 보고 고른다 (B: 분류 모델 1회에 같이 · A: 본편이 bgm: · quote: 줄로)
+//   저장은 그 메시지 · 스와이프의 사건(bgm · quote)이라 리롤 · 분기 · 삭제에 맞게 따라간다.
+//   버튼(「곡 3개」 · 「다른 구절」)만 따로 AI 1회 → 고르면 손 고침(hand)으로 그 답에 적는다.
+import { getMeta, saveMeta, settings, saveSettings, ctx } from '../base/st.js';
+import { esc, short } from '../base/util.js';
+import { stripTags } from '../rules/tags.js';
+import { askLight, tasteOf, recentQuotes } from '../rules/classify.js';
+import { parseJSON } from '../rules/ai.js';
+import { sheet, form, toast, btn } from './kit.js';
+
+// ▶ 누르면 열 곳 (dev MUSIC_APPS · songLink과 같음)
+export const MUSIC_APPS = {
+    youtube: { name: '유튜브', url: (q) => `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}` },
+    ytmusic: { name: '유튜브 뮤직', url: (q) => `https://music.youtube.com/search?q=${encodeURIComponent(q)}` },
+    spotify: { name: '스포티파이', url: (q) => `https://open.spotify.com/search/${encodeURIComponent(q)}` },
+    melon: { name: '멜론', url: (q) => `https://www.melon.com/search/total/index.htm?q=${encodeURIComponent(q)}` },
+};
+export const songLink = (x) => (MUSIC_APPS[settings().musicApp] ?? MUSIC_APPS.youtube).url(`${x.title} ${x.artist ?? ''}`.trim());
+const play = (x) => `<a class="ml-btn xs ml-play" href="${esc(songLink(x))}" target="_blank" rel="noopener" title="${esc((MUSIC_APPS[settings().musicApp] ?? MUSIC_APPS.youtube).name)}에서 열기">▶</a>`;
+const lastAIOf = () => { const c = ctx().chat ?? []; for (let i = c.length - 1; i >= 0; i--) if (!c[i].is_user && !c[i].is_system) return i; return -1; };
+const sceneText = () => { const i = lastAIOf(); return i >= 0 ? short(stripTags(ctx().chat[i].mes), 1500) : ''; };
+
+// 「이 장면」 한 줄 (홈 · 수치 화면)
+export function songLine(S) {
+    const b = S.bgm;
+    if (!b) return '<div class="ml-scene tap" data-act="open" data-v="music"><i>🎵</i><span><b>아직 고른 곡이 없어요</b><small>장면 분위기가 바뀌면 AI가 골라요</small></span><em>›</em></div>';
+    return `<a class="ml-scene tap" href="${esc(songLink(b))}" target="_blank" rel="noopener"><i>🎵</i><span><b>${esc(b.title)}${b.artist ? ` <small>· ${esc(b.artist)}</small>` : ''}</b>`
+        + `<small>${esc([b.mood, b.why].filter(Boolean).join(' · '))}</small></span><em>▶</em></a>`;
+}
+export function quoteLine(S) {
+    const q = S.quote;
+    if (!q) return '<div class="ml-scene tap" data-act="open" data-v="quote"><i>📜</i><span><b>아직 고른 구절이 없어요</b><small>장면 분위기가 바뀌면 AI가 골라요</small></span><em>›</em></div>';
+    return `<div class="ml-scene tap" data-act="open" data-v="quote"><i>📜</i><span><b>${esc(q.text)}</b><small>${esc(q.mean || q.src)}</small></span><em>ⓘ</em></div>`;
+}
+
+// ───── 🎵 추천 음악 앱 ─────
+export function musicView(r) {
+    const { S } = r, b = S.bgm, meta = getMeta();
+    let h = b
+        ? `<div class="ml-song"><div class="ml-song-h"><i>🎵</i><span><b>${esc(b.title)}</b><small>${esc(b.artist || '가수 모름')}${b.mood ? ` · ${esc(b.mood)}` : ''}</small></span>${play(b)}</div>`
+            + `${b.why ? `<div class="ml-rl"><i>💡</i>${esc(b.why)}</div>` : ''}<small class="ml-sub">🤖 AI가 장면을 보고 고른 곡이에요 · 실제로 없는 곡일 수도 있어요</small></div>`
+        : '<div class="ml-empty"><p>아직 고른 곡이 없어요. 장면 분위기가 바뀌면 AI가 골라요.</p></div>';
+    h += `<div class="ml-acts">${btn('🎧 지금 장면에 어울리는 곡 3개 <small>(AI 1회)</small>', 'song3', '', 'sm')}</div>`;
+    h += `<h4 class="ml-h4">음악 취향 <span>이 채팅 · 비우면 기본값</span></h4>`
+        + `<div class="ml-rl tap" data-act="taste-edit"><i>🎼</i>${esc(meta.musicTaste || '(기본값)')} <span>· 기본 ${esc(settings().musicTaste || '없음')}</span></div>`;
+    h += `<h4 class="ml-h4">▶ 누르면 열 곳</h4><div class="ml-picks">${Object.entries(MUSIC_APPS).map(([k, a]) => `<button class="ml-btn xs${(settings().musicApp || 'youtube') === k ? ' on' : ''}" data-act="musicapp" data-v="${k}">${a.name}</button>`).join('')}</div>`;
+    h += `<h4 class="ml-h4">곡이 바뀌면 알림</h4><div class="ml-picks">${[['on', '켜기'], ['off', '끄기']].map(([k, n]) => `<button class="ml-btn xs${(settings().musicPop ?? 'on') === k ? ' on' : ''}" data-act="musicpop" data-v="${k}">${n}</button>`).join('')}</div>`;
+    const log = (S.bgmLog ?? []).slice(0, -1).reverse().slice(0, 15);
+    if (log.length) h += `<h4 class="ml-h4">지난 곡 <span>누르면 그 답으로</span></h4>${log.map(x => `<div class="ml-rl"><i>🎶</i><span class="tap" data-act="jump" data-v="${x.m ?? ''}"><b>${esc(x.title)}</b> ${esc(x.artist)} <span>#${x.m ?? '-'}</span></span>${play(x)}</div>`).join('')}`;
+    return h;
+}
+// ───── 📜 한 구절 앱 ─────
+export function quoteView(r) {
+    const { S } = r, q = S.quote;
+    let h = q
+        ? `<div class="ml-qcard"><b>${esc(q.text)}</b>${q.mean ? `<p>${esc(q.mean)}</p>` : ''}<small>— ${esc(q.src || '출처 모름')} <u class="ml-ai">AI가 고름</u></small>${q.why ? `<p class="ml-sub">💡 ${esc(q.why)}</p>` : ''}</div>`
+        : '<div class="ml-empty"><p>아직 고른 구절이 없어요. 장면 분위기가 바뀌면 AI가 골라요.</p></div>';
+    h += `<div class="ml-acts">${btn('🔄 다른 구절 <small>(AI 1회)</small>', 'quote-new', '', 'sm')}</div>`;
+    h += '<div class="ml-hint">속담 · 영화 · 드라마 명대사 · 책 · 시의 한 줄 · 유명인의 말 · 사자성어에서 골라요 (노래 가사는 빼요). 출처는 AI 기억이라 틀릴 수 있어요. 영향력 1부터 구절이 바뀐 턴에 본편에 한 번 들어가요.</div>';
+    const log = (S.quoteLog ?? []).slice(0, -1).reverse().slice(0, 10);
+    if (log.length) h += `<h4 class="ml-h4">지난 구절 <span>누르면 그 답으로</span></h4>${log.map(x => `<div class="ml-rl tap" data-act="jump" data-v="${x.m ?? ''}"><i>📜</i>${esc(x.text)} <span>— ${esc(x.src)} · #${x.m ?? '-'}</span></div>`).join('')}`;
+    return h;
+}
+
+// ───── 버튼 (AI 1회) ─────
+const SONG_SYS = 'Suggest 3 REAL existing songs that fit the roleplay scene. Output JSON only: {"songs":[{"title":"","artist":"","mood":"한 단어","why":"왜 어울리는지 한 줄 (한국어)"}]}. '
+    + 'Use songs that actually exist. Respect the listener taste if given.';
+const QUOTE_SYS = 'Pick ONE short line that fits the roleplay scene: a proverb from any country, a famous movie/drama line, a line from a book or poem, a famous person\'s saying, or a Korean 사자성어. '
+    + 'NEVER song lyrics. One or two sentences. Output JSON only: {"text":"원문","src":"출처(작품 · 사람 · 나라)","mean":"한국어 뜻 (원문이 외국어일 때만)","why":"왜 어울리는지 한 줄 (한국어)"}.';
+export async function musicAct(act, v, r, hand) {
+    const meta = getMeta();
+    switch (act) {
+        case 'song3': {
+            toast('어울리는 곡을 찾는 중…');
+            try {
+                const j = parseJSON(await askLight(SONG_SYS, `Taste: ${tasteOf() || '-'}\nNow: ${r.S.bgm ? `${r.S.bgm.title} - ${r.S.bgm.artist}` : '-'}\nScene:\n${sceneText()}`));
+                const L = (j?.songs ?? []).filter(x => x?.title).slice(0, 3);
+                if (!L.length) throw new Error('빈 답');
+                const el = sheet('🎧 지금 장면에 어울리는 곡', `<div class="ml-card">${L.map((x, k) => `<div class="ml-row"><span class="ml-tx"><b>${esc(x.title)}</b><small>${esc(x.artist ?? '')}${x.mood ? ` · ${esc(x.mood)}` : ''}`
+                    + `${x.why ? ` · ${esc(x.why)}` : ''}</small></span><span class="ml-val">${play(x)}<button class="ml-btn xs main" data-song="${k}`
+                    + `">고르기</button></span></div>`).join('')}</div>`);
+                el.addEventListener('click', (e) => {
+                    const b = e.target.closest('[data-song]'); if (!b) return; const x = L[Number(b.dataset.song)];
+                    hand(`bgm: ${x.title} - ${x.artist ?? ''} | ${x.mood ?? ''} | ${x.why ?? ''}`, '🎧 직접 고른 곡'); el.remove();
+                });
+            } catch (e) { toast(`곡을 못 받았어요 · ${e.message}`, 'bad'); }
+            return true;
+        }
+        case 'quote-new': {
+            toast('어울리는 구절을 찾는 중…');
+            try {
+                const j = parseJSON(await askLight(QUOTE_SYS, `Avoid these recent ones: ${recentQuotes(r.S).join(' / ') || '-'}\nScene:\n${sceneText()}`));
+                if (!j?.text) throw new Error('빈 답');
+                hand(`quote: ${j.text} | ${j.src ?? ''} | ${j.mean ?? ''} | ${j.why ?? ''}`, '🔄 다른 구절');
+            } catch (e) { toast(`구절을 못 받았어요 · ${e.message}`, 'bad'); }
+            return true;
+        }
+        case 'musicapp': settings().musicApp = v; saveSettings(); return 'refresh';
+        case 'musicpop': settings().musicPop = v; saveSettings(); return 'refresh';
+        case 'taste-edit': {
+            const fv = await form('🎼 음악 취향', [
+                { k: 'chat', label: '이 채팅 (비우면 기본값)', v: meta.musicTaste ?? '', ph: '예: 시티팝 · 재즈 · 일본 애니 OST' },
+                { k: 'all', label: '기본값 (모든 채팅)', v: settings().musicTaste ?? '' },
+            ]);
+            if (!fv) return true;
+            meta.musicTaste = fv.chat.trim().slice(0, 60); settings().musicTaste = fv.all.trim().slice(0, 60); saveMeta(); saveSettings();
+            return 'refresh';
+        }
+    }
+    return false;
+}

@@ -2,7 +2,7 @@
 import { open, sleep } from './lib.mjs';
 const { page, close } = await open();
 try {
-    await page.evaluate(() => document.querySelector('[data-ml="create-tpl"]').click()); await sleep(300);
+    await page.evaluate(() => window.__quickStart()); await sleep(300);
     await page.evaluate(async () => {
         const T = await import('/ext/data/traits.js'); const m = __ML__.getMeta();
         m.book.me.traitIds = T.TRAITS.slice(0, 3).map(t => t.id);

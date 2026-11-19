@@ -3,7 +3,7 @@ import { open, sleep } from './lib.mjs';
 const N = Number(process.env.N || 600);
 const { page, close } = await open();
 try {
-    await page.evaluate(() => document.querySelector('[data-ml="create-tpl"]').click()); await sleep(300);
+    await page.evaluate(() => window.__quickStart()); await sleep(300);
     await page.evaluate(async (N) => {
         const st = window.__st; let t0 = Date.UTC(2026, 0, 1);
         const ops = ['buy: 빵 | 3', 'ate: 빵', 'act: Leon | 칭찬', 'got: 꽃', 'loc: 시장', 'time: +1h', 'status: 감기 | 1d', 'promise: 약속 | 2d'];

@@ -3,7 +3,7 @@ import { open, sleep } from './lib.mjs';
 const { page, close } = await open({ width: 1440, height: 900 });
 try {
     await page.addStyleTag({ content: 'input[type="range"]{width:100%}' });
-    await page.evaluate(() => document.querySelector('[data-ml="create-tpl"]').click()); await sleep(300);
+    await page.evaluate(() => window.__quickStart()); await sleep(300);
     await page.evaluate(async () => {
         const st = await import('/ext/src/base/st.js'), { normBook } = await import('/ext/src/rules/book.js'); const m = st.getMeta();
         m.book = normBook({ ...m.book, world: { ...m.book.world, places: [
