@@ -7,8 +7,8 @@ try {
     await page.evaluate(() => window.__quickStart()); await sleep(300);
     await page.evaluate(() => window.__addUser('가자')); await page.evaluate(() => window.__addAI('…\n<meatball>\nloc: 시장\n</meatball>')); await sleep(300);
     // 앱 전부 켜기
-    await page.evaluate(async () => { const st = await import('/ext/src/base/st.js'); const m = st.getMeta(); for (const k of ['stats', 'wallet', 'rel', 'map', 'calendar', 'dice', 'news', 'record', 'music', 'quote', 'mind', 'custom', 'traits']) (m.mods ??= {})[k] = true; st.saveMeta(); });
-    const apps = ['now', 'dice', 'bag', 'rel', 'map', 'cal', 'news', 'music', 'quote', 'rec', 'mind', 'traits', 'custom'];
+    await page.evaluate(async () => { const st = await import('/ext/src/base/st.js'); const m = st.getMeta(); for (const k of ['stats', 'wallet', 'rel', 'map', 'calendar', 'dice', 'news', 'record', 'music', 'quote', 'mind', 'custom']) (m.mods ??= {})[k] = true; st.saveMeta(); });
+    const apps = ['now', 'dice', 'bag', 'rel', 'map', 'cal', 'news', 'music', 'quote', 'rec', 'mind', 'custom'];
     const miss = [];
     for (const a of apps) {
         await page.evaluate((a) => __ML__.app.openSheet(a), a); await sleep(120);

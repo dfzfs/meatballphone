@@ -78,7 +78,7 @@ try {
     check(o.loc === '여관' && o.ppl.includes('Leon') && !(await page.evaluate(() => window.__errors.length)), '옛 미트볼 옮겨 오기 (지운 칸 줄은 조용히 건너뜀)', JSON.stringify(o));
     // 휴대폰 폭: 가로로 넘치지 않음
     await page.setViewportSize({ width: 360, height: 760 });
-    for (const a of ['home', 'now', 'rel', 'map', 'cal', 'dice', 'traits', 'market']) {
+    for (const a of ['home', 'now', 'rel', 'map', 'cal', 'dice', 'market']) {
         await page.evaluate((a) => __ML__.app.openSheet(a), a);
         await sleep(120);
         const ov = await page.evaluate(() => {

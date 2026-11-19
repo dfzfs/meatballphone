@@ -3,7 +3,6 @@ import { ctx, settings, userName } from '../base/st.js';
 import { normBook, emptyBook } from './book.js';
 import { short, hash } from '../base/util.js';
 import { gloss } from '../base/gloss.js';
-import { TRAITS } from '../../data/traits.js';
 
 export const stats = { calls: 0, ms: 0, last: 0 };
 export async function ask(prompt, system = '') {
@@ -42,12 +41,12 @@ const SCHEMA = `{"world":{"genre":"","currency":"골드","meal":10,"weather":["�
 "people":[{"name":"","aka":[],"face":"🙂","line":"성격 한 `
     + `줄","start":{"aff":10,"trust":10},"up":[{"act":"칭찬","d":3}],"down":[{"act":"거짓말","d":-5}],"signs":[{"at":60,"text":"눈을 `
     + `피함"}],"syn":[{"to":"","text":""}],"haunt":[],"routine":[{"at":"아침","place":""}],"likes":[],"hates":[],"day":"3월 14일 생일","want":"지금 원하는 `
-    + `것","noLove":false,"traits":["romantic"]}]}`;
+    + `것","noLove":false}]}`;
 export async function fillBook(only = null) {
     const src = await sources();
     const sys = 'You build a compact status-sheet rulebook for a roleplay. Output JSON only. Korean values. Keep every line short. Prices must be consistent with '
         + '"meal" (one meal). 3-6 places that matter, 3-5 goods per shop/food place. needs: 3-5 (hunger/energy/hygiene/mood style; rate = drop per '
-        + 'hour). people[].traits: 1-3 ids from this list only: ' + TRAITS.map(t => `${t.id}(${t.name})`).join(', ') + '. Birthdays as 「M월 D일」 if known.';
+        + 'hour). Birthdays as 「M월 D일」 if known.';
     const ask2 = only ? `Rebuild ONLY these people: ${only.join(', ')}. Output {"people":[...]}` : 'Fill the whole rulebook.';
     const raw = await ask(`${ask2}\n${gloss()}\nSchema:\n${SCHEMA}\n\nSource:\n${src.text}`, sys);
     const j = parseJSON(raw);

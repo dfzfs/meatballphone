@@ -17,14 +17,14 @@ export const APP_GAUGE = { now: 'stats', bag: 'wallet', rel: 'rel', map: 'map', 
 export const PARTS = {
     home: [['hero', '오늘 · 장소'], ['tags', '상태 딱지'], ['scene', '이 장면'], ['doable', '지금 할 수 있는 일'], ['wants', '원하는 것'], ['soon', '곧 일어날 일'], ['stats', '수치'], ['dice', '주사위'], ['with', '같이 있는 사람'], ['turn', '이번 답'], ['cal', '달력'], ['news', '세계 소식']],
     now: [['tags', '상태 딱지'], ['scene', '이 장면'], ['needs', '욕구'], ['gauges', '게이지'], ['attrs', '능력치'], ['turn', '이번 답'], ['with', '같이 있는 사람']],
-    rel: [['line', '성격 한 줄'], ['match', '특성 · 궁합'], ['meters', '애정 · 우정 막대'], ['call', '호칭 · 행동'], ['next', '다음 단계'], ['last', '최근 변화'], ['want', '속셈'], ['mem', '감정 기억'], ['taste', '취향'], ['place', '장소 · 생일']],
+    rel: [['line', '성격 한 줄'], ['meters', '애정 · 우정 막대'], ['call', '호칭 · 행동'], ['next', '다음 단계'], ['last', '최근 변화'], ['want', '속셈'], ['mem', '감정 기억'], ['taste', '취향'], ['place', '장소 · 생일']],
     map: [['map', '노선도'], ['pins', '인물 목록'], ['goods', '물가'], ['building', '건물 안 · 사진']],
     bag: [['cash', '재산'], ['items', '소지품'], ['shop', '가게']],
 };
 export const vis = (appId, part) => !(settings().partsOff?.[appId] ?? []).includes(part);
 export const hiddenAI = (gid) => !!getMeta()?.hideAI?.[gid];
 
-const EDITABLE = new Set(['now', 'dice', 'bag', 'rel', 'map', 'cal', 'news', 'custom', 'music', 'rec', 'mind', 'quote', 'traits']);
+const EDITABLE = new Set(['now', 'dice', 'bag', 'rel', 'map', 'cal', 'news', 'custom', 'music', 'rec', 'mind', 'quote']);
 export function toolbar(appId) {
     const gid = APP_GAUGE[appId], hid = gid && hiddenAI(gid);
     const B = [];
@@ -224,7 +224,6 @@ export async function editApp(appId) {
             if (!fv?.text?.trim()) return;
             return handLines([`quote: ${fv.text.trim().replace(/\|/g, '/')} | ${fv.src.trim()} | ${fv.mean.trim()} | ${fv.why.trim()}`], '✏️ 구절 직접 고침');
         }
-        case 'traits': return (await import('./traits.js')).traitAct?.('tr-pick', '') ?? toast('특성 화면에서 「＋」로 고르세요');
         case 'mind': {
             const fv = await form('✏️ 속마음', [
                 {
@@ -522,7 +521,7 @@ const AI_KEYS = 'loc, time(+2h | 14:30), weather, cash(+10 | -5), got(item | n),
 // 앱마다: 지금 값 요약 · 바꿀 수 있는 설정집 조각
 const AI_SCOPE = {
     now: { book: ['me'] }, dice: { book: ['me'] }, bag: { book: ['places'] }, rel: { book: ['people'] }, map: { book: ['places'] }, cal: { book: ['world'] },
-    news: { book: [] }, music: { book: [] }, quote: { book: [] }, rec: { book: [] }, mind: { book: [] }, traits: { book: ['me', 'people'] }, custom: { book: [] },
+    news: { book: [] }, music: { book: [] }, quote: { book: [] }, rec: { book: [] }, mind: { book: [] }, custom: { book: [] },
     book: { book: ['world', 'me', 'people', 'places'] },
 };
 export const AI_APPS = new Set(Object.keys(AI_SCOPE));
@@ -531,7 +530,7 @@ function aiNow(appId, r) {
     const all = `place ${S.loc} · time ${S.t} · weather ${S.weather} · cash ${S.cash} · needs ${JSON.stringify(S.needs)} · status ${S.status.map((x) => x.name).join(',') || '-'}`;
     return {
         now: `needs ${JSON.stringify(S.needs)} gauges ${JSON.stringify(S.gauges)} attrs ${JSON.stringify(S.attrs)} status ${S.status.map((x) => x.name).join(',') || '-'}`,
-        dice: `attrs ${JSON.stringify(S.attrs)} status ${S.status.map((x) => `${x.name}(${x.dice ?? 0})`).join(',') || '-'} traits ${(b.me.traitIds ?? []).join(',') || '-'}`,
+        dice: `attrs ${JSON.stringify(S.attrs)} status ${S.status.map((x) => `${x.name}(${x.dice ?? 0})`).join(',') || '-'}`,
         bag: `cash ${S.cash} items ${S.items.map((i) => `${i.name}x${i.n}${i.worn ? '(worn)' : ''}`).join(', ') || '-'}`,
         rel: Object.entries(S.rel).map(([n, x]) => `${n} aff ${x.aff} trust ${x.trust}`).join(' · '),
         map: `here ${S.loc} with ${(S.with ?? []).join(',') || '-'}`,
@@ -540,7 +539,6 @@ function aiNow(appId, r) {
         music: S.bgm ? `now song ${S.bgm.title} - ${S.bgm.artist ?? ''} (${S.bgm.mood ?? ''})` : 'no song yet',
         quote: S.quote ? `now quote "${S.quote.text}" — ${S.quote.src ?? ''}` : 'no quote yet',
         mind: Object.entries(S.mind ?? {}).map(([n, t]) => `${n}: ${typeof t === 'string' ? t : JSON.stringify(t)}`).join(' / ') || '-',
-        traits: `my traits ${(b.me.traitIds ?? []).join(',') || '-'} · people ${b.people.map((p) => `${p.name}:${(p.traits ?? []).join('/')}`).join(' · ')}`,
         custom: JSON.stringify(S.custom ?? {}),
         rec: all,
         book: all,

@@ -26,13 +26,13 @@ try {
             leon: R.S.rel.Leon?.aff,
             keys: Object.keys(m),
             book: JSON.stringify(m.book),
-            me: m.book.me.traitIds,
+            me: m.book.me.traitIds, ptr: m.book.people.map(p => p.traits).filter(Boolean).length, mods: Object.keys(m.mods ?? {}),
             flags: Object.values(R.flags ?? {}).flat().length,
         };
     });
     check(!r.keys.includes('saves') && !r.keys.includes('autoSave') && !r.keys.includes('mapStyle'), '옛 칸 데이터 정리', r.keys.join(','));
     check(!/coins|은화|luxury|rockstar/.test(r.book), '설정집에서 지운 칸 정리', r.book.slice(0, 200));
-    check(r.me.join() === 'perfectionist', '지운 특성 → 가장 가까운 특성 (없으면 뺌)', r.me.join());
+    check(r.me === undefined && r.ptr === 0 && !r.mods.includes('traits'), '특성(v0.30에서 지움): 옛 채팅의 특성 데이터는 정리됨', JSON.stringify([r.me, r.ptr, r.mods]));
     check(r.cash === 77 + 4 - 4 && r.items.includes('사과2') && r.leon === 40, '불러온 상태는 보통 시작값으로 이어짐 · 은화는 기본 화폐로 합쳐짐', JSON.stringify(r));
     check(r.flags === 0, '지운 태그 줄은 조용히 건너뜀 (확인 필요 없음)');
     check(!logs.length && !(await page.evaluate(() => window.__errors.length)), '콘솔 오류 없음', logs.join('\n'));

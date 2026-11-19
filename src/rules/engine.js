@@ -6,34 +6,7 @@ import { readOps, kindOf, parts } from './tags.js';
 import { match } from './names.js';
 import { NEED_STAGES, NEED_SYMPTOM, personOf, placeOf } from './book.js';
 import { glossList } from '../base/gloss.js';
-import { traitCompat, syncCustomTraits, traitOf } from '../../data/traits.js';
-// 🧬 내 특성 효과 모으기 — S를 주면 「켜지는 조건」(커스텀 특성)이 맞는 것만
 const isHome = (book, S) => /home/.test(placeOf(book, S.loc)?.kind ?? '');
-const WHEN_OK = {
-    alone: (b, S) => !S.with.length, with: (b, S) => S.with.length > 0,
-    night: (b, S) => { const h = Math.floor((((S.t % DAY) + DAY) % DAY) / 60); return h >= 20 || h < 6; }, day: (b, S) => { const h = Math.floor((((S.t % DAY) + DAY) % DAY) / 60); return h >= 6 && h < 20; },
-    wet: (b, S) => /비|눈|폭우|폭설|rain|snow/i.test(S.weather), home: (b, S) => isHome(b, S), out: (b, S) => !isHome(b, S),
-    low: (b, S) => b.me.needs.some(n => (S.needs[n.key] ?? 100) < 40),
-};
-export const traitOn = (t, book, S) => !S || !t.when || t.when === 'always' || !!WHEN_OK[t.when]?.(book, S);
-export const myTraits = (book, S = null) => { syncCustomTraits(book.me.customTraits); return (book.me.traitIds ?? []).map(traitOf).filter(t => t && traitOn(t, book, S)); };
-// 궁합 배수: 💗 애정 축 · 🤝 우정 축을 따로 (반대가 끌리면 애정 +, 우정 −)
-function compatOf(book, name) {
-    syncCustomTraits(book.me.customTraits);
-    const p = personOf(book, name), tc = traitCompat(book.me.traitIds, p?.traits ?? []);
-    return { tc, aff: clamp(1 + tc.aff * 0.1, 0.6, 1.4), trust: clamp(1 + tc.trust * 0.1, 0.7, 1.3) };
-}
-const tmul = (T, k, sub) => T.reduce((a, t) => a * (sub ? (t[k]?.[sub] ?? 1) : (t[k] ?? 1)), 1);
-// 💞 관계 배수: 내 특성 × 특성 궁합 (오를 때) — 내릴 땐 나쁜 궁합이 더 깎는다
-export function relMul(book, name, axis, up, S = null) {
-    const T = myTraits(book, S), compat = compatOf(book, name)[axis === 'aff' ? 'aff' : 'trust'];
-    if (up) return tmul(T, axis) * compat;
-    return (axis === 'aff' ? tmul(T, 'affDown') : tmul(T, 'trustDown')) * clamp(2 - compat, 0.7, 1.4);
-}
-export function matchOf(book, name) {
-    const c = compatOf(book, name), r2 = (n) => Math.round(n * 100) / 100;
-    return { tc: c.tc, mul: r2(c.aff), mulT: r2(c.trust) };
-}
 
 // ───── 처음 상태 (설정집에서) ─────
 export function initState(book) {
@@ -73,7 +46,6 @@ export const priceMul = (S) => worldEvent(Math.floor(S.t / DAY))?.price ?? 1;
 // ───── 한 메시지 적용 ─────
 // ch: 이 메시지에서 바뀐 것 [{ f, label, from, to, why, src, sure, i(줄 번호) }]
 function makeCtx(book, S, ch, flags) {
-    const T = myTraits(book, S);
     const G = glossList();
     const people = () => [...book.people.map(p => ({ name: p.name, aka: [...p.aka, ...G.filter(g => g.to === p.name).map(g => g.from)] })), ...Object.keys(S.rel).filter(n => !personOf(book, n)).map(name => ({ name }))];
     const who = (raw) => match(raw, people())?.name ?? null;
@@ -127,10 +99,6 @@ function makeCtx(book, S, ch, flags) {
         if (axis === 'aff' && p?.noLove) axis = 'trust'; // 💔 애정 꺼 두기 — 우정으로만
         // 💗 로맨스 보정: 같은 행동을 연달아 하면 반만 · 한 답에 ±8까지 · 단계 하나를 건너뛰지 못함
         if (src !== 'hand' && src !== 'meddle' && src !== 'ai') {
-            let shy = T.some(t => t.shy) ? (relStage(book, r.aff, name).at < 40 ? 0.8 : 1.2) : 1;
-            // 💗 애정 60 전후로 다른 특성 (구속 싫음 · 키스 장인) · 일편단심: 가장 가까운 한 명에게만
-            if (axis === 'aff') { shy *= tmul(T, r.aff < 60 ? 'early' : 'late'); if (T.some(t => t.one)) { const top = Object.entries(S.rel).filter(([, q]) => !q.gone).sort((x, y) => y[1].aff - x[1].aff)[0]?.[0]; shy *= top === name ? tmul(T, 'one') : 0.9; } }
-            d = d > 0 ? d * relMul(book, name, axis, true, S) * (axis === 'aff' ? shy : 1) : d * relMul(book, name, axis, false, S);
             d = Math.sign(d) * Math.max(1, Math.round(Math.abs(d)));
             const key = norm(why);
             if (key && r.last.includes(key)) d = Math.sign(d) * Math.ceil(Math.abs(d) / 2);
@@ -155,17 +123,14 @@ function makeCtx(book, S, ch, flags) {
         const rain = /비|눈|폭우|rain|snow/i.test(S.weather) && !/home/.test(placeOf(book, S.loc)?.kind ?? '');
         for (const nd of book.me.needs) {
             if (opt.sleep && nd.key === 'energy') continue;
-            let rate = nd.rate * (S.status.some(s => s.slow?.includes(nd.key)) ? 1.5 : 1) * tmul(T, 'rate', nd.key);
-            if (nd.key === 'mood') {
-                if (T.some(t => t.wx && new RegExp(t.wx).test(S.weather))) rate *= 0.6; // 좋아하는 날씨엔 기분이 덜 줄어듦
-            }
+            let rate = nd.rate * (S.status.some(s => s.slow?.includes(nd.key)) ? 1.5 : 1);
             if (rain && (nd.key === 'hygiene' || nd.key === 'mood')) rate *= 1.5; // 🌧 날씨가 수치에 영향
             setNeed(nd.key, -rate * min / 60, opt.sleep ? '자는 동안' : why, 'time', true, i);
         }
         // 기간이 끝난 딱지는 저절로 풀린다
         for (const st of [...S.status]) if (st.until != null && st.until <= S.t) { S.status.splice(S.status.indexOf(st), 1); ch.push({ f: `status.${st.name}`, label: st.name, icon: st.src === 'fate' ? '🔮' : '🏷️', from: '있음', to: '풀림', why: '기간 끝', src: 'auto', sure: true, i, kind: st.kind }); }
     };
-    return { T, people, who, need, setNeed, gauge, setGauge, setCash, findItem, addItem, rel, setRel, pass, flag: (text, i) => flags.push({ text, i }) };
+    return { people, who, need, setNeed, gauge, setGauge, setCash, findItem, addItem, rel, setRel, pass, flag: (text, i) => flags.push({ text, i }) };
 }
 
 const DEF = { meal: 35, snack: 15, sleepPerH: 12, wash: 60, restPerH: 10, workPerH: 6, giftLike: 6, giftHate: -4, gift: 2, up: 3, down: -4 };
@@ -532,7 +497,7 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             const r = x.rel(name);
             r.jealous = short(b || '질투', 40);
             remember(S, r, `질투: ${b}`);
-            x.setRel(name, 'trust', -Math.max(1, Math.round(tmul(x.T, 'jealousSelf') * tmul(x.T, 'jealousy') * 1.4)), '질투', src, false, i);
+            x.setRel(name, 'trust', -1, '질투', src, false, i);
             news(S, '💢', `${name} — ${short(b || '질투가 남', 30)}`, 'jealous', name);
             return;
         }
@@ -711,11 +676,8 @@ export function derived(book, S) {
 export function diceParts(book, S, attr = '', luck = null) {
     const out = [];
     if (attr && S.attrs[attr]) out.push({ why: `${attr}`, n: S.attrs[attr] });
-    for (const t of myTraits(book, S)) if (attr && t.dice?.[attr]) out.push({ why: `🧬 ${t.name}`, n: t.dice[attr] });
     const outdoor = !/home|bath|school|work|shop|food/.test(placeOf(book, S.loc)?.kind ?? 'street');
     if (outdoor && /비|눈|폭우|폭설|rain|snow/i.test(S.weather) && attr === '민첩') out.push({ why: `🌧 ${S.weather} (밖)`, n: -1 });
-    if (myTraits(book, S).some(t => t.wx && new RegExp(t.wx).test(S.weather))) out.push({ why: `🌤 좋아하는 날씨`, n: 1 });
-    if (myTraits(book, S).some(t => t.wxBad && new RegExp(t.wxBad).test(S.weather))) out.push({ why: `🌫 싫어하는 날씨`, n: -1 });
     if (luck?.rolled) { const n = luck.tier === '대길' ? 2 : luck.tier === '대흉' ? -2 : luck.stars >= 5 ? 1 : luck.stars <= 1 ? -1 : 0; if (n) out.push({ why: `🍀 오늘 운세 ${'★'.repeat(luck.stars)}`, n, fate: true }); }
     for (const d of derived(book, S)) if (d.stage === '위험') out.push({ why: `${d.name} 위험`, n: d.dice });
     for (const st of S.status) if (num(st.dice)) out.push({ why: st.name, n: num(st.dice), fate: st.src === 'fate' });
@@ -856,32 +818,14 @@ export function whereNow(book, S, p) {
     return null;
 }
 
-// ⭐ 지금 원하는 것 — 늘 3개 · 상황 · 관계 · 지금 스탯 · 특성에서 골고루 · 이야기 속 4시간 또는 5턴마다 바뀜 · 이루면 기분 +8
+// ⭐ 지금 원하는 것 — 늘 3개 · 상황 · 관계 · 지금 스탯에서 골고루 · 이야기 속 4시간 또는 5턴마다 바뀜 · 이루면 기분 +8
 //   후보마다 { src(어디서 왔나), w(뽑힐 무게) } · 급한 욕구(주의 이하)는 늘 먼저
 const WANT_SAY = { hunger: ['뭔가 먹기', '뭐 좀 먹을까.'], energy: ['좀 쉬기', '잠깐 쉬자.'], hygiene: ['씻기', '씻고 싶다.'], mood: ['기분 전환하기', '바람 좀 쐬자.'] };
-export const WANT_SRC = { need: '스탯', rel: '관계', sit: '상황', trait: '특성', stat: '스탯' };
+export const WANT_SRC = { need: '스탯', rel: '관계', sit: '상황', stat: '스탯' };
 const affUp = (ch) => ch.some(c => c.f.startsWith('rel.') && c.f.endsWith('.aff') && c.to > c.from), trustUp = (ch) => ch.some(c => c.f.startsWith('rel.') && c.f.endsWith('.trust') && c.to > c.from);
 const needUp = (k, n = 1) => (ch) => ch.some(c => c.f === `need.${k}` && c.to - c.from >= n && c.src !== 'time');
 const moved = (ch) => ch.some(c => c.f === 'loc'), bought = (ch) => ch.some(c => c.f === 'cash' && c.to < c.from);
 const rolled = (ch, S, P) => (S.rolls?.length ?? 0) > (P.rolls ?? 0), relDown = (ch) => ch.some(c => c.f.startsWith('rel.') && c.to < c.from);
-const TRAIT_WANT = {
-    cheerful: ['😄', '누군가와 웃기', '같이 웃는다.', trustUp], gloomy: ['🌧️', '조용히 생각 정리하기', '조용히 생각에 잠긴다.', (ch, S) => !S.with.length],
-    hothead: ['😤', '속 시원하게 말하기', '참지 않고 할 말을 한다.', (ch) => relDown(ch) || needUp('mood')(ch)], calm: ['🧘', '숨 고르기', '잠깐 숨을 고른다.', needUp('mood')],
-    emotional: ['🥹', '마음 털어놓기', '속마음을 털어놓는다.', trustUp], stoic: ['🗿', '혼자 묵묵히 해내기', '말없이 할 일을 한다.', rolled],
-    brave: ['🦁', '위험에 맞서기', '정면으로 맞선다.', rolled], coward: ['🐭', '안전한 곳 찾기', '조심스럽게 안전한 곳으로 간다.', moved],
-    lucky: ['🍀', '운 시험해 보기', '운을 믿고 한번 해 본다.', rolled], unlucky: ['🐈‍⬛', '하루 무사히 넘기기', '조심조심 움직인다.', needUp('mood')],
-    romantic: ['🌹', '누군가에게 다정한 말 하기', '다정하게 말을 건넨다.', affUp], flirty: ['😘', '가볍게 추파 던지기', '장난스럽게 추파를 던진다.', affUp],
-    noncommittal: ['🕊️', '혼자만의 시간 갖기', '잠깐 혼자 있고 싶다.', (ch, S) => !S.with.length], loyal: ['💍', '그 사람 챙기기', '가장 아끼는 사람을 챙긴다.', affUp],
-    unflirty: ['🧱', '진지한 얘기 하기', '진지하게 대화를 나눈다.', trustUp], jealous: ['💢', '그 사람 곁에 있기', '그 사람 곁을 지킨다.', (ch, S) => S.with.length > 0],
-    charming: ['✨', '누군가 웃게 하기', '농담을 건넨다.', (ch) => ch.some(c => c.f.startsWith('rel.') && c.to > c.from)], shy: ['🙈', '먼저 인사해 보기', '쭈뼛쭈뼛 먼저 인사한다.', trustUp],
-    kind: ['🤍', '누군가 도와주기', '도와줄 게 있는지 묻는다.', trustUp], mean: ['😈', '한마디 쏘아붙이기', '날카롭게 한마디 한다.', relDown],
-    bro: ['🤜', '친구랑 놀기', '친구를 불러낸다.', trustUp], perceptive: ['👁️', '분위기 살피기', '주변을 유심히 살핀다.', rolled],
-    bookworm: ['📚', '책 읽기', '책을 펼친다.', needUp('mood')], genius: ['🧠', '어려운 문제 풀기', '머리를 굴려 본다.', rolled],
-    active: ['🏃', '몸 움직이기', '몸을 좀 움직인다.', (ch) => moved(ch) || ch.some(c => c.f === 'need.energy' && c.to < c.from && c.src !== 'time')],
-    artsy: ['🎨', '뭔가 만들어 보기', '떠오른 걸 그려 본다.', needUp('mood')], glutton: ['🍖', '배 터지게 먹기', '배부르게 먹는다.', needUp('hunger', 25)],
-    slob: ['🧦', '늘어지게 쉬기', '아무렇게나 드러눕는다.', needUp('energy')], perfectionist: ['📐', '하나라도 제대로 하기', '꼼꼼하게 마무리한다.', rolled],
-    clumsy: ['🫠', '아무것도 안 깨뜨리기', '조심조심 움직인다.', needUp('mood')],
-};
 // 어디서든 할 수 있는 작은 바람 (후보가 모자랄 때 채움)
 const FILL = [
     ['🚶', '산책하기', '잠깐 걸으러 나간다.', moved], ['☕', '따뜻한 거 마시기', '따뜻한 걸 한 잔 마신다.', needUp('mood')], ['💬', '누군가와 수다 떨기', '말을 걸어 본다.', (ch) => ch.some(c => c.f.startsWith('rel.') && c.to > c.from)],
@@ -943,8 +887,6 @@ export function wantsOf(book, S) {
     }
     const unseen = book.world.places.filter(p => !(S.visited ?? []).includes(p.name) && p.name !== S.loc);
     if (unseen.length) { const p = unseen[parseInt(hash(per + 'p'), 36) % unseen.length]; add('sit', 1.3, `go-${p.name}`, ['📍', `${p.name}에 가 보기`, `${p.name}(으)로 가 본다.`, (ch) => ch.some(c => c.f === 'loc' && c.to === p.name)]); }
-    // 특성 (켜진 것만 · 커스텀 특성은 효과에 맞는 일반 바람으로)
-    for (const t of myTraits(book, S)) { const w = TRAIT_WANT[t.id]; if (w) add('trait', 2.2, `trait-${t.id}`, w); }
     // 뽑기: 급한 욕구 → 나머지는 무게 × 시드 (같은 출처는 한 번 · 모자라면 같은 출처도)
     const ok = (w) => !done.has(`${day}|${w.id}`);
     const out = urgent.filter(ok).sort((a, b) => b.w - a.w).slice(0, 2);

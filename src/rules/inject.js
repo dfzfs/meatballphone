@@ -64,7 +64,7 @@ export function ruleText(book) {
 }
 // 지금 사실 고정 · 경계 한 줄 · 연출 힌트 (게이지에 따라)
 // 본편에는 「결과값」만: 지금 사실(돈 · 장소 · 시간 · 같이 있는 사람) · 경계를 넘은 결과(증상) · 관계 단계 · 상태 이름 · 약속
-// 중간값(숫자 · 보정 · 배수 · 특성 · 운세 · 능력치)은 상태창 안에서만 쓴다
+// 중간값(숫자 · 보정 · 배수 · 운세 · 능력치)은 상태창 안에서만 쓴다
 export function factText(r, lastChanges = []) {
     const { S, book } = r, L = [], H = [];
     const lv = (id) => (modOn(id) && !getMeta()?.hideAI?.[id] ? level(id) : 0); // 🙈 AI에게 숨긴 앱은 0
@@ -75,7 +75,7 @@ export function factText(r, lastChanges = []) {
         const n = lv('stats'), crossed = crossNeed.has(d.key);
         if (n >= 2 || (n === 1 && crossed)) (n >= 2 && !crossed ? L : H).push(`${d.name} ${d.stage}: ${d.text}`);
     }
-    // 🎲 주사위 보정 · 특성 · 운세 · 능력치 같은 중간값은 본편에 안 보낸다 (판정 결과는 입력창 문장으로 간다)
+    // 🎲 주사위 보정 · 운세 · 능력치 같은 중간값은 본편에 안 보낸다 (판정 결과는 입력창 문장으로 간다)
     // 내 상태가 나쁘면 장면 속 인물이 알아챔 (결과: 「알아채고 반응」 · 숫자 없음)
     if (lv('stats') >= 2 && S.with.length) { const bad = dz.filter(d => d.stage === '위험'); if (bad.length) L.push(`${S.with[0]} notices ${userName()}: ${bad.map(d => d.text).join(', ')} — reacts in character (worry or tease)`); }
     // 돈

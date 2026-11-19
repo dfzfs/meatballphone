@@ -25,7 +25,6 @@ export const APPS = [
     { id: 'quote', to: 'main', main: '한 구절 (영향력을 올렸을 때만)', icon: '📜', name: '한 구절', mod: 'quote', desc: 'AI가 고른 속담 · 명대사 · 책 · 시 · 명언 · 사자성어', c: '#b08968' },
     { id: 'rec', to: 'aux', main: '', icon: '📒', name: '기록', mod: 'record', desc: '타임라인 · 책갈피 · 그때 상태 · 그래프', c: '#e9c46a' },
     { id: 'mind', to: 'main', main: '속마음을 적어 달라는 지시', icon: '💭', name: '속마음', mod: 'mind', desc: '인물 · 관전자 · 세포들의 속마음', c: '#a78bfa' },
-    { id: 'traits', to: 'aux', main: '', icon: '🧬', name: '특성', mod: 'traits', desc: '특성 3개 · 나만의 특성 · 지금 원하는 것 · 궁합', c: '#06d6a0' },
     { id: 'custom', to: 'aux', main: '', icon: '🧩', name: '내 탭', mod: 'custom', desc: '직접 만드는 칸 · 최면 어플 템플릿', c: '#43aa8b' },
     { id: 'book', icon: '📘', name: '설정집', sys: true, c: '#4361ee' },
     { id: 'gauge', icon: '🎚️', name: '영향력', sys: true, c: '#8d99ae' },
@@ -68,8 +67,8 @@ export function home(r) {
     // ✋ 지금 할 수 있는 일 · ⏳ 곧 일어날 일
     { const L = doable(r); if (L.length) h += W('지금 할 수 있는 일', `<div class="ml-doable">${L.map(x => `<button class="ml-do${x.poor ? ' poor' : ''}" data-act="say" data-v="${esc(x.say)}"${x.poor ? ' disabled' : ''}><i>${x.icon}</i><span>`
         + `<b>${esc(x.title)}</b><small>${esc(x.cost)}</small></span></button>`).join('')}</div>`, '', '', 'doable'); }
-    if (modOn('traits')) { const Wt = wantsOf(book, S); if (Wt.length) h += W('⭐ 원하는 것', `<div class="ml-doable">${Wt.map(w => `<button class="ml-do" data-act="say" data-v="${esc(w.say)}"><i>${w.icon}</i><span><b>${esc(w.text)}</b><small>${esc(w.srcName)} · 이루면 기분 +8</small>`
-        + `</span></button>`).join('')}</div>`, 'traits', '', 'wants'); }
+    if (modOn('stats')) { const Wt = wantsOf(book, S); if (Wt.length) h += W('⭐ 원하는 것', `<div class="ml-doable">${Wt.map(w => `<button class="ml-do" data-act="say" data-v="${esc(w.say)}"><i>${w.icon}</i><span><b>${esc(w.text)}</b><small>${esc(w.srcName)} · 이루면 기분 +8</small>`
+        + `</span></button>`).join('')}</div>`, 'now', '', 'wants'); }
     { const L = soon(r); if (L.length) h += W('곧 일어날 일', L.map(x => `<div class="ml-rl"><i>${x.icon}</i>${esc(x.text)} <span>${esc(x.when)}</span></div>`).join(''), '', '', 'soon'); }
     // 욕구 미니
     if (modOn('stats')) h += W('수치', `<div class="ml-wneeds">${book.me.needs.map(n => { const v = Math.round(S.needs[n.key] ?? 0), st = needStage(v); return `<div class="${st === '위험' ? 'bad' : st === '주의' ? 'mid' : ''}"><span>${n.icon} ${esc(n.name)}</span><span `
@@ -79,7 +78,7 @@ export function home(r) {
     // 주사위 위젯
     if (modOn('dice')) {
         const ds = getDice(), attr = ds.attr || book.me.attrs[0]?.name || '', P = diceParts(book, S, attr, luckOf(book, S, ctx().getCurrentChatId?.(), meta.luckRoll)), on = level('dice') >= 3 || level('stats') >= 3;
-        const mod = P.filter(x => on || x.why === attr || x.why.endsWith('착용') || x.why.startsWith('🧬')).reduce((a, x) => a + x.n, 0), hist = meta.recent?.rolls?.[0];
+        const mod = P.filter(x => on || x.why === attr || x.why.endsWith('착용')).reduce((a, x) => a + x.n, 0), hist = meta.recent?.rolls?.[0];
         h += W('주사위', `<div class="ml-wdice"><button class="ml-dbtn" data-act="roll" data-v="${mod}`
             + `" title="굴리기">${d20(hist?.d ?? 20, hist ? `${hist.res.includes('성공') ? 'ok' : 'no'}${hist.d === 20 ? ' crit' : hist.d === 1 ? ' fumble' : ''}` : '')}`
             + `</button><div><b>${esc(attr || '판정')} ${signed(mod)} · 목표 ${ds.dc}</b><small>${hist ? esc(hist.text) : '주사위를 눌러 굴려요'}</small></div>`
@@ -132,7 +131,7 @@ export function firstView() {
 }
 // 장르에 맞는 추천 (미리 체크만 · 「시작」을 눌러야 깔림)
 export function recommend(book) {
-    const g = String(book?.world?.genre ?? ''), on = new Set(['stats', 'wallet', 'rel', 'map', 'calendar', 'dice', 'record', 'traits']);
+    const g = String(book?.world?.genre ?? ''), on = new Set(['stats', 'wallet', 'rel', 'map', 'calendar', 'dice', 'record']);
     if (/연애|로맨스|학원|romance/i.test(g)) ['mind', 'music', 'quote'].forEach(x => on.add(x));
     if (/판타지|무협|SF|아포칼립스|fantasy/i.test(g)) on.add('news');
     if (/현대|일상|modern/i.test(g)) on.add('music');

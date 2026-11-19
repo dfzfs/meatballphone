@@ -4,7 +4,7 @@ import { normBook } from '../rules/book.js';
 
 export const MODULE = 'meatlite';
 export const OLD = 'statussim';
-export const VERSION = '0.29.2';
+export const VERSION = '0.30.0';
 export const DATA_V = 2;
 export const TITLE = '미트볼 라이트';
 export const INJ = { facts: 'meatlite_facts', hint: 'meatlite_hint', rule: 'meatlite_rule' };
@@ -69,7 +69,6 @@ export const MODS = [
     { id: 'quote', icon: '📜', name: '한 구절' },
     { id: 'mind', icon: '💭', name: '속마음' },
     { id: 'custom', icon: '🧩', name: '내 탭' },
-    { id: 'traits', icon: '🧬', name: '특성' },
 ];
 export const MOD_IDS = MODS.map(m => m.id);
 
@@ -81,7 +80,7 @@ export function newMeta() {
         paused: false, skipNext: false, influence: null, marks: [], hideNums: false, custom: [], recent: {}, mindWho: ['cast'],
     };
 }
-// 한 번 정리: v0.26에서 지운 기능이 채팅에 남긴 데이터 (설정집은 지금 모양으로 다시 맞춤 · 지운 특성은 가장 가까운 것으로)
+// 한 번 정리: v0.26 · v0.30에서 지운 기능이 채팅에 남긴 데이터 (설정집은 지금 모양으로 다시 맞춤 · 특성은 v0.30에서 지움)
 function tidyMeta(m) {
     delete m.saves; delete m.autoSave; delete m.mapStyle;
     const F = m.start?.full;
@@ -91,7 +90,8 @@ function tidyMeta(m) {
         m.start = { name: m.start.name ?? '', cash: F.cash, items: F.items, loc: F.loc, needs: F.needs, gauges: F.gauges, rel, attrs: F.attrs, weather: F.weather, status: F.status, pairs: F.pairs };
     }
     if (m.book?.world) m.book = normBook(m.book);
-    m.tidied = 1;
+    if (m.mods) delete m.mods.traits;
+    m.tidied = 2;
 }
 export function getMeta(create = false) {
     const md = ctx().chatMetadata;
@@ -104,7 +104,7 @@ export function getMeta(create = false) {
         const d = newMeta(); for (const k of Object.keys(d)) if (!Object.hasOwn(m, k)) m[k] = d[k];
         // 새로 생긴 칸은 켠 채로 (목록에 없으면 꺼진 게 아니라 아직 몰랐던 것)
         for (const id of MOD_IDS) if (typeof m.mods[id] !== 'boolean') m.mods[id] = d.mods[id];
-        if (!m.tidied) tidyMeta(m);
+        if ((m.tidied ?? 0) < 2) tidyMeta(m);
     }
     return m ?? null;
 }

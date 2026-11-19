@@ -1,6 +1,5 @@
 // 📘 상태창 설정집 — 칸이 정해진 구조. 계산 코드가 그대로 읽는다. 본편에는 매 턴 넣지 않는다.
 import { arr, clamp, num, short, safeKey, tokens, norm } from '../base/util.js';
-import { normCustomTrait, CUSTOM_MAX, migrateTraitIds } from '../../data/traits.js';
 
 export const LIMIT = { people: 24, lines: 6, places: 30, items: 5, line: 80 };
 // 기본 욕구 4개 (위가 좋음 · 100 만점). rate = 한 시간에 줄어드는 양
@@ -49,7 +48,7 @@ const acts = (v) =>
 export function emptyBook() {
     return {
         world: { genre: '', currency: '골드', meal: 10, weather: ['맑음', '흐림', '비'], start: { y: 2026, m: 3, d: 1, clock: 480 }, places: [] },
-        me: { name: '', traitIds: [], customTraits: [], day: '', needs: NEED_SET.map(n => ({ ...n })), gauges: GAUGE_SET.map(g => ({ ...g })), attrs: ATTR_SET.map(a => ({ ...a })), traits: '' },
+        me: { name: '', day: '', needs: NEED_SET.map(n => ({ ...n })), gauges: GAUGE_SET.map(g => ({ ...g })), attrs: ATTR_SET.map(a => ({ ...a })), traits: '' },
         people: [],
         stages: REL_STAGES.map(s => ({ ...s })),
         src: { from: 'blank', at: 0, sig: {} },
@@ -76,7 +75,6 @@ export function normPerson(p) {
         want: line(p.want),
         noLove: !!p.noLove,
         auto: p.auto === 'npc' ? 'npc' : undefined, // 이야기 중 npc로 나와 규칙을 채운 인물
-        traits: migrateTraitIds(arr(p.traits).map(String)), // 지운 특성은 가장 가까운 것으로
     };
 }
 export function normPlace(p) {
@@ -120,11 +118,6 @@ export function normBook(b) {
     const me = b.me ?? {};
     e.me.name = line(me.name, 30);
     e.me.traits = line(me.traits);
-    e.me.customTraits = arr(me.customTraits).map(normCustomTrait).filter(Boolean).slice(0, CUSTOM_MAX);
-    {
-        const cid = new Set(e.me.customTraits.map(c => c.id));
-        e.me.traitIds = migrateTraitIds(arr(me.traitIds).map(String)).filter(id => !id.startsWith('c_') || cid.has(id));
-    }
     e.me.day = line(me.day, 24);
     const needs = arr(me.needs)
         .map((n) => ({
