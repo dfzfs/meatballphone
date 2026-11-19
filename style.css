@@ -60,3 +60,42 @@ body.ml-open #ml-mini{display:none}
 .mes.ml-flash{outline:3px solid var(--ml-accent,#e07a5f);outline-offset:-3px;transition:outline .3s}
 .ml-set h4{margin:12px 0 4px}.ml-set-btns{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0}
 @media (max-width:600px){.ml-body{padding:12px}.ml-val{max-width:60%}#ml-mini{width:52px;right:4px}.ml-range{width:50%}}
+/* ───── 관계 카드 (dev 관계 카드 기준 · 빽빽하게) ───── */
+.ml-scope{--love:#e0567f;--trust:#3a8ee6}
+.ml-relbar{display:flex;align-items:center;justify-content:space-between;margin:0 0 12px}.ml-sub{font-size:12px;color:var(--sub)}
+.ml-h4{margin:16px 0 8px 4px;font-size:12px;font-weight:600;color:var(--sub)}
+.ml-rcs{display:flex;flex-direction:column;gap:8px}
+.ml-rc{border:var(--bd) solid var(--line);border-radius:var(--r);padding:8px 12px 12px;box-shadow:var(--sh);font-size:13px}
+.ml-rc.gone{opacity:.55}
+.ml-rc-h{display:flex;align-items:center;gap:8px;min-height:36px}.ml-rc-h b{font-size:14px}.ml-rc-h .ml-sp{flex:1}
+.ml-face{font-size:20px;width:24px;text-align:center}
+.ml-rc-line{color:var(--sub);font-size:12px;margin:0 0 8px 32px}
+.ml-pill{padding:0 8px;border-radius:999px;font-size:11px;line-height:20px;white-space:nowrap;background:color-mix(in srgb,var(--mid) 15%,transparent)}
+.ml-pill.love{background:color-mix(in srgb,var(--love) 14%,transparent);color:var(--love);font-weight:600}.ml-pill.good{background:color-mix(in srgb,var(--good) 14%,transparent);color:var(--good)}.ml-pill.bad{background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--bad)}
+.ml-meter{display:grid;grid-template-columns:32px 1fr 32px;align-items:center;gap:8px;margin:4px 0 4px 0;font-size:12px;color:var(--sub)}
+.ml-track{position:relative;height:8px;border-radius:4px;background:color-mix(in srgb,var(--fg) 7%,transparent);overflow:hidden}
+.ml-track b{display:block;height:100%;border-radius:4px}.ml-track i{position:absolute;top:0;bottom:0;width:1px;background:var(--bg)}
+.ml-meter.love b{background:var(--love)}.ml-meter.trust b{background:var(--trust)}
+.ml-meter em{font-style:normal;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}.ml-meter.love em{color:var(--love)}.ml-meter.trust em{color:var(--trust)}
+.ml-rl{display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin:4px 0 0;line-height:20px}
+.ml-rl>i{font-style:normal;width:24px;text-align:center;flex:none}.ml-rl span{color:var(--sub)}.ml-rl.dim{color:var(--sub)}.ml-rl.tap{cursor:pointer;border-radius:6px}.ml-rl.tap:hover{background:color-mix(in srgb,var(--a) 7%,transparent)}
+.ml-rl .pos{color:var(--good)}.ml-rl .neg{color:var(--bad)}
+.ml-tag{font-size:11px;padding:0 6px;border-radius:6px;line-height:18px}.ml-tag.good{background:color-mix(in srgb,var(--good) 13%,transparent);color:var(--good)}.ml-tag.bad{background:color-mix(in srgb,var(--bad) 13%,transparent);color:var(--bad)}
+.ml-btn.xs{min-height:28px;padding:0 10px;font-size:12px}
+.ml-steps{display:flex;flex-direction:column;gap:4px}.ml-steps>div{display:flex;flex-direction:column;padding:4px 8px;border-left:3px solid var(--line);font-size:13px}.ml-steps small{color:var(--sub);font-size:11px}
+.ml-steps .done{border-color:color-mix(in srgb,var(--love) 40%,transparent)}.ml-steps .on{border-color:var(--love);background:color-mix(in srgb,var(--love) 7%,transparent)}
+.ml-bs-box{max-width:560px}
+@media (min-width:900px){.ml-bs{align-items:center}.ml-bs-box{border-radius:var(--r)}}
+.ml-rc-h{flex-wrap:wrap}.ml-rc .ml-btn{white-space:nowrap}
+.ml-bs .ml-acts{margin-top:16px}
+@media (max-width:600px){.ml-rc-h .ml-btn span{display:none}.ml-rc-line{margin-left:0}}
+@media (max-width:600px){.ml-rc-h .ml-btn[data-act="person"]{display:none}}
+/* 노트북 · PC: 채팅 옆에 붙는 패널 (전체화면 아님 · 여백 없음) — 휴대폰만 전체화면 */
+@media (min-width:900px){
+#ml-full{inset:0 0 0 auto;width:min(480px,40vw);border-left:var(--bd) solid var(--line);box-shadow:-8px 0 24px rgb(0 0 0/.12)}
+#ml-full .ml-body{max-width:none;padding:12px}
+#ml-full .ml-top{padding:8px 12px}
+#ml-full .ml-nav{justify-content:flex-start;flex-wrap:wrap;gap:2px}
+#ml-full .ml-nav button{min-width:52px;flex:1 0 52px}
+}
+@media (min-width:900px){#ml-full .ml-nav{flex-wrap:nowrap;overflow-x:auto;gap:0}#ml-full .ml-nav button{min-width:40px;flex:1 0 40px;font-size:10px;padding:0}}
