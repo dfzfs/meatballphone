@@ -54,24 +54,53 @@ export function spanOf(v) {
     }
     return hit ? Math.round(t) : null;
 }
-// 날짜: 시작일(y, m, d)에서 n일 뒤 — 양력 그대로
+// 📅 달력: 양력이 기본 · 설정집 start.cal 에 달(이름 · 날 수) · 요일 이름 · 연호 · 시간 적는 법을 두면 그 달력으로
+//   start = { y, m, d, clock, cal: { months: [{ name, days }] | null, week: [이름] | null, era, style: '' | '24' | '12' } }
+const GREG_W = '일월화수목금토';
+const isCustom = (start) => Array.isArray(start?.cal?.months) && start.cal.months.length > 0;
+export function monthDays(start, y, m) { return isCustom(start) ? (start.cal.months[m - 1]?.days ?? 30) : new Date(Date.UTC(y, m, 0)).getUTCDate(); }
+export const monthCount = (start) => (isCustom(start) ? start.cal.months.length : 12);
+export const monthName = (start, m) => (isCustom(start) ? start.cal.months[m - 1]?.name ?? `${m}월` : `${m}월`);
+// (y, m, d) → 시작일로부터 며칠째
+export function dayIndexOf(start, y, m, d) {
+    if (!isCustom(start)) return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(start?.y ?? 2026, (start?.m ?? 1) - 1, start?.d ?? 1)) / 86400000);
+    const M = start.cal.months, yl = M.reduce((a, x) => a + x.days, 0), at = (Y, Mo, D) => Y * yl + M.slice(0, Mo - 1).reduce((a, x) => a + x.days, 0) + (D - 1);
+    return at(y, m, d) - at(start.y, start.m, start.d);
+}
+export function weekName(start, dayN) {
+    const W = start?.cal?.week?.length ? start.cal.week : null;
+    if (W) return W[((dayN % W.length) + W.length) % W.length];
+    if (isCustom(start)) return GREG_W[((dayN % 7) + 7) % 7];
+    const dt = new Date(Date.UTC(start?.y ?? 2026, (start?.m ?? 1) - 1, (start?.d ?? 1) + dayN)); return GREG_W[dt.getUTCDay()];
+}
 export function dateOf(start, min) {
-    const d0 = Date.UTC(start?.y ?? 2026, (start?.m ?? 1) - 1, start?.d ?? 1);
-    const dt = new Date(d0 + Math.floor(min / DAY) * 86400000);
-    return { y: dt.getUTCFullYear(), m: dt.getUTCMonth() + 1, d: dt.getUTCDate(), w: '일월화수목금토'[dt.getUTCDay()] };
+    const dn = Math.floor(min / DAY);
+    if (!isCustom(start)) { const dt = new Date(Date.UTC(start?.y ?? 2026, (start?.m ?? 1) - 1, (start?.d ?? 1) + dn)); return { y: dt.getUTCFullYear(), m: dt.getUTCMonth() + 1, d: dt.getUTCDate(), w: GREG_W[dt.getUTCDay()], mn: `${dt.getUTCMonth() + 1}월` }; }
+    let y = start.y, m = start.m, d = start.d + dn;
+    while (d > monthDays(start, y, m)) { d -= monthDays(start, y, m); m++; if (m > monthCount(start)) { m = 1; y++; } }
+    while (d < 1) { m--; if (m < 1) { m = monthCount(start); y--; } d += monthDays(start, y, m); }
+    return { y, m, d, w: weekName(start, dn), mn: monthName(start, m) };
+}
+// 시간 적는 법: '' 시간대만 · '24' 14:30 · '12' 오후 2:30
+export function clockText(start, min) {
+    const st = start?.cal?.style ?? '24', t = ((min % DAY) + DAY) % DAY, h = Math.floor(t / 60), mi = t % 60;
+    if (st === '') return slotName(min);
+    if (st === '12') return `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(mi).padStart(2, '0')}`;
+    return hhmm(min);
 }
 export function dateText(start, min, withTime = true) {
-    const d = dateOf(start, min);
-    return `${d.m}월 ${d.d}일 (${d.w})${withTime ? ` ${slotName(min)} ${hhmm(min)}` : ''}`;
+    const d = dateOf(start, min), era = start?.cal?.era ? `${start.cal.era} ${d.y}년 ` : '';
+    return `${era}${d.mn} ${d.d}일 (${d.w})${withTime ? ` ${slotName(min)}${start?.cal?.style === '' ? '' : ` ${clockText(start, min)}`}` : ''}`;
 }
-// 「3월 14일」 「3/14」 → 그날 0시의 분 (시작일 기준 · 지났으면 다음 해)
+// 「3월 14일」 「3/14」 「서리달 14일」 → 그날 0시의 분 (지났으면 다음 해)
 export function dayOfDate(start, v, now = 0) {
-    const m = /(\d{1,2})\s*[월/.-]\s*(\d{1,2})/.exec(String(v ?? ''));
-    if (!m) return null;
-    const cur = dateOf(start, now);
-    for (const y of [cur.y, cur.y + 1]) {
-        const at = (Date.UTC(y, Number(m[1]) - 1, Number(m[2])) - Date.UTC(start?.y ?? 2026, (start?.m ?? 1) - 1, start?.d ?? 1)) / 86400000 * DAY;
-        if (at >= Math.floor(now / DAY) * DAY) return at;
-    }
+    const s = String(v ?? '');
+    let mo = null, d = null;
+    const m1 = /(\d{1,2})\s*[월/.]\s*(\d{1,2})/.exec(s);
+    if (m1) { mo = Number(m1[1]); d = Number(m1[2]); }
+    else if (isCustom(start)) { const i = start.cal.months.findIndex(x => x.name && s.includes(x.name)); const dd = /(\d{1,2})\s*일/.exec(s); if (i >= 0 && dd) { mo = i + 1; d = Number(dd[1]); } }
+    if (!mo || !d) return null;
+    const cur = dateOf(start, now), today = Math.floor(now / DAY);
+    for (const y of [cur.y, cur.y + 1]) { const dn = dayIndexOf(start, y, mo, d); if (dn >= today) return dn * DAY; }
     return null;
 }

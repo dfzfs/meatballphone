@@ -1,6 +1,6 @@
 // 미트볼 라이트 — 실리태번 이벤트 연결
 import { app, ctx, settings, saveSettings, getMeta, saveMeta, slot, syncSwipe, ready, MODULE, OLD, VERSION, TITLE, INJ, MODS, DATA_V, bumpMeta } from './src/base/st.js';
-import { esc, short, tokens } from './src/base/util.js';
+import { esc, short, tokens, dateOf } from './src/base/util.js';
 import { readOps, stripTags, hasTag } from './src/rules/tags.js';
 import { fold, resetCache } from './src/rules/engine.js';
 import { normBook } from './src/rules/book.js';
@@ -104,7 +104,7 @@ function alerts() {
     const { S, book } = r, sent = new Set(meta.alerted ?? []), out = [];
     for (const p of S.promises) if (!p.done && p.due != null && p.due >= S.t && p.due - S.t <= 1440) out.push([`p|${p.text}|${p.due}`, `📅 하루 안: ${p.text}`]);
     const day0 = Math.floor(S.t / 1440);
-    for (const p of book.people) { const m = /(\d{1,2})\s*[월/.]\s*(\d{1,2})/.exec(p.day || ''); if (!m) continue; for (const k of [0, 1]) { const d = new Date(Date.UTC(book.world.start.y, book.world.start.m - 1, book.world.start.d + day0 + k)); if (d.getUTCMonth() + 1 === Number(m[1]) && d.getUTCDate() === Number(m[2])) out.push([`b|${p.name}|${d.getUTCFullYear()}`, `🎂 ${k ? '내일' : '오늘'} ${p.name} ${p.day}`]); } }
+    for (const p of book.people) { const m = /(\d{1,2})\s*[월/.]\s*(\d{1,2})/.exec(p.day || ''); if (!m) continue; for (const k of [0, 1]) { const d = dateOf(book.world.start, (day0 + k) * 1440); if (d.m === Number(m[1]) && d.d === Number(m[2])) out.push([`b|${p.name}|${d.y}`, `🎂 ${k ? '내일' : '오늘'} ${p.name} ${p.day}`]); } }
     let n = 0; for (const [k, t] of out) if (!sent.has(k)) { sent.add(k); toast(t); n++; }
     if (n) { meta.alerted = [...sent].slice(-80); saveMeta(); }
 }
@@ -193,4 +193,4 @@ async function boot() {
 }
 const c0 = ctx();
 c0.eventSource.on(c0.event_types.APP_READY, boot);
-globalThis.__ML__ = { app, fold, perf, inject, refresh, MODULE, OLD, DATA_V, MODS, tokens, short };
+globalThis.__ML__ = { app, fold, perf, inject, refresh, getMeta, MODULE, OLD, DATA_V, MODS, tokens, short };

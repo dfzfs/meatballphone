@@ -33,7 +33,9 @@ export function level(id) {
 // 본편 AI에게 줄 「적는 법」 — 모델별 프리셋. 숫자 대신 사건을 적게 한다.
 export function ruleText(book) {
     const meta = getMeta(), flash = settings().preset !== 'general';
-    const K = ['loc: 장소', 'time: 14:30 | +2h', 'with: 이름, 이름'];
+    const cs = book.world.start.cal ?? {}, tk = cs.style === '' ? '저녁 | +2h' : cs.style === '12' ? '오후 2:30 | +2h' : '14:30 | +2h';
+    const K = ['loc: 장소', `time: ${tk}`, 'with: 이름, 이름'];
+    if (cs.months?.length) K.push(`date: ${cs.months[0].name} 3일 (달: ${cs.months.map(x => x.name).join('·')})`);
     if (modOn('stats')) K.push('ate: 음식', 'slept: 6h', 'washed: -', 'rest: 1h', 'worked: 4h | +30');
     if (modOn('wallet')) K.push('buy: 물건 | 가격', 'earn: 30 | 이유', 'got: 물건', 'used: 물건', 'wear: 옷');
     if (modOn('rel')) K.push('act: 이름 | 한 일', 'gift: 이름 | 물건', 'memory: 이름 | 큰 사건', 'jealous: 이름 | 이유', 'promise: 내용 | 3/14');

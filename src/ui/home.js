@@ -1,7 +1,7 @@
 // 🏠 홈: 위에 위젯(지금 · 이 장면 · 운세 · 욕구 · 주사위 · 달력 · 소식 · 같이 있는 사람) + 아래에 받은 앱 아이콘
 // 🛍 마켓: 앱을 「받는」 느낌 — 실제로는 다 들어 있고 칸을 켜고 끈다 (지우면 홈 · 본편 주입에서 빠짐)
 import { ctx, getMeta, saveMeta, settings, modOn, app } from '../base/st.js';
-import { esc, signed, dateText, dateOf, DAY, slotName, hhmm, fmt, num } from '../base/util.js';
+import { esc, signed, dateText, dateOf, DAY, slotName, clockText, fmt, num } from '../base/util.js';
 import { derived, needStage, relStage, worldEvent, priceMul, diceParts, whereNow, wantsOf } from '../rules/engine.js';
 import { personOf, placeOf, PLACE_KINDS } from '../rules/book.js';
 import { moodTags, pickQuote, pickMusic } from '../rules/mood.js';
@@ -44,8 +44,8 @@ export const d20 = (n = 20, cls = '') => `<svg class="ml-d20 ${cls}" viewBox="0 
 export function home(r) {
     const { book, S } = r, meta = getMeta(), li = lastAI(), last = r.changes[li] ?? [];
     const pl = placeOf(book, S.loc), ev = worldEvent(Math.floor(S.t / DAY)), dz = derived(book, S);
-    let h = `<div class="ml-hero"><div class="ml-hero-d"><small>${dateOf(book.world.start, S.t).m}월</small><b>${dateOf(book.world.start, S.t).d}</b><small>${dateOf(book.world.start, S.t).w}요일</small></div>
-        <div class="ml-hero-b"><b>${slotName(S.t)} ${hhmm(S.t)}${S.weather ? ` · ${esc(S.weather)}` : ''}</b><span>📍 ${esc(S.loc || '어딘가')}${S.with.length ? ` · ${S.with.map(n => personOf(book, n)?.face || '🙂').join('')}` : ''}</span>${modOn('wallet') ? `<span>💰 ${fmt(S.cash)} ${esc(book.world.currency)}</span>` : ''}</div>
+    let h = `<div class="ml-hero"><div class="ml-hero-d"><small>${esc(dateOf(book.world.start, S.t).mn)}</small><b>${dateOf(book.world.start, S.t).d}</b><small>${dateOf(book.world.start, S.t).w}요일</small></div>
+        <div class="ml-hero-b"><b>${slotName(S.t)}${book.world.start.cal?.style === '' ? '' : ` ${clockText(book.world.start, S.t)}`}${S.weather ? ` · ${esc(S.weather)}` : ''}</b><span>📍 ${esc(S.loc || '어딘가')}${S.with.length ? ` · ${S.with.map(n => personOf(book, n)?.face || '🙂').join('')}` : ''}</span>${modOn('wallet') ? `<span>💰 ${fmt(S.cash)} ${esc(book.world.currency)}</span>` : ''}</div>
         ${ev ? `<span class="ml-pill ${ev.kind === 'good' ? 'good' : ev.kind === 'bad' ? 'bad' : 'love'}">🎪 ${esc(ev.name)}</span>` : ''}</div>`;
     const tags = [...S.status.map(s => `<span class="ml-chip ${s.kind === 'good' ? 'good' : s.kind === 'bad' ? 'bad' : ''}">${s.src === 'fate' ? '🔮 ' : ''}${esc(s.name)}${s.until ? ` · ${Math.max(1, Math.round((s.until - S.t) / 60))}h` : ''}</span>`), ...dz.filter(d => d.stage === '위험').map(d => `<span class="ml-chip bad">${d.icon} ${esc(d.name)} 위험</span>`)];
     if (!vis('home', 'hero')) h = '';

@@ -96,7 +96,11 @@ export function normBook(b) {
     e.world.currency = line(w.currency, 10) || '골드';
     e.world.meal = Math.max(1, num(w.meal, 10));
     e.world.weather = list(w.weather, 6).length ? list(w.weather, 6) : e.world.weather;
-    e.world.start = { y: num(w.start?.y, 2026), m: clamp(num(w.start?.m, 3), 1, 12), d: clamp(num(w.start?.d, 1), 1, 31), clock: clamp(num(w.start?.clock, 480), 0, 1439) };
+    const c = w.start?.cal ?? {};
+    const months = arr(c.months).map(x => ({ name: line(x?.name, 10), days: clamp(num(x?.days, 30), 1, 60) })).filter(x => x.name).slice(0, 24);
+    const cal = { months: months.length ? months : null, week: arr(c.week).map(x => line(x, 6)).filter(Boolean).slice(0, 10), era: line(c.era, 12), style: ['', '24', '12'].includes(c.style) ? c.style : '24' };
+    if (!cal.week.length) cal.week = null;
+    e.world.start = { y: num(w.start?.y, 2026), m: clamp(num(w.start?.m, 3), 1, months.length || 12), d: clamp(num(w.start?.d, 1), 1, months.length ? months[clamp(num(w.start?.m, 1), 1, months.length) - 1].days : 31), clock: clamp(num(w.start?.clock, 480), 0, 1439), cal };
     e.world.places = arr(w.places).map(normPlace).filter(Boolean).slice(0, LIMIT.places);
     e.world.itemFx = Object.fromEntries(Object.entries(w.itemFx && typeof w.itemFx === 'object' ? w.itemFx : {}).map(([k, v]) => [safeKey(k), fxOf(v)]).filter(([k]) => k).slice(0, 60));
     const me = b.me ?? {};
