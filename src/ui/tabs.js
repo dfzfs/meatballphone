@@ -561,7 +561,7 @@ function book(r) {
     );
     h += card('나', row({ icon: '🧍', title: esc(b.me.name || userName()), sub: b.me.needs.map(n => `${n.icon}${esc(n.name)} −${n.rate}/h`).join(' · '), act: 'bk-me', more: true }));
     h += card('인물', b.people.map(p => row({ icon: p.face, title: esc(p.name), sub: esc(p.line || '성격 비어 있음'), value: `<small>${personTokens(b, p)}t</small>`, act: 'bk-person', data: p.name, more: true })).join('') || row({ title: '아직 없어요', faint: true }), `인물당 ${LIMIT.lines}줄까지`);
-    h += `<div class="ml-acts">${btn('＋ 인물', 'bk-person', '')}${btn('🔄 로어북에서 다시 채우기', 'bk-refill')}</div>`;
+    h += `<div class="ml-acts">${btn('＋ 인물', 'bk-person', '')}${btn('🔄 로어북에서 다시 채우기', 'bk-refill')}${btn('✨ AI로 수정', 't-ai', 'book')}</div>`;
     return h;
 }
 // ───── 🎚 영향력 게이지 ─────
@@ -610,7 +610,7 @@ export async function onAct(act, v, el) {
             putInput(v);
             app.closeSheet?.();
             return;
-        case 'song3': case 'quote-new': case 'musicapp': case 'musicpop': case 'taste-edit': {
+        case 'song-new': case 'quote-new': case 'musicapp': case 'musicpop': case 'taste-edit': {
             const done = await musicAct(act, v, r, hand); if (done === 'refresh') app.refresh?.(); return;
         }
         case 'person':

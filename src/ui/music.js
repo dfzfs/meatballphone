@@ -1,6 +1,6 @@
 // 🎵 추천 음악 · 📜 한 구절 — dev처럼 AI가 장면을 보고 고른다 (B: 분류 모델 1회에 같이 · A: 본편이 bgm: · quote: 줄로)
 //   저장은 그 메시지 · 스와이프의 사건(bgm · quote)이라 리롤 · 분기 · 삭제에 맞게 따라간다.
-//   버튼(「곡 3개」 · 「다른 구절」)만 따로 AI 1회 → 고르면 손 고침(hand)으로 그 답에 적는다.
+//   버튼(「다른 곡」 · 「다른 구절」)만 따로 AI 1회 → 바로 손 고침(hand)으로 그 답에 적는다.
 import { getMeta, saveMeta, settings, saveSettings, ctx } from '../base/st.js';
 import { esc, short } from '../base/util.js';
 import { stripTags } from '../rules/tags.js';
@@ -40,7 +40,7 @@ export function musicView(r) {
         ? `<div class="ml-song"><div class="ml-song-h"><i>🎵</i><span><b>${esc(b.title)}</b><small>${esc(b.artist || '가수 모름')}${b.mood ? ` · ${esc(b.mood)}` : ''}</small></span>${play(b)}</div>`
             + `${b.why ? `<div class="ml-rl"><i>💡</i>${esc(b.why)}</div>` : ''}<small class="ml-sub">🤖 AI가 장면을 보고 고른 곡이에요 · 실제로 없는 곡일 수도 있어요</small></div>`
         : '<div class="ml-empty"><p>아직 고른 곡이 없어요. 장면 분위기가 바뀌면 AI가 골라요.</p></div>';
-    h += `<div class="ml-acts">${btn('🎧 지금 장면에 어울리는 곡 3개 <small>(AI 1회)</small>', 'song3', '', 'sm')}</div>`;
+    h += `<div class="ml-acts">${btn('🔄 다른 곡 <small>(AI 1회)</small>', 'song-new', '', 'sm')}</div>`;
     h += `<h4 class="ml-h4">음악 취향 <span>이 채팅 · 비우면 기본값</span></h4>`
         + `<div class="ml-rl tap" data-act="taste-edit"><i>🎼</i>${esc(meta.musicTaste || '(기본값)')} <span>· 기본 ${esc(settings().musicTaste || '없음')}</span></div>`;
     h += `<h4 class="ml-h4">▶ 누르면 열 곳</h4><div class="ml-picks">${Object.entries(MUSIC_APPS).map(([k, a]) => `<button class="ml-btn xs${(settings().musicApp || 'youtube') === k ? ' on' : ''}" data-act="musicapp" data-v="${k}">${a.name}</button>`).join('')}</div>`;
@@ -63,26 +63,20 @@ export function quoteView(r) {
 }
 
 // ───── 버튼 (AI 1회) ─────
-const SONG_SYS = 'Suggest 3 REAL existing songs that fit the roleplay scene. Output JSON only: {"songs":[{"title":"","artist":"","mood":"한 단어","why":"왜 어울리는지 한 줄 (한국어)"}]}. '
-    + 'Use songs that actually exist. Respect the listener taste if given.';
+const SONG_SYS = 'Pick ONE REAL existing song that fits the roleplay scene. Output JSON only: {"title":"","artist":"","mood":"한 단어","why":"왜 어울리는지 한 줄 (한국어)"}. '
+    + 'Use a song that actually exists. Respect the listener taste if given. Do not repeat the recent songs.';
+const recentSongs = (S) => [...(S.bgmLog ?? [])].reverse().slice(0, 10).map((x) => `${x.title} - ${x.artist ?? ''}`);
 const QUOTE_SYS = 'Pick ONE short line that fits the roleplay scene: a proverb from any country, a famous movie/drama line, a line from a book or poem, a famous person\'s saying, or a Korean 사자성어. '
     + 'NEVER song lyrics. One or two sentences. Output JSON only: {"text":"원문","src":"출처(작품 · 사람 · 나라)","mean":"한국어 뜻 (원문이 외국어일 때만)","why":"왜 어울리는지 한 줄 (한국어)"}.';
 export async function musicAct(act, v, r, hand) {
     const meta = getMeta();
     switch (act) {
-        case 'song3': {
+        case 'song-new': {
             toast('어울리는 곡을 찾는 중…');
             try {
-                const j = parseJSON(await askLight(SONG_SYS, `Taste: ${tasteOf() || '-'}\nNow: ${r.S.bgm ? `${r.S.bgm.title} - ${r.S.bgm.artist}` : '-'}\nScene:\n${sceneText()}`));
-                const L = (j?.songs ?? []).filter(x => x?.title).slice(0, 3);
-                if (!L.length) throw new Error('빈 답');
-                const el = sheet('🎧 지금 장면에 어울리는 곡', `<div class="ml-card">${L.map((x, k) => `<div class="ml-row"><span class="ml-tx"><b>${esc(x.title)}</b><small>${esc(x.artist ?? '')}${x.mood ? ` · ${esc(x.mood)}` : ''}`
-                    + `${x.why ? ` · ${esc(x.why)}` : ''}</small></span><span class="ml-val">${play(x)}<button class="ml-btn xs main" data-song="${k}`
-                    + `">고르기</button></span></div>`).join('')}</div>`);
-                el.addEventListener('click', (e) => {
-                    const b = e.target.closest('[data-song]'); if (!b) return; const x = L[Number(b.dataset.song)];
-                    hand(`bgm: ${x.title} - ${x.artist ?? ''} | ${x.mood ?? ''} | ${x.why ?? ''}`, '🎧 직접 고른 곡'); el.remove();
-                });
+                const x = parseJSON(await askLight(SONG_SYS, `Taste: ${tasteOf() || '-'}\nAvoid these recent ones: ${recentSongs(r.S).join(' / ') || '-'}\nScene:\n${sceneText()}`));
+                if (!x?.title) throw new Error('빈 답');
+                hand(`bgm: ${x.title} - ${x.artist ?? ''} | ${x.mood ?? ''} | ${x.why ?? ''}`, '🔄 다른 곡');
             } catch (e) { toast(`곡을 못 받았어요 · ${e.message}`, 'bad'); }
             return true;
         }

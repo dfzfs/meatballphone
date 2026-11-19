@@ -1,4 +1,4 @@
-// 🎵 📜 AI가 고르는 음악 · 구절: B는 분류 1회에 같이 · A는 본편 줄 · 곡 3개 · 다른 구절 · 지난 목록 · 열 곳 · 알림 · 취향
+// 🎵 📜 AI가 고르는 음악 · 구절: B는 분류 1회에 같이 · A는 본편 줄 · 다른 곡(하나) · 다른 구절 · 지난 목록 · 열 곳 · 알림 · 취향
 import { open, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open();
 const settle = () => page.evaluate(async () => { const c = await import('/ext/src/rules/classify.js'); for (let k = 0; k < 100 && !c.idle(); k++) await new Promise(r => setTimeout(r, 30)); await new Promise(r => setTimeout(r, 80)); });
@@ -8,6 +8,7 @@ try {
         const st = await import('/ext/src/base/st.js'); const m = st.getMeta(); m.mods.music = true; m.mods.quote = true; m.musicTaste = '시티팝';
         st.settings().mode = 'B'; st.settings().clsProfile = 'p-flash';
         window.__cls = (p) => { const j = JSON.parse(p), sys = j[0].content, user = j[1].content;
+            if (/Pick ONE REAL existing song/.test(sys)) { window.__sUser = user; return '{"title":"Plastic Love","artist":"Mariya Takeuchi","mood":"그리움","why":"밤거리"}'; }
             if (/Suggest 3 REAL/.test(sys)) return '{"songs":[{"title":"Plastic Love","artist":"Mariya Takeuchi","mood":"그리움","why":"밤거리"},{"title":"Stay With Me","artist":"Miki Matsubara","mood":"아련","why":"이별"},{"title":"Ride on Time","artist":"Tatsuro Yamashita","mood":"설렘","why":"출발"}]}';
             if (/Pick ONE short line/.test(sys)) { window.__qUser = user; return '{"text":"Carpe diem","src":"호라티우스 · 로마","mean":"오늘을 붙잡아라","why":"지금 고백할 때"}'; }
             window.__clsUser = user;
@@ -20,16 +21,16 @@ try {
     check(await page.evaluate(() => /\[NOW\][^\n]*taste 시티팝/.test(window.__clsUser) && /bgm: 곡 제목/.test(window.__clsUser) && /노래 가사는 안 됨/.test(window.__clsUser)), '분류 입력: 지금 곡 · 구절 · 취향 · bgm/quote 키(가사 금지)');
     check(await page.evaluate(() => (window.__sent ?? []).filter(x => x.id === 'p-flash').length) === 1, '추가 호출 없음 (같은 1회)');
     await sleep(400); check(await page.evaluate(() => [...document.querySelectorAll('.ml-toast')].some(t => t.textContent.includes('비와 당신'))), '곡이 바뀌면 작은 알림');
-    // 음악 앱: 지금 곡 · 열 곳 4 · 곡 3개 → 고르기
+    // 음악 앱: 지금 곡 · 열 곳 4 · 다른 곡 → 바로 지금 곡
     await page.evaluate(() => __ML__.app.openSheet('music')); await sleep(200);
     const mv = await page.evaluate(() => ({ t: document.querySelector('.ml-body').textContent, apps: document.querySelectorAll('[data-act="musicapp"]').length, href: document.querySelector('.ml-song a.ml-play')?.href }));
     check(mv.t.includes('비와 당신') && mv.apps === 4 && /youtube\.com\/results\?search_query=.*%EB%B9%84/.test(mv.href), '음악 앱: 지금 곡 · ▶ 열 곳 4개(유튜브 · 유튜브 뮤직 · 스포티파이 · 멜론)', JSON.stringify(mv));
     await page.evaluate(() => document.querySelector('[data-act="musicapp"][data-v="melon"]').click()); await sleep(150);
     check(await page.evaluate(() => /melon\.com/.test(document.querySelector('.ml-song a.ml-play')?.href ?? '')), '멜론으로 바꾸면 ▶가 멜론');
-    await page.evaluate(() => document.querySelector('[data-act="song3"]').click()); await sleep(500);
-    check(await page.evaluate(() => document.querySelectorAll('.ml-bs [data-song]').length) === 3, '「곡 3개」 (AI 1회)');
-    await page.evaluate(() => document.querySelector('.ml-bs [data-song="0"]').click()); await sleep(400);
-    check(await page.evaluate(() => __ML__.fold().S.bgm?.title) === 'Plastic Love', '하나 고르면 지금 곡으로');
+    check(await page.evaluate(() => !document.querySelector('[data-act="song3"]') && !!document.querySelector('[data-act="song-new"]')), '곡 3개 버튼은 없고 「다른 곡」 하나');
+    await page.evaluate(() => document.querySelector('[data-act="song-new"]').click()); await sleep(500);
+    check(await page.evaluate(() => __ML__.fold().S.bgm?.title === 'Plastic Love' && !document.querySelector('.ml-bs [data-song]')), '「다른 곡」: 하나만 받아 바로 지금 곡으로 (목록 없음)');
+    check(await page.evaluate(() => /Avoid[^\n]*비와 당신/.test(window.__sUser ?? '')), '「다른 곡」: 최근 곡은 피하게 넘김');
     await page.evaluate(() => __ML__.app.openSheet('music')); await sleep(200);
     check(await page.evaluate(() => [...document.querySelectorAll('.ml-body [data-act="jump"]')].some(x => x.textContent.includes('비와 당신'))), '지난 곡 목록 (누르면 그 답으로)');
     // 한 구절: 「AI가 고름」 · 다른 구절 → 최근 10개를 피하게 넘김

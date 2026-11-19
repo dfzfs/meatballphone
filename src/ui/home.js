@@ -21,7 +21,7 @@ export const APPS = [
     { id: 'map', to: 'main', main: '지금 장소 · 같이 있는 사람', icon: '🗺️', name: '지도', mod: 'map', desc: '노선도 · 인물 핀 · 건물 안 · 사진', c: '#2f9e7a' },
     { id: 'cal', to: 'main', main: '날짜 · 시간 · 날씨 · 약속', icon: '📅', name: '달력', mod: 'calendar', desc: '날짜 · 시간 · 날씨 · 약속 · 기념일', c: '#3a8ee6' },
     { id: 'news', to: 'aux', main: '', icon: '📰', name: '세계 소식', mod: 'news', desc: '화면 밖 생활 · 속셈 · 기념일 · 오늘 사건', c: '#6c7a89' },
-    { id: 'music', to: 'aux', main: '', icon: '🎵', name: '추천 음악', mod: 'music', desc: 'AI가 장면을 보고 고른 실제 곡 · 곡 3개 추천 · 지난 곡', c: '#ff8fab' },
+    { id: 'music', to: 'aux', main: '', icon: '🎵', name: '추천 음악', mod: 'music', desc: 'AI가 장면을 보고 고른 실제 곡 하나 · 다른 곡 · 지난 곡', c: '#ff8fab' },
     { id: 'quote', to: 'main', main: '한 구절 (영향력을 올렸을 때만)', icon: '📜', name: '한 구절', mod: 'quote', desc: 'AI가 고른 속담 · 명대사 · 책 · 시 · 명언 · 사자성어', c: '#b08968' },
     { id: 'rec', to: 'aux', main: '', icon: '📒', name: '기록', mod: 'record', desc: '타임라인 · 책갈피 · 그때 상태 · 그래프', c: '#e9c46a' },
     { id: 'mind', to: 'main', main: '속마음을 적어 달라는 지시', icon: '💭', name: '속마음', mod: 'mind', desc: '인물 · 관전자 · 세포들의 속마음', c: '#a78bfa' },

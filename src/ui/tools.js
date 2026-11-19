@@ -24,12 +24,12 @@ export const PARTS = {
 export const vis = (appId, part) => !(settings().partsOff?.[appId] ?? []).includes(part);
 export const hiddenAI = (gid) => !!getMeta()?.hideAI?.[gid];
 
-const EDITABLE = new Set(['now', 'dice', 'bag', 'rel', 'map', 'cal', 'news', 'custom', 'music', 'rec', 'mind', 'quote']);
+const EDITABLE = new Set(['now', 'dice', 'bag', 'rel', 'map', 'cal', 'news', 'custom', 'music', 'rec', 'mind', 'quote', 'traits']);
 export function toolbar(appId) {
     const gid = APP_GAUGE[appId], hid = gid && hiddenAI(gid);
     const B = [];
     if (EDITABLE.has(appId)) B.push(`<button class="ml-tool" data-act="t-edit" data-v="${appId}">✏️ 편집</button>`);
-    if (['now', 'bag', 'rel', 'map', 'cal', 'news', 'custom'].includes(appId)) B.push(`<button class="ml-tool" data-act="t-ai" data-v="${appId}">✨ AI로 수정</button>`);
+    if (AI_APPS.has(appId)) B.push(`<button class="ml-tool" data-act="t-ai" data-v="${appId}">✨ AI로 수정</button>`);
     if (gid) B.push(`<button class="ml-tool${hid ? ' on' : ''}" data-act="t-hide" data-v="${gid}" title="${hid ? '본편에 다시 보내기' : '이 앱의 결과값을 본편에 안 보내기'}">${hid ? '🙈 AI에게 숨김' : '🙈 숨기기'}</button>`);
     if (PARTS[appId]) B.push(`<button class="ml-tool" data-act="t-parts" data-v="${appId}">👁 보일 것</button>`);
     B.push('<button class="ml-tool" data-act="t-gloss">🌐 용어집</button>');
@@ -197,8 +197,34 @@ export async function editApp(appId) {
                 'ctab-new',
                 '칸을 누르면 값 · 단계 · 경계 문구를 고쳐요',
             );
-        case 'music': return (await import('./music.js')).musicAct('taste-edit', '', null, null).then((d) => { if (d) app.refresh?.(); });
-        case 'quote': return (await import('./tabs.js')).onAct('quote-new', '');
+        case 'music': {
+            const x = r.S.bgm ?? {};
+            const fv = await form('✏️ 지금 곡', [
+                { k: 'title', label: '곡 제목', v: x.title ?? '' },
+                { k: 'artist', label: '가수', v: x.artist ?? '' },
+                { k: 'mood', label: '분위기 한 단어', v: x.mood ?? '' },
+                { k: 'why', label: '왜 어울리는지', v: x.why ?? '' },
+                { k: 'taste', label: '음악 취향 (이 채팅 · 비우면 기본값)', v: meta.musicTaste ?? '' },
+            ]);
+            if (!fv) return;
+            if ((fv.taste ?? '') !== (meta.musicTaste ?? '')) { meta.musicTaste = fv.taste.trim().slice(0, 60); saveMeta(); }
+            if (fv.title.trim() && (fv.title !== (x.title ?? '') || fv.artist !== (x.artist ?? '') || fv.mood !== (x.mood ?? '') || fv.why !== (x.why ?? '')))
+                handLines([`bgm: ${fv.title.trim()} - ${fv.artist.trim()} | ${fv.mood.trim()} | ${fv.why.trim()}`], '✏️ 곡 직접 고침');
+            else app.refresh?.();
+            return;
+        }
+        case 'quote': {
+            const x = r.S.quote ?? {};
+            const fv = await form('✏️ 지금 구절', [
+                { k: 'text', label: '구절', type: 'area', v: x.text ?? '' },
+                { k: 'src', label: '출처 (작품 · 사람 · 나라)', v: x.src ?? '' },
+                { k: 'mean', label: '한국어 뜻 (외국어일 때)', v: x.mean ?? '' },
+                { k: 'why', label: '왜 어울리는지', v: x.why ?? '' },
+            ]);
+            if (!fv?.text?.trim()) return;
+            return handLines([`quote: ${fv.text.trim().replace(/\|/g, '/')} | ${fv.src.trim()} | ${fv.mean.trim()} | ${fv.why.trim()}`], '✏️ 구절 직접 고침');
+        }
+        case 'traits': return (await import('./traits.js')).traitAct?.('tr-pick', '') ?? toast('특성 화면에서 「＋」로 고르세요');
         case 'mind': {
             const fv = await form('✏️ 속마음', [
                 {
@@ -489,39 +515,88 @@ async function editPlace(name) {
 }
 
 // ───── ✨ AI로 수정: 한 줄 지시 → AI 1회 → 바뀔 것 미리 보기 → 확인하면 반영 (되돌리기 가능) ─────
-const AI_KEYS = 'loc, time(+2h | 14:30), weather, cash(+10 | -5), got(item | n), lost(item), wear(item), act(name | what), aff(name +3 | why), trust(name -2 | why), status(name | 3d) or status(-name), memory(name | event), promise(text | 3/14), life(name | news), 허기/에너지 등 욕구 이름(+10)';
+//   모든 앱 + 설정집. 지금 값은 사건 줄(기록에 ✨ · 되돌리기), 규칙은 설정집 조각(JSON)으로 받는다.
+const AI_KEYS = 'loc, time(+2h | 14:30), weather, cash(+10 | -5), got(item | n), lost(item), wear(item), act(name | what), aff(name +3 | why), trust(name -2 | why), '
+    + 'status(name | 3d) or status(-name), memory(name | event), promise(text | 3/14), life(name | news), mind(name | short inner thought), '
+    + 'bgm(title - artist | mood | why), quote(text | source | Korean meaning | why), need names like 허기/에너지(+10)';
+// 앱마다: 지금 값 요약 · 바꿀 수 있는 설정집 조각
+const AI_SCOPE = {
+    now: { book: ['me'] }, dice: { book: ['me'] }, bag: { book: ['places'] }, rel: { book: ['people'] }, map: { book: ['places'] }, cal: { book: ['world'] },
+    news: { book: [] }, music: { book: [] }, quote: { book: [] }, rec: { book: [] }, mind: { book: [] }, traits: { book: ['me', 'people'] }, custom: { book: [] },
+    book: { book: ['world', 'me', 'people', 'places'] },
+};
+export const AI_APPS = new Set(Object.keys(AI_SCOPE));
+function aiNow(appId, r) {
+    const S = r.S, b = r.book;
+    const all = `place ${S.loc} · time ${S.t} · weather ${S.weather} · cash ${S.cash} · needs ${JSON.stringify(S.needs)} · status ${S.status.map((x) => x.name).join(',') || '-'}`;
+    return {
+        now: `needs ${JSON.stringify(S.needs)} gauges ${JSON.stringify(S.gauges)} attrs ${JSON.stringify(S.attrs)} status ${S.status.map((x) => x.name).join(',') || '-'}`,
+        dice: `attrs ${JSON.stringify(S.attrs)} status ${S.status.map((x) => `${x.name}(${x.dice ?? 0})`).join(',') || '-'} traits ${(b.me.traitIds ?? []).join(',') || '-'}`,
+        bag: `cash ${S.cash} items ${S.items.map((i) => `${i.name}x${i.n}${i.worn ? '(worn)' : ''}`).join(', ') || '-'}`,
+        rel: Object.entries(S.rel).map(([n, x]) => `${n} aff ${x.aff} trust ${x.trust}`).join(' · '),
+        map: `here ${S.loc} with ${(S.with ?? []).join(',') || '-'}`,
+        cal: `time ${S.t} weather ${S.weather} promises ${(S.promises ?? []).map((q) => q.text).join(' / ') || '-'}`,
+        news: (S.news ?? []).slice(0, 5).map((n) => n.text).join(' / ') || '-',
+        music: S.bgm ? `now song ${S.bgm.title} - ${S.bgm.artist ?? ''} (${S.bgm.mood ?? ''})` : 'no song yet',
+        quote: S.quote ? `now quote "${S.quote.text}" — ${S.quote.src ?? ''}` : 'no quote yet',
+        mind: Object.entries(S.mind ?? {}).map(([n, t]) => `${n}: ${typeof t === 'string' ? t : JSON.stringify(t)}`).join(' / ') || '-',
+        traits: `my traits ${(b.me.traitIds ?? []).join(',') || '-'} · people ${b.people.map((p) => `${p.name}:${(p.traits ?? []).join('/')}`).join(' · ')}`,
+        custom: JSON.stringify(S.custom ?? {}),
+        rec: all,
+        book: all,
+    }[appId] ?? all;
+}
+function aiBookPart(keys, b) {
+    const o = {};
+    for (const k of keys) {
+        if (k === 'world') { const { places, ...w } = b.world; o.world = w; }
+        if (k === 'me') o.me = b.me;
+        if (k === 'people') o.people = b.people;
+        if (k === 'places') o.places = b.world.places.map(({ photo, ...p }) => p);
+    }
+    return keys.length ? JSON.stringify(o).slice(0, 9000) : '';
+}
+// 받은 설정집 조각 → 새 설정집 (모르는 칸 · 고를 수 없는 칸은 버림)
+function applyBookPatch(book, patch, keys) {
+    const nb = { ...book, world: { ...book.world }, me: { ...book.me } };
+    if (keys.includes('world') && patch.world && typeof patch.world === 'object') { const { places, ...w } = patch.world; Object.assign(nb.world, w); }
+    if (keys.includes('places') && Array.isArray(patch.places)) nb.world.places = patch.places.map((p) => ({ ...p, photo: placeOf(book, p?.name)?.photo ?? '' }));
+    if (keys.includes('me') && patch.me && typeof patch.me === 'object') Object.assign(nb.me, patch.me);
+    if (keys.includes('people') && Array.isArray(patch.people)) nb.people = patch.people;
+    return normBook(nb);
+}
+function patchSummary(patch, keys) {
+    const L = [];
+    if (keys.includes('world') && patch.world) L.push(`🌍 세계: ${Object.keys(patch.world).filter((k) => k !== 'places').join(', ') || '-'}`);
+    if (keys.includes('me') && patch.me) L.push(`🙋 나: ${Object.keys(patch.me).join(', ')}`);
+    if (keys.includes('people') && Array.isArray(patch.people)) L.push(`👥 인물 ${patch.people.length}명으로`);
+    if (keys.includes('places') && Array.isArray(patch.places)) L.push(`📍 장소 ${patch.places.length}곳으로`);
+    return L;
+}
 export async function aiEdit(appId) {
-    const fv = await form('✨ AI로 수정', [{ k: 'say', label: '어떻게 바꿀까요?', type: 'area', ph: '예: 아까 산 빵은 사실 두 개였어 · Leon 애정을 조금 낮춰 줘 · 시장 옆에 대장간을 만들어 줘' }], { ok: 'AI에게 맡기기' });
-    if (!fv?.say.trim()) return;
-    const r = fold(), b = r.book, S = r.S;
-    const ctxt =
-        {
-            now: `needs ${JSON.stringify(S.needs)} gauges ${JSON.stringify(S.gauges)} status ${S.status.map((s) => s.name).join(',')}`,
-            bag: `cash ${S.cash} items ${S.items.map((i) => `${i.name}x${i.n}`).join(', ')}`,
-            rel: Object.entries(S.rel)
-                .map(([n, x]) => `${n} aff ${x.aff} trust ${x.trust}`)
-                .join(' · '),
-            map: `here ${S.loc} places ${b.world.places.map((p) => p.name).join(', ')}`,
-            cal: `time ${S.t} weather ${S.weather}`,
-            news: S.news
-                .slice(0, 5)
-                .map((n) => n.text)
-                .join(' / '),
-            custom: JSON.stringify(S.custom),
-        }[appId] ?? '';
-    const bookPart = appId === 'rel' ? JSON.stringify({ people: b.people }).slice(0, 4000) : appId === 'map' ? JSON.stringify({ places: b.world.places.map(({ photo, ...p }) => p) }).slice(0, 4000) : '';
+    const scope = AI_SCOPE[appId] ?? AI_SCOPE.book, keys = scope.book;
+    const fv = await form('✨ AI로 수정', [{ k: 'say', label: '어떻게 바꿀까요?', type: 'area', ph: '예: 아까 산 빵은 사실 두 개였어 · 서하 애정을 조금 낮춰 줘 · 지금 곡을 잔잔한 걸로 · 카페에 케이크를 추가해 줘' }], { ok: 'AI에게 맡기기' });
+    if (!fv?.say?.trim()) return;
+    const r = fold(); if (!r) { toast('상태창이 아직 없어요', 'bad'); return; }
+    const bookPart = aiBookPart(keys, r.book);
     toast('AI에게 묻는 중…');
-    const raw = await ask(`The user wants to change the status window: "${fv.say.trim()}"\nCurrent: ${ctxt}\n${bookPart ? `Rulebook part (JSON): ${bookPart}\nIf the change is about the rulebook (adding/changing people or places), output the FULL changed list as JSON in a `
-        + `\`\`\`json block: ${appId === 'rel' ? '{"people":[...]}' : '{"places":[...]}'}.\n` : ''}If it is about current values, output event lines inside <meatball></meatball> using keys: ${AI_KEYS}. Output nothing else.\n${gloss()}`, 'You edit a status window. Be minimal and exact.');
-    const lines = readOps(raw).map(([k, v]) => `${k}: ${v}`), j = parseJSON(raw.replace(/<meatball>[\s\S]*?<\/meatball>/i, ''));
-    const patch = j && (Array.isArray(j.people) || Array.isArray(j.places)) ? j : null;
+    let raw = '';
+    try {
+        raw = await ask(`The user wants to change the status window (${appId}): "${fv.say.trim()}"\nCurrent values: ${aiNow(appId, r)}\n`
+            + (bookPart ? `Rulebook part (JSON): ${bookPart}\nIf the change is about the rulebook, output ONLY the changed top-level parts as JSON in a \`\`\`json block (same shape; for people/places give the FULL changed list).\n` : '')
+            + `If it is about current values, output event lines inside <meatball></meatball> using keys: ${AI_KEYS}. You may output both. Output nothing else.\n${gloss()}`,
+            'You edit a status window. Be minimal and exact. Change only what the user asked.');
+    } catch (e) { toast(`AI 호출 실패 · ${e.message ?? e}`, 'bad'); return; }
+    const lines = readOps(raw).map(([k, v]) => `${k}: ${v}`);
+    const j = keys.length ? parseJSON(String(raw).replace(/<meatball>[\s\S]*?<\/meatball>/i, '')) : null;
+    const patch = j && typeof j === 'object' && patchSummary(j, keys).length ? j : null;
     if (!lines.length && !patch) { toast('바꿀 것을 못 찾았어요', 'bad'); return; }
-    const preview = `${lines.length ? `<h4 class="ml-h4">값 바꾸기 (기록에 ✨로 남음)</h4>${lines.map(l => `<div class="ml-rl"><i>•</i>${esc(l)}</div>`).join('')}` : ''}`
-        + `${patch ? `<h4 class="ml-h4">설정집 바꾸기</h4><div class="ml-rl"><i>📘</i>${patch.people ? `인물 ${patch.people.length}명` : `장소 ${patch.places.length}곳`}으로 바뀌어요</div>` : ''}`;
+    const preview = `${lines.length ? `<h4 class="ml-h4">값 바꾸기 (기록에 ✨로 남음)</h4>${lines.map((l) => `<div class="ml-rl"><i>•</i>${esc(l)}</div>`).join('')}` : ''}`
+        + `${patch ? `<h4 class="ml-h4">설정집 바꾸기</h4>${patchSummary(patch, keys).map((x) => `<div class="ml-rl"><i>📘</i>${esc(x)}</div>`).join('')}` : ''}`;
     sheet('✨ 이렇게 바꿀까요?', preview, {
         ok: '반영',
         onOk: () => {
-            if (patch) { const meta = getMeta(); meta.book = normBook(patch.people ? { ...meta.book, people: patch.people } : { ...meta.book, world: { ...meta.book.world, places: patch.places.map(p => ({ ...p, photo: placeOf(meta.book, p.name)?.photo ?? '' })) } }); saveBook(); }
+            if (patch) { const meta = getMeta(); meta.book = applyBookPatch(meta.book, patch, keys); saveBook(); }
             if (lines.length) handLines(lines, `✨ ${fv.say.trim()}`, 'ai');
             toast('반영했어요 · 기록에서 되돌릴 수 있어요', 'good');
         },
