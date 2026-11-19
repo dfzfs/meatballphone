@@ -3,14 +3,15 @@
 //   결과는 그 메시지 · 그 스와이프의 칸(msgData)에 src: 'cls'로 저장 → 다시 열기 · 다시 계산에는 다시 부르지 않음.
 import { ctx, settings, getMeta, saveMeta, msgData, syncSwipe, bumpMeta, msgKey, app, TITLE } from '../base/st.js';
 import { short, hash, norm, tokens, safeKey } from '../base/util.js';
-import { readOps, kindOf, parts, stripTags } from './tags.js';
+import { readOps, kindOf, parts, stripTags, storyOnly } from './tags.js';
+import { sendClean, clsRoute, connStats, routeText, CLS_PRESET } from './clsconn.js';
 import { fold } from './engine.js';
 import { personOf, normBook } from './book.js';
 import { gloss } from '../base/gloss.js';
 
 // ───── 모드 ─────
 // B를 골라도 분류 연결이 없으면 A로 돌아간다 (설정 화면에 한 줄로 알림)
-export const mode = () => (settings().mode !== 'A' && settings().clsProfile ? 'B' : 'A');
+export const mode = () => (settings().mode !== 'A' && clsRoute() ? 'B' : 'A');
 export const modeNote = () => (settings().mode !== 'A' && !settings().clsProfile ? '분류 모델 연결을 고르지 않아서 지금은 A(본편 태그)로 돌아요' : '');
 // 실리태번 연결 프로필 목록 [{ id, name }]
 export const profiles = () => (ctx().extensionSettings?.connectionManager?.profiles ?? []).map(p => ({ id: p.id, name: p.name ?? p.id }));
@@ -33,11 +34,17 @@ const QUOTE = [['quote', '구절 원문 | 출처(작품 · 사람 · 나라) | �
 const keyList = () => { const M = getMeta()?.mods ?? {}; return [...KEYS, ...(M.mind ? MIND : []), ...(M.music ? BGM : []), ...(M.quote ? QUOTE : [])]; };
 export const ALLOW = () => new Set(keyList().map(([k]) => kindOf(k)));
 
-// 인물마다 오르는 · 내리는 행동 (장면에 있는 사람 먼저 · 없으면 가까운 둘)
-function actionsOf(book, S) {
+// 답 글에 이름(또는 별칭)이 나온 설정집 인물
+export function namedIn(book, text) {
+    const t = String(text ?? '');
+    return (book?.people ?? []).filter(p => [p.name, ...(p.aka ?? [])].some(n => String(n ?? '').length >= 2 && t.includes(n))).map(p => p.name);
+}
+// 인물마다 오르는 · 내리는 행동 (장면에 있는 사람 + 답 글에 이름이 나온 사람 · 아무도 없으면 가까운 둘)
+export function actionsOf(book, S, text = '') {
     const live = Object.keys(S.rel).filter(n => !S.rel[n].gone);
-    const who = S.with.length ? S.with : live.sort((a, b) => S.rel[b].aff + S.rel[b].trust - S.rel[a].aff - S.rel[a].trust).slice(0, 2);
-    return who.map(n => personOf(book, n)).filter(p => p && (p.up.length || p.down.length))
+    let who = [...new Set([...S.with, ...namedIn(book, text)])];
+    if (!who.length) who = live.sort((a, b) => S.rel[b].aff + S.rel[b].trust - S.rel[a].aff - S.rel[a].trust).slice(0, 2);
+    return who.map(n => personOf(book, n)).filter((p, k, A) => p && A.indexOf(p) === k && (p.up.length || p.down.length))
         .map(p => ({ name: p.name, up: p.up.map(a => a.act), down: p.down.map(a => a.act) }));
 }
 // 이 턴 고른 선택과 결과 (미트볼 선택지: 사용자 메시지 extra.mbc 또는 통로로 받은 것)
@@ -77,15 +84,13 @@ export function buildPrompt(i) {
     const r = fold(); if (!r) return null;
     const chat = ctx().chat ?? [], m = chat[i], u = userBefore(i), { book } = r;
     const S = r.stateAt?.(i - 1) ?? r.S; // 이 답 바로 앞 상태
+    const story = storyOnly(m.mes);
     const items = S.items.map(it => it.name).slice(0, 20).join(', ') || '-';
-    const acts = actionsOf(book, S).map(a => `${a.name} — up: ${a.up.join(', ') || '-'} / down: ${a.down.join(', ') || '-'}`);
+    const acts = actionsOf(book, S, story).map(a => `${a.name} — up: ${a.up.join(', ') || '-'} / down: ${a.down.join(', ') || '-'}`);
     const places = book.world.places.map(p => `${p.name}${p.goods.length ? `(${p.goods.map(g => g.name).join('·')})` : ''}`).join(', ');
     const keys = keyList().map(([k, v, when]) => `${k}: ${v}  — ${when}`).join('\n');
     const ch = choiceText(choiceOf(u));
-    const system = 'You label what happened in ONE roleplay reply for a status tracker. Use ONLY the keys and actions listed. '
-        + 'If the wording differs, map it to the closest listed action (e.g. "spoke sweetly" → the listed "칭찬"). '
-        + 'Never write an event that did not happen in the reply. No numbers except the formats shown. '
-        + 'Output ONLY a <meatball> block, one "key: value" per line. If nothing happened, output an empty <meatball></meatball>.';
+    const system = SYSTEM;
     const user = [
         `[STATE] place ${S.loc || '-'} · time ${Math.floor(((S.t % 1440) + 1440) % 1440 / 60)}h · with ${S.with.join(', ') || '-'} · money ${S.cash} ${book.world.currency} · items ${items}`,
         ch && `[CHOICE] ${ch} — pick events that match this result (cost, trap, success or failure).`,
@@ -94,26 +99,28 @@ export function buildPrompt(i) {
         `[PLACES] ${places || '-'}`,
         `[KEYS]\n${keys}`,
         gloss(),
-        u >= 0 ? `[USER] ${short(chat[u].mes, 300)}` : '',
-        `[REPLY]\n${short(stripTags(m.mes), 4000)}`,
+        u >= 0 ? `[USER] ${short(storyOnly(chat[u].mes), 300)}` : '',
+        `[REPLY]\n${short(story, 4000)}`,
     ].filter(Boolean).join('\n\n');
     return { system, user, tok: tokens(system) + tokens(user) };
 }
-// 분류 연결로 보냄 (온도 0 · 출력 짧게)
+// 분류 지시 (라이트의 분류 지시만 · 사용자 프리셋 · 탈옥 없음)
+const SYSTEM = 'You label what happened in ONE roleplay reply for a status tracker. Use ONLY the keys and actions listed. '
+        + 'If the wording differs, map it to the closest listed action (e.g. "spoke sweetly" → the listed "칭찬"). '
+        + 'Never write an event that did not happen in the reply. No numbers except the formats shown. '
+        + 'Output ONLY a <meatball> block, one "key: value" per line. If nothing happened, output an empty <meatball></meatball>.';
+// 분류 연결로 보냄 (「미트볼 분류용」 프리셋: 온도 0 · 답 1000토큰 · 생각 최소 · 스트리밍 끔)
 export const clsStats = { calls: 0, tok: 0, lastTok: 0, fails: 0 };
 async function send(system, user) {
-    const c = ctx(), prof = settings().clsProfile;
-    if (!prof || !c.ConnectionManagerRequestService) throw new Error('분류 연결 없음');
-    clsStats.calls++; clsStats.lastSent = { system, user };
-    const r = await c.ConnectionManagerRequestService.sendRequest(prof, [{ role: 'system', content: system }, { role: 'user', content: user }], 300,
-        { stream: false, extractData: true, includePreset: false, includeInstruct: false }, { temperature: 0 });
-    clsStats.lastReply = String(r?.content ?? r ?? '');
+    clsStats.calls++; clsStats.lastSent = { system, user }; clsStats.lastReply = null;
+    try { clsStats.lastReply = await sendClean(system, user); }
+    finally { clsStats.lastError = connStats.lastError; clsStats.lastMs = connStats.lastMs; clsStats.route = routeText(); }
     return clsStats.lastReply;
 }
 
 // 가벼운 모델 한 번 (버튼 · 새 인물 규칙): 분류 연결이 있으면 그것, 없으면 상태창 만들기 연결
 export async function askLight(system, user) {
-    if (settings().clsProfile && ctx().ConnectionManagerRequestService) return send(system, user);
+    if (clsRoute()) return send(system, user);
     return (await import('./ai.js')).ask(user, system);
 }
 // 받은 줄 거르기: 목록 밖의 키 · 행동은 조용히 버림 · 비슷한 말은 목록 행동으로 맞춤
@@ -166,7 +173,7 @@ async function run(i, force) {
         tok = P.tok; clsStats.lastTok = tok; clsStats.tok += tok;
         const r = fold(), S = r.stateAt?.(i - 1) ?? r.S;
         for (let n = 0; n < 2 && !ops; n++) {
-            try { ops = filterOps(await send(P.system, P.user), r.book, S); } catch (e) { if (n) { clsStats.fails++; console.info(`[${TITLE}] 분류 실패 (칩의 「다시」)`, e.message); } }
+            try { ops = filterOps(await send(P.system, P.user), r.book, S); } catch (e) { if (n) { clsStats.fails++; console.info(`[${TITLE}] 분류 실패 (칩의 「다시」) · ${e.message}`); } }
         }
     }
     // 그새 다른 스와이프로 넘어갔거나 글이 바뀌었으면 이 칸엔 안 씀 (결과는 지문으로 남겨 둠)
@@ -178,6 +185,21 @@ async function run(i, force) {
     s2.rev = (s2.rev ?? 0) + 1; bumpMeta(); syncSwipe(m); saveMeta(); ctx().saveChatDebounced?.();
     app.afterClassify?.(i);
 }
+
+// ───── 🔌 분류 연결 시험: 짧은 견본 답 하나를 분류해 봄 (설정집 · 채팅 없어도 됨) ─────
+export const SAMPLE = '민지는 편의점에 들어가 삼각김밥을 하나 샀다. 1,500원을 내고 밖으로 나와 벤치에 앉아 먹었다. 도윤이 다가와 웃으며 칭찬했다. "오늘 좀 멋진데?"';
+export async function testConnection() {
+    const t0 = performance.now(), route = routeText();
+    if (!clsRoute()) return { ok: false, ms: 0, route, error: '분류 모델 연결을 먼저 골라 주세요' };
+    const user = `[STATE] place 거리 · time 12h · with 민지 · money 10000 원 · items -\n\n[ACTIONS]\n도윤 — up: 칭찬 / down: 거짓말\n\n[KEYS]\n`
+        + `${KEYS.slice(0, 16).map(([k, v, w]) => `${k}: ${v}  — ${w}`).join('\n')}\n\n[REPLY]\n${SAMPLE}`;
+    try {
+        const reply = await send(SYSTEM, user), ms = Math.round(performance.now() - t0);
+        const ok = /<meatball>/i.test(reply), ops = ok ? readOps(reply) : [];
+        return { ok: ok && ops.length > 0, ms, route, reply, ops, error: ok ? (ops.length ? '' : '답은 왔지만 고른 사건이 0개예요') : '답에 <meatball> 블록이 없어요' };
+    } catch (e) { return { ok: false, ms: Math.round(performance.now() - t0), route, error: e.message }; }
+}
+export const presetText = () => `${CLS_PRESET.name}: 온도 ${CLS_PRESET.temperature} · 답 ${CLS_PRESET.max_tokens}토큰 · 생각 ${connStats.thinkOff ? '설정 안 보냄(모델이 거절)' : CLS_PRESET.reasoning_effort} · 스트리밍 끔 · 사용자 프리셋 안 씀`;
 
 // ───── 6-2 새 인물 규칙 채우기: npc로 처음 나온 인물은 그 인물당 한 번만 ─────
 export async function fillPerson(name, why = '') {

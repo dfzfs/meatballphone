@@ -3,7 +3,8 @@
 import { app, ctx, settings, getMeta, msgData, VERSION, TITLE } from '../base/st.js';
 import { short } from '../base/util.js';
 import { fold, opsOf } from '../rules/engine.js';
-import { mode, profiles, clsStats } from '../rules/classify.js';
+import { mode, profiles, clsStats, presetText } from '../rules/classify.js';
+import { routeText } from '../rules/clsconn.js';
 import { doctorRows, chipCheck } from './doctor.js';
 import { sheet, toast } from '../ui/kit.js';
 
@@ -17,7 +18,7 @@ export function initLog() {
         console[lv] = (...a) => {
             try {
                 const t = a.map(x => (x instanceof Error ? `${x.message}` : typeof x === 'string' ? x : (() => { try { return JSON.stringify(x); } catch { return String(x); } })())).join(' ');
-                if (t.includes(TITLE) || t.includes('[미트볼')) { LOG.push(`${new Date().toISOString().slice(11, 19)} ${lv} ${short(t, 300)}`); if (LOG.length > 50) LOG.shift(); }
+                if (t.includes(TITLE) || t.includes('[미트볼')) { LOG.push(`${new Date().toISOString().slice(11, 19)} ${lv} ${short(t, 900)}`); if (LOG.length > 50) LOG.shift(); }
             } catch { /* 로그 모으다 실패해도 그냥 */ }
             orig(...a);
         };
@@ -78,7 +79,7 @@ export function buildReport({ n = 10, noText = false } = {}) {
         settings: set, book: meta?.book ?? null, state: r?.S ?? null, ruleVersions: meta?.ruleVers ?? [],
         messages: msgs,
         lastInjection: app.lastInj?.() ?? {},
-        lastClassify: { sent: clsStats.lastSent ?? null, received: clsStats.lastReply ?? null, calls: clsStats.calls, fails: clsStats.fails },
+        lastClassify: { route: routeText(), preset: presetText(), sent: clsStats.lastSent ?? null, received: clsStats.lastReply ?? null, error: clsStats.lastError ?? null, ms: clsStats.lastMs ?? 0, calls: clsStats.calls, fails: clsStats.fails },
         doctor: (() => { try { return doctorRows(app, perf).map(x => `${x.lv} · ${x.title} · ${String(x.sub).replace(/<[^>]+>/g, '')}`); } catch (e) { return [`실패: ${e.message}`]; } })(),
         chipCheck: msgs.filter(x => x.who === 'ai').slice(-3).map(x => ({ i: x.i, text: (() => { try { return chipCheck(x.i).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(); } catch (e) { return e.message; } })() })),
         perf: { turns: perf.turns ?? [], refresh: perf.refresh ?? [] },
@@ -106,7 +107,9 @@ export function buildReport({ n = 10, noText = false } = {}) {
     }
     L.push('', '## 🩺 자가 진단', ...safe.doctor.map(x => `- ${x}`));
     L.push('', '## 마지막 본편 주입', ...Object.entries(safe.lastInjection).map(([k, v]) => `[${k}]\n${v}`));
-    L.push('', '## 마지막 분류 모델', `보냄:\n${safe.lastClassify.sent ? `${safe.lastClassify.sent.system}\n---\n${safe.lastClassify.sent.user}` : '(없음)'}`, `받음:\n${safe.lastClassify.received ?? '(없음)'}`);
+    const ce = safe.lastClassify.error;
+    L.push('', '## 마지막 분류 모델', `연결: ${safe.lastClassify.route} · ${safe.lastClassify.preset}`, `오류: ${ce ? `${ce.at} · ${ce.ms}ms · ${ce.text}` : '(없음)'}`,
+        `보냄:\n${safe.lastClassify.sent ? `${safe.lastClassify.sent.system}\n---\n${safe.lastClassify.sent.user}` : '(없음)'}`, `받음:\n${safe.lastClassify.received ?? '(없음)'}`);
     L.push('', '## 오류 · 경고 로그', ...(safe.log.length ? safe.log : ['(없음)']));
     L.push('', '## 선택지', typeof safe.choices === 'string' ? safe.choices : '(아래 JSON)');
     L.push('', '===== 원본 JSON =====', JSON.stringify(safe, null, 1));

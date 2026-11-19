@@ -4,7 +4,7 @@ import { normBook } from '../rules/book.js';
 
 export const MODULE = 'meatlite';
 export const OLD = 'statussim';
-export const VERSION = '0.28.0';
+export const VERSION = '0.29.0';
 export const DATA_V = 2;
 export const TITLE = '미트볼 라이트';
 export const INJ = { facts: 'meatlite_facts', hint: 'meatlite_hint', rule: 'meatlite_rule' };
@@ -28,7 +28,8 @@ export const DEFAULTS = Object.freeze({
     influence: { all: 2, by: {} },  // 이야기 영향력 게이지 (전체 기본값 · 채팅마다 덮어쓸 수 있음)
     preset: 'flash',        // 본편 지시 프리셋: flash | general
     mode: 'B',              // 사건 고르기: A 본편 태그 · B 분류 모델(가벼운 모델이 답마다 목록에서 고름)
-    clsProfile: '',         // 분류 모델 연결 프로필 (비우면 B는 A로)
+    clsProfile: '',         // 분류 모델 연결: 프로필 id · '@current'(지금 쓰는 API에서 모델만) · 비우면 B는 A로
+    clsModel: '',           // '@current'일 때 모델 이름 (비우면 지금 모델)
     skipQuiet: true,        // 퀵리플라이 · /gen 답엔 상태창 안 붙임
     ooc: true,
     oocPattern: '^\\s*(\\(\\(|\\[?\\(?\\s*ooc\\b|//)',

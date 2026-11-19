@@ -67,7 +67,9 @@ body.ml-open #ml-mini{display:none}
 .ml-toast.bad{color:var(--bad)}
 .ml-toast.good{color:var(--good)}
 .mes.ml-flash{outline:3px solid var(--ml-accent,#e07a5f);outline-offset:-3px;transition:outline .3s}
-.ml-set h4{margin:12px 0 4px}.ml-set-btns{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0}
+.ml-set h4{margin:12px 0 4px}
+.ml-cls-res{margin:4px 0 8px;padding:6px 8px;border-radius:8px;font-size:.9em;line-height:1.5;word-break:break-word}.ml-cls-res.good{background:rgb(70 167 88/.15)}.ml-cls-res.bad{background:rgb(229 72 77/.15)}.ml-cls-res pre{white-space:pre-wrap;max-height:200px;overflow:auto}
+.ml-set-btns{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0}
 @media (max-width:600px){.ml-body{padding:12px}.ml-val{max-width:60%}#ml-mini{width:52px;right:4px}.ml-range{width:50%}}
 /* ───── 관계 카드 (dev 관계 카드 기준 · 빽빽하게) ───── */
 .ml-scope{--love:#e0567f;--trust:#3a8ee6}

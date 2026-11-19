@@ -29,7 +29,7 @@ try {
     check(s.loc === '시장' && s.aff === 13, '태그 없는 답 → 분류 결과로 계산 (비슷한 말 → 「칭찬」 +3)', JSON.stringify(s));
     check(s.flags === 0, '목록 밖 행동 · 키(춤 · bogus · aff 숫자)는 조용히 버림 · 확인 필요 없음');
     const sent = await page.evaluate(() => window.__sent.at(-1));
-    check(sent.over?.temperature === 0 && sent.max <= 300 && /\[ACTIONS\][\s\S]*칭찬/.test(sent.prompt[1].content) && /\[REPLY\]/.test(sent.prompt[1].content), '온도 0 · 출력 길이 제한 · 목록 · 원문을 보냄');
+    check(sent.over?.temperature === 0 && sent.max >= 1000 && sent.over?.reasoning_effort === 'min' && sent.custom?.includePreset === false && /\[ACTIONS\][\s\S]*칭찬/.test(sent.prompt[1].content) && /\[REPLY\]/.test(sent.prompt[1].content), '깨끗한 프리셋(온도 0 · 답 1000 · 생각 최소 · 프리셋 안 씀) · 목록 · 원문을 보냄');
     check(await page.evaluate(() => /🧭\d+/.test(document.querySelector('#ml-hud .meter')?.textContent ?? '')), '토큰 계기판에 분류로 보낸 토큰');
     const n1 = await calls();
     check(n1 === 1, `답 하나에 분류 1회 (${n1})`);

@@ -52,6 +52,7 @@ export function doctorRows(app, perf) {
             for (const o of opsOf(chat[i])) if (kindOf(o.k, needs) === 'unknown') unk[o.k] = (unk[o.k] ?? 0) + 1;
         }
         const B = mode() === 'B', base = Math.max(1, ais.length - skip);
+        if (B && clsStats.lastError) add('bad', '마지막 분류 요청 실패', `${esc(clsStats.lastError.text)} · ${clsStats.lastError.ms}ms · 설정의 「🔌 분류 연결 시험」으로 다시 확인`);
         add(modeNote() ? 'mid' : 'good', `사건 고르기: ${B ? 'B 분류 모델' : 'A 본편 태그'}`, modeNote() || (B ? `분류 ${clsStats.calls}회 · 마지막 ≈${clsStats.lastTok}토큰` : '추가 호출 0회'));
         if (B) {
             const rate = Math.round(cls / base * 100);

@@ -6,7 +6,9 @@ import { fold, resetCache, noteRules } from './src/rules/engine.js';
 import { normBook, personOf } from './src/rules/book.js';
 import { ruleText, factText, injTokens } from './src/rules/inject.js';
 import { fillBook, templateBook } from './src/rules/ai.js';
-import { mode, modeNote, profiles, enqueue, fingerprint, newPeople, fillPerson, clsStats } from './src/rules/classify.js';
+import { mode, modeNote, profiles, enqueue, fingerprint, newPeople, fillPerson, clsStats, testConnection, presetText } from './src/rules/classify.js';
+import { CURRENT, currentApi, resetThink } from './src/rules/clsconn.js';
+import { parseStart, firstMessage } from './src/rules/firstmsg.js';
 import { drawFrame, drawChips, drawSheet, openSheet, closeSheet, openPast, bindOuter } from './src/ui/frame.js';
 import { sheet, toast, row, card } from './src/ui/kit.js';
 import { findAll } from './src/extra/find.js';
@@ -176,7 +178,13 @@ async function create(useAI) {
     if (useAI) { toast('로어북 · 카드를 읽고 설정집을 채우는 중…'); try { const { book, src } = await fillBook(); if (book) { b = normBook(book); b.src = { from: 'ai', at: Date.now(), sig: src.sig }; } } catch (e) { console.warn(e); } if (!b) toast('AI로 못 채워서 기본 틀로 시작해요', 'bad'); }
     b ??= templateBook();
     if (!b.people.length) b.people = templateBook().people;
-    meta.book = b; meta.start ??= { cash: b.world.meal * 5, loc: b.world.places.find(p => p.kind === 'home')?.name ?? '' };
+    // 시작 상태: 첫 메시지의 돈 · 시각 · 장소를 먼저 (못 읽으면 끼니 값 × 5 · 집)
+    if (!meta.start) {
+        const fm = parseStart(firstMessage(), b);
+        if (fm.clock != null) b.world.start.clock = fm.clock;
+        meta.start = { cash: fm.cash ?? b.world.meal * 5, loc: fm.loc ?? b.world.places.find(p => p.kind === 'home')?.name ?? '', from: Object.keys(fm).length ? 'first' : 'default' };
+    }
+    meta.book = b;
     // 처음 만든 설정집이면 앱은 아직 안 깔림 → 🛍️ 쓸 앱 고르기 한 화면 (직접 쓰기면 시작 뒤 설정집으로)
     if (first) { meta.setup = true; meta.setupThen = useAI ? 'home' : 'book'; for (const k of Object.keys(meta.mods)) meta.mods[k] = false; }
     saveMeta(); refresh(true); openSheet(first ? 'home' : 'book');
@@ -191,6 +199,16 @@ function settingsHTML() {
         const P = profiles();
         if (!P.length) return `<label>${label} <input class="text_pole" data-ml-s="${k}" value="${esc(s[k])}" placeholder="연결 프로필 id · 비우면 ${none}"></label>`;
         return `<label>${label} <select class="text_pole" data-ml-s="${k}"><option value="">${esc(none)}</option>${P.map(p => `<option value="${esc(p.id)}" ${s[k] === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></label>`;
+    };
+    // 분류 모델 연결: 고르지 않음 · 지금 쓰는 API에서 모델만 · 연결 프로필
+    const clsPick = () => {
+        const P = profiles(), cur = s.clsProfile === CURRENT, a = currentApi();
+        const opts = [['', '고르지 않음 → A로'], [CURRENT, `지금 쓰는 API에서 모델만 고르기 (${a.src || a.main || '?'})`], ...P.map(p => [p.id, `프로필: ${p.name}`])];
+        if (s.clsProfile && !opts.some(o => o[0] === s.clsProfile)) opts.push([s.clsProfile, `프로필 id: ${s.clsProfile}`]);
+        return `<label>분류 모델 연결 (가벼운 모델) <select class="text_pole" data-ml-s="clsProfile">${opts.map(([v, l]) => `<option value="${esc(v)}" ${s.clsProfile === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>`
+            + (cur ? `<label>분류 모델 이름 <input class="text_pole" data-ml-s="clsModel" value="${esc(s.clsModel)}" placeholder="비우면 지금 모델 (${esc(a.model || '?')}) · 예: gemini-3.8-flash"></label>` : '')
+            + `<small class="ml-set-note">🧼 ${esc(presetText())}</small>`
+            + `<div class="ml-set-btns"><button class="menu_button" data-ml="cls-test">🔌 분류 연결 시험</button></div><div class="ml-cls-test"></div>`;
     };
     const sel = (k, label, opts) => `<label>${label} <select class="text_pole" data-ml-s="${k}">${opts.map(([v, l]) => `<option value="${v}" ${String(s[k]) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`;
     return `<div class="inline-drawer ml-set"><div class="inline-drawer-toggle inline-drawer-header"><b>😼 ${TITLE} <small>v${VERSION}</small></b><div `
@@ -209,7 +227,7 @@ ${sw('enabled', '켜기')}
         + `</label> <label>글꼴 <input class="text_pole" data-ml-look="font" value="${esc(s.look.font)}" placeholder="비우면 실리태번 글꼴"></label>
 <h4>AI</h4>${sel('preset', '본편 지시', [['flash', '플래시용 (짧은 키 + 예시)'], ['general', '일반']])}`
         + `${sw('skipQuiet', '퀵리플라이 · /gen 답엔 안 붙이기')}${sw('ooc', 'OOC 메시지는 건너뛰기')}
-${sel('mode', '사건 고르기', [['B', 'B. 분류 모델 (본편은 소설만 · 답마다 1회)'], ['A', 'A. 본편 태그 (추가 호출 0회)']])}${prof('clsProfile', '분류 모델 연결 (가벼운 모델)', '고르지 않음 → A로')}`
+${sel('mode', '사건 고르기', [['B', 'B. 분류 모델 (본편은 소설만 · 답마다 1회)'], ['A', 'A. 본편 태그 (추가 호출 0회)']])}${clsPick()}`
         + `${modeNote() ? `<small class="ml-set-note">⚠ ${esc(modeNote())}</small>` : ''}${prof('profile', '상태창 만들기 · 번역 연결', '지금 연결')}
 ${sel('pinBook', '장면 인물의 증상 한 줄 본편에', [['auto', '붙이기'], ['off', '안 붙이기']])}
 <h4>번역</h4>${sel('saveLang', '상태창 저장 언어', [['ko', '한국어'], ['en', '영어 (화면만 한국어로)']])}`
@@ -230,7 +248,8 @@ function mountSettings() {
         if (k === 'mascotSound' || k === 'mascotVolume') playMascotSound();
         if (lk) settings().look[lk] = t.type === 'range' ? Number(t.value) : t.value;
         saveSettings(); applyLook(); document.getElementById('ml-hud')?.remove(); refresh();
-        if (k === 'mode' || k === 'clsProfile') mountSettings(); // 「A로 돌아감」 알림 다시 그리기
+        if (k === 'mode' || k === 'clsProfile') mountSettings();
+        if (k === 'clsProfile' || k === 'clsModel') resetThink(); // 「A로 돌아감」 알림 다시 그리기
     });
     box.addEventListener('click', async (e) => {
         const a = e.target.closest('[data-ml]')?.dataset.ml; if (!a) return;
@@ -238,6 +257,7 @@ function mountSettings() {
         if (a === 'create-tpl') return create(false);
         if (a === 'open') return openSheet(ready() ? 'now' : 'home');
         if (a === 'perf') return showPerf();
+        if (a === 'cls-test') return clsTest(box.querySelector('.ml-cls-test'), e.target.closest('button'));
         if (a === 'report') return reportSheet();
         if (a === 'doctor') { const d = await import('./src/extra/doctor.js'); return d.doctor(app, perf); }
         if (a === 'cat') return ready() ? openSheet('cat') : toast('먼저 상태창을 만들어 주세요');
@@ -246,6 +266,17 @@ function mountSettings() {
         if (a === 'card') return toCard();
         if (a === 'migrate') { const r = migrateOld(); toast(r ? `옮겼어요 · 시작값(#${r.start}부터) · 답 ${r.ops}개 · 인물 ${r.people}명 · 물건 ${r.items}개${r.later ? ` · 손 고침 ${r.later}개` : ''}${r.skipped ? ` · 못 옮긴 고침 ${r.skipped}개` : ''}` : '옮길 옛 기록이 없어요', r ? 'good' : 'mid'); refresh(true); }
     });
+}
+// 🔌 분류 연결 시험 → 결과를 버튼 아래에 바로
+async function clsTest(out, btn) {
+    if (!out) return;
+    btn && (btn.disabled = true); out.innerHTML = '<small>⏳ 견본 답 하나를 분류하는 중…</small>';
+    const r = await testConnection();
+    btn && (btn.disabled = false);
+    const ops = (r.ops ?? []).map(([k, v]) => `${k}: ${v}`).join(' · ');
+    out.innerHTML = `<div class="ml-cls-res ${r.ok ? 'good' : 'bad'}"><b>${r.ok ? '✅ 성공' : '❌ 실패'}</b> · ${r.ms}ms · ${esc(r.route)}`
+        + `${r.ok ? `<br>고른 사건: ${esc(ops)}` : `<br>오류: <code>${esc(r.error ?? '')}</code>`}${r.reply ? `<details><summary>받은 답</summary><pre>${esc(String(r.reply).slice(0, 1500))}</pre></details>` : ''}</div>`;
+    console.info(`[${TITLE}] 분류 연결 시험 ${r.ok ? '성공' : '실패'} · ${r.ms}ms · ${r.route}${r.ok ? '' : ` · ${r.error}`}`);
 }
 // 꾸미기: 직접 고르기 하나
 // 🎨 테마 값 → CSS 변수 (--ml-accent · --ml-font · --ml-size · --ml-radius · --ml-border · --ml-shadow) — 문서 전체에 걸어서 다른 확장도 읽음

@@ -156,6 +156,27 @@ export function blocks(text) {
 }
 export const hasTag = (text) => blocks(text).length > 0;
 export function stripTags(text) { let t = String(text ?? ''); for (const b of blocks(t).reverse()) t = t.slice(0, b.start) + t.slice(b.end); return t; }
+// 분류 모델에 보낼 이야기 본문만: 미트볼 · 상태 블록, 주석, 코드 울타리, 이야기 밖 블록(<scene_plan> · <choices> · <details> 같은 것)을 뺌
+//   보통 HTML 꾸밈(<p> · <span> · <div> …)과 본문 그릇(<content> · <story> …)은 글만 남김 · 너무 많이 빠지면 꾸밈만 벗긴 글로
+const HTML = new Set(('a abbr b bdi bdo big blockquote br center cite code dd del dfn div dl dt em font h1 h2 h3 h4 h5 h6 hr i img ins kbd li mark ol p pre q rp rt ruby s samp '
+    + 'small span strike strong sub sup td th tr tbody thead table tt u ul var wbr section article main aside header footer nav figure figcaption').split(' '));
+const BODY = new Set(['content', 'story', 'narrative', 'body', 'text', 'reply', 'response', 'novel', 'roleplay', 'rp', 'output', 'answer', '본문']);
+const DROP = new Set(['details', 'script', 'style', 'think', 'thinking', 'reasoning', 'summary', 'template', 'noscript', 'svg']);
+export function storyOnly(text) {
+    const base = stripTags(text).replace(/<!--[\s\S]*?-->/g, '').replace(/```[\s\S]*?```/g, '');
+    let t = base, prev;
+    do {
+        prev = t;
+        t = t.replace(/<([A-Za-z가-힣][\w가-힣:-]*)(?=[\s>/])[^>]*>([\s\S]*?)<\/\1\s*>/g, (_, tag, inner) => {
+            const n = tag.toLowerCase();
+            if (DROP.has(n)) return '';
+            return HTML.has(n) || BODY.has(n) ? inner : '';
+        });
+    } while (t !== prev);
+    const clean = (x) => x.replace(/<\/?[A-Za-z][^>]*>/g, '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    const out = clean(t), loose = clean(base);
+    return out.length >= Math.min(80, loose.length * 0.15) ? out : loose;
+}
 // 줄 → [키, 값] (꾸밈 · 글머리표 벗김 · 같은 줄 두 번은 한 번만)
 export function readOps(text) {
     const ops = [], seen = new Set();

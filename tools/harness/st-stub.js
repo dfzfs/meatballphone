@@ -192,9 +192,19 @@
         // 연결 프로필: 시험이 window.__cls(prompt, info)를 바꿔 끼움 (없으면 __ai) · 보낸 것을 __sent에 남김
         ConnectionManagerRequestService: {
             sendRequest: async (id, prompt, max, custom, over) => {
-                (window.__sent ??= []).push({ id, prompt, max, over });
+                (window.__sent ??= []).push({ id, prompt, max, over, custom });
                 const f = window.__cls && id === 'p-flash' ? window.__cls : window.__ai;
                 const out = await f(JSON.stringify(prompt), { id, max, over });
+                if (out instanceof Error) throw out;
+                return { content: out };
+            },
+        },
+        // 지금 쓰는 API로 바로 (프로필 없이): 받은 body를 __sent에 id '@current'로 남김
+        ChatCompletionService: {
+            processRequest: async (body, options, extract) => {
+                (window.__sent ??= []).push({ id: '@current', prompt: body.messages, max: body.max_tokens, over: body, options, extract });
+                const f = window.__cls ?? window.__ai;
+                const out = await f(JSON.stringify(body.messages), { id: '@current', max: body.max_tokens, over: body });
                 if (out instanceof Error) throw out;
                 return { content: out };
             },
