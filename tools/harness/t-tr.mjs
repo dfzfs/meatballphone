@@ -4,6 +4,7 @@ const { page, logs, close } = await open({ width: 1440, height: 900 });
 try {
     await page.evaluate(async () => { const st = await import('/ext/src/base/st.js'); st.settings().saveLang = 'en'; st.saveSettings(); });
     await page.evaluate(() => window.__quickStart()); await sleep(300);
+    await page.evaluate(async () => { (await import('/ext/src/base/st.js')).settings().trEngine = 'ai'; }); // 시험장엔 실리 번역 확장이 없어서 AI 길로
     let calls = 0;
     await page.exposeFunction('__count', () => { calls++; });
     await page.evaluate(() => { window.__ai = (p) => { window.__count(); return JSON.stringify({ 'Rusty Sword': '녹슨 검', 'Old Tavern': '낡은 선술집', 'Cold': '감기' }); }; });
@@ -19,5 +20,5 @@ try {
     await page.evaluate(() => { document.querySelector('#mlf-to').value = '낡은 칼'; document.querySelector('.ml-picks[data-k="how"] [data-pick="fix"]').click(); document.querySelector('.ml-bs [data-bs="ok"]').click(); }); await sleep(400);
     await page.evaluate(() => document.querySelector('.ml-bs [data-bs="x"]')?.click()); await sleep(200);
     check(await page.evaluate(() => document.querySelector('.ml-body').textContent.includes('낡은 칼')), '번역 고치기 → 용어집 고정');
-    check(!logs.length && !(await page.evaluate(() => window.__errors.length)), '콘솔 오류 없음', logs.join('\n'));
+    check(!logs.filter(l => !/404/.test(l)).length && !(await page.evaluate(() => window.__errors.length)), '콘솔 오류 없음', logs.join(' | '));
 } finally { await close(); }

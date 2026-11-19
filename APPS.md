@@ -43,7 +43,7 @@
 - 폰 상태가 바뀌면 `document`에 `meatlite:update` 이벤트가 와요.
 - 폰 상태는 보통 본편 답의 사건으로만 바뀌어요. 앱이 꼭 바꿔야 할 때(선물 · 송금 · 답장에 따른 작은 호감)는 **`act(줄들, 이유, 앱 id)` 좁은 칸**만 써요:
   ```js
-  await MeatballPhone.act(['cash: -3000 | 송금', 'got: 손편지', 'aff: Law +2 | 다정한 답장'], '문자', 'contacts');
+  await MeatballPhone.act(['cash: -3000 | 송금', 'got: 손편지', 'aff: Leon +2 | 다정한 답장'], '문자', 'contacts');
   ```
   - 받는 키는 `cash`(± 늘이고 줄이기만) · `got` · `lost` · `aff` · `trust`(한 번에 ±2까지)뿐이에요. 나머지는 버려요.
   - 마지막 AI 답에 「📲 앱 이름」 손 고침으로 붙어서 기록에 남고, 그 답을 리롤 · 삭제하면 같이 사라져요.

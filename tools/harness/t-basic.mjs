@@ -10,9 +10,9 @@ try {
     const a1 = await page.evaluate((w) => __ML__.fold().S.rel[w]?.aff, who);
     check(a1 === a0 - 3, `규칙에 없는 큰일 → 상처 줌 −3 (${who})`, `${a0}→${a1}`);
     await page.evaluate(() => window.__addUser('선물이야'));
-    await page.evaluate(() => window.__addAI('…\n<meatball>\nnpc: 강민석 | 신입생\nact: 강민석 | 기쁘게 함\n</meatball>')); await sleep(300);
-    const m = await page.evaluate(() => __ML__.fold().S.rel['강민석']);
+    await page.evaluate(() => window.__addAI('…\n<meatball>\nnpc: 김하준 | 신입생\nact: 김하준 | 기쁘게 함\n</meatball>')); await sleep(300);
+    const m = await page.evaluate(() => __ML__.fold().S.rel['김하준']);
     check(m && m.aff > 0, '설정집에 아직 없는 새 인물도 기쁘게 함으로 오름', JSON.stringify(m?.aff));
-    const L = await page.evaluate(async () => { const c = await import('/ext/src/rules/classify.js'); const r = __ML__.fold(); return c.actionsOf(r.book, { ...r.S, with: ['강민석'] }, ''); });
-    check(L.some(x => x.name === '강민석' && x.up.includes('기쁘게 함') && x.down.includes('상처 줌')), '분류 목록: 규칙 없는 인물도 기본 행동 두 개', JSON.stringify(L));
+    const L = await page.evaluate(async () => { const c = await import('/ext/src/rules/classify.js'); const r = __ML__.fold(); return c.actionsOf(r.book, { ...r.S, with: ['김하준'] }, ''); });
+    check(L.some(x => x.name === '김하준' && x.up.includes('기쁘게 함') && x.down.includes('상처 줌')), '분류 목록: 규칙 없는 인물도 기본 행동 두 개', JSON.stringify(L));
 } finally { await close(); }

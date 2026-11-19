@@ -183,7 +183,7 @@ export function readOps(text) {
     for (const b of blocks(text)) {
         for (const raw of b.body.split(/\r?\n/)) {
             let clean = raw.replace(/\*\*|__|`/g, '').replace(/^\s*(?:[-*•·]\s*(?=[^\d\s])|\d{1,2}[.)]\s+)/, '');
-            { const f = /^\s*([a-z]{2,12})\s*\((.+)\)\s*$/i.exec(clean); if (f && !clean.includes(':')) clean = `${f[1]}: ${f[2]}`; } // 「mind(Law | …)」처럼 잘못 쓴 줄도 받기
+            { const f = /^\s*([a-z]{2,12})\s*\((.+)\)\s*$/i.exec(clean); if (f && !clean.includes(':')) clean = `${f[1]}: ${f[2]}`; } // 「mind(Leon | …)」처럼 잘못 쓴 줄도 받기
             const m = /^\s*([^:：\n]{1,24}?)\s*[:：]\s*(.+?)\s*$/.exec(clean);
             if (!m) continue;
             const k = `${norm(m[1])}\u0000${norm(m[2])}`;

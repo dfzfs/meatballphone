@@ -26,7 +26,7 @@ export async function pickSources(title = '📚 설정집이 읽을 곳') {
             + '<div class="ml-src-acts"><button type="button" class="ml-btn xs" data-src="linked">연결된 로어북만</button><button type="button" class="ml-btn xs" data-src="all">모두</button><button type="button" class="ml-btn xs" data-src="none">모두 끄기</button></div>'
             + `<h4 class="ml-h4">💬 카드 · 대화</h4><div class="ml-srcs">${base.map(baseRow).join('')}</div>`
             + `<h4 class="ml-h4">📚 로어북 <span>${books.length}개</span></h4><div class="ml-srcs">${books.map(bookRow).join('') || '<small class="ml-empty">로어북이 없어요</small>'}</div>`
-            + `<h4 class="ml-h4">✍ 추가 지시 <span>AI에게 꼭 지킬 것 · 비워도 돼요</span></h4><textarea class="ml-in ml-src-note" rows="3" placeholder="예: 둘은 아직 연인이 아니고 서로 짝사랑하는 썸 단계 (애정 50 정도) · 돈 단위는 베리 · 현대 AU라 배 · 해적 얘기는 빼기">${esc(getMeta()?.srcNote ?? '')}</textarea>`
+            + `<h4 class="ml-h4">✍ 추가 지시 <span>AI에게 꼭 지킬 것 · 비워도 돼요</span></h4><textarea class="ml-in ml-src-note" rows="3" placeholder="예: 둘은 아직 연인이 아니고 서로 짝사랑하는 썸 단계 (애정 50 정도) · 돈 단위는 원 · 현대 배경이라 마법 얘기는 빼기">${esc(getMeta()?.srcNote ?? '')}</textarea>`
             + '<div class="ml-src-sum"></div>';
         const el = sheet(title, html, {
             ok: '이걸로 채우기 (AI 1회)',

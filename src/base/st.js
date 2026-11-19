@@ -4,7 +4,7 @@ import { normBook } from '../rules/book.js';
 
 export const MODULE = 'meatlite';
 export const OLD = 'statussim';
-export const VERSION = '0.41.5';
+export const VERSION = '0.42.0';
 export const DATA_V = 2;
 export const TITLE = '미트볼폰';
 export const INJ = { facts: 'meatlite_facts', hint: 'meatlite_hint', rule: 'meatlite_rule' };
@@ -37,6 +37,7 @@ export const DEFAULTS = Object.freeze({
     injectDepth: 1,
     profile: '',            // 상태창 만들기 · 번역에 쓸 연결 프로필 (비우면 지금 연결)
     saveLang: 'ko',         // 상태창 저장 언어: ko | en (en이면 화면 번역)
+    trEngine: 'st',          // 번역 담당: st = 실리 기본 번역(무료 · 빠름 · 늘 저절로) | ai = AI(분류 연결 · 토큰)
     trAuto: 'ai',            // 영어 저장일 때 모르는 말: ai(모아서 1회) | off(직접만)
     musicApp: 'youtube',
     musicTaste: '',         // 음악 취향 기본값 (채팅마다 덮어쓰기 가능)
@@ -163,7 +164,8 @@ export function aiNoOf(i) { const c = ctx().chat ?? []; let n = 0; for (let k = 
 export const nextAiNo = () => aiNoOf((ctx().chat?.length ?? 0) - 1) + 1;
 export function shut(mod, aiNo = nextAiNo()) {
     const e = getMeta()?.eyes?.[mod]; if (!e || !mod) return false;
-    return e.mode === 'on' || (e.mode === 'once' && aiNo === e.at);
+    // 「다음 1번」: 다음 답 · 그리고 새 답이 오기 전이면 지금 마지막 답을 다시 만들거나(스와이프) 다시 분류할 때도
+    return e.mode === 'on' || (e.mode === 'once' && (aiNo === e.at || (aiNo === e.at - 1 && nextAiNo() === e.at)));
 }
 export const shutKey = (key, aiNo) => { const mod = KEY_MOD[String(key ?? '').trim().toLowerCase()]; return (!!mod && !modOn(mod)) || shut(mod, aiNo); }; // 🗑 지운 앱의 키도 버림
 export function setEyes(mod, mode) {

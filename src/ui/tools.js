@@ -1,6 +1,6 @@
 // 🧰 앱마다 붙는 공통 도구줄: ✏️ 편집 · ✨ AI로 수정 · 🙈 AI에게 숨기기 · 👁 보일 것 · 🌐 용어집(번역 고정)
 //   편집은 바텀시트 입력 칸 → 상태 값은 마지막 답에 「손으로 고침 + 이유」로 적고(기록 · 되돌리기), 설정집은 설정집에 바로
-import { app, ctx, settings, saveSettings, getMeta, saveMeta, msgData, syncSwipe, bumpMeta, saveChatSoon } from '../base/st.js';
+import { app, ctx, settings, saveSettings, getMeta, saveMeta, msgData, syncSwipe, bumpMeta, saveChatSoon, setEyes } from '../base/st.js';
 import { esc, num, short, norm, safeKey, signed } from '../base/util.js';
 import { form, sheet, toast, btn } from './kit.js';
 import { fold } from '../rules/engine.js';
@@ -12,6 +12,8 @@ import { trOn, trList, flush, trRules, trOrig } from '../extra/translate.js';
 export { glossList, gloss };
 
 // 앱 → 영향력 게이지 칸 (🙈 숨기기가 끄는 것)
+// 앱 화면 id → 눈 감기 앱 id (추천 음악 · 한 구절 · 기록 · 내 탭까지 모든 앱)
+const APPS_MOD = { now: 'stats', bag: 'wallet', rel: 'rel', map: 'map', cal: 'calendar', dice: 'dice', news: 'news', music: 'music', quote: 'quote', mind: 'mind', custom: 'custom' };
 export const APP_GAUGE = { now: 'stats', bag: 'wallet', rel: 'rel', map: 'map', cal: 'calendar', dice: 'dice', news: 'news', mind: 'mind', quote: 'quote' };
 // 👁 보일 것 — 앱 안의 칸
 export const PARTS = {
@@ -32,6 +34,9 @@ export function toolbar(appId) {
     if (AI_APPS.has(appId)) B.push(`<button class="ml-tool" data-act="t-ai" data-v="${appId}">✨ AI로 수정</button>`);
     if (gid) B.push(`<button class="ml-tool${hid ? ' on' : ''}" data-act="t-hide" data-v="${gid}" title="${hid ? '본편에 다시 보내기' : '이 앱의 결과값을 본편에 안 보내기'}">${hid ? '🙈 AI에게 숨김' : '🙈 숨기기'}</button>`);
     if (PARTS[appId]) B.push(`<button class="ml-tool" data-act="t-parts" data-v="${appId}">👁 보일 것</button>`);
+    // 😌 눈 감기: 이 앱만 다음 답 1번 · 계속 (누를 때마다 뜸 → 다음 1번 → 계속 → 뜸)
+    const mod = APPS_MOD[appId], e = mod && getMeta()?.eyes?.[mod]?.mode;
+    if (mod) B.push(`<button class="ml-tool${e ? ' on' : ''}" data-act="t-eye" data-v="${mod}" title="이 앱만 다음 답에서 쉬기 (누를 때마다 바뀜)">${e === 'on' ? '😌 계속 눈 감음' : e === 'once' ? '😌 다음 1번 눈 감음' : '😌 눈 감기'}</button>`);
     B.push('<button class="ml-tool" data-act="t-gloss">🌐 용어집</button>');
     return `<div class="ml-tools2">${B.join('')}</div>`;
 }
@@ -580,7 +585,7 @@ function patchSummary(patch, keys) {
 }
 export async function aiEdit(appId) {
     const scope = AI_SCOPE[appId] ?? AI_SCOPE.book, keys = scope.book;
-    const fv = await form('✨ AI로 수정', [{ k: 'say', label: '어떻게 바꿀까요?', type: 'area', ph: '예: 아까 산 빵은 사실 두 개였어 · 서하 애정을 조금 낮춰 줘 · 지금 곡을 잔잔한 걸로 · 카페에 케이크를 추가해 줘' }], { ok: 'AI에게 맡기기' });
+    const fv = await form('✨ AI로 수정', [{ k: 'say', label: '어떻게 바꿀까요?', type: 'area', ph: '예: 아까 산 빵은 사실 두 개였어 · 다은 애정을 조금 낮춰 줘 · 지금 곡을 잔잔한 걸로 · 카페에 케이크를 추가해 줘' }], { ok: 'AI에게 맡기기' });
     if (!fv?.say?.trim()) return;
     const r = fold(); if (!r) { toast('상태창이 아직 없어요', 'bad'); return; }
     const bookPart = aiBookPart(keys, r.book);
@@ -701,6 +706,7 @@ export function applyGloss(root) {
 export async function onTool(act, v) {
     const meta = getMeta();
     switch (act) {
+        case 't-eye': { const cur = meta?.eyes?.[v]?.mode ?? ''; setEyes(v, cur === '' ? 'once' : cur === 'once' ? 'on' : ''); toast(cur === '' ? '😌 다음 답 1번 눈 감아요' : cur === 'once' ? '😌 다시 뜰 때까지 눈 감아요' : '👀 다시 떴어요'); app.refresh?.(); return; }
         case 't-edit':
             return editApp(v);
         case 't-ai':
@@ -822,4 +828,4 @@ export async function onTool(act, v) {
             return editItem(act, v);
     }
 }
-export const TOOL_ACTS = new Set(['tr-edit', 'tr-now', 'tr-clear', 'tr-rules', 'tr-orig', 'tr-redo', 't-edit', 't-ai', 't-hide', 't-parts', 't-gloss', 'g-edit', 'g-fill', 'e-need', 'e-gauge', 'e-attr', 'e-status', 'e-add-stat', 'e-item', 'e-place', 'e-cfield', 'e-mark']);
+export const TOOL_ACTS = new Set(['tr-edit', 'tr-now', 'tr-clear', 'tr-rules', 'tr-orig', 'tr-redo', 't-edit', 't-ai', 't-hide', 't-parts', 't-gloss', 't-eye', 'g-edit', 'g-fill', 'e-need', 'e-gauge', 'e-attr', 'e-status', 'e-add-stat', 'e-item', 'e-place', 'e-cfield', 'e-mark']);

@@ -239,7 +239,7 @@ ${sel('mode', '사건 고르기', [['B', 'B. 분류 모델 (본편은 소설만 
         + `${modeNote() ? `<small class="ml-set-note">⚠ ${esc(modeNote())}</small>` : ''}${prof('profile', '상태창 만들기 · 번역 연결', '지금 연결')}
 ${sel('pinBook', '장면 인물의 증상 한 줄 본편에', [['auto', '붙이기'], ['off', '안 붙이기']])}
 <h4>번역</h4>${sel('saveLang', '상태창 저장 언어', [['ko', '한국어'], ['en', '영어 (화면만 한국어로)']])}`
-        + `${sel('trAuto', '모르는 말', [['ai', '모아서 AI로 번역 (1회씩)'], ['off', '직접 고친 것만']])}
+        + `${sel('trEngine', '번역 담당', [['st', '실리 기본 번역 (무료 · 빠름 · 추천)'], ['ai', 'AI (분류 연결 · 토큰 씀)']])}${s.trEngine === 'ai' ? sel('trAuto', 'AI 번역', [['ai', '모아서 저절로 (1회씩)'], ['off', '직접 고친 것만']]) : ''}
 <h4>저장 · 옮기기</h4><div class="ml-set-btns"><button class="menu_button" data-ml="perf">🏎 부하 재기</button><button class="menu_button" data-ml="report">📋 전체 복사</button><button class="menu_button" data-ml="doctor">🩺 `
         + `자가 진단</button><button class="menu_button" data-ml="backup">💾 백업</button><button class="menu_button" data-ml="restore">📂 불러오기</button>`
         + `<button class="menu_button" data-ml="card">🃏 카드에 붙이기</button><button class="menu_button" data-ml="migrate">🍖 옛 미트볼 옮겨 오기</button><button class="menu_button" data-ml="wipe">🗑 이 채팅 기록 전부 지우기</button></div>
@@ -266,7 +266,7 @@ function mountSettings() {
         if (k === 'mascotSound' || k === 'mascotVolume') playMascotSound();
         if (lk) settings().look[lk] = t.type === 'range' ? Number(t.value) : t.value;
         saveSettings(); applyLook(); document.getElementById('ml-hud')?.remove(); refresh();
-        if (k === 'mode' || k === 'clsProfile') mountSettings();
+        if (k === 'mode' || k === 'clsProfile' || k === 'trEngine') mountSettings();
         if (k === 'clsProfile' || k === 'clsModel') resetThink(); // 「A로 돌아감」 알림 다시 그리기
     });
     box.addEventListener('click', async (e) => {

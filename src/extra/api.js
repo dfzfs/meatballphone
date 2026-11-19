@@ -99,7 +99,7 @@ function people() {
     }).sort((a, b) => b.star - a.star || b.aff - a.aff));
 }
 // ✋ 앱이 상태에 손대기 (좁은 칸만 · 마지막 AI 답에 손 고침으로 붙음 → 기록에 앱 이름 · 되돌리기 · 리롤 · 삭제를 그대로 따라감)
-//   lines: ['cash: -3000 | 송금', 'got: 손편지', 'lost: 우산', 'aff: Law +2 | 다정한 답장', 'trust: Law -1 | 읽씹']
+//   lines: ['cash: -3000 | 송금', 'got: 손편지', 'lost: 우산', 'aff: Leon +2 | 다정한 답장', 'trust: Leon -1 | 읽씹']
 //   허용 키: cash(± 상대값만) · got · lost · aff · trust (한 번에 ±2까지) — 지운 앱 · 눈 감은 앱 · 멈춤 · 이 채팅 끔이면 거절
 const ACT_KEYS = new Set(['cash', 'got', 'lost', 'aff', 'trust']);
 async function act(lines, why = '', appId = 'app') {

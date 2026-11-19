@@ -1367,7 +1367,7 @@ async function pickPhoto() {
     });
 }
 
-// 🪪 카드 캐릭터 이름(예: Law)이 설정집의 누구(예: 트라팔가 로)인지 모를 때 한 번 묻기 → 고르면 그 사람의 다른 이름으로 (기록도 합쳐짐)
+// 🪪 카드 캐릭터 이름(예: Leon)이 설정집의 누구(예: 레온 하트)인지 모를 때 한 번 묻기 → 고르면 그 사람의 다른 이름으로 (기록도 합쳐짐)
 let cardAsking = false;
 export async function askCardName(r) {
     const c = ctx(), meta = getMeta(), card = String(c.characters?.[c.characterId]?.name ?? '').trim();
