@@ -21,6 +21,12 @@ try {
     check(await page.evaluate(() => typeof globalThis.MeatballPhone.addApp === 'function'), '통로에 addApp 있음');
     const ppl = await page.evaluate(() => globalThis.MeatballPhone.people());
     check(Array.isArray(ppl) && ppl.length > 0 && ppl.every(p => p.name && p.face && typeof p.star === 'boolean' && typeof p.aff === 'number'), '통로 people(): 인물 · 얼굴 · ⭐ · 애정', JSON.stringify(ppl[0]));
+    // ✋ act: 좁은 칸만 · 애정 ±2까지 · 돈은 상대값만
+    await page.evaluate(() => window.__addUser('가자')); await page.evaluate(() => window.__addAI('…')); await sleep(300);
+    const A = await page.evaluate(async () => { const P = globalThis.MeatballPhone, S0 = (await import('/ext/src/rules/engine.js')).fold().S; const who = Object.keys(S0.rel)[0], cash0 = S0.cash, aff0 = S0.rel[who].aff;
+        const ok1 = await P.act([`cash: -10 | 송금`, `got: 손편지`, `aff: ${who} +9 | 답장`, `loc: 달나라`, `cash: 99999`], '문자', 'contacts'); await new Promise(r => setTimeout(r, 200));
+        const S = (await import('/ext/src/rules/engine.js')).fold().S; return { ok1, dc: S.cash - cash0, item: S.items.some(i => i.name === '손편지'), da: S.rel[who].aff - aff0, loc: S.loc }; });
+    check(A.ok1 && A.dc === -10 && A.item && A.da > 0 && A.da <= 2 && A.loc !== '달나라', 'act: 돈 · 물건 · 애정(±2까지)만 · 다른 키와 「얼마로 맞추기」는 버림', JSON.stringify(A));
     await page.evaluate(() => __ML__.app.openSheet('home')); await sleep(300);
     const icons = await page.evaluate(() => [...document.querySelectorAll('.ml-app')].map(a => a.dataset.app));
     check(icons.includes('x:early') && icons.includes('x:contacts') && icons.includes('x:broken'), '홈에 기타 앱 아이콘 (먼저 온 앱 · 나중 온 앱)', icons.join(','));

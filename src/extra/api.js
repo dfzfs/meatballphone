@@ -84,6 +84,25 @@ function people() {
             here: S.with.includes(name), likes: x.seen.likes, hates: x.seen.hates, about: p?.line || x.line || '' };
     }).sort((a, b) => b.star - a.star || b.aff - a.aff));
 }
+// ✋ 앱이 상태에 손대기 (좁은 칸만 · 마지막 AI 답에 손 고침으로 붙음 → 기록에 앱 이름 · 되돌리기 · 리롤 · 삭제를 그대로 따라감)
+//   lines: ['cash: -3000 | 송금', 'got: 손편지', 'lost: 우산', 'aff: Law +2 | 다정한 답장', 'trust: Law -1 | 읽씹']
+//   허용 키: cash(± 상대값만) · got · lost · aff · trust (한 번에 ±2까지) — 지운 앱 · 눈 감은 앱 · 멈춤 · 이 채팅 끔이면 거절
+const ACT_KEYS = new Set(['cash', 'got', 'lost', 'aff', 'trust']);
+async function act(lines, why = '', appId = 'app') {
+    const meta = getMeta(), r = ready() && !meta?.off && !meta?.paused ? fold() : null; if (!r) return false;
+    const { shutKey } = await import('../base/st.js');
+    const ok = [];
+    for (const raw of Array.isArray(lines) ? lines : [lines]) {
+        const ln = String(raw ?? '').trim(), k = ln.slice(0, ln.indexOf(':')).trim().toLowerCase(), v = ln.slice(ln.indexOf(':') + 1).trim();
+        if (!ACT_KEYS.has(k) || !v || shutKey(k)) continue;
+        if (k === 'cash' && !/^[+\-−]\s*\d/.test(v)) continue; // 돈은 늘이고 줄이기만 (얼마로 「맞추기」 안 됨)
+        if (k === 'aff' || k === 'trust') { const m = /^(.*?)\s*([+\-−])\s*(\d+)(.*)$/.exec(v); if (!m) continue; ok.push(`${k}: ${m[1].trim()} ${m[2]}${Math.min(2, Number(m[3]))}${m[4]}`); continue; }
+        ok.push(`${k}: ${v}`);
+    }
+    if (!ok.length) return false;
+    const { handLines } = await import('../ui/tools.js');
+    return handLines(ok, `${String(appId).slice(0, 16)} · ${String(why ?? '').slice(0, 24)}`, `app:${String(appId).slice(0, 16)}`);
+}
 // 🎲 선택지 → 분류 모델: 이 사용자 메시지에서 고른 선택과 결과 (주사위 · 대가 · 함정)
 //   data를 주면 적어 두고, 안 주면 지금 적힌 것(사용자 메시지 extra.mbc 또는 여기 적힌 것)을 돌려준다
 function pendingChoice(i, data) {
@@ -109,6 +128,7 @@ export function mount() {
         paused: () => !!getMeta()?.paused,
         // 📲 폰에 앱 넣기 — 앱 쪽은 (globalThis.MeatballPhoneApps ??= []).push({...}) 를 쓰면 켜지는 순서를 신경 안 써도 됨
         addApp,
+        act,
     });
     mountApps();
 }
