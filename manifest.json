@@ -7,7 +7,7 @@
     "js": "index.js",
     "css": "style.css",
     "author": "Meatball",
-    "version": "0.29.1",
+    "version": "0.29.2",
     "homePage": "https://github.com/dfzfs/meatball-lite",
     "auto_update": true
 }

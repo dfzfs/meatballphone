@@ -67,7 +67,7 @@
         chatId: 'test-chat',
         chat: [],
         chatMetadata: {},
-        extensionSettings: { regex: [], connectionManager: { profiles: [{ id: 'p-flash', name: 'Gemini Flash' }, { id: 'p-main', name: 'Main' }] } },
+        extensionSettings: { regex: [], connectionManager: { profiles: [{ id: 'p-flash', name: 'Gemini Flash' }, { id: 'p-main', name: 'Main' }, { id: 'p-vx', name: 'Vertex Flash', api: 'vertexai', model: 'gemini-3.8-flash' }] } },
     };
     window.__st = state;
 
@@ -193,7 +193,7 @@
         ConnectionManagerRequestService: {
             sendRequest: async (id, prompt, max, custom, over) => {
                 (window.__sent ??= []).push({ id, prompt, max, over, custom });
-                const f = window.__cls && id === 'p-flash' ? window.__cls : window.__ai;
+                const f = window.__cls && (id === 'p-flash' || id === 'p-vx') ? window.__cls : window.__ai;
                 const out = await f(JSON.stringify(prompt), { id, max, over });
                 if (out instanceof Error) throw out;
                 return { content: out };
@@ -201,6 +201,7 @@
         },
         // 지금 쓰는 API로 바로 (프로필 없이): 받은 body를 __sent에 id '@current'로 남김
         ChatCompletionService: {
+            sendRequest: async (body, extract) => SillyTavern.getContext().ChatCompletionService.processRequest(body, { direct: true }, extract),
             processRequest: async (body, options, extract) => {
                 (window.__sent ??= []).push({ id: '@current', prompt: body.messages, max: body.max_tokens, over: body, options, extract });
                 const f = window.__cls ?? window.__ai;

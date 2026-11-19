@@ -71,6 +71,13 @@ try {
         && b.temperature === 0 && b.max_tokens === 1000 && b.stream === false && b.reasoning_effort === 'min' && !('temp_openai' in b) && !('openai_max_tokens' in b) && !sent.options?.presetName,
     '지금 API(Vertex) + 모델 이름만 → 연결 칸만 복사 · 사용자 프리셋 값(온도 1.4 · 8000)은 안 섞임', JSON.stringify(b));
     check(await page.evaluate(async () => (await import('/ext/src/rules/classify.js')).mode()) === 'B', '「지금 API」도 B 모드로 침');
+    check(sent.options?.direct === true, '지금 API: 만든 몸통을 그대로 서버로 (sendRequest · 연결 칸이 안 버려짐)');
+    // 프로필이 Vertex면 인증 방식 · 리전을 지금 연결에서 채움 (안 넣으면 서버가 Express(API 키)로 봄)
+    await page.evaluate(async () => { const st = await import('/ext/src/base/st.js'); st.settings().clsProfile = 'p-vx'; st.saveSettings(); });
+    const r5 = await page.evaluate(async () => (await import('/ext/src/rules/classify.js')).testConnection());
+    sent = await page.evaluate(() => window.__sent.at(-1));
+    check(r5.ok && sent.id === 'p-vx' && sent.over.vertexai_auth_mode === 'full' && sent.over.vertexai_region === 'us-central1' && /인증 full/.test(r5.route), 'Vertex 프로필: 인증 방식(full) · 리전을 같이 보냄', JSON.stringify(sent.over));
+    await page.evaluate(async () => { const st = await import('/ext/src/base/st.js'); st.settings().clsProfile = '@current'; st.saveSettings(); });
 
     // 설정의 🔌 분류 연결 시험 버튼: 결과 · 걸린 시간 바로
     await page.evaluate(() => { const sel = document.querySelector('[data-ml-s="clsProfile"]'); sel.value = '@current'; sel.dispatchEvent(new Event('change', { bubbles: true })); });

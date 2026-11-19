@@ -32,8 +32,9 @@ export function currentApi() {
 // 프로필 · 지금 연결 이름 (화면 · 보고용)
 export function routeText() {
     const r = clsRoute(), s = settings();
-    if (r === 'current') { const a = currentApi(); return `지금 API (${a.src || a.main || '?'}) · 모델 ${s.clsModel || a.model || '?'}`; }
-    if (r === 'profile') { const p = (ctx().extensionSettings?.connectionManager?.profiles ?? []).find(x => x.id === s.clsProfile); return `프로필 ${p?.name ?? s.clsProfile}${p ? ` (${p.api ?? '?'} · ${p.model ?? '?'})` : ''}`; }
+    const vx = (src) => (/vertex/i.test(src ?? '') ? ` · 인증 ${vertexKeys().vertexai_auth_mode ?? '기본'}` : '');
+    if (r === 'current') { const a = currentApi(); return `지금 API (${a.src || a.main || '?'}) · 모델 ${s.clsModel || a.model || '?'}${vx(a.src)}`; }
+    if (r === 'profile') { const p = (ctx().extensionSettings?.connectionManager?.profiles ?? []).find(x => x.id === s.clsProfile); return `프로필 ${p?.name ?? s.clsProfile}${p ? ` (${p.api ?? '?'} · ${p.model ?? '?'})` : ''}${vx(p?.api)}`; }
     return '없음';
 }
 
@@ -58,6 +59,12 @@ export function errText(e) {
 
 // 지금 쓰는 API로 바로 (프로필 없이): 연결 칸만 복사 · 나머지는 깨끗한 프리셋
 const CONN_KEYS = ['custom_url', 'reverse_proxy', 'proxy_password', 'vertexai_auth_mode', 'vertexai_region', 'vertexai_express_project_id', 'azure_base_url', 'azure_deployment_name', 'azure_api_version', 'zai_endpoint'];
+// Vertex 인증 칸 (서비스 계정이면 full · 비면 실리태번 기본값)
+const VERTEX = ['vertexai_auth_mode', 'vertexai_region', 'vertexai_express_project_id'];
+export function vertexKeys() {
+    const cs = ctx().chatCompletionSettings ?? {};
+    return Object.fromEntries(VERTEX.filter(k => cs[k] != null && cs[k] !== '').map(k => [k, cs[k]]));
+}
 async function viaCurrent(messages, P) {
     const c = ctx(), a = currentApi(), svc = c.ChatCompletionService;
     if (a.main && a.main !== 'openai') throw new Error(`지금 API(${a.main})는 챗 컴플리션이 아니에요 → 「분류 모델 연결」에서 연결 프로필을 골라 주세요`);
@@ -66,14 +73,17 @@ async function viaCurrent(messages, P) {
     if (!a.src || !model) throw new Error('지금 API · 모델을 못 읽었어요 → 모델 이름을 적거나 연결 프로필을 골라 주세요');
     const body = { messages, model, chat_completion_source: a.src, ...Object.fromEntries(CONN_KEYS.filter(k => cs[k] != null && cs[k] !== '').map(k => [k, cs[k]])), ...P };
     delete body.name; delete body.top_p;
-    const r = svc.processRequest ? await svc.processRequest(body, {}, true) : await svc.sendRequest(body, true);
-    return r;
+    // sendRequest = 만든 몸통을 그대로 서버로 (processRequest는 몇몇 연결 칸을 버릴 수 있음 → Vertex 인증 방식이 빠져 Express로 처리됨)
+    return svc.sendRequest ? svc.sendRequest(body, true) : svc.processRequest(body, {}, true);
 }
 // 연결 프로필로: API · 모델 · 인증만 (includePreset: false → 프로필에 묶인 프리셋은 안 씀) · 값은 깨끗한 프리셋으로 덮음
 async function viaProfile(messages, P) {
     const svc = ctx().ConnectionManagerRequestService;
     if (!svc) throw new Error('이 실리태번엔 연결 관리자(Connection Manager)가 없어요');
     const { max_tokens, stream, name, ...over } = P; // eslint-disable-line no-unused-vars
+    // 프로필은 Vertex 인증 방식 · 리전 · 프로젝트를 안 담음 → 지금 연결 설정에서 채워 넣음 (안 넣으면 서버가 Express(API 키)로 봄)
+    const prof = (ctx().extensionSettings?.connectionManager?.profiles ?? []).find(x => x.id === settings().clsProfile);
+    if (/vertex/i.test(prof?.api ?? '')) Object.assign(over, vertexKeys());
     return svc.sendRequest(settings().clsProfile, messages, max_tokens, { stream, extractData: true, includePreset: false, includeInstruct: false }, over);
 }
 
