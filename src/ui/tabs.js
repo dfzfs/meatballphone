@@ -399,7 +399,7 @@ const GAUGE_DO = {
 };
 function gauge() {
     const g = gaugeCfg(), meta = getMeta();
-    let h = `<div class="ml-tools">${Object.entries(PRESETS).map(([k, p]) => btn(p.name, 'preset', k, 'sm')).join('')}</div>`;
+    let h = `<div class="ml-tools">${Object.entries(PRESETS).map(([k, p]) => btn(p.name, 'preset', k, 'sm')).join('')}${btn('🩺 자가 진단', 'doctor', '', 'sm')}</div>`;
     h += card('전체', slider('all', g.all ?? 2), `${seg('scope', [['chat', '이 채팅만'], ['all', '전체 기본값']], meta.influence ? 'chat' : 'all')}`);
     h += card('기능별 <span>이름을 누르면 단계별 동작</span>', GAUGES.map(x => slider(x.id, level(x.id), x.name)).join(''));
     // 지금 본편에 실제로 가는 글 (결과값만)
@@ -572,6 +572,10 @@ export async function onAct(act, v, el) {
         case 'sv-del': meta.saves[Number(v)] = null; saveMeta(); app.refresh?.(); return;
         case 'mark': { const i = lastAI(); if (i < 0) return; const fv = await form('⭐ 책갈피', [{ k: 'name', label: '이름', v: '', ph: short(ctx().chat[i].mes, 20), chips: ['고백 직전', '첫 만남', '큰 싸움', '중요한 선택'] }]); const name = fv?.name?.trim() || (fv ? short(ctx().chat[i].mes, 20) : ''); if (!name) return; meta.marks = [...(meta.marks ?? []).filter(m => m.key !== msgKey(ctx().chat[i])), { key: msgKey(ctx().chat[i]), name: short(name, 30) }]; saveMeta(); app.refresh?.(); return; }
         case 'past': { const ais = (ctx().chat ?? []).map((m, k) => [k, m]).filter(([, m]) => !m.is_user && !m.is_system).slice(-12).reverse(); const fv = await form('🕰 그때 상태 보기', [{ k: 'i', label: '어느 답의 시점?', type: 'pick', v: ais[0]?.[0], opts: ais.map(([k, m]) => [k, `#${k} ${esc(short(m.mes, 14))}`]) }], { ok: '보기' }); if (!fv) return; const i = Number(fv.i); if (!(i >= 0)) return; app.openPast?.(i); return; }
+        case 'doctor': { const d = await import('../extra/doctor.js'); d.doctor(app, app.perfData?.()); return; }
+        case 'doc-unpause': meta.paused = false; saveMeta(); el?.closest('.ml-bs')?.remove(); app.refresh?.(); return;
+        case 'doc-fill': settings().fillMissing = true; saveSettings(); el?.closest('.ml-bs')?.remove(); toast('보충 켰어요', 'good'); return;
+        case 'doc-open': el?.closest('.ml-bs')?.remove(); app.openSheet?.(v); return;
         case 'mind-tone': { const fv = await form('🗣 속마음 말투', [{ k: 't', label: '말투 (비우면 인물 성격대로)', v: meta.mindTone ?? '', chips: ['반말 · 툭툭', '존댓말 · 공손', '귀엽게 · 의성어 많이', '시니컬', '사투리', '오타쿠 말투'] }]); if (!fv) return; meta.mindTone = fv.t.trim().slice(0, 40); saveMeta(); app.refresh?.(); return; }
         case 'mind-pop': meta.mindPop = meta.mindPop === 'off' ? 'on' : 'off'; saveMeta(); app.refresh?.(); return;
         case 'mindwho': { const w = new Set(meta.mindWho ?? ['cast']); w.has(v) ? w.delete(v) : w.add(v); meta.mindWho = [...w]; saveMeta(); app.refresh?.(); return; }

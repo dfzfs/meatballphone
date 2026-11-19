@@ -11,6 +11,7 @@ import { traitsView, traitAct, TRAIT_ACTS } from './traits.js';
 import { chip, sheet, bar } from './kit.js';
 
 import { mascot } from './mascot.js';
+import { chipCheck } from '../extra/doctor.js';
 let cur = 'home', past = null;
 
 // ───── HUD: 한 줄 (욕구 · 돈 · 시간 · 장소 · 가게 한 줄) ─────
@@ -139,5 +140,5 @@ export function drawChips() {
     }
 }
 const signed2 = (n) => (n > 0 ? `+${Math.round(n)}` : `−${Math.abs(Math.round(n))}`);
-export function turnSheet(i) { const r = fold(); sheet(`#${i} 이번 답에서 바뀐 것`, `<div class="ml-card">${(r.changes[i] ?? []).filter(c => c.src !== 'time').map(c => changeRow(c, i)).join('')}</div>`); }
+export function turnSheet(i) { const r = fold(); sheet(`#${i} 이번 답에서 바뀐 것`, `<div class="ml-card">${(r.changes[i] ?? []).filter(c => c.src !== 'time').map(c => changeRow(c, i)).join('')}</div><details class="ml-det"><summary>🔍 칩 점검 · 줄마다 어떻게 읽혔나</summary>${chipCheck(i)}</details>`); }
 const el0 = () => document.getElementById('ml-full');
