@@ -6,21 +6,33 @@ import { readOps, kindOf, parts, stripTags } from './tags.js';
 import { match } from './names.js';
 import { NEED_STAGES, NEED_SYMPTOM, personOf, placeOf } from './book.js';
 import { glossList } from '../base/gloss.js';
-import { traitOf, traitCompat, signOf, signCompat, aspireOf, aspireSteps } from '../../data/traits.js';
-// 🧬 내 특성 효과 모으기
-export const myTraits = (book) => (book.me.traitIds ?? []).map(traitOf).filter(Boolean);
+import { traitOf, traitCompat, signOf, signCompat, aspireOf, aspireSteps, syncCustomTraits } from '../../data/traits.js';
+// 🧬 내 특성 효과 모으기 — S를 주면 「켜지는 조건」(커스텀 특성)이 맞는 것만
+const isHome = (book, S) => /home/.test(placeOf(book, S.loc)?.kind ?? '');
+const WHEN_OK = {
+    alone: (b, S) => !S.with.length, with: (b, S) => S.with.length > 0,
+    night: (b, S) => { const h = Math.floor((((S.t % DAY) + DAY) % DAY) / 60); return h >= 20 || h < 6; }, day: (b, S) => { const h = Math.floor((((S.t % DAY) + DAY) % DAY) / 60); return h >= 6 && h < 20; },
+    wet: (b, S) => /비|눈|폭우|폭설|rain|snow/i.test(S.weather), home: (b, S) => isHome(b, S), out: (b, S) => !isHome(b, S),
+    low: (b, S) => b.me.needs.some(n => (S.needs[n.key] ?? 100) < 40),
+};
+export const traitOn = (t, book, S) => !S || !t.when || t.when === 'always' || !!WHEN_OK[t.when]?.(book, S);
+export const myTraits = (book, S = null) => { syncCustomTraits(book.me.customTraits); return (book.me.traitIds ?? []).map(traitOf).filter(t => t && traitOn(t, book, S)); };
+// 궁합 배수: 💗 애정 축 · 🤝 우정 축을 따로 (반대가 끌리면 애정 +, 우정 −)
+function compatOf(book, name) {
+    syncCustomTraits(book.me.customTraits);
+    const p = personOf(book, name), tc = traitCompat(book.me.traitIds, p?.traits ?? []), they = signOf(p?.day), sc = signCompat(signOf(book.me.day), they);
+    return { tc, sc, they, aff: clamp(1 + tc.aff * 0.1, 0.6, 1.4) * sc.mul, trust: clamp(1 + tc.trust * 0.1, 0.7, 1.3) * sc.mul };
+}
 const tmul = (T, k, sub) => T.reduce((a, t) => a * (sub ? (t[k]?.[sub] ?? 1) : (t[k] ?? 1)), 1);
 // 💞 관계 배수: 내 특성 × 특성 궁합 × 별자리 궁합 (오를 때) — 내릴 땐 나쁜 궁합이 더 깎는다
-export function relMul(book, name, axis, up) {
-    const T = myTraits(book), p = personOf(book, name);
-    const tc = traitCompat(book.me.traitIds, p?.traits ?? []), sc = signCompat(signOf(book.me.day), signOf(p?.day));
-    const compat = clamp(1 + tc.score * 0.1, 0.7, 1.3) * sc.mul;
+export function relMul(book, name, axis, up, S = null) {
+    const T = myTraits(book, S), compat = compatOf(book, name)[axis === 'aff' ? 'aff' : 'trust'];
     if (up) return tmul(T, axis) * compat;
     return (axis === 'aff' ? tmul(T, 'affDown') : tmul(T, 'trustDown')) * clamp(2 - compat, 0.7, 1.4);
 }
 export function matchOf(book, name) {
-    const p = personOf(book, name), tc = traitCompat(book.me.traitIds, p?.traits ?? []), me = signOf(book.me.day), they = signOf(p?.day), sc = signCompat(me, they);
-    return { sign: they, sc, tc, mul: Math.round(clamp(1 + tc.score * 0.1, 0.7, 1.3) * sc.mul * 100) / 100 };
+    const c = compatOf(book, name), r2 = (n) => Math.round(n * 100) / 100;
+    return { sign: c.they, sc: c.sc, tc: c.tc, mul: r2(c.aff), mulT: r2(c.trust) };
 }
 
 // ───── 처음 상태 (설정집에서) ─────
@@ -55,7 +67,7 @@ export const priceMul = (S) => worldEvent(Math.floor(S.t / DAY))?.price ?? 1;
 // ───── 한 메시지 적용 ─────
 // ch: 이 메시지에서 바뀐 것 [{ f, label, from, to, why, src, sure, i(줄 번호) }]
 function makeCtx(book, S, ch, flags) {
-    const T = myTraits(book);
+    const T = myTraits(book, S);
     const G = glossList();
     const people = () => [...book.people.map(p => ({ name: p.name, aka: [...p.aka, ...G.filter(g => g.to === p.name).map(g => g.from)] })), ...Object.keys(S.rel).filter(n => !personOf(book, n)).map(name => ({ name }))];
     const who = (raw) => match(raw, people())?.name ?? null;
@@ -95,8 +107,10 @@ function makeCtx(book, S, ch, flags) {
         if (axis === 'aff' && p?.noLove) axis = 'trust'; // 💔 애정 꺼 두기 — 우정으로만
         // 💗 로맨스 보정: 같은 행동을 연달아 하면 반만 · 한 답에 ±8까지 · 단계 하나를 건너뛰지 못함
         if (src !== 'hand' && src !== 'meddle' && src !== 'ai') {
-            const shy = T.some(t => t.shy) ? (relStage(book, r.aff).at < 40 ? 0.8 : 1.2) : 1;
-            d = d > 0 ? d * relMul(book, name, axis, true) * (axis === 'aff' ? shy : 1) : d * relMul(book, name, axis, false);
+            let shy = T.some(t => t.shy) ? (relStage(book, r.aff).at < 40 ? 0.8 : 1.2) : 1;
+            // 💗 애정 60 전후로 다른 특성 (구속 싫음 · 키스 장인) · 일편단심: 가장 가까운 한 명에게만
+            if (axis === 'aff') { shy *= tmul(T, r.aff < 60 ? 'early' : 'late'); if (T.some(t => t.one)) { const top = Object.entries(S.rel).filter(([, q]) => !q.gone).sort((x, y) => y[1].aff - x[1].aff)[0]?.[0]; shy *= top === name ? tmul(T, 'one') : 0.9; } }
+            d = d > 0 ? d * relMul(book, name, axis, true, S) * (axis === 'aff' ? shy : 1) : d * relMul(book, name, axis, false, S);
             d = Math.sign(d) * Math.max(1, Math.round(Math.abs(d)));
             const key = norm(why);
             if (key && r.last.includes(key)) d = Math.sign(d) * Math.ceil(Math.abs(d) / 2);
@@ -110,6 +124,8 @@ function makeCtx(book, S, ch, flags) {
         r[axis] = to;
         ch.push({ f: `rel.${name}.${axis}`, label: `${name} ${axis === 'aff' ? '애정' : '우정'}`, icon: axis === 'aff' ? '💗' : '🤝', from, to, why, src, sure, i, who: name });
         const a = relStage(book, from), b = relStage(book, to);
+        // 😇 착한 사람 · 🦹 악당: 남과 사이가 오르고 틀어질 때 내 기분
+        if (src !== 'hand' && src !== 'auto') { const jw = T.reduce((q, t) => q + (to > from ? t.joy?.up ?? 0 : t.joy?.down ?? 0), 0); if (jw && !ch.some(c => c.f === 'need.mood' && /^🧬 (흐뭇|고소)/.test(c.why ?? ''))) setNeed('mood', jw, to > from ? '🧬 흐뭇함' : '🧬 고소함', 'auto', true, i); }
         if (axis === 'aff' && a.name !== b.name) ch.push({ f: `stage.${name}`, label: `${name} 단계`, icon: '💞', from: a.name, to: b.name, why: to > from ? '단계가 올랐어요' : '단계가 내려갔어요', src: 'auto', sure: true, i, cross: true, who: name });
     };
     const pass = (min, why, i, opt = {}) => {
@@ -128,6 +144,7 @@ function makeCtx(book, S, ch, flags) {
                 if (S.bgm) rate *= tmul(T, 'bgmMood');
                 if (T.some(t => t.wx && new RegExp(t.wx).test(S.weather))) rate *= 0.6;
                 if (T.some(t => t.wxBad && new RegExp(t.wxBad).test(S.weather))) rate *= 1.4;
+                if (T.some(t => t.erratic)) rate *= [0.3, 0.8, 1.3, 1.8][parseInt(hash(`e${Math.floor(S.t / 240)}`), 36) % 4]; // 🎭 4시간마다 바뀜
             }
             if (rain && (nd.key === 'hygiene' || nd.key === 'mood')) rate *= 1.5; // 🌧 날씨가 수치에 영향
             setNeed(nd.key, -rate * min / 60, opt.sleep ? '자는 동안' : why, 'time', true, i);
@@ -196,7 +213,8 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             const like = p?.likes.find(l => g.includes(norm(l)) || norm(l).includes(g)), hate = p?.hates.find(l => g.includes(norm(l)) || norm(l).includes(g));
             if (like && !r.seen.likes.includes(like)) r.seen.likes.push(like);
             if (hate && !r.seen.hates.includes(hate)) r.seen.hates.push(hate);
-            x.setRel(name, 'aff', like ? DEF.giftLike : hate ? DEF.giftHate : DEF.gift, `🎁 ${short(b, 10)}${like ? ' · 취향 저격' : hate ? ' · 싫어함' : ''}`, src, !!(like || hate), i);
+            const gm = tmul(x.T, 'giftMul');
+            x.setRel(name, 'aff', like ? DEF.giftLike * gm : hate ? DEF.giftHate : DEF.gift * gm, `🎁 ${short(b, 10)}${like ? ' · 취향 저격' : hate ? ' · 싫어함' : ''}`, src, !!(like || hate), i);
             return;
         }
         case 'loc': {
@@ -204,6 +222,7 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             const to = pl?.name ?? safeKey(a); if (!to || to === S.loc) return;
             ch.push({ f: 'loc', label: '장소', icon: '📍', from: S.loc, to, why: '이동', src, sure: !!pl, i }); S.loc = to;
             S.visited ??= []; if (!S.visited.includes(to)) S.visited.push(to);
+            { const rm = x.T.reduce((q, t) => q + (t.roam ?? 0), 0); if (rm) x.setNeed('mood', rm, '🧬 새 길', 'auto', true, i); }
             return;
         }
         case 'with': { S.with = String(v).split(/[,、·/|]/).map(n => x.who(n) ?? safeKey(n)).filter(Boolean).slice(0, 8); return; }
@@ -252,7 +271,7 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
         }
         case 'roll': S.rolls.push({ t: S.t, what: short(v, 40), i }); return;
         case 'mind': case 'watch': case 'cell': { if (a && b) S[kind][x.who(a) ?? safeKey(a)] = short(parts(v).slice(1).join(' | '), 120); return; }
-        case 'jealous': { const name = x.who(a); if (!name) return; const r = x.rel(name); r.jealous = short(b || '질투', 40); remember(S, r, `질투: ${b}`); x.setRel(name, 'trust', x.T.some(t => t.jealousSelf) ? -2 : -1, '질투', src, false, i); news(S, '💢', `${name} — ${short(b || '질투가 남', 30)}`, 'jealous', name); return; }
+        case 'jealous': { const name = x.who(a); if (!name) return; const r = x.rel(name); r.jealous = short(b || '질투', 40); remember(S, r, `질투: ${b}`); x.setRel(name, 'trust', -Math.max(1, Math.round(tmul(x.T, 'jealousSelf') * tmul(x.T, 'jealousy') * 1.4)), '질투', src, false, i); news(S, '💢', `${name} — ${short(b || '질투가 남', 30)}`, 'jealous', name); return; }
         case 'life': { const name = x.who(a) ?? safeKey(a); if (!name || !b) return; x.rel(name).life = short(b, 60); news(S, '🌙', `${name} — ${short(b, 40)}`, 'life', name); return; }
         case 'want': { const name = x.who(a); if (name && b) x.rel(name).want = short(b, 60); return; }
         case 'memory': { const name = x.who(a); if (name && b) remember(S, x.rel(name), b); return; }
@@ -298,11 +317,11 @@ export function derived(book, S) {
 export function diceParts(book, S, attr = '', luck = null) {
     const out = [];
     if (attr && S.attrs[attr]) out.push({ why: `${attr}`, n: S.attrs[attr] });
-    for (const t of myTraits(book)) if (attr && t.dice?.[attr]) out.push({ why: `🧬 ${t.name}`, n: t.dice[attr] });
+    for (const t of myTraits(book, S)) if (attr && t.dice?.[attr]) out.push({ why: `🧬 ${t.name}`, n: t.dice[attr] });
     const outdoor = !/home|bath|school|work|shop|food/.test(placeOf(book, S.loc)?.kind ?? 'street');
     if (outdoor && /비|눈|폭우|폭설|rain|snow/i.test(S.weather) && attr === '민첩') out.push({ why: `🌧 ${S.weather} (밖)`, n: -1 });
-    if (myTraits(book).some(t => t.wx && new RegExp(t.wx).test(S.weather))) out.push({ why: `🌤 좋아하는 날씨`, n: 1 });
-    if (myTraits(book).some(t => t.wxBad && new RegExp(t.wxBad).test(S.weather))) out.push({ why: `🌫 싫어하는 날씨`, n: -1 });
+    if (myTraits(book, S).some(t => t.wx && new RegExp(t.wx).test(S.weather))) out.push({ why: `🌤 좋아하는 날씨`, n: 1 });
+    if (myTraits(book, S).some(t => t.wxBad && new RegExp(t.wxBad).test(S.weather))) out.push({ why: `🌫 싫어하는 날씨`, n: -1 });
     if (luck?.rolled) { const n = luck.tier === '대길' ? 2 : luck.tier === '대흉' ? -2 : luck.stars >= 5 ? 1 : luck.stars <= 1 ? -1 : 0; if (n) out.push({ why: `🍀 오늘 운세 ${'★'.repeat(luck.stars)}`, n, fate: true }); }
     for (const d of derived(book, S)) if (d.stage === '위험') out.push({ why: `${d.name} 위험`, n: d.dice });
     for (const st of S.status) if (num(st.dice)) out.push({ why: st.name, n: num(st.dice), fate: st.src === 'fate' });
@@ -352,7 +371,7 @@ export function fold(force = false) {
         if (!m.is_user && !m.is_system && i >= (meta.startAt ?? 0)) {
             S.mind = {}; S.watch = {}; S.cell = {}; S.turn++;
             const x = makeCtx(meta.book, S, ch, flags);
-            const W = wantsOf(meta.book, S), P = { tasted: S.tasted?.length ?? 0, visited: S.visited?.length ?? 0, custom: JSON.stringify(S.custom) }; // ⭐ 이 답 전에 원하던 것 · 그때 개수
+            const W = wantsOf(meta.book, S), P = { tasted: S.tasted?.length ?? 0, visited: S.visited?.length ?? 0, rolls: S.rolls?.length ?? 0, kept: (S.promises ?? []).filter(q => q.done).length, custom: JSON.stringify(S.custom) }; // ⭐ 이 답 전에 원하던 것 · 그때 개수
             for (const o of opsOf(m, meta.book)) { const n0 = ch.length; try { applyOp(meta.book, S, x, o.k, o.v, o.j, o.src, ch); } catch (e) { console.warn('[미트볼 라이트] 줄 건너뜀', o, e); } if (o.why) for (let q = n0; q < ch.length; q++) if (ch[q].src === o.src) ch[q].why = o.why; }
             afterTurn(meta.book, S, x, ch, W, i, P);
             if (!slot(m)?.skip && !slot(m)?.flagOk) drift(meta.book, S, m.mes, ch, flags, i);
@@ -406,41 +425,87 @@ export function whereNow(book, S, p) {
     return null;
 }
 
-// ⭐ 지금 원하는 것 (특성 · 욕구 · 같이 있는 사람 · 야망에서 · 이야기 속 하루마다 바뀜) — 이루면 기분 +8
+// ⭐ 지금 원하는 것 — 늘 3개 · 야망 · 상황 · 관계 · 지금 스탯 · 특성에서 골고루 · 이야기 속 4시간 또는 5턴마다 바뀜 · 이루면 기분 +8
+//   후보마다 { src(어디서 왔나), w(뽑힐 무게) } · 급한 욕구(주의 이하)는 늘 먼저
 const WANT_SAY = { hunger: ['뭔가 먹기', '뭐 좀 먹을까.'], energy: ['좀 쉬기', '잠깐 쉬자.'], hygiene: ['씻기', '씻고 싶다.'], mood: ['기분 전환하기', '바람 좀 쐬자.'] };
+export const WANT_SRC = { need: '스탯', asp: '야망', rel: '관계', sit: '상황', trait: '특성', stat: '스탯' };
+const affUp = (ch) => ch.some(c => c.f.startsWith('rel.') && c.f.endsWith('.aff') && c.to > c.from), trustUp = (ch) => ch.some(c => c.f.startsWith('rel.') && c.f.endsWith('.trust') && c.to > c.from);
+const needUp = (k, n = 1) => (ch) => ch.some(c => c.f === `need.${k}` && c.to - c.from >= n && c.src !== 'time');
+const moved = (ch) => ch.some(c => c.f === 'loc'), bought = (ch) => ch.some(c => c.f === 'cash' && c.to < c.from);
 const TRAIT_WANT = {
-    romantic: ['🌹', '누군가에게 다정한 말 하기', '다정하게 말을 건넨다.', (ch) => ch.some(c => c.f.endsWith('.aff') && c.to > c.from)],
-    charming: ['✨', '누군가 웃게 하기', '농담을 건넨다.', (ch) => ch.some(c => c.f.startsWith('rel.') && c.to > c.from)],
-    outgoing: ['🎉', '누군가와 함께 있기', '누구 없나 둘러본다.', (ch, S) => S.with.length > 0],
-    goofball: ['🤡', '장난치기', '장난을 친다.', (ch) => ch.some(c => c.f.endsWith('.trust') && c.to > c.from)],
-    loner: ['🌙', '혼자 쉬기', '혼자 조용히 쉰다.', (ch, S) => !S.with.length && ch.some(c => c.f === 'need.energy' && c.to > c.from)],
-    foodie: ['🍰', '새로운 음식 먹어 보기', '안 먹어 본 걸 먹어 보자.', (ch, S, P) => (S.tasted?.length ?? 0) > (P.tasted ?? 0)],
-    glutton: ['🍖', '배 터지게 먹기', '배부르게 먹는다.', (ch) => ch.some(c => c.f === 'need.hunger' && c.to - c.from >= 25)],
-    shopaholic: ['🛍️', '뭐라도 사기', '구경하다 하나 산다.', (ch) => ch.some(c => c.f === 'cash' && c.to < c.from && c.src !== 'time')],
-    outdoor: ['🌿', '밖에 나가기', '밖으로 나간다.', (ch) => ch.some(c => c.f === 'loc')],
-    workaholic: ['💼', '일하기', '일을 한다.', (ch) => ch.some(c => /일/.test(c.why ?? '') && c.f === 'need.energy')],
-    lazy: ['🦥', '늘어지게 쉬기', '늘어지게 쉰다.', (ch) => ch.some(c => c.f === 'need.energy' && c.to > c.from)],
-    neat: ['🧽', '깨끗이 씻기', '깨끗이 씻는다.', (ch) => ch.some(c => c.f === 'need.hygiene' && c.to > c.from)],
-    kind: ['🤍', '누군가 도와주기', '도와줄 게 있는지 묻는다.', (ch) => ch.some(c => c.f.endsWith('.trust') && c.to > c.from)],
+    romantic: ['🌹', '누군가에게 다정한 말 하기', '다정하게 말을 건넨다.', affUp], hopeless: ['💞', '마음 전하기', '용기 내어 마음을 표현한다.', affUp],
+    irresistible: ['💋', '눈길 한 번 끌어 보기', '은근한 눈빛을 보낸다.', affUp], kisser: ['💄', '분위기 잡기', '조용히 거리를 좁힌다.', affUp], flirty: ['😘', '가볍게 추파 던지기', '장난스럽게 추파를 던진다.', affUp],
+    noncommittal: ['🕊️', '혼자만의 시간 갖기', '잠깐 혼자 있고 싶다.', (ch, S) => !S.with.length], loyal: ['💍', '그 사람 챙기기', '가장 아끼는 사람을 챙긴다.', affUp], unflirty: ['🧱', '진지한 얘기 하기', '진지하게 대화를 나눈다.', trustUp],
+    charming: ['✨', '누군가 웃게 하기', '농담을 건넨다.', (ch) => ch.some(c => c.f.startsWith('rel.') && c.to > c.from)], outgoing: ['🎉', '누군가와 함께 있기', '누구 없나 둘러본다.', (ch, S) => S.with.length > 0],
+    partyanimal: ['🪩', '사람 많은 곳 가기', '북적이는 곳으로 간다.', (ch, S) => moved(ch) || S.with.length >= 2], goofball: ['🤡', '장난치기', '장난을 친다.', trustUp], childish: ['🧸', '유치하게 놀기', '아이처럼 논다.', needUp('mood')],
+    loner: ['🌙', '혼자 쉬기', '혼자 조용히 쉰다.', (ch, S) => !S.with.length && needUp('energy')(ch)], awkward: ['🫣', '먼저 인사해 보기', '어색하게 먼저 인사한다.', trustUp],
+    kind: ['🤍', '누군가 도와주기', '도와줄 게 있는지 묻는다.', trustUp], good: ['😇', '착한 일 하기', '곤란한 사람을 돕는다.', trustUp], evil: ['🦹', '누군가 골탕 먹이기', '슬쩍 골탕을 먹인다.', (ch) => ch.some(c => c.f.startsWith('rel.') && c.to < c.from)],
+    mean: ['😈', '한마디 쏘아붙이기', '날카롭게 한마디 한다.', (ch) => ch.some(c => c.f.startsWith('rel.') && c.to < c.from)], bro: ['🤜', '친구랑 놀기', '친구를 불러낸다.', trustUp], generous: ['🎁', '뭔가 나눠 주기', '가진 걸 나눠 준다.', (ch) => ch.some(c => /🎁/.test(c.why ?? ''))],
+    snob: ['🍷', '좋은 걸로 하나 사기', '제일 좋은 걸로 고른다.', bought], mooch: ['🪳', '얻어먹기', '슬쩍 얻어먹는다.', needUp('hunger')], schmoozer: ['🎩', '비위 맞춰 주기', '듣기 좋은 말을 한다.', trustUp],
+    foodie: ['🍰', '새로운 음식 먹어 보기', '안 먹어 본 걸 먹어 보자.', (ch, S, P) => (S.tasted?.length ?? 0) > (P.tasted ?? 0)], naturalcook: ['🍳', '뭔가 해 먹기', '직접 요리를 한다.', needUp('hunger')],
+    glutton: ['🍖', '배 터지게 먹기', '배부르게 먹는다.', needUp('hunger', 25)], geek: ['🕹️', '덕질하기', '좋아하는 것에 푹 빠진다.', needUp('mood')], bookworm: ['📚', '책 읽기', '책을 펼친다.', needUp('mood')],
+    active: ['🏃', '몸 움직이기', '몸을 좀 움직인다.', (ch) => moved(ch) || ch.some(c => c.f === 'need.energy' && c.to < c.from && c.src !== 'time')], athletic: ['🏋️', '운동하기', '땀 흘리며 운동한다.', (ch) => ch.some(c => c.f === 'need.energy' && c.to < c.from && c.src !== 'time')],
+    couch: ['📺', '뒹굴거리기', '소파에 드러눕는다.', needUp('energy')], music: ['🎧', '노래 듣기', '좋아하는 노래를 튼다.', (ch, S) => !!S.bgm], dancer: ['💃', '춤추기', '리듬에 몸을 맡긴다.', needUp('mood')],
+    adventurous: ['🗺️', '모르는 길로 가 보기', '처음 보는 길로 들어선다.', (ch, S, P) => (S.visited?.length ?? 0) > (P.visited ?? 0)], outdoor: ['🌿', '밖에 나가기', '밖으로 나간다.', moved], indoor: ['🛋️', '집에서 뒹굴기', '집에서 느긋하게 쉰다.', needUp('energy')],
+    shopaholic: ['🛍️', '뭐라도 사기', '구경하다 하나 산다.', bought], materialistic: ['💎', '새 물건 들이기', '새 물건을 장만한다.', (ch) => ch.some(c => c.f === 'item' && c.from === 0)], frugal: ['🪙', '한 푼 아끼기', '더 싼 걸 찾아본다.', (ch) => ch.some(c => c.f === 'cash' && c.to > c.from)],
+    workaholic: ['💼', '일하기', '일을 한다.', (ch) => ch.some(c => /일/.test(c.why ?? '') && c.f === 'need.energy')], ambitious: ['🚀', '목표에 한 걸음', '목표를 위해 움직인다.', (ch) => ch.some(c => c.f.startsWith('aspire.') || (c.f === 'cash' && c.to > c.from))],
+    lazy: ['🦥', '늘어지게 쉬기', '늘어지게 쉰다.', needUp('energy')], neat: ['🧽', '깨끗이 씻기', '깨끗이 씻는다.', needUp('hygiene')], squeamish: ['🤢', '손 씻기', '손부터 씻는다.', needUp('hygiene')], perfectionist: ['📐', '하나라도 제대로 하기', '꼼꼼하게 마무리한다.', (ch, S, P) => (S.rolls?.length ?? 0) > (P.rolls ?? 0)],
+    cheerful: ['😄', '누군가와 웃기', '같이 웃는다.', trustUp], gloomy: ['🌧️', '조용히 생각 정리하기', '조용히 생각에 잠긴다.', (ch, S) => !S.with.length], excitable: ['🤩', '신나는 일 찾기', '재밌는 일 없나 찾아본다.', needUp('mood')],
+    brave: ['🦁', '위험에 맞서기', '정면으로 맞선다.', (ch, S, P) => (S.rolls?.length ?? 0) > (P.rolls ?? 0)], kleptomaniac: ['🫳', '반짝이는 것 슬쩍하기', '…손이 먼저 움직인다.', (ch) => ch.some(c => c.f === 'item' && c.from === 0)],
 };
-const ASPIRE_WANT = {
-    lover: (S, b) => { const n = Object.entries(S.rel).filter(([, r]) => !r.gone).sort((x, y) => y[1].aff - x[1].aff)[0]?.[0]; return n && ['💘', `${n}와(과) 가까워지기`, `${n}에게 다가간다.`, (ch) => ch.some(c => c.f === `rel.${n}.aff` && c.to > c.from)]; },
-    rich: () => ['💰', '돈 벌기', '돈 벌 방법을 찾아본다.', (ch) => ch.some(c => c.f === 'cash' && c.to > c.from)],
-    popular: () => ['🌟', '누군가와 우정 쌓기', '말을 걸어 본다.', (ch) => ch.some(c => c.f.endsWith('.trust') && c.to > c.from)],
-    explorer: () => ['🧭', '새로운 곳 가 보기', '안 가 본 곳으로 가 본다.', (ch, S, P) => (S.visited?.length ?? 0) > (P.visited ?? 0)],
-    gourmet: () => ['🍽️', '새 음식 먹어 보기', '안 먹어 본 걸 먹어 보자.', (ch, S, P) => (S.tasted?.length ?? 0) > (P.tasted ?? 0)],
-    collector: () => ['🧺', '새 물건 얻기', '쓸 만한 게 있나 찾아본다.', (ch) => ch.some(c => c.f === 'item' && c.from === 0)],
-};
+// 어디서든 할 수 있는 작은 바람 (후보가 모자랄 때 채움)
+const FILL = [
+    ['🚶', '산책하기', '잠깐 걸으러 나간다.', moved], ['☕', '따뜻한 거 마시기', '따뜻한 걸 한 잔 마신다.', needUp('mood')], ['💬', '누군가와 수다 떨기', '말을 걸어 본다.', (ch) => ch.some(c => c.f.startsWith('rel.') && c.to > c.from)],
+    ['🍪', '간식 먹기', '간식을 꺼낸다.', needUp('hunger')], ['🧹', '주변 정리하기', '주변을 정리한다.', needUp('hygiene')], ['📝', '오늘 일 돌아보기', '오늘 있었던 일을 떠올린다.', needUp('mood')],
+];
+const pick = (seed, w) => (parseInt(hash(seed), 36) % 1000) / 1000 * w;
 export function wantsOf(book, S) {
-    const out = [], T = book.me.traitIds ?? [], day = Math.floor(S.t / DAY), done = new Set(S.wantsDone ?? []);
-    const low = [...book.me.needs].filter(n => (S.needs[n.key] ?? 100) < 55).sort((a, b) => S.needs[a.key] - S.needs[b.key])[0];
-    if (low) { const [t, say] = WANT_SAY[low.key] ?? [`${low.name} 채우기`, '']; out.push({ id: `need-${low.key}`, icon: low.icon, text: t, say, ok: (ch) => ch.some(c => c.f === `need.${low.key}` && c.to > c.from && c.src !== 'time') }); }
-    const asp = ASPIRE_WANT[book.me.aspire]?.(S, book); if (asp) out.push({ id: `asp-${book.me.aspire}`, icon: asp[0], text: asp[1], say: asp[2], ok: asp[3] });
-    for (const n of S.with) { const r = S.rel[n], it = S.items.find(i => r?.seen.likes.some(l => i.name.includes(l))); if (it) { out.push({ id: `gift-${n}`, icon: '🎁', text: `${n}에게 ${it.name} 주기`, say: `${n}에게 ${it.name}을(를) 건넨다.`, ok: (ch) => ch.some(c => c.f === `rel.${n}.aff` && /🎁/.test(c.why ?? '')) }); break; } }
-    const tw = T.map(id => TRAIT_WANT[id] ? [id, TRAIT_WANT[id]] : null).filter(Boolean);
-    if (tw.length) { const [id, w] = tw[parseInt(hash(`${day}`), 36) % tw.length]; out.push({ id: `trait-${id}`, icon: w[0], text: w[1], say: w[2], ok: w[3] }); }
-    return out.filter(w => !done.has(`${day}|${w.id}`)).slice(0, 3).map(w => ({ ...w, key: `${day}|${w.id}` }));
+    const C = [], add = (src, w, id, [icon, text, say, ok]) => C.push({ src, w, id, icon, text, say, ok });
+    const day = Math.floor(S.t / DAY), per = `${Math.floor(S.t / 240)}|${Math.floor((S.turn ?? 0) / 5)}`, done = new Set(S.wantsDone ?? []);
+    const h = Math.floor((((S.t % DAY) + DAY) % DAY) / 60), meal = book.world.meal || 10, pl = placeOf(book, S.loc), urgent = [];
+    // 스탯: 낮은 욕구 (주의 이하는 급함) · 돈 · 나쁜 딱지
+    for (const n of book.me.needs) { const v = S.needs[n.key] ?? 100; if (v >= 55) continue; const [t, say] = WANT_SAY[n.key] ?? [`${n.name} 채우기`, `${n.name}부터 챙기자.`]; const wn = { src: 'need', w: 3 + (55 - v) / 10, id: `need-${n.key}`, icon: n.icon, text: t, say, ok: (ch) => ch.some(c => c.f === `need.${n.key}` && c.to > c.from && c.src !== 'time') }; (v < 40 ? urgent : C).push(wn); }
+    if (S.cash < meal * 2) add('stat', 2.5, 'cash-low', ['🪙', '돈 좀 벌기', '일거리를 찾아본다.', (ch) => ch.some(c => c.f === 'cash' && c.to > c.from)]);
+    else if (S.cash > meal * 20) add('stat', 1.2, 'cash-high', ['🛍️', '나를 위해 하나 사기', '나를 위한 선물을 고른다.', bought]);
+    const bad = S.status.find(st => st.kind === 'bad'); if (bad) add('stat', 2, `st-${bad.name}`, ['🩹', `${bad.name} 털어내기`, `${bad.name}부터 어떻게 해 보자.`, (ch) => ch.some(c => c.f === `status.${bad.name}` && c.to === '풀림') || needUp('mood', 3)(ch)]);
+    // 야망
+    const asp = aspireOf(book.me.aspire, book), aw = asp?.want?.(S, book); if (aw) add('asp', 3.5, `asp-${asp.id}`, aw);
+    // 관계: 같이 있는 사람 먼저, 없으면 가까운 사람
+    const live = Object.entries(S.rel).filter(([, r]) => !r.gone), near = S.with.filter(n => S.rel[n] && !S.rel[n].gone);
+    for (const n of (near.length ? near : live.sort((x, y) => (y[1].aff + y[1].trust) - (x[1].aff + x[1].trust)).slice(0, 2).map(([k]) => k)).slice(0, 3)) {
+        const r = S.rel[n], here = near.includes(n), nx = nextStage(book, r.aff);
+        const it = here && S.items.find(i => r.seen.likes.some(l => i.name.includes(l)));
+        if (it) add('rel', 3, `gift-${n}`, ['🎁', `${n}에게 ${it.name} 주기`, `${n}에게 ${it.name}을(를) 건넨다.`, (ch) => ch.some(c => c.f === `rel.${n}.aff` && /🎁/.test(c.why ?? ''))]);
+        else if (r.seen.likes[0] && !here) add('rel', 1.5, `like-${n}`, ['🛒', `${n}가 좋아하는 ${r.seen.likes[0]} 구하기`, `${r.seen.likes[0]}을(를) 구하러 간다.`, (ch) => ch.some(c => c.f === 'item' && c.from === 0 && c.label.includes(r.seen.likes[0]))]);
+        if (r.jealous) add('rel', 3, `soothe-${n}`, ['🫂', `${n} 달래 주기`, `${n}의 기분을 풀어 준다.`, relUpOf(n, 'trust')]);
+        else if (r.trust <= 5 || r.trust < (personOf(book, n)?.start?.trust ?? 10) - 3) add('rel', 2, `mend-${n}`, ['🕊️', `${n}와(과) 화해하기`, `${n}에게 먼저 사과한다.`, relUpOf(n, 'trust')]);
+        if (here && nx && nx.at - r.aff <= 8) add('rel', 2.5, `step-${n}`, ['💞', `${n}와(과) 한 걸음 더 (${nx.name})`, `${n}에게 한 걸음 다가간다.`, relUpOf(n, 'aff')]);
+        if (r.want) add('rel', 2, `their-${n}`, ['🙏', `${n}의 바람 들어주기: ${short(r.want, 14)}`, `${n}이(가) 원하던 걸 해 준다.`, (ch) => ch.some(c => c.f.startsWith(`rel.${n}.`) && c.to > c.from)]);
+        if (here && !r.seen.likes.length) add('rel', 1.2, `taste-${n}`, ['🔍', `${n} 취향 알아내기`, `${n}에게 좋아하는 걸 묻는다.`, (ch) => ch.some(c => c.f.startsWith(`rel.${n}.`) && /취향/.test(c.why ?? ''))]);
+    }
+    if (!near.length && live.length) add('sit', 1.5, 'meet', ['👋', '누군가 만나러 가기', '누굴 만나러 갈까.', (ch, S2) => S2.with.length > 0]);
+    // 상황: 시간 · 날씨 · 장소 · 세계 사건
+    if ((h >= 22 || h < 5) && (S.needs.energy ?? 100) < 80) add('sit', 2.5, 'sleep', ['🌙', '푹 자기', '잘 준비를 한다.', needUp('energy', 10)]);
+    if (h >= 6 && h < 10) add('sit', 1.5, 'breakfast', ['🥐', '아침 챙겨 먹기', '아침을 먹는다.', needUp('hunger')]);
+    if (h >= 18 && h < 21) add('sit', 1.2, 'dinner', ['🍲', '저녁 맛있게 먹기', '저녁을 먹으러 간다.', needUp('hunger')]);
+    if (/비|눈|폭우|폭설|rain|snow/i.test(S.weather)) add('sit', 1.8, 'wet', [/눈|snow/i.test(S.weather) ? '⛄' : '☔', '따뜻한 곳에서 쉬기', '비를 피해 따뜻한 곳으로 간다.', (ch) => needUp('energy')(ch) || needUp('mood')(ch) || moved(ch)]);
+    else if (/맑|화창|clear|sun/i.test(S.weather) && !isHome(book, S)) add('sit', 1.2, 'sunny', ['🌤️', '햇볕 쬐며 걷기', '햇볕 아래를 걷는다.', moved]);
+    const ev = worldEvent(day); if (ev) add('sit', 2.2, `ev-${ev.name}`, ['🎪', `${ev.name} 구경하기`, `${ev.name} 구경을 간다.`, (ch) => bought(ch) || moved(ch)]);
+    if (/shop|food/.test(pl?.kind ?? '') && pl.goods?.length) { const g = pl.goods[parseInt(hash(per + pl.name), 36) % pl.goods.length]; add('sit', 2, `here-${g.name}`, [pl.kind === 'food' ? '🍽️' : '🛒', `여기서 ${g.name} ${pl.kind === 'food' ? '먹어 보기' : '사 보기'}`, `${g.name}을(를) 고른다.`, (ch) => ch.some(c => c.label === g.name || (c.why ?? '').includes(g.name))]); }
+    const unseen = book.world.places.filter(p => !(S.visited ?? []).includes(p.name) && p.name !== S.loc);
+    if (unseen.length) { const p = unseen[parseInt(hash(per + 'p'), 36) % unseen.length]; add('sit', 1.3, `go-${p.name}`, ['📍', `${p.name}에 가 보기`, `${p.name}(으)로 가 본다.`, (ch) => ch.some(c => c.f === 'loc' && c.to === p.name)]); }
+    // 특성 (켜진 것만 · 커스텀 특성은 효과에 맞는 일반 바람으로)
+    for (const t of myTraits(book, S)) { const w = TRAIT_WANT[t.id]; if (w) add('trait', 2.2, `trait-${t.id}`, w); }
+    // 뽑기: 급한 욕구 → 나머지는 무게 × 시드 (같은 출처는 한 번 · 모자라면 같은 출처도)
+    const ok = (w) => !done.has(`${day}|${w.id}`);
+    const out = urgent.filter(ok).sort((a, b) => b.w - a.w).slice(0, 2);
+    const rest = C.filter(w => ok(w) && !out.some(o => o.id === w.id)).map(w => ({ ...w, r: pick(`${per}|${w.id}`, w.w) })).sort((a, b) => b.r - a.r);
+    for (const w of rest) if (out.length < 3 && !out.some(o => o.src === w.src)) out.push(w);
+    for (const w of rest) if (out.length < 3 && !out.includes(w)) out.push(w);
+    for (const [j, f] of FILL.map((f, j) => [j, f]).sort((a, b) => pick(`${per}|f${a[0]}`, 1) - pick(`${per}|f${b[0]}`, 1))) { if (out.length >= 3) break; const w = { src: 'sit', id: `fill-${j}`, icon: f[0], text: f[1], say: f[2], ok: f[3] }; if (ok(w)) out.push(w); }
+    return out.slice(0, 3).map(w => ({ ...w, srcName: WANT_SRC[w.src] ?? '', key: `${day}|${w.id}` }));
 }
+const relUpOf = (n, ax) => (ch) => ch.some(c => c.f === `rel.${n}.${ax}` && c.to > c.from);
 function afterTurn(book, S, x, ch, W, i, P) {
     // 🧩 내 탭: 「높음」 경계를 넘는 순간 → 경계 문구 (본편 힌트) + 다른 칸과 연결 (예: 「기분 -5」)
     const before = JSON.parse(P.custom || '{}');
@@ -456,13 +521,24 @@ function afterTurn(book, S, x, ch, W, i, P) {
         ch.push({ f: `want.${w.id}`, label: '원하던 것', icon: '⭐', from: '', to: '이룸', why: w.text, src: 'auto', sure: true, i, kind: 'good' });
         x.setNeed('mood', 8, `⭐ ${w.text}`, 'auto', true, i);
     }
+    // 📊 야망용 누적 셈 (쓴 돈 · 번 돈 · 선물 · 이룬 소원 · 회복 · 일 · 기분 좋은 턴 · 끼니)
+    const T = (S.tally ??= {}), inc = (k, n = 1) => { T[k] = Math.round(((T[k] ?? 0) + n) * 100) / 100; };
+    for (const c of ch) {
+        if (c.f === 'cash' && typeof c.to === 'number') { if (c.to < c.from) inc('spent', c.from - c.to); else if (c.to > c.from) inc('earned', c.to - c.from); if (c.why === '일한 값') inc('work'); }
+        if (/^rel\..+\.aff$/.test(c.f) && /🎁/.test(c.why ?? '') && c.src !== 'hand') inc('gifts');
+        if (c.f.startsWith('want.')) inc('wishes');
+        if (c.f.startsWith('stage.need.') && c.to === '정상') inc('recover');
+        if (c.f === 'need.hunger' && c.to > c.from && c.src !== 'time' && c.src !== 'hand') inc('meals');
+    }
+    if ((S.needs.mood ?? 0) >= 70) inc('happy');
     // 야망 단계
-    const a = aspireOf(book.me.aspire); if (!a) return;
-    const steps = aspireSteps(a, book), v = a.val(S), k = steps.filter(st => v >= st).length;
+    const a = aspireOf(book.me.aspire, book); if (!a) return;
+    const steps = aspireSteps(a, book), v = a.val(S, book), k = steps.filter(st => v >= st).length;
+    const akey = a.id === 'custom' ? `custom:${a.name}` : a.id; if (S.aspFor && S.aspFor !== akey) S.aspStep = 0; S.aspFor = akey; // 야망을 바꾸면 처음부터
     if (k > (S.aspStep ?? 0)) {
         S.aspStep = k;
         ch.push({ f: `aspire.${a.id}`, label: `${a.name} ${k}단계`, icon: a.icon, from: '', to: k >= steps.length ? '달성!' : `${k}/${steps.length}`, why: `${a.unit} ${Math.round(v)}`, src: 'auto', sure: true, i, kind: 'good', cross: true });
-        x.setNeed('mood', 10, `${a.icon} ${a.name}`, 'auto', true, i);
+        x.setNeed('mood', Math.round(10 * tmul(myTraits(book), 'aspBonus')), `${a.icon} ${a.name}`, 'auto', true, i);
         S.status = S.status.filter(s => s.name !== '뿌듯함'); S.status.push({ name: '뿌듯함', kind: 'good', until: S.t + DAY, dice: 1, src: 'auto', at: S.t });
     }
 }

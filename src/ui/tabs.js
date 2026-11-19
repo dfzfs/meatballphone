@@ -434,7 +434,7 @@ export async function onAct(act, v, el) {
             meta.mods[a.mod] = act === 'install'; saveMeta(); app.refresh?.(); toast(act === 'install' ? `${a.icon} ${a.name} 받았어요` : `${a.name} 지웠어요`); return;
         }
         case 'luckroll': {
-            const T = myTraits(meta.book), r1 = 1 + Math.floor(Math.random() * 20), r2 = 1 + Math.floor(Math.random() * 20);
+            const T = myTraits(meta.book, r.S), r1 = 1 + Math.floor(Math.random() * 20), r2 = 1 + Math.floor(Math.random() * 20);
             const d = T.some(t => t.luck === 'best') ? Math.max(r1, r2) : T.some(t => t.luck === 'worst') ? Math.min(r1, r2) : r1;
             meta.luckRoll = { day: Math.floor(r.S.t / DAY), d, two: T.some(t => t.luck) ? [r1, r2] : null }; saveMeta();
             toast(`🎲 ${d}${d === 20 ? ' · 대길!' : d === 1 ? ' · 대흉…' : ''}`, d >= 11 ? 'good' : 'bad'); app.refresh?.(); return;
@@ -469,7 +469,7 @@ export async function onAct(act, v, el) {
         case 'rollattr': setDice('attr', v); app.openSheet?.('dice'); return;
         case 'roll': {
             const mod = Number(v), d = 1 + Math.floor(Math.random() * 20), tot = d + mod;
-            const T = myTraits(meta.book), fum = Math.max(1, ...T.map(t => t.fumble ?? 1)), calm = T.some(t => t.noFumble);
+            const T = myTraits(meta.book, r?.S), fum = Math.max(1, ...T.map(t => t.fumble ?? 1)), calm = T.some(t => t.noFumble);
             const res = d === 20 ? '대성공' : d <= fum && !calm ? '대실패' : tot >= diceSel.dc ? '성공' : '실패';
             const text = `(🎲 ${diceSel.attr} 판정: d20 ${d}${mod ? ` ${signed(mod)}` : ''} = ${tot} vs ${diceSel.dc} → ${res})`;
             document.querySelectorAll('.ml-d20').forEach(x => x.classList.add('spin')); await new Promise(res => setTimeout(res, 650));

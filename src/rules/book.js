@@ -1,7 +1,6 @@
 // 📘 상태창 설정집 — 칸이 정해진 구조. 계산 코드가 그대로 읽는다. 본편에는 매 턴 넣지 않는다.
 import { arr, clamp, num, short, safeKey, tokens, norm } from '../base/util.js';
-import { TRAITS } from '../../data/traits.js';
-const TRAIT_IDS = new Set(TRAITS.map(t => t.id));
+import { isTraitId, normCustomTrait, normCustomAspire, CUSTOM_MAX } from '../../data/traits.js';
 
 export const LIMIT = { people: 24, lines: 6, places: 30, items: 5, line: 80 };
 // 기본 욕구 4개 (위가 좋음 · 100 만점). rate = 한 시간에 줄어드는 양
@@ -39,7 +38,7 @@ const acts = (v) => arr(v).map(x => (typeof x === 'string' ? (() => { const m = 
 export function emptyBook() {
     return {
         world: { genre: '', currency: '골드', meal: 10, weather: ['맑음', '흐림', '비'], start: { y: 2026, m: 3, d: 1, clock: 480 }, places: [] },
-        me: { name: '', traitIds: [], day: '', aspire: '', needs: NEED_SET.map(n => ({ ...n })), gauges: GAUGE_SET.map(g => ({ ...g })), attrs: ATTR_SET.map(a => ({ ...a })), traits: '' },
+        me: { name: '', traitIds: [], customTraits: [], day: '', aspire: '', aspireCustom: null, needs: NEED_SET.map(n => ({ ...n })), gauges: GAUGE_SET.map(g => ({ ...g })), attrs: ATTR_SET.map(a => ({ ...a })), traits: '' },
         people: [],
         stages: REL_STAGES.map(s => ({ ...s })),
         src: { from: 'blank', at: 0, sig: {} },
@@ -63,7 +62,7 @@ export function normPerson(p) {
         day: line(p.day, 24),
         want: line(p.want),
         noLove: !!p.noLove,
-        traits: arr(p.traits).map(String).filter(id => TRAIT_IDS.has(id)).slice(0, 3),
+        traits: arr(p.traits).map(String).filter(isTraitId).slice(0, 3),
     };
 }
 export function normPlace(p) {
@@ -103,7 +102,9 @@ export function normBook(b) {
     const me = b.me ?? {};
     e.me.name = line(me.name, 30);
     e.me.traits = line(me.traits);
-    e.me.traitIds = arr(me.traitIds).map(String).filter(id => TRAIT_IDS.has(id)).slice(0, 3);
+    e.me.customTraits = arr(me.customTraits).map(normCustomTrait).filter(Boolean).slice(0, CUSTOM_MAX);
+    { const cid = new Set(e.me.customTraits.map(c => c.id)); e.me.traitIds = arr(me.traitIds).map(String).filter(id => isTraitId(id) && (!id.startsWith('c_') || cid.has(id))).slice(0, 3); }
+    e.me.aspireCustom = normCustomAspire(me.aspireCustom);
     e.me.day = line(me.day, 24);
     e.me.aspire = line(me.aspire, 16);
     const needs = arr(me.needs).map(n => ({ key: safeKey(n?.key) || safeKey(n?.name), name: line(n?.name, 8), icon: line(n?.icon, 4) || '•', start: clamp(num(n?.start, 80), 0, 100), rate: clamp(num(n?.rate, 2), 0, 50), sym: n?.sym && typeof n.sym === 'object' ? { 주의: line(n.sym.주의, 40), 위험: line(n.sym.위험, 40) } : null })).filter(n => n.key && n.name).slice(0, 5);
