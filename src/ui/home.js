@@ -9,6 +9,8 @@ import { luckOf } from '../rules/luck.js';
 import { level } from '../rules/inject.js';
 import { upcoming, lastAI, turnCard, getDice } from './tabs.js';
 import { btn } from './kit.js';
+import { sneakBadges, markSneakSeen } from '../rules/sneak.js';
+import { nextAiNo } from '../base/st.js';
 import { mascot, MASCOTS, MEATCON, mascotUrl, MASCOT_SOUNDS, PACK, packOn } from './mascot.js';
 import { extApps, extOf, catalog, loadCatalog, hasApp, waitsReload } from '../extra/apps.js';
 
@@ -287,12 +289,14 @@ export function badges(r) {
     const jl = Object.values(S.rel).filter(x => x.jealous && !x.gone).length; if (jl) b.rel = jl;
     const rq = S.rolls.length - (seen.dice ?? 0); if (rq > 0) b.dice = rq;
     const ch = r.changes.length - (seen.rec ?? 0); if (ch > 0 && seen.rec != null) b.rec = '•';
+    sneakBadges(getMeta(), S, b); // ✍ 몰래 생긴 것 (처음 열어 볼 때까지)
     return b;
 }
 export function markSeen(appId, r) {
     const meta = getMeta(), seen = (meta.seen ??= {});
     const v = { news: r.S.news.length, dice: r.S.rolls.length, rec: r.changes.length }[appId];
     if (v != null && seen[appId] !== v) { seen[appId] = v; saveMeta(); }
+    if (markSneakSeen(meta, r.S, appId, nextAiNo())) saveMeta(); // ✍ 처음 열어 봄 → 다음 답 1번에 알아채기
 }
 
 // 🎨 꾸미기 — 직접 고르기 하나 (색 · 글꼴 · 글자 크기 · 모서리 · 테두리 · 그림자) · 바로 보임

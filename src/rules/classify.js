@@ -28,11 +28,12 @@ const KEYS = [
     ['npc', '이름 | 성격 한 줄', '처음 나온 인물'], ['gone', '이름 | 사유', '이야기에서 빠진 인물'],
     ['conflict', '내용', '답 글이 [STATE]와 분명히 부딪칠 때만 (예: 없는 돈을 씀)'],
 ];
+const MEDDLE = [['meddle', '이름 | 소지품 | 물건 | 한마디 · 이름 | 돈 | +30 | 한마디 · 이름 | 달력 | 5/14 | 글', '인물이 몰래 내 가방에 물건을 넣거나 · 지갑에 돈을 넣거나 · 달력에 메모를 남겼을 때만 (가져간 것은 적지 않음)']];
 const MIND = [['mind', '이름 | 짧은 속마음', '장면 속 인물의 속마음']];
 const BGM = [['bgm', '곡 제목 - 가수 | 분위기 한 단어 | 왜 어울리는지', '장면 분위기가 바뀌었을 때만 · 실제로 있는 곡 · [NOW]의 취향 참고 · 안 바뀌었으면 쓰지 않음']];
 const QUOTE = [['quote', '구절 원문 | 출처(작품 · 사람 · 나라) | 한국어 뜻(외국어일 때만) | 왜 어울리는지', '장면 분위기가 바뀌었을 때만 · 속담 · 영화/드라마 명대사 · 책/시 한 줄 · 유명인의 말 · 사자성어 · 노래 가사는 안 됨 · 한두 문장 · [NOW]의 최근 구절은 피함']];
 // aiNo: 몇 번째 AI 답을 고르는지 — 😌 그 답에 눈 감은 앱의 키는 뺀다
-const keyList = (aiNo) => { const M = getMeta()?.mods ?? {}; return [...KEYS, ...(M.mind ? MIND : []), ...(M.music ? BGM : []), ...(M.quote ? QUOTE : [])].filter(([k]) => aiNo == null || !shutKey(k, aiNo)); };
+const keyList = (aiNo) => { const M = getMeta()?.mods ?? {}; return [...KEYS, ...(M.rel ? MEDDLE : []), ...(M.mind ? MIND : []), ...(M.music ? BGM : []), ...(M.quote ? QUOTE : [])].filter(([k]) => aiNo == null || !shutKey(k, aiNo)); };
 export const ALLOW = (aiNo) => new Set(keyList(aiNo).map(([k]) => kindOf(k)));
 
 // 답 글에 이름(또는 별칭)이 나온 설정집 인물

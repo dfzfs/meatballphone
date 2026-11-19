@@ -13,6 +13,8 @@ import { personOf, placeOf, bookTokens, personTokens, normBook, PLACE_KINDS, LIM
 import { musicView, quoteView, songLine, quoteLine, musicAct } from './music.js';
 import { LEVELS, GAUGES, PRESETS, level, gaugeCfg, levelCost } from '../rules/inject.js';
 import { fillBook } from '../rules/ai.js';
+import { isSecret, secretSub, sneakCard, sneakUndo } from './sneak.js';
+import { sneakOnDay } from '../rules/sneak.js';
 
 const lastAI = () => { const c = ctx().chat ?? []; for (let i = c.length - 1; i >= 0; i--) if (!c[i].is_user && !c[i].is_system) return i; return -1; };
 const money = (r, n) => `${fmt(n)} ${esc(r.book.world.currency)}`;
@@ -162,9 +164,11 @@ function bag(r) {
                 ? S.items
                       .map((it) =>
                           row({
-                              icon: it.worn ? '👕' : '📦',
+                              icon: isSecret(it) ? '🎁' : it.worn ? '👕' : '📦',
                               title: `${esc(it.name)}${it.n > 1 ? ` ×${it.n}` : ''}`,
-                              sub: it.worn
+                              sub: isSecret(it)
+                                  ? secretSub(it)
+                                  : it.worn
                                   ? '착용 중'
                                   : Object.entries(it.fx)
                                         .map(([k, v]) => `${book.me.needs.find((n) => n.key === k)?.name ?? k} ${signed(v)}`)
@@ -179,7 +183,7 @@ function bag(r) {
                 : row({ icon: '📦', title: '비어 있어요', faint: true }),
         );
     if (place?.goods.length && V('shop')) h += card(`${PLACE_KINDS[place.kind]} ${esc(place.name)} 가게`, place.goods.map(g => goodRow(r, g, mul)).join(''), mul !== 1 ? `오늘 값 ×${mul}` : '');
-    return h;
+    return h + sneakCard(r, 'bag');
 }
 function goodRow(r, g, mul) {
     const price = Math.round(g.price * mul), poor = r.S.cash < price;
@@ -411,6 +415,7 @@ function eventsOnDay(r, y, m, d) {
     for (const p of book.people) { const md = /(\d{1,2})\s*[월/.]\s*(\d{1,2})/.exec(p.day || S.rel[p.name]?.day || ''); if (md && Number(md[1]) === m && Number(md[2]) === d) out.push({ icon: '🎂', text: `${p.name} · ${p.day}` }); }
     const me = /(\d{1,2})\s*[월/.]\s*(\d{1,2})/.exec(book.me.day || ''); if (me && Number(me[1]) === m && Number(me[2]) === d) out.push({ icon: '🎉', text: '내 생일' });
     if (day >= 0) { const ev = worldEvent(day); if (ev) out.push({ icon: ev.icon ?? '🎌', text: ev.text }); }
+    out.push(...sneakOnDay(S, m, d)); // ✍ 몰래 메모
     return { out, day };
 }
 function cal(r) {
@@ -439,7 +444,7 @@ function cal(r) {
     h += `<h4 class="ml-h4">이달 일정 <span>${month.length}</span></h4>${month.map(([d, e]) => `<div class="ml-rl tap" data-act="c-day" data-v="${d}"><i>${e.icon}</i><b>${d}일</b> ${esc(e.text)}</div>`).join('') || '<div class="ml-rl dim"><i>·</i>이 달엔 일정이 없어요</div>'}`;
     const up = []; for (let k = 0; k <= 30; k++) { const dt = dateOf(book.world.start, (today + k) * DAY); for (const e of eventsOnDay(r, dt.y, dt.m, dt.d).out) up.push([k, e]); }
     h += `<h4 class="ml-h4">다가오는 일정 <span>30일</span></h4>${up.slice(0, 8).map(([k, e]) => `<div class="ml-rl"><i>${e.icon}</i><b class="${k === 0 ? 'neg' : ''}">${k === 0 ? '오늘' : `D-${k}`}</b> ${esc(e.text)}</div>`).join('') || '<div class="ml-rl dim"><i>·</i>30일 안에 일정이 없어요</div>'}`;
-    return h;
+    return h + sneakCard(r, 'cal');
 }
 // ───── 세계 소식: 화면 밖 생활 · 속셈 · 기념일 · 하루 사건 (AI 0회) ─────
 function news(r) {
@@ -608,6 +613,8 @@ export const RENDER = { music, quote, now, dice, bag, rel, map, cal, news, rec, 
 export async function onAct(act, v, el) {
     const meta = getMeta(), r = fold();
     switch (act) {
+        case 'sneak-undo':
+            return sneakUndo(v, r, hand);
         case 'say':
             putInput(v);
             app.closeSheet?.();
