@@ -18,11 +18,10 @@ try {
     check(r.chips > 0 && r.hud && r.mini, '칩 · HUD · 미니바');
     check(r.inj >= 2, '주입 (규칙 + 사실)');
     // 스와이프 되돌리기: 줄 하나 되돌리기
-    const tabs = await page.evaluate(async () => { __ML__.app.openSheet('now'); const out = []; for (const id of [...document.querySelectorAll('#ml-full .ml-nav button')].map(b => b.dataset.tab)) { const b = document.querySelector(`#ml-full .ml-nav [data-tab="${id}"]`); b.click(); await new Promise(r => setTimeout(r, 30)); out.push(b.dataset.tab + ':' + document.querySelector('.ml-body').textContent.length); } return out; });
+    const tabs = await page.evaluate(async () => { const { APPS } = await import('/ext/src/ui/home.js'); const out = []; for (const a of APPS) { __ML__.app.openSheet(a.id); await new Promise(r => setTimeout(r, 30)); const b = document.querySelector('.ml-body'); out.push(`${a.id}:${b?.dataset.tab === a.id || b?.dataset.tab === 'home' ? b.textContent.length : 'X'}`); } return out; });
     console.log(tabs.join(' '));
-    check(tabs.length >= 9, '탭 전부 열림');
+    check(tabs.every(t => !t.endsWith(':X') && !t.endsWith(':0')), '앱 전부 열림');
     await page.screenshot({ path: '/tmp/ml-now.png' });
-    await page.evaluate(() => document.querySelector('#ml-full [data-tab="now"]').click());
     await page.setViewportSize({ width: 390, height: 844 }); await sleep(100);
     await page.screenshot({ path: '/tmp/ml-now-phone.png' });
     check(!logs.length && !(await page.evaluate(() => window.__errors.length)), '콘솔 오류 없음', logs.join('\n') + await page.evaluate(() => window.__errors.join('\n')));
