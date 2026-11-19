@@ -25,15 +25,34 @@ export function parseJSON(t) {
 export async function sources() {
     const c = ctx(), ch = c.characters?.[c.characterId] ?? {};
     const L = [`[CARD ${ch.name ?? ''}] ${ch.description ?? ''}\n${ch.personality ?? ''}\n${ch.scenario ?? ''}`, `[USER ${userName()}] ${c.powerUserSettings?.persona_description ?? ''}`];
-    const books = [c.chatMetadata?.world_info, ch.data?.extensions?.world].filter(Boolean);
-    const sig = {}, texts = {};
+    // 첫 메시지 · 최근 대화 (AU · 현재 상황이 여기에 적힌 경우가 많음)
+    const chat = (c.chat ?? []).filter(m => !m.is_system);
+    const first = chat[0]?.mes ?? ch.first_mes ?? '';
+    if (first) L.push(`[FIRST MESSAGE] ${short(first, 1500)}`);
+    const recent = chat.slice(Math.max(1, chat.length - 6));
+    if (recent.length) L.push(`[RECENT CHAT]\n${recent.map(m => `${m.name}: ${short(String(m.mes ?? '').replace(/<meatball>[\s\S]*?<\/meatball>/g, ''), 400)}`).join('\n')}`);
+    // 로어북: 채팅 · 캐릭터 · 캐릭터 추가 로어북 · 전체(global)로 켜 둔 것까지
+    const books = new Set([c.chatMetadata?.world_info, ch.data?.extensions?.world].filter(Boolean));
+    try {
+        const wi = await import('/scripts/world-info.js');
+        for (const n of wi.selected_world_info ?? []) books.add(n);
+        const file = ch.avatar && String(ch.avatar).replace(/\.[^.]+$/, '');
+        for (const x of wi.world_info?.charLore ?? []) if (x?.name === file) for (const n of x.extraBooks ?? []) books.add(n);
+    } catch { /* 실리태번 밖(시험장) */ }
+    const sig = {}, texts = {}, lore = [];
     for (const name of books) {
         try {
             const wb = await c.loadWorldInfo?.(name);
-            for (const e of Object.values(wb?.entries ?? {})) { if (e.disable) continue; const k = `${name}:${e.uid}`; sig[k] = hash(String(e.content ?? '')); texts[k] = String(e.content ?? ''); L.push(`[LORE ${short((e.key ?? []).join(','), 40)}] ${short(e.content, 600)}`); }
+            for (const e of Object.values(wb?.entries ?? {})) {
+                if (e.disable) continue;
+                const k = `${name}:${e.uid}`; sig[k] = hash(String(e.content ?? '')); texts[k] = String(e.content ?? '');
+                lore.push({ on: !!e.constant, t: `[LORE${e.constant ? ' ALWAYS' : ''} ${short((e.key ?? []).join(','), 40) || short(e.comment ?? '', 40)}] ${short(e.content, e.constant ? 2500 : 900)}` });
+            }
         } catch { /* 로어북 없음 */ }
     }
-    return { text: L.join('\n').slice(0, 14000), sig, texts, char: ch.name ?? '' };
+    // 늘 켜진(세계관) 항목을 먼저
+    lore.sort((x, y) => y.on - x.on); L.push(...lore.map(x => x.t));
+    return { text: L.join('\n').slice(0, 22000), sig, texts, char: ch.name ?? '' };
 }
 const SCHEMA = `{"world":{"genre":"","currency":"골드","meal":10,"weather":["맑음","비"],"start":{"y":2026,"m":3,"d":1,"clock":480},"places":[{"name":"","kind":"home|shop|food|bath|work|street|school|other","line":"노선 `
     + `이름","near":["이어진 장소"],"floors":[],"goods":[{"name":"","price":3,"fx":{"hunger":20}}],"rest":{"energy":20},"note":""}]},
@@ -47,6 +66,9 @@ export async function fillBook(only = null) {
     const en = settings().saveLang === 'en';
     const sys = `You build a compact status-sheet rulebook for a roleplay. Output JSON only. ${en ? 'English values.' : 'Korean values.'} `
         + 'Keep every person and place NAME exactly as spelled in the source (never translate or transliterate names); put other spellings or readings (e.g. a Korean reading of an English name) in "aka". '
+        + 'The SOURCE is the truth. It may be an AU or an original setting that changes canon (e.g. a modern-day AU of a known series): follow the source and the first message, '
+        + 'and never bring in canon places, items, ships, powers or events that the source does not use. Places, goods, prices, currency and routines must fit THIS setting. '
+        + 'If something is not in the source, make it fit the source\'s setting, not the original canon. '
         + 'Keep every line short. Prices must be consistent with '
         + '"meal" (one meal). 3-6 places that matter, 3-5 goods per shop/food place. needs: 3-5 (hunger/energy/hygiene/mood style; rate = drop per '
         + 'hour). Birthdays as 「M월 D일」 if known.';
