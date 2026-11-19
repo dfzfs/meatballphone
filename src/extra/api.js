@@ -94,7 +94,7 @@ function pendingChoice(i, data) {
 export function mount() {
     globalThis.MeatballPhone = globalThis.MeatballLite = Object.freeze({ // 예전 이름(MeatballLite)도 그대로
         version: VERSION,
-        ready: () => ready(),
+        ready: () => ready() && !getMeta()?.off, // 이 채팅에서 끈 폰은 없는 것으로 (선택지는 답 밑 목록으로)
         state,
         scene,
         people,

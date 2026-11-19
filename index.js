@@ -53,6 +53,7 @@ export function inject() {
 app.create = (useAI) => create(useAI);
 app.refresh = refresh; app.inject = inject; app.applyLook = () => applyLook(); app.lastInj = () => lastInj; app.perfLast = () => perf.turns.at(-1) ?? null; app.perfData = () => perf; app.openSheet = openSheet; app.closeSheet = closeSheet; app.openPast = openPast;
 app.find = () => findAll();
+app.setChatOff = (v) => setChatOff(v);
 app.jump = async (i) => {
     closeSheet();
     const c = ctx();
@@ -70,7 +71,7 @@ async function onBeforeGen(type, opts, dry) {
     const meta = getMeta();
     quietGen = type === 'quiet' || type === 'impersonate';
     skipThis = !!meta?.skipNext || isOOC();
-    if ((quietGen && settings().skipQuiet) || skipThis || meta?.paused) { setInj({}); return; }
+    if ((quietGen && settings().skipQuiet) || skipThis || meta?.paused || meta?.off) { setInj({}); return; }
     inject();
 }
 async function onReceived(i, type) {
@@ -81,7 +82,7 @@ async function onReceived(i, type) {
     const strip = (t) => (hasTag(t) ? stripTags(t) : t);
     const skip = (type === 'quiet' || quietGen) && settings().skipQuiet;
     const t0 = performance.now();
-    if (skip || meta.paused || skipThis) {
+    if (skip || meta.paused || meta.off || skipThis) {
         // 조용한 생성 · 일시정지 · 다음 1번 건너뛰기 · OOC → 이 답은 셈하지 않음 (분류도 안 부름)
         sl.ops = []; sl.skip = true; m.mes = strip(m.mes);
         if (skipThis && meta.skipNext) { meta.skipNext = false; saveMeta(); }
@@ -218,7 +219,7 @@ function settingsHTML() {
     const sel = (k, label, opts) => `<label>${label} <select class="text_pole" data-ml-s="${k}">${opts.map(([v, l]) => `<option value="${v}" ${String(s[k]) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`;
     return `<div class="inline-drawer ml-set"><div class="inline-drawer-toggle inline-drawer-header"><b>😼 ${TITLE} <small>v${VERSION}</small></b><div `
         + `class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div><div class="inline-drawer-content">
-${sw('enabled', '켜기')}
+${sw('enabled', '켜기')}<label class="checkbox_label"><input type="checkbox" data-ml-chatoff ${getMeta()?.off ? 'checked' : ''}> 이 채팅에서만 끄기</label>
 <div class="ml-set-btns"><button class="menu_button" data-ml="create-ai">📘 상태창 만들기 (AI 1회)</button><button class="menu_button" `
         + `data-ml="create-tpl">⚡ 바로 시작 (AI 0회)</button><button class="menu_button" data-ml="open">펼치기</button></div>
 <h4>화면</h4>${sw('hud', 'HUD')}${sel('hudPos', 'HUD 자리', [['top', '위'], ['bottom', '아래']])}${sw('minibar', '미니바')}${sw('mascot', '마스코트')}`
@@ -242,12 +243,22 @@ ${sel('pinBook', '장면 인물의 증상 한 줄 본편에', [['auto', '붙이�
         + `<button class="menu_button" data-ml="card">🃏 카드에 붙이기</button><button class="menu_button" data-ml="migrate">🍖 옛 미트볼 옮겨 오기</button></div>
 </div></div>`;
 }
+// 🔌 이 채팅에서만 끄기: HUD · 미니바 · 답 밑 칩 없음 · 본편에 아무것도 안 넣음 · 분류 모델 안 부름 (기록은 그대로 · 다시 켜면 이어짐)
+export function setChatOff(v) {
+    const meta = getMeta(); if (!meta) return;
+    if (v) meta.off = true; else delete meta.off;
+    saveMeta(); closeSheet(); document.getElementById('ml-hud')?.remove(); document.getElementById('ml-mini')?.remove(); document.querySelectorAll('.ml-msg').forEach(x => x.remove());
+    const cb = document.querySelector('[data-ml-chatoff]'); if (cb) cb.checked = !!v;
+    refresh(true);
+    toast(v ? '이 채팅에서 미트볼폰을 껐어요 · 다시 켜기: 확장 설정 › 미트볼폰 › 「이 채팅에서만 끄기」 해제' : '이 채팅에서 다시 켰어요', v ? 'mid' : 'good');
+}
 function mountSettings() {
     const host = document.getElementById('extensions_settings2') ?? document.getElementById('extensions_settings'); if (!host) return;
     host.querySelector('.ml-set')?.remove();
     host.insertAdjacentHTML('beforeend', settingsHTML());
     const box = host.querySelector('.ml-set');
     box.addEventListener('change', (e) => {
+        if (e.target.matches('[data-ml-chatoff]')) { setChatOff(e.target.checked); return; }
         const t = e.target, k = t.dataset.mlS, lk = t.dataset.mlLook;
         if (k) settings()[k] = t.type === 'checkbox' ? t.checked : t.type === 'range' ? Number(t.value) : t.value;
         if (k === 'mascotSound' || k === 'mascotVolume') playMascotSound();
@@ -339,7 +350,7 @@ async function boot() {
     for (const n of [E.GENERATION_ENDED, E.GENERATION_STOPPED]) on(n, genEnded);
     on(E.MESSAGE_RECEIVED, async (...a) => { await onReceived(...a); genEnded(); });
     on(E.MESSAGE_EDITED, onEdited);
-    for (const n of [E.CHAT_CHANGED]) on(n, () => { closeSheet(); fromCard(); refresh(true); });
+    for (const n of [E.CHAT_CHANGED]) on(n, () => { closeSheet(); fromCard(); refresh(true); const cb = document.querySelector('[data-ml-chatoff]'); if (cb) cb.checked = !!getMeta()?.off; });
     on(E.MESSAGE_SWIPED, onSwiped);
     for (const n of [E.CHARACTER_MESSAGE_RENDERED, E.USER_MESSAGE_RENDERED, E.MESSAGE_DELETED, E.MESSAGE_SWIPE_DELETED, E.MORE_MESSAGES_LOADED, E.MESSAGE_UPDATED]) on(n, () => { bumpMeta(); refresh(); });
     c.SlashCommandParser?.addCommandObject?.(c.SlashCommand.fromProps({ name: 'ml', callback: () => { openSheet('now'); return ''; }, helpString: '미트볼폰 열기' }));

@@ -162,6 +162,7 @@ async function clickHandler(e) {
     if (act === 'home-done') { setHomeEdit(false); drawSheet(); return; }
     if (act === 'w-toggle') { const H = homeCfg(); H.hidden = H.hidden.includes(v) ? H.hidden.filter(x => x !== v) : [...H.hidden, v]; saveSettings(); drawSheet(); return; }
     if (homeEditing() && a.closest('.ml-app')) return; // 편집 중엔 앱을 열지 않음
+    if (act === 'p-off') { document.querySelector('.ml-bs')?.remove(); app.setChatOff?.(true); return; }
     if (act === 'p-all') { meta.paused = !meta.paused; saveMeta(); app.refresh(); return pauseMenu(); }
     if (act === 'skip' || act === 'p-skip') { meta.skipNext = !meta.skipNext; saveMeta(); drawSheet(); return pauseMenu(); }
     if (act === 'eye') { const [mod, mode] = String(v).split('|'); setEyes(mod, mode); app.refresh(); return pauseMenu(); }
@@ -202,6 +203,7 @@ const CHIP_N = 6;
 export function drawChips() {
     const r = fold(); const chat = ctx().chat ?? [];
     document.querySelectorAll('.ml-msg').forEach(x => { const i = Number(x.closest('.mes')?.getAttribute('mesid')); if (!(i >= chat.length - CHIP_N * 2)) x.remove(); });
+    if (getMeta()?.off) { document.querySelectorAll('.ml-msg').forEach(x => x.remove()); return; }
     if (!r || !settings().enabled) return;
     for (let i = Math.max(0, chat.length - CHIP_N * 2); i < chat.length; i++) {
         const el = document.querySelector(`#chat .mes[mesid="${i}"] .mes_text`); if (!el) continue;
@@ -237,7 +239,8 @@ function pauseMenu() {
     const seg = (id) => { const e = meta.eyes?.[id]?.mode ?? ''; return [['', '뜸'], ['once', '다음 1번'], ['on', '계속']].map(([k, n]) => `<button class="ml-btn xs${e === k ? ' on' : ''}" data-act="eye" data-v="${id}|${k}">${n}</button>`).join(''); };
     const apps = MODS.filter(m => EYE_MODS.includes(m.id) && modOn(m.id));
     const html = `<div class="ml-card">${row('p-all', '', '⏸', '전체 멈춤', '미트볼이 쉬어요: 본편에 아무것도 안 넣고 · 분류 모델도 안 부르고 · 칩도 안 붙여요', meta.paused)}`
-        + `${row('p-skip', '', '⏭', '다음 답 1번 건너뛰기', '다음 답 하나만 셈하지 않아요 (끝나면 저절로 꺼짐)', meta.skipNext)}</div>`
+        + `${row('p-skip', '', '⏭', '다음 답 1번 건너뛰기', '다음 답 하나만 셈하지 않아요 (끝나면 저절로 꺼짐)', meta.skipNext)}`
+        + `<div class="ml-row tap" data-act="p-off"><span class="ml-ic">🔌</span><span class="ml-tx"><b>이 채팅에서 끄기</b><small>HUD · 칩 · 폰 모두 사라져요 · 다시 켜기는 확장 설정 › 미트볼폰 › 「이 채팅에서만 끄기」 해제</small></span><span class="ml-val">›</span></div></div>`
         + `<h4 class="ml-h4">😌 눈 감기 <span>앱마다 · 그 답엔 이 앱 일을 만들지도 받지도 않아요 · 다른 앱은 그대로</span></h4>`
         + `<div class="ml-card">${apps.map(m => `<div class="ml-row"><span class="ml-ic">${m.icon}</span><span class="ml-tx"><b>${esc(m.name)}</b><small>${EYE_WHAT[m.id] ?? ''}${shut(m.id) ? ' · 다음 답에 감김' : ''}</small></span>`
             + `<span class="ml-val"><span class="ml-picks">${seg(m.id)}</span></span></div>`).join('') || '<div class="ml-row"><span class="ml-tx"><small>깔린 앱이 없어요</small></span></div>'}</div>`
