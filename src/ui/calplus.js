@@ -4,6 +4,7 @@ import { app, getMeta, saveMeta } from '../base/st.js';
 import { esc, dateOf, dateText, DAY } from '../base/util.js';
 import { btn, row, card, form, toast } from './kit.js';
 import { fold } from '../rules/engine.js';
+import { nowArmed, peekWho } from '../rules/calplus.js';
 import { calOf, dayNow, parseDay, ddayLabel, cycleInfo, cycleDays, seenBy, mdOf } from '../rules/calplus.js';
 
 let tab = 'cal', setOpen = false;
@@ -41,7 +42,17 @@ export function calDayExtra(r, day) {
         + `<div class="ml-acts">${btn('💾 메모 저장', 'cp-note-save', day, 'xs')}`
         + `${n.text && cal.peek ? btn(n.show ? '👀 보여 주는 중' : '🙈 안 보여 줌', 'cp-note-show', day, `xs${n.show ? ' on' : ''}`) : ''}`
         + `${n.text ? btn('🗑 메모 지우기', 'cp-note-del', day, 'xs') : ''}${btn('＋ 할 일', 'cp-todo-add', day, 'xs')}${btn('📌 D-day', 'cp-dd-add', day, 'xs')}</div>`
+        + nowBtns(r, cal, day, !!String(n.text ?? '').trim())
         + `${who ? `<div class="ml-hint">👀 ${esc(who)}이(가) 이 메모를 봤어요</div>` : ''}</div>`;
+}
+
+// ⚡ 바로 받기 (다음 답 1번): 👀 이 메모를 보게 · ✍ 이 날 몰래 적게 — 애정이 가장 높은 ⭐ 인물
+function nowBtns(r, cal, day, hasNote) {
+    const who = peekWho(r); if (!who) return '';
+    const on = (k) => nowArmed(cal, k, r.S) && cal.now[k].day === day;
+    const b = (k, off, yes) => btn(on(k) ? yes : off, `cp-now-${k}`, day, `xs${on(k) ? ' on' : ''}`);
+    return `<div class="ml-acts ml-cpnow"><small>⚡ 다음 답에 바로</small>${hasNote ? b('peek', `👀 ${esc(who)}이(가) 이 메모 보기`, '👀 다음 답에 들어가요 ✓') : ''}`
+        + `${b('sneak', `✍ ${esc(who)}이(가) 이 날 몰래 적기`, '✍ 다음 답에 들어가요 ✓')}</div>`;
 }
 
 // 📅 달력 탭 아래 설정 줄 · 🩸 생리 주기 카드
@@ -127,6 +138,12 @@ export async function calAct(act, v) {
         }
         case 'cp-note-show': { const n = cal.notes[v]; if (n) n.show = !n.show; return done(); }
         case 'cp-note-del': delete cal.notes[v]; return done();
+        case 'cp-now-peek': case 'cp-now-sneak': {
+            const k = act.slice(7), day = Number(v); cal.now ??= {};
+            if (nowArmed(cal, k, r.S) && cal.now[k].day === day) delete cal.now[k];
+            else { cal.now[k] = { turn: r.S.turn, day }; toast(k === 'peek' ? '다음 답에 이 메모 얘기가 나올 수 있어요' : '다음 답에서 몰래 적을 거예요', 'good'); }
+            return done();
+        }
         case 'cp-peek': cal.peek = !cal.peek; return done();
         case 'cp-cy': {
             const c = cal.cycle;

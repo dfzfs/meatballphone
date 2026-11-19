@@ -77,14 +77,21 @@ export function peekWho(r, meta = getMeta()) {
     const E = Object.entries(r.S.rel ?? {}).filter(([n, x]) => !x.gone && isStar(meta, r.book, n)).sort((a, b) => b[1].aff - a[1].aff);
     return E[0]?.[0] ?? '';
 }
-// 분류 모델 목록에 넣을 noted 키 (볼 메모가 있을 때만)
+// ⚡ 바로 받기: 사용자가 누르면 「다음 답 1번」에만 (meta.cal.now.peek · .sneak = { turn, day }) — 답이 오면 turn이 달라져 저절로 꺼짐
+export const nowArmed = (cal, k, S, slack = 0) => { const n = cal?.now?.[k]; return !!n && S && S.turn >= n.turn && S.turn <= n.turn + slack; };
+function nowPeekNote(r, cal, slack = 0) {
+    if (!nowArmed(cal, 'peek', r.S, slack)) return null;
+    const d = cal.now.peek.day, n = cal.notes[d];
+    return String(n?.text ?? '').trim() ? { day: d, note: n } : null;
+}
+// 분류 모델 목록에 넣을 noted 키 (볼 메모가 있을 때만 · 바로 받기는 그 답을 고를 때까지)
 export function notedKey(r) {
-    const p = r && peekNote(r), who = p && peekWho(r); if (!who) return [];
+    const cal = r && calOf(), p = cal && (nowPeekNote(r, cal, 1) ?? peekNote(r, cal)), who = p && peekWho(r); if (!who) return [];
     return [['noted', `${who} | ${mdOf(r.book.world.start, p.day)}`, `${who}이(가) 달력 메모(${mdOf(r.book.world.start, p.day)})를 보고 그 얘기를 꺼냈을 때만`]];
 }
 
 // 본편에 갈 결과 줄 — lv: 달력 영향력 (눈 감기 · 멈춤 · 🙈 숨기기면 0) · mode: 'A' | 'B'
-export function calLines(r, lv, user = '{{user}}', mode = 'A') {
+export function calLines(r, lv, user = '{{user}}', mode = 'A', lvRel = 0) {
     const out = { facts: [], hint: [] }, cal = calOf(); if (!cal || !r || lv <= 0) return out;
     const today = dayNow(r.S);
     // 📌 D-day 당일 · 하루 전 (영향력 2부터)
@@ -96,13 +103,19 @@ export function calLines(r, lv, user = '{{user}}', mode = 'A') {
     const ci = cal.cycle.tell ? cycleInfo(cal, today) : null;
     if (ci?.dayN) out.facts.push(`${user} is on her period (day ${ci.dayN}).`);
     if (ci?.dayN && ci.dayN <= 3) out.hint.push(`(${user} is on her period — people close to her (especially a partner) know or notice it and act on it naturally: care, warmth, food, rest.)`);
-    // 👀 8번째 답마다 한 번 · 보여 주기를 켠 가장 최근 메모 1개
-    if (cal.peek && (r.S.turn + 1) % PEEK_EVERY === 0) {
-        const p = peekNote(r, cal), who = p && peekWho(r);
+    // 👀 8번째 답마다 한 번 · 보여 주기를 켠 가장 최근 메모 1개 — ⚡ 바로 받기면 그 메모를 이번 답에 (한 줄만)
+    const nowP = nowPeekNote(r, cal);
+    if (nowP || (cal.peek && (r.S.turn + 1) % PEEK_EVERY === 0)) {
+        const p = nowP ?? peekNote(r, cal), who = p && peekWho(r);
         if (who) {
             const md = mdOf(r.book.world.start, p.day), text = short(String(p.note.text).replace(/\s*\n+\s*/g, ' / '), 80);
             out.hint.push(`(${who} may notice ${user}'s calendar note on ${md}: "${text}" and bring it up naturally if it fits.${mode === 'A' ? ` If they do, add "noted: ${who} | ${md}" to the <meatball> block.` : ''})`);
         }
+    }
+    // ✍ ⚡ 바로 받기: 애인이 그날 칸에 몰래 한 줄 (관계 · 달력 둘 다 켜져 있을 때 · 이번 답 1번)
+    if (lvRel >= 1 && nowArmed(cal, 'sneak', r.S)) {
+        const who = peekWho(r), md = mdOf(r.book.world.start, cal.now.sneak.day);
+        if (who) out.hint.push(`${who} secretly writes a short, sweet note in ${user}'s calendar on ${md} this turn (${user} doesn't see it yet).${mode === 'A' ? ` Add "meddle: ${who} | 달력 | ${md} | (the note)" to the <meatball> block.` : ''}`);
     }
     return out;
 }

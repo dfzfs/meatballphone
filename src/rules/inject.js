@@ -128,7 +128,7 @@ export function factText(r, lastChanges = []) {
     if (lv('rel') >= 4 && S.turn % 8 === 5) { const n = Object.keys(S.rel).find(k => !S.rel[k].gone && (S.rel[k].aff >= 60 || S.rel[k].jealous)); if (n) H.push(`${n} secretly meddles with ${userName()}'s things this turn (small and sweet, never stealing): add ${sneakExample(n, S, book)} (or another small prank)`); }
     if (lv('rel') >= 1) H.push(...foundLines(getMeta(), S, nextAiNo(), userName(), book.world.currency)); // ✍ 몰래 생긴 것을 처음 본 뒤 첫 답 1번
     // 📅 달력 더하기: D-day · 생리 주기 · 👀 메모 (결과 한 줄씩)
-    { const cp = calLines(r, lv('calendar'), userName(), mode()); L.push(...cp.facts); H.push(...cp.hint); }
+    { const cp = calLines(r, lv('calendar'), userName(), mode(), lv('rel')); L.push(...cp.facts); H.push(...cp.hint); }
     // 약속 하루 전
     for (const p of S.promises) if (!p.done && p.due != null && p.due - S.t <= DAY && p.due >= S.t && lv('calendar') >= 1) H.push(`promise due soon: ${p.text}`);
     return { facts: L.length ? `[NOW — keep the story consistent with this]\n${L.join('\n')}` : '', hint: H.length ? `[HINT — show it naturally, don't state numbers]\n${H.join('\n')}` : '' };
