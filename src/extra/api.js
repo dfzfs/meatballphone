@@ -63,6 +63,7 @@ function state() {
     return structuredClone({
         t: S.t, date: `${d.mn} ${d.d}일 ${periodName(S.t)}`, loc: S.loc, with: S.with, cash: S.cash, currency: book.world.currency,
         needs: S.needs, gauges: S.gauges, attrs: S.attrs, status: S.status, danger: derived(book, S),
+        items: S.items.filter(it => it.n > 0).map(it => ({ name: it.name, n: it.n })), // 소지품 (선물 고르기 등)
     });
 }
 // 🎬 장면 한 줄용: 지금 장소에서 살 수 있는 것 · 장면 속 인물이 원하는 것(속셈) — 선택지가 장면 줄에 짧게 넣는다
