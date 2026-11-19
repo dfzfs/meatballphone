@@ -81,11 +81,11 @@ async function facts() {
     const r = ready() && !getMeta()?.off ? fold() : null; if (!r) return [];
     const { S, book } = r, L = [], cp = await import('../rules/calplus.js'), cal = cp.calOf(), today = cp.dayNow(S);
     const user = (await import('../base/st.js')).userName();
-    L.push(`Now: ${dateOf(book.world.start, S.t).mn} ${dateOf(book.world.start, S.t).d} · ${periodName(S.t)}${S.weather ? ` · ${S.weather}` : ''}${S.loc ? ` · ${user} is at ${S.loc}` : ''}`);
+    L.push(`Now: ${dateOf(book.world.start, S.t).mn} ${dateOf(book.world.start, S.t).d}일 · ${periodName(S.t)}${S.weather ? ` · ${S.weather}` : ''}${S.loc ? ` · ${user} is at ${S.loc}` : ''}`);
     if (S.status.length) L.push(`${user}'s condition: ${S.status.map(s => s.name).join(', ')}`);
     for (const d of cal?.dday ?? []) { if (d.day === today) L.push(`Today is "${d.name}".`); else if (d.day === today + 1) L.push(`Tomorrow is "${d.name}".`); }
     const ci = cal?.cycle?.tell ? cp.cycleInfo(cal, today) : null;
-    if (ci?.dayN) L.push(`${user} is on her period (day ${ci.dayN}).`);
+    if (ci?.dayN) L.push(`${user} is on her period right now (day ${ci.dayN}). People close to her — especially a partner — know this and it shows in how they talk to her (care, checking in).`);
     return L;
 }
 // 👥 인물 목록 (연락 같은 앱용) — ⭐ 주요 인물 먼저 · 떠난 인물 빼고
