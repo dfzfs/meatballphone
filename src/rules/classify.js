@@ -6,7 +6,7 @@ import { short, hash, norm, tokens, safeKey } from '../base/util.js';
 import { readOps, kindOf, parts, stripTags, storyOnly } from './tags.js';
 import { sendClean, clsRoute, connStats, routeText, CLS_PRESET } from './clsconn.js';
 import { fold } from './engine.js';
-import { personOf, normBook } from './book.js';
+import { personOf, normBook, BASIC_ACTS } from './book.js';
 import { gloss } from '../base/gloss.js';
 
 // ───── 모드 ─────
@@ -44,8 +44,11 @@ export function actionsOf(book, S, text = '') {
     const live = Object.keys(S.rel).filter(n => !S.rel[n].gone);
     let who = [...new Set([...S.with, ...namedIn(book, text)])];
     if (!who.length) who = live.sort((a, b) => S.rel[b].aff + S.rel[b].trust - S.rel[a].aff - S.rel[a].trust).slice(0, 2);
-    return who.map(n => personOf(book, n)).filter((p, k, A) => p && A.indexOf(p) === k && (p.up.length || p.down.length))
-        .map(p => ({ name: p.name, up: p.up.map(a => a.act), down: p.down.map(a => a.act) }));
+    // 설정집에 없는 인물(이야기 중 새로 나와 아직 규칙이 없는 사람)도 기본 행동으로 넣는다
+    const seen = new Set();
+    return who.map(n => personOf(book, n) ?? (S.rel[n] ? { name: n, up: [], down: [] } : null))
+        .filter(p => p && !seen.has(p.name) && seen.add(p.name))
+        .map(p => ({ name: p.name, up: [...p.up.map(a => a.act), BASIC_ACTS.up.act], down: [...p.down.map(a => a.act), BASIC_ACTS.down.act] }));
 }
 // 이 턴 고른 선택과 결과 (미트볼 선택지: 사용자 메시지 extra.mbc 또는 통로로 받은 것)
 function choiceOf(u) {

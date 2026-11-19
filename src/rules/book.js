@@ -176,3 +176,6 @@ export function bookText(book, who = null) {
 }
 export const bookTokens = (book) => tokens(bookText(book));
 export const personTokens = (book, p) => tokens(bookText({ ...book, people: [p], world: { ...book.world, places: [] } })) - tokens(bookText({ ...book, people: [], world: { ...book.world, places: [] } }));
+
+// 💞 모든 인물의 기본 행동: 설정집에 딱 맞는 행동이 없어도 큰일은 반영되게 (분류 모델 목록 · 계산 둘 다)
+export const BASIC_ACTS = { up: { act: '기쁘게 함', d: 2 }, down: { act: '상처 줌', d: -3 } };
