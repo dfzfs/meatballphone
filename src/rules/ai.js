@@ -1,7 +1,7 @@
 // 미트볼이 부르는 AI (설정집 채우기 · 태그가 빠졌을 때 작은 보충). 본편이 아니므로 설정집을 여기서만 본다.
 import { ctx, settings, userName } from '../base/st.js';
 import { normBook, emptyBook, bookText } from './book.js';
-import { short } from '../base/util.js';
+import { short, hash } from '../base/util.js';
 import { gloss } from '../base/gloss.js';
 import { TRAITS } from '../../data/traits.js';
 
@@ -27,14 +27,14 @@ export async function sources() {
     const c = ctx(), ch = c.characters?.[c.characterId] ?? {};
     const L = [`[CARD ${ch.name ?? ''}] ${ch.description ?? ''}\n${ch.personality ?? ''}\n${ch.scenario ?? ''}`, `[USER ${userName()}] ${c.powerUserSettings?.persona_description ?? ''}`];
     const books = [c.chatMetadata?.world_info, ch.data?.extensions?.world].filter(Boolean);
-    const sig = {};
+    const sig = {}, texts = {};
     for (const name of books) {
         try {
             const wb = await c.loadWorldInfo?.(name);
-            for (const e of Object.values(wb?.entries ?? {})) { if (e.disable) continue; const k = `${name}:${e.uid}`; sig[k] = String(e.content ?? '').length; L.push(`[LORE ${short((e.key ?? []).join(','), 40)}] ${short(e.content, 600)}`); }
+            for (const e of Object.values(wb?.entries ?? {})) { if (e.disable) continue; const k = `${name}:${e.uid}`; sig[k] = hash(String(e.content ?? '')); texts[k] = String(e.content ?? ''); L.push(`[LORE ${short((e.key ?? []).join(','), 40)}] ${short(e.content, 600)}`); }
         } catch { /* 로어북 없음 */ }
     }
-    return { text: L.join('\n').slice(0, 14000), sig, char: ch.name ?? '' };
+    return { text: L.join('\n').slice(0, 14000), sig, texts, char: ch.name ?? '' };
 }
 const SCHEMA = `{"world":{"genre":"","currency":"골드","meal":10,"weather":["맑음","비"],"start":{"y":2026,"m":3,"d":1,"clock":480},"places":[{"name":"","kind":"home|shop|food|bath|work|street|school|other","line":"노선 이름","near":["이어진 장소"],"floors":[],"goods":[{"name":"","price":3,"fx":{"hunger":20}}],"rest":{"energy":20},"note":""}]},
 "me":{"name":"","traits":"","day":"3월 14일","needs":[{"key":"hunger","name":"허기","icon":"🍞","start":80,"rate":4}]},

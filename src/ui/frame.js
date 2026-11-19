@@ -20,6 +20,8 @@ function hudHTML(r) {
     if (modOn('calendar')) L.push(`<span class="ml-h">🕰${slotName(S.t)}${S.weather ? ` · ${esc(S.weather)}` : ''}</span>`);
     if (modOn('map') && S.loc) { const pl = placeOf(book, S.loc); L.push(`<span class="ml-h tap" data-act="open" data-v="${pl?.goods.length ? 'bag' : 'map'}">📍${esc(S.loc)}${pl?.goods.length ? ' · 🛒' : ''}</span>`); }
     if (S.status.length) L.push(`<span class="ml-h">🏷${S.status.length}</span>`);
+    // 🔤 토큰 계기판: 이번 턴 본편 주입 · 미트볼 AI 호출 · 걸린 시간 (작게)
+    const pt = app.perfLast?.(); if (pt) L.push(`<span class="ml-h meter" title="이번 턴: 본편 주입 ≈${pt.tok}토큰 · 미트볼 AI ${pt.calls}회 · ${pt.ms.toFixed(0)}ms">🔤${pt.tok}${pt.calls ? ` · 🤖${pt.calls}` : ''}</span>`);
     return L.join('');
 }
 // ───── 미니바: 접힌 사이드 모양 · 「펼치기」 → 전체화면 ─────

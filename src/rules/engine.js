@@ -2,7 +2,7 @@
 // 원본은 메시지(extra.meatlite.sw)에 있고, 여기서는 매번 처음부터 접어 만든다(바뀐 곳부터만 다시).
 import { clamp, num, arr, norm, short, safeKey, parseDelta, spanOf, clockOf, dayOfDate, DAY, hash, slotName } from '../base/util.js';
 import { slot, getMeta, ctx, metaRev } from '../base/st.js';
-import { readOps, kindOf, parts } from './tags.js';
+import { readOps, kindOf, parts, stripTags } from './tags.js';
 import { match } from './names.js';
 import { NEED_STAGES, NEED_SYMPTOM, personOf, placeOf } from './book.js';
 import { glossList } from '../base/gloss.js';
@@ -65,6 +65,13 @@ function makeCtx(book, S, ch, flags) {
         const from = S.needs[key] ?? 0, to = clamp(Math.round(from + d), 0, 100);
         if (to === from) return;
         S.needs[key] = to; ch.push({ f: `need.${key}`, label: nd.name, icon: nd.icon, from, to, why, src, sure, i });
+        const was = needStage(from), now = needStage(to);
+        if (was !== now) ch.push({ f: `stage.need.${key}`, label: `${nd.name} ${now}`, icon: nd.icon, from: was, to: now, why: now === '정상' ? '회복' : '경계를 넘음', src: 'auto', sure: true, i, cross: true, kind: now === '정상' ? 'good' : 'bad', need: key });
+        // 위험이 되면 딱지가 붙고 (기간이 있으면 저절로 풀림), 정상으로 돌아오면 「…짐」 딱지는 바로 풀린다
+        const AUTO = { hunger: ['허기짐', null, -1], energy: ['탈진', 720, -1], hygiene: [/비|눈|rain|snow/i.test(S.weather) ? '감기' : '찝찝함', /비|눈|rain|snow/i.test(S.weather) ? DAY * 3 : null, -1], mood: ['우울', DAY, -1] };
+        const A = AUTO[key];
+        if (A && now === '위험' && was !== '위험' && !S.status.some(s2 => s2.name === A[0])) { S.status.push({ name: A[0], kind: 'bad', until: A[1] ? S.t + A[1] : null, dice: A[2], src: 'auto', at: S.t, need: key }); ch.push({ f: `status.${A[0]}`, label: A[0], icon: '🏷️', from: '', to: A[1] ? `${Math.round(A[1] / 60)}시간` : '나을 때까지', why: `${nd.name} 위험`, src: 'auto', sure: true, i, kind: 'bad' }); }
+        if (now === '정상') for (const st of [...S.status]) if (st.need === key && st.until == null) { S.status.splice(S.status.indexOf(st), 1); ch.push({ f: `status.${st.name}`, label: st.name, icon: '🏷️', from: '있음', to: '풀림', why: `${nd.name} 회복`, src: 'auto', sure: true, i, kind: 'good' }); }
     };
     const gauge = (raw) => { const n = norm(raw); return book.me.gauges.find(x => norm(x.key) === n || norm(x.name) === n) ?? null; };
     const setGauge = (key, d, why, src, sure, i) => {
@@ -307,10 +314,11 @@ export const diceMod = (book, S) => derived(book, S).reduce((a, d) => a + (d.sta
 let cache = { chatId: null, bookSig: '', sig: [], states: [], changes: [], flags: [], base: null };
 const sigOf = (m) => (m.is_user ? `u${m.mes?.length}` : `${m.swipe_id ?? 0}:${m.mes?.length}:${slot(m)?.rev ?? 0}:${m.is_system ? 1 : 0}`);
 // 메시지 i의 변화 줄: 태그(답 글) → 저장해 둔 ops → 손으로 고친 것 · 손댄 것
-export function opsOf(m) {
+export function opsOf(m, book = null) {
     if (!m || m.is_user || m.is_system) return [];
     const sl = slot(m);
     const ops = (sl?.ops ?? readOps(m.mes)).map(([k, v], j) => ({ k, v, src: sl?.fill ? 'fill' : 'tag', j }));
+    if (book && !sl?.skip) ops.push(...sceneOps(m.mes, book, ops));
     for (const [j, h] of (sl?.hand ?? []).entries()) ops.push({ k: h.k, v: h.v, src: h.src ?? 'hand', why: h.why, j: 1000 + j });
     const undo = new Set(sl?.undo ?? []);
     return ops.filter(o => !undo.has(o.j));
@@ -334,9 +342,10 @@ export function fold(force = false) {
         if (!m.is_user && !m.is_system) {
             S.mind = {}; S.watch = {}; S.cell = {}; S.turn++;
             const x = makeCtx(meta.book, S, ch, flags);
-            const W = wantsOf(meta.book, S), P = { tasted: S.tasted?.length ?? 0, visited: S.visited?.length ?? 0 }; // ⭐ 이 답 전에 원하던 것 · 그때 개수
-            for (const o of opsOf(m)) { const n0 = ch.length; try { applyOp(meta.book, S, x, o.k, o.v, o.j, o.src, ch); } catch (e) { console.warn('[미트볼 라이트] 줄 건너뜀', o, e); } if (o.why) for (let q = n0; q < ch.length; q++) if (ch[q].src === o.src) ch[q].why = o.why; }
+            const W = wantsOf(meta.book, S), P = { tasted: S.tasted?.length ?? 0, visited: S.visited?.length ?? 0, custom: JSON.stringify(S.custom) }; // ⭐ 이 답 전에 원하던 것 · 그때 개수
+            for (const o of opsOf(m, meta.book)) { const n0 = ch.length; try { applyOp(meta.book, S, x, o.k, o.v, o.j, o.src, ch); } catch (e) { console.warn('[미트볼 라이트] 줄 건너뜀', o, e); } if (o.why) for (let q = n0; q < ch.length; q++) if (ch[q].src === o.src) ch[q].why = o.why; }
             afterTurn(meta.book, S, x, ch, W, i, P);
+            if (!slot(m)?.skip && !slot(m)?.flagOk) drift(meta.book, S, m.mes, ch, flags, i);
         }
         cache.sig[i] = sigOf(m); cache.changes[i] = ch; cache.flags[i] = flags;
         cache.states[i] = structuredClone(S);
@@ -408,6 +417,15 @@ export function wantsOf(book, S) {
     return out.filter(w => !done.has(`${day}|${w.id}`)).slice(0, 3).map(w => ({ ...w, key: `${day}|${w.id}` }));
 }
 function afterTurn(book, S, x, ch, W, i, P) {
+    // 🧩 내 탭: 「높음」 경계를 넘는 순간 → 경계 문구 (본편 힌트) + 다른 칸과 연결 (예: 「기분 -5」)
+    const before = JSON.parse(P.custom || '{}');
+    for (const t of getMeta()?.custom ?? []) for (const f of t.fields ?? []) {
+        if (!f.max) continue; const hi = f.stages?.[1] ?? 70, a = num(before[t.name]?.[f.name], -1), b = num(S.custom[t.name]?.[f.name], -1);
+        if (a < hi && b >= hi) {
+            ch.push({ f: `custom.${t.name}.${f.name}`, label: `${t.name} · ${f.name} 높음`, icon: t.icon || '🧩', from: a, to: b, why: f.say || '경계를 넘음', src: 'auto', sure: true, i, cross: true, say: f.say });
+            const m = /^(.+?)\s*([+\-−]\s*\d+)/.exec(f.link ?? ''); if (m) { const nd = x.need(m[1].trim()); const d = Number(m[2].replace(/\s/g, '').replace('−', '-')); if (nd) x.setNeed(nd.key, d, `🧩 ${f.name} 높음`, 'auto', true, i); }
+        }
+    }
     for (const w of W) if (w.ok(ch, S, P)) {
         S.wantsDone = [...(S.wantsDone ?? []), w.key].slice(-30);
         ch.push({ f: `want.${w.id}`, label: '원하던 것', icon: '⭐', from: '', to: '이룸', why: w.text, src: 'auto', sure: true, i, kind: 'good' });
@@ -422,4 +440,22 @@ function afterTurn(book, S, x, ch, W, i, P) {
         x.setNeed('mood', 10, `${a.icon} ${a.name}`, 'auto', true, i);
         S.status = S.status.filter(s => s.name !== '뿌듯함'); S.status.push({ name: '뿌듯함', kind: 'good', until: S.t + DAY, dice: 1, src: 'auto', at: S.t });
     }
+}
+
+// 🎬 장면 자동 인식: 답 글에 장소 이름 + 움직이는 말이 있으면 장소, 인물 이름이 나오면 같이 있는 사람 (태그에 없을 때만)
+const MOVE = /(으로|로|에)\s*(갔|간다|가서|도착|들어|향했|향한|돌아왔|돌아갔|나왔|들렀|옮겼)|arriv|went to|entered/;
+function sceneOps(text, book, ops) {
+    const t = stripTags(String(text ?? '')), out = [], has = (k) => ops.some(o => kindOf(o.k) === k);
+    if (!has('loc')) for (const p of book.world.places) { const at = t.indexOf(p.name); if (at >= 0 && MOVE.test(t.slice(at, at + p.name.length + 12))) { out.push({ k: 'loc', v: p.name, src: 'scene', j: 2000 }); break; } }
+    // 이름이 두 번 넘게 나오면 장면에 있다고 본다 (한 번 스친 이름은 빼고)
+    if (!has('with')) { const cnt = (n) => (n ? t.split(n).length - 1 : 0); const who = book.people.filter(p => [p.name, ...p.aka].reduce((q, n) => q + cnt(n), 0) >= 2).map(p => p.name); if (who.length) out.push({ k: 'with', v: who.join(', '), src: 'scene', j: 2001 }); }
+    return out;
+}
+// ⚠ 어긋남 감지: 답 글이 상태와 부딪히면 (이야기에서 빠진 사람 등장 · 가진 돈보다 큰 돈을 씀 · 장소가 다른 것 같음) → 확인 필요 칩 + 「상태 고치기」
+function drift(book, S, text, ch, flags, i) {
+    const t = stripTags(String(text ?? ''));
+    for (const [n, r] of Object.entries(S.rel)) if (r.gone && t.includes(n) && !ch.some(c => c.f === `gone.${n}`)) flags.push({ text: `이야기에서 빠진 ${n}이(가) 나왔어요`, i: 3000, fix: `gone: ${n} | -` });
+    const cur = book.world.currency, m = new RegExp(`(\\d[\\d,]*)\\s*${cur.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^.!?\\n]{0,12}(냈|지불|건넸|썼|주고)`).exec(t);
+    if (m) { const n = Number(m[1].replace(/,/g, '')); if (n > S.cash && !ch.some(c => c.f === 'cash')) flags.push({ text: `가진 돈(${S.cash})보다 많은 ${n}${cur}을 쓴 것 같아요`, i: 3001, fix: '' }); }
+    if (!ch.some(c => c.f === 'loc')) for (const p of book.world.places) if (p.name !== S.loc && t.includes(p.name) && MOVE.test(t.slice(t.indexOf(p.name), t.indexOf(p.name) + p.name.length + 12))) { flags.push({ text: `장소가 ${p.name}(으)로 바뀐 것 같아요`, i: 3002, fix: `loc: ${p.name}` }); break; }
 }

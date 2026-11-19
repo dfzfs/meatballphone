@@ -36,7 +36,7 @@ export function turnCard(r, i) {
     const ch = (r.changes[i] ?? []).filter(c => c.src !== 'time');
     const fl = r.flags[i] ?? [];
     if (!ch.length && !fl.length) return '';
-    return card('이번 답에서 바뀐 것', fl.map(f => row({ icon: '⚠️', title: '확인 필요', sub: esc(f.text), value: btn('무시', 'flagok', `${i}:${f.i}`) })).join('') + ch.map(c => changeRow(c, i)).join(''));
+    return card('이번 답에서 바뀐 것', fl.map(f => row({ icon: '⚠️', title: '확인 필요', sub: esc(f.text), value: `${f.fix ? btn('상태 고치기', 'flagfix', `${f.fix}`, 'xs') : ''}${btn('무시', 'flagok', `${i}:${f.i}`, 'xs')}` })).join('') + ch.map(c => changeRow(c, i)).join(''));
 }
 
 // ───── ❤️ 수치: 상태 딱지 · 욕구 · 게이지 · 능력치 · 이 장면 · 이번 답 (dev 수치 카드 기준 + 이유 · 다음 경계까지 · 회복 방법) ─────
@@ -304,7 +304,7 @@ function rec(r) {
         let lo = null, top = null, big = null;
         r.states.forEach((s, i) => { const v = s?.needs?.[n.key]; if (v == null) return; if (!lo || v < lo.v) lo = { v, i }; if (!top || v > top.v) top = { v, i }; });
         (r.changes ?? []).forEach((ch, i) => { const d = (ch ?? []).filter(c => c.f === `need.${n.key}` && c.src !== 'time').reduce((a, c) => a + c.to - c.from, 0); if (d && (!big || Math.abs(d) > Math.abs(big.d))) big = { d, i }; });
-        if (lo) hi.push(row({ icon: n.icon, title: esc(n.name), sub: `최저 ${Math.round(lo.v)} · 최고 ${Math.round(top.v)}${big ? ` · 가장 크게 ${signed(big.d)} (#${big.i})` : ''}`, value: graph(r, n.key), act: 'jump', data: lo.i }));
+        if (lo) hi.push(row({ icon: n.icon, title: esc(n.name), sub: `최저 ${Math.round(lo.v)} (#${lo.i}) · 최고 ${Math.round(top.v)} (#${top.i})${big ? ` · 가장 크게 ${signed(big.d)} (#${big.i})` : ''}`, value: graph(r, n.key) }));
     }
     const marks = (meta.marks ?? []).map(m => ({ ...m, i: chat.findIndex(x => msgKey(x) === m.key) })).filter(m => m.i >= 0);
     return `<div class="ml-tools">${seg('recf', REC_F, recF)}${btn('⭐ 마지막 답 책갈피', 'mark')}${btn('🕰 그때 상태 보기', 'past')}</div>` + card('책갈피', marks.map(m => row({ icon: '⭐', title: esc(m.name), sub: `#${m.i}`, act: 'jump', data: m.i, more: true })).join('')) + card('하이라이트', hi.join('')) + card('타임라인', L.join('') || row({ title: '아직 기록이 없어요', faint: true }));
@@ -313,7 +313,8 @@ function graph(r, key) {
     const pts = []; r.states.forEach((s, i) => { if (s?.needs?.[key] != null && (i === 0 || r.changes[i]?.length)) pts.push([i, s.needs[key]]); });
     if (pts.length < 2) return '';
     const P = pts.slice(-40), x0 = P[0][0], x1 = P[P.length - 1][0] || 1;
-    return `<svg class="ml-graph" viewBox="0 0 100 30" preserveAspectRatio="none"><polyline points="${P.map(([i, v]) => `${((i - x0) / Math.max(1, x1 - x0) * 100).toFixed(1)},${(30 - v * 0.3).toFixed(1)}`).join(' ')}"/></svg>`;
+    const X = (i) => ((i - x0) / Math.max(1, x1 - x0) * 100).toFixed(1), Y = (v) => (30 - v * 0.3).toFixed(1);
+    return `<svg class="ml-graph" viewBox="0 0 100 30" preserveAspectRatio="none"><polyline points="${P.map(([i, v]) => `${X(i)},${Y(v)}`).join(' ')}"/>${P.map(([i, v]) => `<circle class="tap" cx="${X(i)}" cy="${Y(v)}" r="2.2" data-act="jump" data-v="${i}"><title>#${i} · ${Math.round(v)}</title></circle>`).join('')}</svg>`;
 }
 // ───── 속마음 · 관전자 · 세포 (본편 답에 같이 적힌 것만) ─────
 function mind(r) {
@@ -457,6 +458,7 @@ export async function onAct(act, v, el) {
         case 'jump': app.jump?.(Number(v)); return;
         case 'tab-book': app.openSheet?.('book'); return;
         case 'undo': { const [i, j] = v.split(':').map(Number); const m = ctx().chat[i], sl = slot(m, true); if (!sl.ops && j < 1000) sl.ops = (await import('../rules/tags.js')).readOps(m.mes); sl.undo = [...new Set([...(sl.undo ?? []), j])]; sl.rev = (sl.rev ?? 0) + 1; bumpMeta(); syncSwipe(m); ctx().saveChatDebounced?.(); app.refresh?.(); toast('되돌렸어요'); return; }
+        case 'flagfix': hand(v, '어긋남 고침'); return;
         case 'flagok': { const [i] = v.split(':').map(Number); const m = ctx().chat[i], sl = slot(m, true); sl.flagOk = true; sl.rev = (sl.rev ?? 0) + 1; bumpMeta(); ctx().saveChatDebounced?.(); app.refresh?.(); return; }
         case 'mark': { const i = lastAI(); if (i < 0) return; const fv = await form('⭐ 책갈피', [{ k: 'name', label: '이름', v: '', ph: short(ctx().chat[i].mes, 20), chips: ['고백 직전', '첫 만남', '큰 싸움', '중요한 선택'] }]); const name = fv?.name?.trim() || (fv ? short(ctx().chat[i].mes, 20) : ''); if (!name) return; meta.marks = [...(meta.marks ?? []).filter(m => m.key !== msgKey(ctx().chat[i])), { key: msgKey(ctx().chat[i]), name: short(name, 30) }]; saveMeta(); app.refresh?.(); return; }
         case 'past': { const ais = (ctx().chat ?? []).map((m, k) => [k, m]).filter(([, m]) => !m.is_user && !m.is_system).slice(-12).reverse(); const fv = await form('🕰 그때 상태 보기', [{ k: 'i', label: '어느 답의 시점?', type: 'pick', v: ais[0]?.[0], opts: ais.map(([k, m]) => [k, `#${k} ${esc(short(m.mes, 14))}`]) }], { ok: '보기' }); if (!fv) return; const i = Number(fv.i); const s = r.states[i]; if (!s) return; app.openPast?.(i); return; }
@@ -467,7 +469,20 @@ export async function onAct(act, v, el) {
         case 'merge': { const fv = await form(`🔗 ${esc(v)} 합치기`, [{ k: 'into', label: '같은 사람', type: 'pick', opts: meta.book.people.filter(p => p.name !== v).map(p => [p.name, `${p.face} ${esc(p.name)}`]) }], { ok: '합치기' }); const into = fv?.into; if (!into || !personOf(meta.book, into)) return; const p = personOf(meta.book, into); p.aka = [...new Set([...p.aka, v])]; meta.book.people = meta.book.people.filter(x => x.name !== v); saveMeta(); app.refresh?.(true); toast(`${v} → ${into}로 합쳤어요`); return; }
         case 'gone': hand(`gone: ${v} | ${r.S.rel[v]?.gone ? '' : '직접 뺌'}`, '직접'); return;
         case 'edit-cash': { const fv = await form('💰 가진 돈 고치기', [{ k: 'n', label: `${esc(meta.book.world.currency)}`, type: 'number', v: r.S.cash }, { k: 'why', label: '이유', v: '', ph: '직접 고침', chips: ['계산이 틀림', '이야기에서 받음', '이야기에서 씀'] }]); if (!fv || fv.n === '') return; hand(`cash: ${num(fv.n)}`, fv.why || '직접 고침'); return; }
-        case 'bk-refill': { toast('로어북을 읽는 중…'); const { book } = await fillBook(); if (!book) { toast('채우지 못했어요', 'bad'); return; } const nb = normBook(book); const keep = new Set(meta.book.people.map(p => p.name)); for (const p of nb.people) { const i = meta.book.people.findIndex(x => x.name === p.name); if (i >= 0) meta.book.people[i] = p; else meta.book.people.push(p); } meta.book.world = nb.world.places.length ? nb.world : meta.book.world; saveMeta(); app.refresh?.(true); toast(`인물 ${nb.people.length}명 갱신 (이전 ${keep.size}명)`, 'good'); return; }
+        case 'bk-refill': {
+            // 바뀐 로어북 항목만 보고, 거기 나오는 인물만 다시 채운다 (안 바뀐 인물 · 직접 고친 인물은 그대로)
+            const { sources } = await import('../rules/ai.js'); const src = await sources(), old = meta.book.src?.sig ?? {};
+            const changed = Object.keys(src.sig).filter(k => old[k] !== src.sig[k]);
+            if (Object.keys(old).length && !changed.length) { toast('로어북이 바뀌지 않았어요'); return; }
+            const names = Object.keys(old).length ? meta.book.people.filter(p => changed.some(k => [p.name, ...p.aka].some(n => n && src.texts[k]?.includes(n)))).map(p => p.name) : null;
+            toast(names?.length ? `바뀐 인물 ${names.length}명을 다시 채우는 중…` : '로어북을 읽는 중…');
+            const { book } = await fillBook(names?.length ? names : null); if (!book) { toast('채우지 못했어요', 'bad'); return; }
+            const nb = normBook({ ...meta.book, ...book, world: book.world ?? meta.book.world, me: book.me ?? meta.book.me });
+            let up = 0, add = 0;
+            for (const p of nb.people) { const i = meta.book.people.findIndex(x => x.name === p.name); if (i >= 0) { if (!names || names.includes(p.name)) { meta.book.people[i] = { ...p, face: meta.book.people[i].face || p.face }; up++; } } else { meta.book.people.push(p); add++; } }
+            if (!names && nb.world.places.length) meta.book.world = { ...nb.world, places: nb.world.places.map(p => ({ ...p, photo: placeOf(meta.book, p.name)?.photo ?? '' })) };
+            meta.book.src.sig = src.sig; saveMeta(); app.refresh?.(true); toast(`인물 ${up}명 갱신 · ${add}명 추가`, 'good'); return;
+        }
         case 'bk-person': case 'bk-me': case 'bk-world': case 'bk-places': return editBook(act, v);
         case 'preset': { const p = PRESETS[v]; const tgt = meta.influence ? meta.influence : settings().influence; tgt.all = p.all; tgt.by = { ...p.by }; meta.influence ? saveMeta() : saveSettings(); app.refresh?.(); toast(`${p.name}`); return; }
     }

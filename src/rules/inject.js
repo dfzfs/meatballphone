@@ -1,7 +1,8 @@
 // 본편 주입: 이야기 영향력 게이지(0~4)를 따라 켜고 끈다
 import { settings, getMeta, modOn, userName } from '../base/st.js';
 import { clamp, dateText, short, tokens, DAY } from '../base/util.js';
-import { derived, relStage, diceMod, worldEvent } from './engine.js';
+import { derived, relStage, diceMod, worldEvent, matchOf } from './engine.js';
+import { moodTags, pickQuote } from './mood.js';
 import { personOf } from './book.js';
 
 export const LEVELS = [
@@ -38,10 +39,12 @@ export function ruleText(book) {
     if (modOn('rel')) K.push('act: 이름 | 한 일', 'gift: 이름 | 물건', 'memory: 이름 | 큰 사건', 'jealous: 이름 | 이유', 'promise: 내용 | 3/14');
     if (modOn('calendar')) K.push('weather: 비');
     K.push('status: 감기 | 3d', 'npc: 이름 | 성격 한 줄', 'gone: 이름 | 사유');
+    if (modOn('news') && level('news') >= 3) K.push('life: 이름 | 화면 밖에서 한 일 (가끔)');
+    if (modOn('rel') && level('rel') >= 4) K.push('meddle: 이름 | 칸 | +5 | 장난');
     if (modOn('dice')) K.push('roll: 판정할 일');
     if (modOn('mind') && level('mind') > 0) {
         const who = meta?.mindWho ?? ['cast'];
-        if (who.includes('cast')) K.push('mind: 이름 | 짧은 속마음 (장면 속 인물마다)');
+        if (who.includes('cast')) K.push('mind: 이름 | 짧은 속마음 (장면 속 인물마다 · 관계가 가까울수록 솔직하게, 낯설수록 경계하게)');
         if (who.includes('watch')) K.push('watch: 관전자 | 한마디');
         if (who.includes('cell')) K.push(`cell: 세포 | ${userName()} 머릿속 반응`);
     }
@@ -63,6 +66,8 @@ export function factText(r, lastChanges = []) {
         if (n >= 2 || (n === 1 && crossed)) (n >= 2 && !crossed ? L : H).push(`${d.name} ${d.stage}: ${d.text}`);
     }
     // 🎲 주사위 보정 · 특성 · 별자리 · 운세 · 능력치 같은 중간값은 본편에 안 보낸다 (판정 결과는 입력창 문장으로 간다)
+    // 내 상태가 나쁘면 장면 속 인물이 알아챔 (결과: 「알아채고 반응」 · 숫자 없음)
+    if (lv('stats') >= 2 && S.with.length) { const bad = dz.filter(d => d.stage === '위험'); if (bad.length) L.push(`${S.with[0]} notices ${userName()}: ${bad.map(d => d.text).join(', ')} — reacts in character (worry or tease)`); }
     // 돈
     if (lv('wallet') >= 2) L.push(`${userName()} money: ${S.cash} ${book.world.currency}${S.items.length ? ` · has: ${S.items.slice(0, 8).map(i => `${i.name}${i.n > 1 ? `×${i.n}` : ''}${i.worn ? '(worn)' : ''}`).join(', ')}` : ''}`);
     if (lv('wallet') >= 3) L.push('cannot spend more money than this; items not listed are not owned');
@@ -86,6 +91,14 @@ export function factText(r, lastChanges = []) {
     // 바뀐 단계 · 딱지
     for (const c of lastChanges) if (c.cross && lv('rel') >= 1) H.push(`${c.label}: ${c.from} → ${c.to}`);
     for (const st of S.status) if (lv('stats') >= 2) L.push(`status: ${st.name}`);
+    // 🧩 내 탭 경계 문구 (넘은 턴에만)
+    for (const c of lastChanges) if (c.say && lv('stats') >= 1) H.push(`${c.label}: ${c.say}`);
+    // 📜 한 구절 — 영향력 1부터, 구절이 바뀐 턴에만 한 번
+    if (lv('quote') >= 1) { const q = pickQuote(moodTags(r, lastChanges), getMeta()?.recent?.quote ?? [], S.turn); if (q && getMeta()?.quoteSent !== q.text) H.push(`weave this line once, naturally (a character may say or recall it): 「${q.text}」 (${q.src})`); }
+    // 🎯 속셈 → 화면 밖 사건 (4: 주도 · 여섯 턴에 한 번)
+    if (lv('news') >= 4 && S.turn % 6 === 1) { const p = book.people.find(q => !S.with.includes(q.name) && !S.rel[q.name]?.gone && (S.rel[q.name]?.want || q.want)); if (p) H.push(`off-screen, ${p.name} acts on what they want (${S.rel[p.name]?.want || p.want}); record it as life: ${p.name} | …`); }
+    // ✍ 손댄다 (관계 4 · 애정 60↑ 또는 질투 · 여덟 턴에 한 번)
+    if (lv('rel') >= 4 && S.turn % 8 === 5) { const n = Object.keys(S.rel).find(k => !S.rel[k].gone && (S.rel[k].aff >= 60 || S.rel[k].jealous)); if (n) H.push(`${n} secretly meddles with ${userName()}'s status window this turn: add meddle: ${n} | 기분 | +5 | 낙서 (or another small prank)`); }
     // 약속 하루 전
     for (const p of S.promises) if (!p.done && p.due != null && p.due - S.t <= DAY && p.due >= S.t && lv('calendar') >= 1) H.push(`promise due soon: ${p.text}`);
     return { facts: L.length ? `[NOW — keep the story consistent with this]\n${L.join('\n')}` : '', hint: H.length ? `[HINT — show it naturally, don't state numbers]\n${H.join('\n')}` : '' };

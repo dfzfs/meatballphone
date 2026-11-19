@@ -45,7 +45,7 @@ export function inject() {
     const ft = factText(r, li >= 0 ? r.changes[li] ?? [] : []);
     setInj({ rule: ruleText(r.book), ...ft });
 }
-app.refresh = refresh; app.inject = inject; app.lastInj = () => lastInj; app.openSheet = openSheet; app.closeSheet = closeSheet; app.openPast = openPast;
+app.refresh = refresh; app.inject = inject; app.lastInj = () => lastInj; app.perfLast = () => perf.turns.at(-1) ?? null; app.openSheet = openSheet; app.closeSheet = closeSheet; app.openPast = openPast;
 app.find = () => findAll();
 app.jump = async (i) => {
     closeSheet();
@@ -88,7 +88,8 @@ async function onReceived(i, type) {
     syncSwipe(m);
     ctx().saveChatDebounced?.();
     perf.turns.push({ ms: performance.now() - t0, calls: aiStats.calls - calls0, tok: injTokens(lastInj) }); if (perf.turns.length > 30) perf.turns.shift();
-    refresh();
+    { const q = /weave this line once[^「]*「([^」]+)」/.exec(lastInj.hint ?? ''); if (q) { meta.quoteSent = q[1]; saveMeta(); } }
+    refresh(); setTimeout(alerts, 300);
 }
 function onEdited(i) {
     bumpMeta(); // 앞쪽 메시지를 고쳐도 다시 계산되게
@@ -97,6 +98,16 @@ function onEdited(i) {
     refresh();
 }
 
+// ───── 🔔 하루 전 알림: 약속 · 마감 · 생일 · 기념일 (한 번씩만) ─────
+function alerts() {
+    const meta = getMeta(), r = fold(); if (!r) return;
+    const { S, book } = r, sent = new Set(meta.alerted ?? []), out = [];
+    for (const p of S.promises) if (!p.done && p.due != null && p.due >= S.t && p.due - S.t <= 1440) out.push([`p|${p.text}|${p.due}`, `📅 하루 안: ${p.text}`]);
+    const day0 = Math.floor(S.t / 1440);
+    for (const p of book.people) { const m = /(\d{1,2})\s*[월/.]\s*(\d{1,2})/.exec(p.day || ''); if (!m) continue; for (const k of [0, 1]) { const d = new Date(Date.UTC(book.world.start.y, book.world.start.m - 1, book.world.start.d + day0 + k)); if (d.getUTCMonth() + 1 === Number(m[1]) && d.getUTCDate() === Number(m[2])) out.push([`b|${p.name}|${d.getUTCFullYear()}`, `🎂 ${k ? '내일' : '오늘'} ${p.name} ${p.day}`]); } }
+    let n = 0; for (const [k, t] of out) if (!sent.has(k)) { sent.add(k); toast(t); n++; }
+    if (n) { meta.alerted = [...sent].slice(-80); saveMeta(); }
+}
 // ───── 상태창 만들기 ─────
 async function create(useAI) {
     const meta = getMeta(true);

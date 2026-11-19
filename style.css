@@ -274,3 +274,5 @@ body.ml-open #ml-mini{display:none}
 .ml-inj{border:1px solid var(--line);border-radius:10px;margin:0 0 6px;padding:6px 10px}.ml-inj summary{cursor:pointer;font-size:13px;font-weight:600}.ml-inj summary small{font-weight:400;color:var(--sub)}
 .ml-inj pre{white-space:pre-wrap;font-size:11px;line-height:1.5;margin:6px 0 0;max-height:220px;overflow:auto;color:var(--sub)}
 .ml-sec h4 span span{font-weight:400}
+.ml-h.meter{opacity:.6;font-size:.92em}
+.ml-graph circle{fill:var(--a);stroke:var(--bg);stroke-width:.6;vector-effect:non-scaling-stroke;cursor:pointer}.ml-graph{width:96px;height:28px}
