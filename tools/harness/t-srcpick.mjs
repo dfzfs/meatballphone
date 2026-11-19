@@ -6,7 +6,7 @@ try {
     await page.evaluate((LONG) => {
         const c = SillyTavern.getContext();
         c.chatMetadata.world_info = 'AU설정';
-        c.loadWorldInfo = async (n) => n === 'AU설정' ? { entries: { 1: { uid: 1, key: ['세계'], content: LONG, constant: true }, 2: { uid: 2, key: ['꺼짐'], content: '안읽혀야함', disable: true } } }
+        c.loadWorldInfo = async (n) => n === 'AU설정' ? { entries: { 1: { uid: 1, key: ['세계'], content: LONG, constant: true }, 2: { uid: 2, key: ['꺼짐'], content: '안읽혀야함', disable: true }, 3: { uid: 3, key: ['규칙'], comment: '규칙', content: '뺀항목QQQ' } } }
             : n === '다른책' ? { entries: { 1: { uid: 1, key: ['원작'], content: '써니호가 있다' } } } : null;
         window.__ai = (p) => { window.__lastPrompt = p; return JSON.stringify({ world: { genre: '현대', currency: '원', meal: 9000, places: [{ name: '집', kind: 'home' }] }, me: { name: '나' }, people: [{ name: 'Law', aka: ['트라팔가 로'] }] }); };
     }, LONG);
@@ -18,11 +18,17 @@ try {
     const ui = await page.evaluate(() => ({ rows: [...document.querySelectorAll('.ml-src-cb')].map(c => `${c.dataset.id}:${c.checked ? 1 : 0}`), sum: document.querySelector('.ml-src-sum')?.textContent }));
     check(ui.rows.includes('card:1') && ui.rows.includes('first:1') && ui.rows.includes('wi:AU설정:1'), '고르는 화면: 카드 · 첫 메시지 · 연결된 로어북 켜짐', ui.rows.join(' '));
     check(/약 [\d,]+토큰/.test(ui.sum ?? ''), '고른 양 · 토큰 어림', ui.sum);
+    // 로어북 안 항목(월드 인포)을 하나씩: 펼치기 → 「규칙」 항목만 끄기
+    await page.evaluate(() => document.querySelector('[data-open="wi:AU설정"]').click()); await sleep(150);
+    const ent = await page.evaluate(() => [...document.querySelectorAll('.ml-src-x')].map(x => `${x.dataset.id}:${x.checked ? 1 : 0}`));
+    check(ent.includes('wx:AU설정:1:1') && ent.includes('wx:AU설정:3:1') && !ent.some(x => x.startsWith('wx:AU설정:2')), '로어북 항목을 펼쳐서 하나씩 (꺼 둔 항목은 목록에 없음)', ent.join(' '));
+    await page.evaluate(() => { const x = document.querySelector('.ml-src-x[data-id="wx:AU설정:3"]'); x.checked = false; x.dispatchEvent(new Event('change', { bubbles: true })); });
+    check(/항목 1\/2개/.test(await page.evaluate(() => document.querySelector('[data-book="wi:AU설정"] .ml-src-bsum').textContent)), '책 줄에 고른 항목 수');
     await page.evaluate(() => { const c = [...document.querySelectorAll('.ml-src-cb')].find(x => x.dataset.id === 'persona'); if (c) c.checked = false; document.querySelector('.ml-bs [data-bs="ok"]').click(); }); await sleep(1200);
     const p = await page.evaluate(() => window.__lastPrompt ?? '');
     check(p.includes('끝표시XYZ') && p.length > 4400, '로어북 항목을 잘라 내지 않고 전부 읽음', String(p.length));
-    check(!p.includes('안읽혀야함') && !p.includes('써니호') && !p.includes('[USER'), '꺼진 항목 · 안 고른 로어북 · 끈 페르소나는 안 읽음');
+    check(!p.includes('안읽혀야함') && !p.includes('뺀항목QQQ') && !p.includes('써니호') && !p.includes('[USER'), '꺼진 항목 · 고르기에서 뺀 항목 · 안 고른 로어북 · 끈 페르소나는 안 읽음');
     const saved = await page.evaluate(async () => (await import('/ext/src/base/st.js')).getMeta().srcPick);
-    check(Array.isArray(saved) && saved.includes('wi:AU설정') && !saved.includes('persona'), '고른 것을 채팅에 기억', JSON.stringify(saved));
+    check(Array.isArray(saved) && saved.includes('wi:AU설정') && saved.includes('wx:AU설정:3') && !saved.includes('persona'), '고른 것(뺀 항목까지) 채팅에 기억', JSON.stringify(saved));
     check(!logs.some((l) => /error/i.test(l) && !/404/.test(l)), '오류 없음 (시험장엔 world-info.js가 없어 404만)', logs.filter((l) => /error/i.test(l)).slice(0, 3).join(' | '));
 } finally { await close(); }

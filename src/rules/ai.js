@@ -45,17 +45,26 @@ const chatPart = (kind) => {
     if (kind === 'recent') { const r = chat.slice(Math.max(1, chat.length - 6)); return r.length ? `[RECENT CHAT]\n${r.map(m => `${m.name}: ${String(m.mes ?? '').replace(/<meatball>[\s\S]*?<\/meatball>/g, '')}`).join('\n')}` : ''; }
     return '';
 };
-// 고르는 화면용 목록: [{ id, label, size, on, linked }]
+// 고르는 화면용 목록: [{ id, label, size, on, linked, items: [{ id: 'wx:책:uid', title, size, on }] }] — 로어북 안 항목(월드 인포)도 하나씩 고름 · 뺀 항목은 'wx:' 로 기억
 export async function sourceList() {
     const c = ctx(), meta = getMeta(), saved = meta?.srcPick ?? null, { on, all } = await linkedBooks(), out = [];
     for (const [id, label] of [['card', '🃏 캐릭터 카드'], ['persona', '🙋 내 페르소나'], ['first', '💬 첫 메시지'], ['recent', '🕰 최근 대화 6개']]) {
         const t = chatPart(id); out.push({ id, label, size: t.length, on: saved ? saved.includes(id) : !!t, linked: true });
     }
+    const skip = new Set((saved ?? []).filter(x => x.startsWith('wx:')));
     for (const name of all) {
-        let size = 0, n = 0;
-        try { const wb = await c.loadWorldInfo?.(name); for (const e of Object.values(wb?.entries ?? {})) if (!e.disable) { size += loreText(e).length; n++; } } catch { /* 못 읽음 */ }
+        let size = 0; const items = [];
+        try {
+            const wb = await c.loadWorldInfo?.(name);
+            for (const e of Object.values(wb?.entries ?? {})) {
+                if (e.disable) continue;
+                const t = loreText(e), xid = `wx:${name}:${e.uid}`;
+                items.push({ id: xid, uid: e.uid, title: e.comment || (e.key ?? []).join(', ') || `#${e.uid}`, keys: (e.key ?? []).join(', '), always: !!e.constant, size: t.length, on: !skip.has(xid), peek: String(e.content ?? '').slice(0, 120) });
+                size += t.length;
+            }
+        } catch { /* 못 읽음 */ }
         const id = `wi:${name}`;
-        out.push({ id, label: `📚 ${name}`, size, n, on: saved ? saved.includes(id) : on.has(name), linked: on.has(name) });
+        out.push({ id, label: `📚 ${name}`, size, n: items.length, items, on: saved ? saved.includes(id) : on.has(name), linked: on.has(name) });
     }
     return out;
 }
@@ -71,7 +80,7 @@ export async function sources(pick = getMeta()?.srcPick ?? null) {
         try {
             const wb = await c.loadWorldInfo?.(name);
             for (const e of Object.values(wb?.entries ?? {})) {
-                if (e.disable) continue;
+                if (e.disable || want.has(`wx:${name}:${e.uid}`)) continue; // 꺼 둔 항목 · 고르기에서 뺀 항목
                 const k = `${name}:${e.uid}`; sig[k] = hash(String(e.content ?? '')); texts[k] = String(e.content ?? '');
                 lore.push({ on: !!e.constant, t: loreText(e) });
             }
@@ -82,7 +91,7 @@ export async function sources(pick = getMeta()?.srcPick ?? null) {
     return { text: text.slice(0, HARD_MAX), cut: text.length > HARD_MAX, sig, texts, char: ch.name ?? '' };
 }
 export const SRC_HARD_MAX = HARD_MAX;
-const SCHEMA = `{"world":{"genre":"","currency":"골드","meal":10,"weather":["맑음","비"],"start":{"y":2026,"m":3,"d":1,"clock":480},"places":[{"name":"","kind":"home|shop|food|bath|work|street|school|other","line":"노선 `
+const SCHEMA = `{"world":{"genre":"","currency":"","meal":10,"weather":["맑음","비"],"start":{"y":2026,"m":3,"d":1,"clock":480},"places":[{"name":"","kind":"home|shop|food|bath|work|street|school|other","line":"노선 `
     + `이름","near":["이어진 장소"],"floors":[],"goods":[{"name":"","price":3,"fx":{"hunger":20}}],"rest":{"energy":20},"note":""}]},
 "me":{"name":"","traits":"","day":"3월 14일","needs":[{"key":"hunger","name":"허기","icon":"🍞","start":80,"rate":4}]},
 "people":[{"name":"","aka":[],"face":"🙂","line":"성격 한 `
@@ -95,7 +104,7 @@ export async function fillBook(only = null, pick = undefined) {
     const sys = `You build a compact status-sheet rulebook for a roleplay. Output JSON only. ${en ? 'English values.' : 'Korean values.'} `
         + 'Keep every person and place NAME exactly as spelled in the source (never translate or transliterate names); put other spellings or readings (e.g. a Korean reading of an English name) in "aka". '
         + 'The SOURCE is the truth. It may be an AU or an original setting that changes canon (e.g. a modern-day AU of a known series): follow the source and the first message, '
-        + 'and never bring in canon places, items, ships, powers or events that the source does not use. Places, goods, prices, currency and routines must fit THIS setting. '
+        + 'and never bring in canon places, items, ships, powers or events that the source does not use. Places, goods, prices, currency (name it as this setting would, e.g. 원, Berry, Gold) and routines must fit THIS setting. '
         + 'If something is not in the source, make it fit the source\'s setting, not the original canon. '
         + 'Keep every line short. Prices must be consistent with '
         + '"meal" (one meal). 3-6 places that matter, 3-5 goods per shop/food place. needs: 3-5 (hunger/energy/hygiene/mood style; rate = drop per '

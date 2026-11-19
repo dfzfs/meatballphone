@@ -68,7 +68,9 @@ export function doctorRows(app, perf) {
     if (r) { const fl = Object.values(r.flags ?? {}).flat().length; add(fl ? 'mid' : 'good', `확인 필요 ${fl}개`, fl ? '돈 부족 · 없는 물건 같은 걸 AI가 썼어요 · 기록에서 고치거나 무시' : '어긋난 줄 없음', fl ? btn('기록', 'doc-open', 'rec', 'xs') : ''); }
     // 주입
     const inj = app.lastInj?.() ?? {}, tk = injTokens(inj);
-    add(inj.rule ? (tk > 900 ? 'mid' : 'good') : 'bad', `본편에 가는 글 ≈ ${tk} 토큰`, inj.rule ? `적는 법 · 결과${inj.hint ? ' · 귀띔' : ''} · 깊이 ${set.injectDepth ?? 1}${tk > 900 ? ' · 조금 길어요 · 게이지를 낮춰 보세요' : ''}` : '아직 한 번도 안 갔어요 · 답을 하나 받아 보세요');
+    const sent = !!(inj.rule || inj.facts || inj.hint), noAI = !(ctx().chat ?? []).some(m => !m.is_user && !m.is_system);
+    // B 모드는 「적는 법」이 없어서 rule이 비어 있는 게 정상 · 답이 아직 없으면 「아직」(나쁨 아님)
+    add(sent ? (tk > 900 ? 'mid' : 'good') : 'mid', `본편에 가는 글 ≈ ${tk} 토큰`, sent ? `${inj.rule ? '적는 법 · ' : ''}결과${inj.hint ? ' · 귀띔' : ''} · 깊이 ${set.injectDepth ?? 1}${tk > 900 ? ' · 조금 길어요 · 게이지를 낮춰 보세요' : ''}` : noAI ? '아직 답이 없어요 · 대화를 시작하면 들어가요' : '이번엔 넣을 결과가 없었어요 (영향력 · 멈춤 · 눈 감기를 확인)');
     // 보조 AI · 부하
     const cm = ctx().ConnectionManagerRequestService, prof = set.profile;
     add(!prof || cm ? 'good' : 'mid', '보조 AI 연결', prof ? (cm ? `프로필: ${esc(prof)}` : '프로필을 골랐지만 연결 관리자가 없어요 · 지금 연결로 대신 보냄') : '지금 연결로 보냄 (프로필 없음)');

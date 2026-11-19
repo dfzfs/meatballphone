@@ -1,7 +1,7 @@
 // 📘 상태창 설정집 — 칸이 정해진 구조. 계산 코드가 그대로 읽는다. 본편에는 매 턴 넣지 않는다.
 import { arr, clamp, num, short, safeKey, tokens, norm, faceOf } from '../base/util.js';
 
-export const LIMIT = { people: 24, lines: 6, places: 30, items: 5, line: 80 };
+export const LIMIT = { people: 24, lines: 6, places: 30, items: 5, line: 200 }; // 글이 「…」로 잘리지 않게 넉넉히 (영어도)
 // 기본 욕구 4개 (위가 좋음 · 100 만점). rate = 한 시간에 줄어드는 양
 export const NEED_SET = [
     { key: 'hunger', name: '허기', icon: '🍞', start: 80, rate: 4 },
@@ -38,9 +38,9 @@ const acts = (v) =>
             typeof x === 'string'
                 ? (() => {
                       const m = /^(.*?)\s*([+-−]\s*\d+)?$/.exec(x);
-                      return { act: line(m[1], 30), d: m[2] ? Number(m[2].replace(/\s/g, '').replace('−', '-')) : null };
+                      return { act: line(m[1], 80), d: m[2] ? Number(m[2].replace(/\s/g, '').replace('−', '-')) : null };
                   })()
-                : { act: line(x?.act ?? x?.name, 30), d: x?.d == null ? null : num(x.d) },
+                : { act: line(x?.act ?? x?.name, 80), d: x?.d == null ? null : num(x.d) },
         )
         .filter((x) => x.act)
         .slice(0, LIMIT.lines);
@@ -64,12 +64,12 @@ export function normPerson(p) {
         line: line(p.line ?? p.personality),
         start: { aff: clamp(num(p.start?.aff, 10), 0, 100), trust: clamp(num(p.start?.trust, 10), 0, 100) },
         up: acts(p.up), down: acts(p.down),
-        signs: arr(p.signs).map(s => ({ at: clamp(num(s?.at, 60), 0, 100), text: line(s?.text, 40) })).filter(s => s.text).slice(0, 4),
+        signs: arr(p.signs).map(s => ({ at: clamp(num(s?.at, 60), 0, 100), text: line(s?.text, 160) })).filter(s => s.text).slice(0, 4),
         // 💞 이 사람만의 관계 단계 (비우면 설정집 공통 단계)
-        stages: arr(p.stages).length >= 2 ? arr(p.stages).map(s => ({ at: clamp(num(s?.at), 0, 100), name: line(s?.name, 10), call: line(s?.call, 20), act: line(s?.act, 40) })).filter(s => s.name).sort((a, b) => a.at - b.at) : null,
-        syn: arr(p.syn).map(s => ({ to: safeKey(s?.to), text: line(s?.text, 30) })).filter(s => s.to).slice(0, 4),
+        stages: arr(p.stages).length >= 2 ? arr(p.stages).map(s => ({ at: clamp(num(s?.at), 0, 100), name: line(s?.name, 10), call: line(s?.call, 40), act: line(s?.act, 100) })).filter(s => s.name).sort((a, b) => a.at - b.at) : null,
+        syn: arr(p.syn).map(s => ({ to: safeKey(s?.to), text: line(s?.text, 160) })).filter(s => s.to).slice(0, 4),
         haunt: list(p.haunt, 3),
-        routine: arr(p.routine).map(r => ({ at: line(r?.at, 6), place: line(r?.place, 24) })).filter(r => r.at && r.place).slice(0, 4),
+        routine: arr(p.routine).map(r => ({ at: line(r?.at, 6), place: line(r?.place, 60) })).filter(r => r.at && r.place).slice(0, 4),
         likes: list(p.likes, 5), hates: list(p.hates, 5),
         day: line(p.day, 24),
         want: line(p.want),
@@ -83,12 +83,12 @@ export function normPlace(p) {
     const kind = PLACE_KINDS[p.kind] ? p.kind : 'other';
     return {
         name, kind,
-        line: line(p.line, 12), // 노선 이름
+        line: line(p.line, 30), // 노선 이름
         near: list(p.near, 4),  // 이어진 장소
         floors: list(p.floors, 6),
-        goods: arr(p.goods).map(g => ({ name: line(g?.name, 20), price: Math.max(0, num(g?.price, 0)), fx: fxOf(g?.fx) })).filter(g => g.name).slice(0, LIMIT.items),
+        goods: arr(p.goods).map(g => ({ name: line(g?.name, 50), price: Math.max(0, num(g?.price, 0)), fx: fxOf(g?.fx) })).filter(g => g.name).slice(0, LIMIT.items),
         rest: fxOf(p.rest),
-        note: line(p.note, 40),
+        note: line(p.note, 240),
         photo: typeof p.photo === 'string' && /^(data:image\/(jpeg|png|webp);base64,|https?:\/\/)/.test(p.photo) && p.photo.length < 400000 ? p.photo : '',
         x: Number.isFinite(Number(p.x)) && p.x !== '' && p.x != null ? clamp(num(p.x), 0, 600) : null,
         y: Number.isFinite(Number(p.y)) && p.y !== '' && p.y != null ? clamp(num(p.y), 0, 600) : null,
@@ -104,8 +104,8 @@ export function normBook(b) {
     const e = emptyBook();
     if (!b || typeof b !== 'object') return e;
     const w = b.world ?? {};
-    e.world.genre = line(w.genre, 30);
-    e.world.currency = line(w.currency, 10) || '골드';
+    e.world.genre = line(w.genre, 60);
+    e.world.currency = line(w.currency, 16) || '골드';
     e.world.meal = Math.max(1, num(w.meal, 10));
     e.world.weather = list(w.weather, 6).length ? list(w.weather, 6) : e.world.weather;
     const c = w.start?.cal ?? {};
@@ -122,11 +122,11 @@ export function normBook(b) {
     const needs = arr(me.needs)
         .map((n) => ({
             key: safeKey(n?.key) || safeKey(n?.name),
-            name: line(n?.name, 8),
+            name: line(n?.name, 16),
             icon: line(n?.icon, 4) || '•',
             start: clamp(num(n?.start, 80), 0, 100),
             rate: clamp(num(n?.rate, 2), 0, 50),
-            sym: n?.sym && typeof n.sym === 'object' ? { 주의: line(n.sym.주의, 40), 위험: line(n.sym.위험, 40) } : null,
+            sym: n?.sym && typeof n.sym === 'object' ? { 주의: line(n.sym.주의, 120), 위험: line(n.sym.위험, 120) } : null,
         }))
         .filter((n) => n.key && n.name)
         .slice(0, 5);
@@ -135,17 +135,17 @@ export function normBook(b) {
         e.me.gauges = me.gauges
             .map((g) => ({
                 key: safeKey(g?.key) || safeKey(g?.name),
-                name: line(g?.name, 8),
+                name: line(g?.name, 16),
                 max: Math.max(1, num(g?.max, 100)),
                 start: num(g?.start, num(g?.max, 100)),
-                desc: line(g?.desc, 40),
+                desc: line(g?.desc, 120),
                 color: /^#[0-9a-f]{6}$/i.test(g?.color ?? '') ? g.color : '#e5484d',
             }))
             .filter((g) => g.key && g.name)
             .slice(0, 4);
     if (Array.isArray(me.attrs)) e.me.attrs = me.attrs.map(a => ({ name: line(a?.name, 6), v: clamp(num(a?.v), -5, 10) })).filter(a => a.name).slice(0, 6);
     e.people = arr(b.people).map(normPerson).filter(Boolean).slice(0, LIMIT.people);
-    if (arr(b.stages).length >= 2) e.stages = arr(b.stages).map(s => ({ at: clamp(num(s?.at), 0, 100), name: line(s?.name, 10), call: line(s?.call, 20), act: line(s?.act, 40) })).filter(s => s.name).sort((a, b2) => a.at - b2.at);
+    if (arr(b.stages).length >= 2) e.stages = arr(b.stages).map(s => ({ at: clamp(num(s?.at), 0, 100), name: line(s?.name, 10), call: line(s?.call, 40), act: line(s?.act, 100) })).filter(s => s.name).sort((a, b2) => a.at - b2.at);
     e.src = { from: line(b.src?.from, 10) || 'user', at: num(b.src?.at), sig: b.src?.sig && typeof b.src.sig === 'object' ? b.src.sig : {} };
     return e;
 }
