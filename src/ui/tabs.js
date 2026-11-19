@@ -1,9 +1,9 @@
 // 전체화면 안의 탭들 — 목록 행 + 묶음 카드. 설명은 한 줄까지.
 import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, MODS, slot, syncSwipe, msgKey, userName } from '../base/st.js';
-import { esc, fmt, signed, short, dateText, DAY, slotName, clamp, num } from '../base/util.js';
+import { esc, fmt, signed, short, dateText, DAY, slotName, clamp, num, norm } from '../base/util.js';
 import { row, card, chip, seg, bar, empty, btn, sheet, toast, putInput } from './kit.js';
 import { fold, derived, needStage, relStage, nextStage, diceMod, diceParts, worldEvent, priceMul, whereNow } from '../rules/engine.js';
-import { layout, lineEdges, lineNodes, route, floorsOf, elevSVG } from './metro.js';
+import { layout, lineEdges, lineNodes, route, floorsOf } from './metro.js';
 import { personOf, placeOf, bookTokens, personTokens, normBook, PLACE_KINDS, LIMIT } from '../rules/book.js';
 import { moodTags, pickQuote, pickMusic } from '../rules/mood.js';
 import { LEVELS, GAUGES, PRESETS, level, gaugeCfg, levelCost } from '../rules/inject.js';
@@ -216,9 +216,12 @@ function placeCard(r, p, here2, path, ev, mul) {
     if (p.note) L.push(`<div class="ml-rl"><i>📝</i>${esc(p.note)}</div>`);
     const goods = p.goods.map(g => { const price = Math.round(g.price * mul), poor = S.cash < price; const liked = Object.values(S.rel).some(x => x.seen.likes.some(l => g.name.includes(l))); return `<div class="ml-good${poor ? ' poor' : ''}"><span>${liked ? '🎁 ' : ''}<b>${esc(g.name)}</b> <small>${esc(fxTxt(g.fx))}</small></span><em>${price}${mul !== 1 ? `<s>${g.price}</s>` : ''} ${esc(book.world.currency)}</em>${isHere && !poor ? btn('사기', 'say', `${g.name} 하나 주세요.`, 'xs') : poor && isHere ? '<small class="neg">돈 부족</small>' : ''}</div>`; }).join('');
     const fl = floorsOf(p.floors);
-    const elev = fl.length ? `<div class="ml-elevwrap">${elevSVG(fl.map(f => ({ name: f.name, rooms: f.rooms })), { home: p.kind === 'home' })}</div>` : '';
+    // 🛗 건물 안: 엘리베이터 버튼판처럼 좁게 (위층이 위) + 옆에 실제 사진
+    const lift = fl.length ? `<div class="ml-lift">${[...fl].reverse().map(f => { const lv = /^(지하|b)/i.test(f.name) ? `B${(/\d+/.exec(f.name) ?? [1])[0]}` : /옥상|루프|roof/i.test(f.name) ? 'R' : (/\d+/.exec(f.name) ?? [''])[0] || f.name.slice(0, 2); const on = isHere && norm(S.loc + ' ' + (S.spot ?? '')).includes(norm(f.name)); return `<div class="ml-fl${on ? ' on' : ''}"><b>${esc(lv)}</b><span>${f.rooms.map(x => esc(x.name)).join(' · ') || esc(f.name)}</span></div>`; }).join('')}</div>` : '';
+    const photo = p.photo ? `<div class="ml-photo"><img src="${esc(p.photo)}" alt="${esc(p.name)}" loading="lazy"><button class="ml-mini" data-act="photo" data-v="${esc(p.name)}" title="사진 바꾸기">📷</button></div>` : `<button class="ml-photo empty" data-act="photo" data-v="${esc(p.name)}">📷<small>사진 붙이기</small></button>`;
+    const elev = `<div class="ml-bld${lift ? '' : ' nolift'}">${lift}${photo}</div>`;
     const acts = isHere ? [Object.keys(p.rest).length || p.kind === 'home' ? btn(`🛏 쉬기 <small>${esc(fxTxt(p.rest) || '에너지+')}</small>`, 'say', '잠깐 쉰다.', 'xs') : '', p.kind === 'bath' || p.kind === 'home' ? btn('🫧 씻기 <small>위생+60</small>', 'say', '씻는다.', 'xs') : '', p.kind === 'work' ? btn('💼 일하기 <small>에너지−6/시간</small>', 'say', '일을 시작한다.', 'xs') : ''].join('') : btn(`🚶 ${esc(p.name)}(으)로 가기`, 'say', `${p.name}(으)로 간다.`, 'xs');
-    return `<div class="ml-rc ml-place"><div class="ml-rc-h"><span class="ml-face">${PLACE_KINDS[p.kind]}</span><b>${esc(p.name)}</b>${p.line ? `<span class="ml-pill">${esc(p.line)}</span>` : ''}${isHere ? '<span class="ml-pill good">지금 여기</span>' : ''}</div>${L.join('')}${goods ? `<h4 class="ml-h4">물가</h4><div class="ml-goods">${goods}</div>` : ''}${elev ? `<h4 class="ml-h4">건물 안</h4>${elev}` : ''}<div class="ml-acts">${acts}</div></div>`;
+    return `<div class="ml-rc ml-place"><div class="ml-rc-h"><span class="ml-face">${PLACE_KINDS[p.kind]}</span><b>${esc(p.name)}</b>${p.line ? `<span class="ml-pill">${esc(p.line)}</span>` : ''}${isHere ? '<span class="ml-pill good">지금 여기</span>' : ''}</div>${L.join('')}${goods ? `<h4 class="ml-h4">물가</h4><div class="ml-goods">${goods}</div>` : ''}<h4 class="ml-h4">${fl.length ? '건물 안' : '사진'}</h4>${elev}<div class="ml-acts">${acts}</div></div>`;
 }
 // ───── 달력 · 시간 · 날씨 ─────
 function upcoming(r) {
@@ -321,6 +324,7 @@ export async function onAct(act, v, el) {
         case 'quote': { sheet('한 구절', `<p class="ml-quote">${esc(v).replace(/\n/g, '<br>')}</p>`); const t = el?.querySelector('b')?.textContent; if (t) { meta.recent.quote = [t, ...(meta.recent.quote ?? [])].slice(0, 8); saveMeta(); } return; }
         case 'person': personSheet(r, v); return;
         case 'mapsel': setMapSel(v); app.refresh?.(); return;
+        case 'photo': { const url = await pickPhoto(); if (url == null) return; const pl = placeOf(meta.book, v); if (!pl) return; pl.photo = url; saveMeta(); app.refresh?.(true); toast(url ? '사진을 붙였어요' : '사진을 뺐어요'); return; }
         case 'dset': { const [k, x] = v.split(':'); setDice(k, k === 'dc' ? Number(x) : x); app.refresh?.(); return; }
         case 'rollattr': setDice('attr', v); app.openSheet?.('dice'); return;
         case 'roll': {
@@ -367,5 +371,22 @@ function editBook(act, v) {
             else meta.book = normBook({ ...b, world: { ...b.world, places: j } });
             meta.book.src.from = 'user'; saveMeta(); app.refresh?.(true);
         },
+    });
+}
+
+// 📷 장소 사진: 파일(크기를 줄여 이 채팅에 저장 · 약 30KB) 또는 주소 · 빈칸이면 빼기
+async function pickPhoto() {
+    const how = await ctx().Popup.show.input('장소 사진', '이미지 주소를 넣거나, 비워 두고 확인을 누르면 파일을 고를 수 있어요. 「삭제」라고 쓰면 사진을 빼요.', '');
+    if (how == null) return null;
+    if (/^삭제$|^지우기$/.test(how.trim())) return '';
+    if (/^https?:\/\//.test(how.trim())) return how.trim();
+    return new Promise((res) => {
+        const inp = Object.assign(document.createElement('input'), { type: 'file', accept: 'image/*' });
+        inp.onchange = () => {
+            const f = inp.files?.[0]; if (!f) return res(null);
+            const img = new Image(); img.onload = () => { const k = Math.min(1, 480 / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(img.src); res(c.toDataURL('image/jpeg', 0.78)); };
+            img.onerror = () => res(null); img.src = URL.createObjectURL(f);
+        };
+        inp.click();
     });
 }
