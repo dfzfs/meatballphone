@@ -1,4 +1,4 @@
-// 😌 눈 감기 (다음 1번 · 계속) · ⏸ 메뉴 · 🎌 공휴일
+// 😌 눈 감기 (다음 1번 · 계속) · ⏸ 메뉴
 import { open, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open({ width: 1440, height: 900 });
 try {
@@ -30,8 +30,6 @@ try {
     await page.evaluate(async () => { const st = await import('/ext/src/base/st.js'); st.setEyes('quote', 'on'); });
     const keys = await page.evaluate(async () => { const c = await import('/ext/src/rules/classify.js'); const st = await import('/ext/src/base/st.js'); return [...c.ALLOW(st.nextAiNo())]; });
     check(!keys.includes('quote') && keys.includes('loc'), '「계속」: 분류 모델 목록에서도 빠짐', keys.join(','));
-    // 공휴일: 2026-02-17 설날 · 3/1 삼일절 · 장날 같은 무작위 사건 없음
-    const hol = await page.evaluate(async () => { const st = await import('/ext/src/base/st.js'); const e = await import('/ext/src/rules/engine.js'); const b = st.getMeta().book; b.world.start = { ...b.world.start, y: 2026, m: 2, d: 1 }; const L = []; for (let d = 0; d < 40; d++) { const ev = e.worldEvent(d); if (ev) L.push(`${d}:${ev.name}`); } return L; });
-    check(hol.includes('16:설날') && hol.includes('28:삼일절') && !hol.some(x => /장날|축제|공사/.test(x)), '공휴일만 (설날 · 삼일절)', hol.join(' '));
+    check(await page.evaluate(async () => typeof (await import('/ext/src/rules/engine.js')).worldEvent === 'undefined'), '공휴일 코드 없음 (지움)');
     check(!logs.some((l) => /error/i.test(l)), '오류 없음', logs.filter((l) => /error/i.test(l)).slice(0, 3).join(' | '));
 } finally { await close(); }

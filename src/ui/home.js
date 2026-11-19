@@ -2,7 +2,7 @@
 // 🛍 마켓: 앱을 「받는」 느낌 — 실제로는 다 들어 있고 칸을 켜고 끈다 (지우면 홈 · 본편 주입에서 빠짐)
 import { ctx, getMeta, saveMeta, settings, modOn } from '../base/st.js';
 import { esc, signed, dateText, dateOf, DAY, periodName, clockText, fmt, num, faceOf } from '../base/util.js';
-import { derived, needStage, relStage, worldEvent, priceMul, diceParts, whereNow } from '../rules/engine.js';
+import { derived, needStage, relStage, diceParts, whereNow } from '../rules/engine.js';
 import { personOf, placeOf, PLACE_KINDS } from '../rules/book.js';
 import { quoteLine, songLink } from './music.js';
 import { luckOf } from '../rules/luck.js';
@@ -47,7 +47,7 @@ export const d20 = (n = 20, cls = '') => `<svg class="ml-d20 ${cls}" viewBox="0 
 
 export function home(r) {
     const { book, S } = r, meta = getMeta(), li = lastAI();
-    const ev = worldEvent(Math.floor(S.t / DAY)), dz = derived(book, S);
+    const dz = derived(book, S);
     const P = {}; // 위젯 id → html (순서 · 숨기기는 holder가 정함)
     const put = (title, body, open = '', extra = '', part = '') => { P[part] = Wx(title, body, open, extra); return ''; };
     const dt0 = dateOf(book.world.start, S.t), clk = book.world.start.cal?.style === '' ? periodName(S.t) : clockText(book.world.start, S.t);
@@ -55,7 +55,7 @@ export function home(r) {
         + `${S.weather ? ` · ${esc(S.weather)}` : ''}</span><span class="ml-clock-s">📍 ${esc(S.loc || '어딘가')}`
         + `${S.with.length ? ` · ${S.with.map(n => faceOf(personOf(book, n)?.face, '🙂')).join('')}` : ''}`
         + `${modOn('wallet') ? ` · 💰 ${fmt(S.cash)} ${esc(book.world.currency)}` : ''}</span>`
-        + `${ev ? `<span class="ml-pill ${ev.kind === 'good' ? 'good' : ev.kind === 'bad' ? 'bad' : 'love'}">${ev.icon ?? '🎌'} ${esc(ev.name)}</span>` : ''}</div>`;
+        + '</div>';
     const tags = [...S.status.map(s => `<span class="ml-chip ${s.kind === 'good' ? 'good' : s.kind === 'bad' ? 'bad' : ''}">${s.src === 'fate' ? '🔮 ' : ''}${esc(s.name)}`
         + `${s.until ? ` · ${Math.max(1, Math.round((s.until - S.t) / 60))}h` : ''}</span>`), ...dz.filter(d => d.stage === '위험').map(d => `<span class="ml-chip bad">${d.icon} ${esc(d.name)} 위험</span>`)];
     if (tags.length) P.tags = `<div class="ml-chips">${tags.join('')}</div>`;
@@ -109,12 +109,12 @@ export function home(r) {
     // 달력: 이번 주 + 다가오는 것
     if (modOn('calendar')) {
         const day0 = Math.floor(S.t / DAY), up = upcoming(r);
-        const marks = (k) => { const dt = dateOf(book.world.start, (day0 + k) * DAY); const md = `${dt.m}/${dt.d}`; return up.filter(u => (u.t != null && Math.floor(u.t / DAY) === day0 + k) || u.md === md).length + (worldEvent(day0 + k) ? 1 : 0); };
+        const marks = (k) => { const dt = dateOf(book.world.start, (day0 + k) * DAY); const md = `${dt.m}/${dt.d}`; return up.filter(u => (u.t != null && Math.floor(u.t / DAY) === day0 + k) || u.md === md).length ; };
         const week = Array.from({ length: 7 }, (_, k) => { const dt = dateOf(book.world.start, (day0 + k) * DAY), n = marks(k); return `<div class="${k === 0 ? 'today' : ''}"><small>${dt.w}</small><b>${dt.d}</b>${n ? '<i></i>' : ''}</div>`; }).join('');
         put('달력', `${calPin(r)}<div class="ml-week">${week}</div>${up.slice(0, 3).map(u => `<div class="ml-rl"><i>${u.icon}</i>${esc(u.text)} <span>${u.t != null ? (u.t - S.t <= DAY ? '하루 안' : dateText(book.world.start, u.t, false)) : esc(u.md)}</span></div>`).join('')}`, 'cal', '', 'cal');
     }
     // 소식
-    if (modOn('news')) { const N = [...(ev ? [{ icon: ev.icon ?? '🎌', text: ev.text }] : []), ...S.news.slice(0, 3)]; if (N.length) put('세계 소식', N.map(n => `<div class="ml-rl"><i>${n.icon}</i>${esc(n.text)}</div>`).join(''), 'news', '', 'news'); }
+    if (modOn('news')) { const N = S.news.slice(0, 3); if (N.length) put('세계 소식', N.map(n => `<div class="ml-rl"><i>${n.icon}</i>${esc(n.text)}</div>`).join(''), 'news', '', 'news'); }
     return holder(r, P);
 }
 
@@ -270,7 +270,6 @@ function soon(r) {
                     out.push({ m: k * DAY, icon: '🎂', text: `${p.name} ${p.day}`, when: k ? `${k}일 뒤` : '오늘' });
             }
         }
-        const ev = worldEvent(day0 + 1); if (ev) out.push({ m: DAY - (S.t % DAY), icon: ev.icon ?? '🎌', text: `내일 ${ev.name}`, when: '내일' });
     }
     if (modOn('map')) {
         const nextPeriod = periodName(S.t + 180);

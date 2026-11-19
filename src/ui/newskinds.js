@@ -1,7 +1,6 @@
 // 📰 세계 소식 앱 화면: 켤 종류 · 탭(전체 · 📰 · 💬 · 📱 · 🌙) · 📱 피드 카드 (AI 0회)
 import { esc, dateText, DAY, faceOf } from '../base/util.js';
 import { row, card, empty } from './kit.js';
-import { worldEvent } from '../rules/engine.js';
 import { personOf } from '../rules/book.js';
 import { NEWS_KINDS, kindsOn, toggleKind, kindInfo, reactions } from '../rules/newskinds.js';
 
@@ -29,7 +28,6 @@ export function newsView(r) {
     const list = S.news.filter(n => tab === 'all' || n.kind === tab).slice(0, 20);
     if (tab === 'feed') return h + (list.length ? `<div class="ml-feeds">${list.map(n => feedCard(book, n)).join('')}</div>` : empty('아직 올라온 글이 없어요.'));
     const L = [];
-    const ev = tab === 'all' && worldEvent(Math.floor(S.t / DAY)); if (ev) L.push(row({ icon: ev.icon ?? '🎌', title: esc(ev.name), sub: '공휴일' }));
     for (const n of list) L.push(row({ icon: n.icon, title: esc(n.text), sub: `${kindInfo(n.kind)?.name ?? '소식'} · ${dateText(book.world.start, n.t, false)}` }));
     if (tab === 'all' || tab === 'life') for (const [n, x] of Object.entries(S.rel)) if (x.want && !x.gone) L.push(row({ icon: '🎯', title: `${esc(n)}의 속셈`, sub: esc(x.want), faint: true }));
     const hint = on.life && tab === 'life' ? '<div class="ml-hint">🌙 화면 밖 소식은 영향력 3(강하게)부터 본편에 적어 달라고 해요.</div>' : '';

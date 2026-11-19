@@ -3,7 +3,7 @@ import { settings, getMeta, modOn, userName, ctx, shut, shutKey, nextAiNo } from
 // 😌 눈 감은 앱은 다음 답에 없는 셈 (켜져 있어도)
 const onNow = (id) => modOn(id) && !shut(id);
 import { clamp, dateText, short, tokens, DAY } from '../base/util.js';
-import { derived, relStage, worldEvent, fold } from './engine.js';
+import { derived, relStage, fold } from './engine.js';
 import { tasteOf, recentQuotes } from './classify.js';
 import { personOf } from './book.js';
 import { ruleKeys as newsRuleKeys } from './newskinds.js';
@@ -91,7 +91,7 @@ export function factText(r, lastChanges = []) {
     if (lv('wallet') >= 3) L.push('cannot spend more money than this; items not listed are not owned');
     // 장소 · 시간
     if (lv('map') >= 2 && S.loc) L.push(`place: ${S.loc}${S.with.length ? ` · with: ${S.with.join(', ')}` : ''}`);
-    if (lv('calendar') >= 2) { L.push(`now: ${dateText(book.world.start, S.t)} · ${S.weather}`); const ev = worldEvent(Math.floor(S.t / DAY)); if (ev) L.push(`today: ${ev.text}`); }
+    if (lv('calendar') >= 2) { L.push(`now: ${dateText(book.world.start, S.t)} · ${S.weather}`); }
     // 관계
     const scene = S.with.length ? S.with : [];
     for (const name of scene) {

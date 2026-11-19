@@ -2,7 +2,7 @@
 import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, msgData, syncSwipe, msgKey, userName, bumpMeta, saveChatSoon } from '../base/st.js';
 import { esc, fmt, signed, short, dateText, dateOf, DAY, periodName, num, norm, tokens, dayIndexOf, monthDays, monthName, weekName, faceOf } from '../base/util.js';
 import { row, card, chip, seg, bar, empty, btn, sheet, toast, putInput, form } from './kit.js';
-import { fold, derived, needStage, relStage, nextStage, stagesOf, pairKey, diceParts, worldEvent, priceMul, whereNow } from '../rules/engine.js';
+import { fold, derived, needStage, relStage, nextStage, stagesOf, pairKey, diceParts, whereNow } from '../rules/engine.js';
 import { luckOf } from '../rules/luck.js';
 import { vis, handLines } from './tools.js';
 const d20Svg = (n, c) => `<svg class="ml-d20 big ${c}" viewBox="0 0 100 100">${n === 1 ? '<polyline class="crack" points="38,8 46,30 36,44 52,60 44,78 54,94"/>' : ''}<polygon `
@@ -42,8 +42,8 @@ const STAGE_COLOR = { 정상: 'good', 주의: 'mid', 위험: 'bad' };
 function recoverOf(r, key) {
     const { book, S } = r, out = [];
     for (const it of S.items) if (num(it.fx?.[key]) > 0) out.push({ t: `👜 ${it.name} ${signed(it.fx[key])}`, say: `${it.name}을(를) 먹는다.` });
-    const here = placeOf(book, S.loc), mul = priceMul(S);
-    for (const g of here?.goods ?? []) if (num(g.fx?.[key]) > 0) out.push({ t: `🛒 ${g.name} ${signed(g.fx[key])} · ${Math.round(g.price * mul)}${book.world.currency}`, say: `${g.name} 하나 주세요.`, poor: S.cash < Math.round(g.price * mul) });
+    const here = placeOf(book, S.loc);
+    for (const g of here?.goods ?? []) if (num(g.fx?.[key]) > 0) out.push({ t: `🛒 ${g.name} ${signed(g.fx[key])} · ${g.price}${book.world.currency}`, say: `${g.name} 하나 주세요.`, poor: S.cash < g.price });
     if (num(here?.rest?.[key]) > 0) out.push({ t: `🛏 ${here.name}에서 쉬기 ${signed(here.rest[key])}`, say: '잠깐 쉰다.' });
     if (key === 'energy') out.push({ t: '😴 자기 · 시간당 +12', say: '잠을 잔다.' });
     if (key === 'hygiene') { const b = book.world.places.find(q => q.kind === 'bath' || q.kind === 'home'); if (b) out.push({ t: `🫧 ${b.name}에서 씻기 +60`, say: b.name === S.loc ? '씻는다.' : `${b.name}(으)로 가서 씻는다.` }); }
@@ -138,7 +138,7 @@ function dice(r) {
 }
 // ───── 소지품 · 재산 (+ 상점 미니 선택지) ─────
 function bag(r) {
-    const { S, book } = r, place = placeOf(book, S.loc), mul = priceMul(S);
+    const { S, book } = r, place = placeOf(book, S.loc);
     const V = (k) => vis('bag', k);
     let h = !V('cash')
         ? ''
@@ -185,11 +185,11 @@ function bag(r) {
                       .join('')
                 : row({ icon: '📦', title: '비어 있어요', faint: true }),
         );
-    if (place?.goods.length && V('shop')) h += card(`${PLACE_KINDS[place.kind]} ${esc(place.name)} 가게`, place.goods.map(g => goodRow(r, g, mul)).join(''), mul !== 1 ? `오늘 값 ×${mul}` : '');
+    if (place?.goods.length && V('shop')) h += card(`${PLACE_KINDS[place.kind]} ${esc(place.name)} 가게`, place.goods.map(g => goodRow(r, g)).join(''));
     return h + sneakCard(r, 'bag');
 }
-function goodRow(r, g, mul) {
-    const price = Math.round(g.price * mul), poor = r.S.cash < price;
+function goodRow(r, g) {
+    const price = g.price, poor = r.S.cash < price;
     const liked = Object.values(r.S.rel).some(x => x.seen.likes.some(l => g.name.includes(l)));
     const fx = Object.entries(g.fx).map(([k, v]) => `${r.book.me.needs.find(n => n.key === k)?.name ?? k} ${signed(v)}`).join(' · ');
     return row({ icon: liked ? '🎁' : '🛒', title: esc(g.name), sub: `−${price} · ${fx || '물건'}${poor ? ' · 돈 부족' : ''}`, value: poor ? '' : btn('사기', 'say', `${g.name} 하나 주세요.`), faint: poor });
@@ -320,7 +320,7 @@ function map(r) {
     const { book, S } = r, meta = getMeta(), hide = new Set(meta.mapHide ?? []);
     const places = book.world.places.filter(p => !hide.has(p.name) || p.name === S.loc);
     if (!book.world.places.length) return empty('설정집에 장소가 없어요.', '장소 넣기', 'tab-book');
-    const sl = periodName(S.t), ev = worldEvent(Math.floor(S.t / DAY)), mul = priceMul(S);
+    const sl = periodName(S.t);
     const at = new Map(); // 장소 → [{ e, name, why }]
     const pinOK = (n) => !meta.mapPins || meta.mapPins.includes(n);
     for (const p of book.people) { if (!pinOK(p.name)) continue; const w = whereNow(book, S, p); if (w?.place) { const k = placeOf(book, w.place)?.name ?? w.place; (at.get(k) ?? at.set(k, []).get(k)).push({ e: p.face, name: p.name, why: w.why }); } }
@@ -334,15 +334,14 @@ function map(r) {
     const svg = `<svg class="ml-map" viewBox="${x0 - pad} ${y0 - pad} ${x1 - x0 + pad * 2} ${y1 - y0 + pad * 2}" preserveAspectRatio="xMidYMid meet"><g class="edges">${net.svg}</g>${nodes.svg}</svg>`;
     const V = (k) => vis('map', k);
     const tools = `${btn('📍 핀 인물', 'map-pins', '', 'xs')}${hide.size ? btn(`👁 숨긴 장소 ${hide.size}곳`, 'map-unhide', '', 'xs') : ''}`;
-    const evPill = ev ? `<span class="ml-pill ${ev.kind === 'good' ? 'good' : ev.kind === 'bad' ? 'bad' : 'love'}">${ev.icon ?? '🎌'} ${esc(ev.name)}</span>` : '';
-    let h = `<div class="ml-maphead"><span>📍 지금 <b>${esc(S.loc || '어딘가')}</b> · ${sl}</span>${evPill}${tools}</div>`;
+    let h = `<div class="ml-maphead"><span>📍 지금 <b>${esc(S.loc || '어딘가')}</b> · ${sl}</span>${tools}</div>`;
     if (V('map')) h += `<div class="ml-mapwrap">${svg}</div>`;
     const who = [...at.entries()].flatMap(([pl, L]) => L.map(x => ({ ...x, pl })));
     if (who.length && V('pins')) h += `<div class="ml-pinrow">${who.map(x => `<span class="ml-pin tap" data-act="mapsel" data-v="${esc(x.pl)}" title="${esc(x.why)}">${x.e} ${esc(x.name)} <small>${esc(x.pl)}</small></span>`).join('')}</div>`;
-    h += placeCard(r, sel, at.get(sel.name) ?? [], path, ev, mul);
+    h += placeCard(r, sel, at.get(sel.name) ?? [], path);
     return h;
 }
-function placeCard(r, p, here2, path, ev, mul) {
+function placeCard(r, p, here2, path) {
     const { book, S } = r, isHere = p.name === S.loc, L = [];
     const nm = (k) => book.me.needs.find(n => n.key === k)?.name ?? k;
     const fxTxt = (fx) => Object.entries(fx ?? {}).map(([k, v]) => `${nm(k)} ${signed(v)}`).join(' · ');
@@ -356,12 +355,12 @@ function placeCard(r, p, here2, path, ev, mul) {
     if (p.note) L.push(`<div class="ml-rl"><i>📝</i>${esc(p.note)}</div>`);
     const goods = p.goods
         .map((g) => {
-            const price = Math.round(g.price * mul),
+            const price = g.price,
                 poor = S.cash < price;
             const liked = Object.values(S.rel).some((x) => x.seen.likes.some((l) => g.name.includes(l)));
             return (
                 `<div class="ml-good${poor ? ' poor' : ''}"><span>${liked ? '🎁 ' : ''}<b>${esc(g.name)}</b> <small>${esc(fxTxt(g.fx))}</small></span><em>${price}` +
-                `${mul !== 1 ? `<s>${g.price}</s>` : ''} ${esc(book.world.currency)}` +
+                 ` ${esc(book.world.currency)}` +
                 `</em>${isHere && !poor ? btn('사기', 'say', `${g.name} 하나 주세요.`, 'xs') : poor && isHere ? '<small class="neg">돈 부족</small>' : ''}</div>`
             );
         })
@@ -417,7 +416,6 @@ function eventsOnDay(r, y, m, d) {
     for (const p of S.promises) if (p.due != null && Math.floor(p.due / DAY) === day) out.push({ icon: p.done ? '✅' : '🤝', text: p.text, i: p.i });
     for (const p of book.people) { const md = /(\d{1,2})\s*[월/.]\s*(\d{1,2})/.exec(p.day || S.rel[p.name]?.day || ''); if (md && Number(md[1]) === m && Number(md[2]) === d) out.push({ icon: '🎂', text: `${p.name} · ${p.day}` }); }
     const me = /(\d{1,2})\s*[월/.]\s*(\d{1,2})/.exec(book.me.day || ''); if (me && Number(me[1]) === m && Number(me[2]) === d) out.push({ icon: '🎉', text: '내 생일' });
-    if (day >= 0) { const ev = worldEvent(day); if (ev) out.push({ icon: ev.icon ?? '🎌', text: ev.text }); }
     out.push(...ddaysOn(day));
     out.push(...sneakOnDay(S, m, d)); // ✍ 몰래 메모
     return { out, day };
@@ -1353,4 +1351,21 @@ async function pickPhoto() {
         };
         inp.click();
     });
+}
+
+// 🪪 카드 캐릭터 이름(예: Law)이 설정집의 누구(예: 트라팔가 로)인지 모를 때 한 번 묻기 → 고르면 그 사람의 다른 이름으로 (기록도 합쳐짐)
+let cardAsking = false;
+export async function askCardName(r) {
+    const c = ctx(), meta = getMeta(), card = String(c.characters?.[c.characterId]?.name ?? '').trim();
+    if (cardAsking || !card || c.groupId || !meta?.book || !r?.S?.rel?.[card] || personOf(meta.book, card)) return;
+    if ((meta.cardAsked ?? []).includes(card) || !meta.book.people.length) return;
+    cardAsking = true;
+    try {
+        const fv = await form(`🪪 「${esc(card)}」는 누구예요?`, [{ k: 'into', label: `카드 캐릭터 이름 「${esc(card)}」가 이야기에 나와서 새 인물로 생겼어요. 설정집에 있는 사람과 같은 사람이면 골라 주세요. 기록도 하나로 합쳐져요.`, type: 'pick',
+            opts: [...meta.book.people.map((p) => [p.name, `${p.face} ${esc(p.name)}`]), ['', '다른 사람이에요']] }], { ok: '확인' });
+        meta.cardAsked = [...new Set([...(meta.cardAsked ?? []), card])];
+        const p = fv?.into && personOf(meta.book, fv.into);
+        if (p) { p.aka = [...new Set([...p.aka, card])]; toast(`${card} → ${p.name}로 합쳤어요`, 'good'); }
+        saveMeta(); app.refresh?.(true);
+    } finally { cardAsking = false; }
 }

@@ -129,3 +129,19 @@ export function migrateOld() {
     console.info(`[${TITLE}] 옛 미트볼 옮김`, rep);
     return rep;
 }
+
+// 🗑 이 채팅의 미트볼폰 기록 전부 지우기: 채팅 메타 + 모든 메시지 · 스와이프의 미트볼폰 칸 (글은 그대로) → 첫 화면(설정집 만들기)부터
+export async function wipeChat() {
+    const c = ctx(); if (!c.chatMetadata) return false;
+    const text = '이 채팅의 미트볼폰 기록을 전부 지울까요?<br><small>설정집 · 수치 · 관계 · 달력 메모 · 기록이 모두 사라지고 처음(설정집 만들기)부터 시작해요. 대화 글은 그대로예요. 되돌릴 수 없어서, 필요하면 먼저 💾 백업을 받아 두세요.</small>';
+    const ok = await new c.Popup(text, c.POPUP_TYPE.CONFIRM, '', { okButton: '전부 지우기', cancelButton: '취소' }).show();
+    if (ok !== c.POPUP_RESULT.AFFIRMATIVE && ok !== true && ok !== 1) return false;
+    delete c.chatMetadata[MODULE];
+    for (const m of c.chat ?? []) {
+        if (m.extra) delete m.extra[MODULE];
+        for (const si of m.swipe_info ?? []) if (si?.extra) delete si.extra[MODULE];
+    }
+    saveChatSoon(); c.saveMetadata?.();
+    toast('이 채팅의 미트볼폰 기록을 지웠어요', 'good');
+    return true;
+}

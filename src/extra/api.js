@@ -2,7 +2,7 @@
 import { getMeta, saveMeta, ready, VERSION, ctx, msgKey } from '../base/st.js';
 import { mode } from '../rules/classify.js';
 import { norm, signed, periodName, dateOf, faceOf } from '../base/util.js';
-import { fold, priceMul, derived, diceParts, whereNow, relStage } from '../rules/engine.js';
+import { fold, derived, diceParts, whereNow, relStage } from '../rules/engine.js';
 import { placeOf, personOf, isStar } from '../rules/book.js';
 import { luckOf, luckFit } from '../rules/luck.js';
 import { addApp, mountApps } from './apps.js';
@@ -20,7 +20,7 @@ export function preview(label) {
     // 1) 지금 장소에서 파는 물건
     const here = placeOf(book, S.loc), good = (here?.goods ?? []).find(g => has(g.name));
     if (good) {
-        const price = Math.round(good.price * priceMul(S));
+        const price = good.price;
         out.push(`−${price}${book.world.currency}`, ...fxText(good.fx));
         if (S.cash < price) { ok = false; out.push('돈 부족'); }
         if (liked(good.name).length) tags.push('🎁');
@@ -69,7 +69,7 @@ function state() {
 function scene() {
     const r = ready() ? fold() : null; if (!r) return null;
     const { S, book } = r, here = placeOf(book, S.loc);
-    const goods = (here?.goods ?? []).map(g => ({ name: g.name, price: Math.round(g.price * priceMul(S)) }));
+    const goods = (here?.goods ?? []).map(g => ({ name: g.name, price: g.price }));
     const people = S.with.filter(n => S.rel[n] && !S.rel[n].gone)
         .map(n => ({ name: n, want: S.rel[n].want || personOf(book, n)?.want || '' }));
     return structuredClone({ goods, people });

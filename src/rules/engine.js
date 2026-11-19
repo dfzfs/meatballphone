@@ -35,31 +35,6 @@ export function nextStage(book, v, name) { return stagesOf(book, name).find(s =>
 // 🔗 인물끼리: 이름 둘을 정렬한 열쇠
 export const pairKey = (a, b) => [a, b].sort().join('|');
 
-// ───── 🎌 공휴일 (AI 0회 · 날짜로 정해짐) — 양력 달력일 때만 · 판타지 달력엔 없음 ─────
-//   양력 고정 + 음력(설날 · 부처님오신날 · 추석)은 브라우저의 한국 음력(dangi) 계산으로
-const SOLAR_HOL = { '1/1': '신정', '3/1': '삼일절', '5/5': '어린이날', '6/6': '현충일', '8/15': '광복절', '10/3': '개천절', '10/9': '한글날', '12/25': '크리스마스' };
-const LUNAR_HOL = { '1/1': '설날', '4/8': '부처님오신날', '8/15': '추석' };
-let LUNAR = null;
-try { LUNAR = new Intl.DateTimeFormat('en-u-ca-dangi', { month: 'numeric', day: 'numeric', timeZone: 'UTC' }); } catch { LUNAR = null; }
-const lunarMD = (y, m, d) => {
-    if (!LUNAR) return '';
-    const P = LUNAR.formatToParts(new Date(Date.UTC(y, m - 1, d)));
-    const mo = P.find(x => x.type === 'month')?.value ?? '', da = P.find(x => x.type === 'day')?.value ?? '';
-    return /^\d+$/.test(mo) ? `${Number(mo)}/${Number(da)}` : ''; // 윤달(6bis 등)은 건너뜀
-};
-const holCache = new Map();
-export function worldEvent(day) {
-    const st = getMeta()?.book?.world?.start; if (!st || st.cal?.months) return null;
-    const key = `${st.y}-${st.m}-${st.d}|${day}`; if (holCache.has(key)) return holCache.get(key);
-    const dt = new Date(Date.UTC(st.y ?? 2026, (st.m ?? 1) - 1, (st.d ?? 1) + day));
-    const y = dt.getUTCFullYear(), m = dt.getUTCMonth() + 1, d = dt.getUTCDate();
-    const name = SOLAR_HOL[`${m}/${d}`] ?? LUNAR_HOL[lunarMD(y, m, d)] ?? null;
-    const ev = name ? { name, kind: 'good', price: 1, icon: '🎌', text: `${name} — 공휴일` } : null;
-    if (holCache.size > 500) holCache.clear(); holCache.set(key, ev);
-    return ev;
-}
-// 공휴일은 물건값을 바꾸지 않는다
-export const priceMul = () => 1;
 
 // ───── 한 메시지 적용 ─────
 // ch: 이 메시지에서 바뀐 것 [{ f, label, from, to, why, src, sure, i(줄 번호) }]
@@ -249,7 +224,7 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
                 place = placeOf(book, S.loc),
                 good = place?.goods.find((g) => norm(g.name) === norm(name));
             const given = parseDelta(b);
-            const price = given ? Math.abs(given.n) : good ? Math.round(good.price * priceMul(S)) : null;
+            const price = given ? Math.abs(given.n) : good ? good.price : null;
             const sure = !!(given || good);
             const cost = price ?? Math.round(book.world.meal * (isSnack(name) ? 0.4 : 1));
             if (S.cash < cost) {

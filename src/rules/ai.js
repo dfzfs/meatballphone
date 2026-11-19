@@ -44,7 +44,10 @@ const SCHEMA = `{"world":{"genre":"","currency":"골드","meal":10,"weather":["�
     + `것","noLove":false}]}`;
 export async function fillBook(only = null) {
     const src = await sources();
-    const sys = 'You build a compact status-sheet rulebook for a roleplay. Output JSON only. Korean values. Keep every line short. Prices must be consistent with '
+    const en = settings().saveLang === 'en';
+    const sys = `You build a compact status-sheet rulebook for a roleplay. Output JSON only. ${en ? 'English values.' : 'Korean values.'} `
+        + 'Keep every person and place NAME exactly as spelled in the source (never translate or transliterate names); put other spellings or readings (e.g. a Korean reading of an English name) in "aka". '
+        + 'Keep every line short. Prices must be consistent with '
         + '"meal" (one meal). 3-6 places that matter, 3-5 goods per shop/food place. needs: 3-5 (hunger/energy/hygiene/mood style; rate = drop per '
         + 'hour). Birthdays as 「M월 D일」 if known.';
     const ask2 = only ? `Rebuild ONLY these people: ${only.join(', ')}. Output {"people":[...]}` : 'Fill the whole rulebook.';

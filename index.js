@@ -11,10 +11,11 @@ import { CURRENT, currentApi, resetThink } from './src/rules/clsconn.js';
 import { parseStart, firstMessage } from './src/rules/firstmsg.js';
 import { drawFrame, drawChips, drawSheet, openSheet, closeSheet, openPast, bindOuter } from './src/ui/frame.js';
 import { sheet, toast, row, card } from './src/ui/kit.js';
+import { askCardName } from './src/ui/tabs.js';
 import { findAll } from './src/extra/find.js';
 import { initMascot, playMascotSound, MASCOT_SOUNDS } from './src/ui/mascot.js';
 import { mount as mountApi, announce } from './src/extra/api.js';
-import { backup, restore, toCard, fromCard, migrateOld, oldActive } from './src/extra/safe.js';
+import { backup, restore, toCard, fromCard, migrateOld, oldActive, wipeChat } from './src/extra/safe.js';
 import { initLog, reportSheet } from './src/extra/report.js';
 
 const perf = { turns: [], refresh: [] };
@@ -29,7 +30,7 @@ export function refresh(force = false) {
     cancelAnimationFrame(pending);
     pending = requestAnimationFrame(() => {
         const t0 = performance.now();
-        try { drawFrame(); drawChips(); if (document.getElementById('ml-full')) drawSheet(); inject(); announce(); } catch (e) { console.error(`[${TITLE}]`, e); }
+        try { drawFrame(); drawChips(); if (document.getElementById('ml-full')) drawSheet(); inject(); announce(); const r = !getMeta()?.off && fold(); if (r) askCardName(r); } catch (e) { console.error(`[${TITLE}]`, e); }
         perf.refresh.push(performance.now() - t0); if (perf.refresh.length > 50) perf.refresh.shift();
     });
 }
@@ -240,7 +241,7 @@ ${sel('pinBook', '장면 인물의 증상 한 줄 본편에', [['auto', '붙이�
         + `${sel('trAuto', '모르는 말', [['ai', '모아서 AI로 번역 (1회씩)'], ['off', '직접 고친 것만']])}
 <h4>저장 · 옮기기</h4><div class="ml-set-btns"><button class="menu_button" data-ml="perf">🏎 부하 재기</button><button class="menu_button" data-ml="report">📋 전체 복사</button><button class="menu_button" data-ml="doctor">🩺 `
         + `자가 진단</button><button class="menu_button" data-ml="backup">💾 백업</button><button class="menu_button" data-ml="restore">📂 불러오기</button>`
-        + `<button class="menu_button" data-ml="card">🃏 카드에 붙이기</button><button class="menu_button" data-ml="migrate">🍖 옛 미트볼 옮겨 오기</button></div>
+        + `<button class="menu_button" data-ml="card">🃏 카드에 붙이기</button><button class="menu_button" data-ml="migrate">🍖 옛 미트볼 옮겨 오기</button><button class="menu_button" data-ml="wipe">🗑 이 채팅 기록 전부 지우기</button></div>
 </div></div>`;
 }
 // 🔌 이 채팅에서만 끄기: HUD · 미니바 · 답 밑 칩 없음 · 본편에 아무것도 안 넣음 · 분류 모델 안 부름 (기록은 그대로 · 다시 켜면 이어짐)
@@ -277,6 +278,7 @@ function mountSettings() {
         if (a === 'report') return reportSheet();
         if (a === 'doctor') { const d = await import('./src/extra/doctor.js'); return d.doctor(app, perf); }
         if (a === 'cat') return ready() ? openSheet('cat') : toast('먼저 상태창을 만들어 주세요');
+        if (a === 'wipe') { if (await wipeChat()) { closeSheet(); document.getElementById('ml-hud')?.remove(); document.querySelectorAll('.ml-msg').forEach(x => x.remove()); refresh(true); } return; }
         if (a === 'backup') return backup();
         if (a === 'restore') return restore().then(() => refresh(true));
         if (a === 'card') return toCard();
