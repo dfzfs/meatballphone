@@ -16,8 +16,12 @@ function dict() {
     return d;
 }
 // 화면 글자 바꾸기: 통째로 같은 글 → 사전, 아니면 사전에 있는 말을 길이 순서로 바꿔 넣음 · 모르는 영어 덩어리는 모아 둠
+// 번역 규칙 (예: 「이름은 원어 발음 · 존댓말 없이 · 짧게」) — 이 채팅 것이 먼저, 없으면 모든 채팅
+export const trRules = () => (getMeta()?.trRules || settings().trRules || '').trim();
+// 👁 원문 보기: 잠깐 번역을 끄고 영어 그대로
+export const trOrig = () => !!getMeta()?.trOrig;
 export function applyTr(root) {
-    if (!trOn() || !root) return;
+    if (!trOn() || !root || trOrig()) return;
     const d = dict(), keys = Object.keys(d).sort((a, b) => b.length - a.length);
     const res = keys.map(k => [new RegExp(`\\b${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g'), d[k]]);
     const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: (n) => (n.parentElement?.closest('input, textarea, script, style, pre, .ml-tr-off') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT) });
@@ -38,7 +42,7 @@ export async function flush() {
     busy = true;
     const list = [...pending].slice(0, 60); list.forEach(x => pending.delete(x));
     try {
-        const g = glossList(); const raw = await ask(`Translate each item into natural Korean for a game status window (names: keep a natural Korean reading). Return JSON object {"original":"번역"} only.\n${g.length ? `Fixed: ${g.map(x => `${x.from}=${x.to}`).join(', ')}\n` : ''}${JSON.stringify(list)}`, 'You translate UI terms. JSON only.');
+        const g = glossList(), rules = trRules(); const raw = await ask(`Translate each item into natural Korean for a game status window (names: keep a natural Korean reading). Return JSON object {"original":"번역"} only.\n${rules ? `Rules: ${rules}\n` : ''}${g.length ? `Fixed: ${g.map(x => `${x.from}=${x.to}`).join(', ')}\n` : ''}${JSON.stringify(list)}`, 'You translate UI terms. JSON only.');
         const j = parseJSON(raw);
         if (j && typeof j === 'object') { const meta = getMeta(); meta.tr ??= {}; for (const [k, v] of Object.entries(j)) if (typeof v === 'string' && v.trim() && list.includes(k)) meta.tr[k] = v.trim().slice(0, 80); saveMeta(); }
     } catch (e) { console.warn('[미트볼 라이트] 번역 실패', e); }

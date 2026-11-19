@@ -297,3 +297,6 @@ body.ml-open #ml-mini{display:none}
 #ml-full .ml-pbar i { width: 2px; height: 12px; background: var(--fg); opacity: .4; }
 /* 💭 속마음 알림: 말풍선 모양 */
 .ml-toast.mind { border-radius: 16px 16px 16px 4px; max-width: min(420px, 86vw); font-style: italic; background: color-mix(in srgb, var(--love, #e85d8a) 10%, var(--bg, #fff)); border-color: color-mix(in srgb, var(--love, #e85d8a) 40%, transparent); }
+/* 🔍 검색: 칠하기 · 묶음 */
+.ml-bs .ml-fg { margin: 8px 0; display: flex; flex-wrap: wrap; }
+.ml-bs mark, #ml-full mark { background: color-mix(in srgb, var(--a, #f2b33d) 35%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
