@@ -10,6 +10,9 @@ export const NEED_SET = [
     { key: 'mood', name: '기분', icon: '🙂', start: 70, rate: 1 },
 ];
 // 단계와 경계 (모든 욕구 공통 · 설정집에서 바꿀 수 있음)
+// 게이지 (dev 수치 탭의 체력 · 마나 같은 것) · 능력치 (주사위 보정)
+export const GAUGE_SET = [{ key: 'hp', name: '체력', max: 100, start: 100, desc: '0이 되면 쓰러진다', color: '#e5484d' }];
+export const ATTR_SET = ['힘', '민첩', '지능', '매력', '감각'].map(name => ({ name, v: 0 }));
 export const NEED_STAGES = [{ at: 40, name: '정상' }, { at: 15, name: '주의' }, { at: 0, name: '위험' }];
 // 위험 단계의 본편 한 줄 (설정집 symptom이 없을 때)
 export const NEED_SYMPTOM = {
@@ -34,7 +37,7 @@ const acts = (v) => arr(v).map(x => (typeof x === 'string' ? (() => { const m = 
 export function emptyBook() {
     return {
         world: { genre: '', currency: '골드', meal: 10, weather: ['맑음', '흐림', '비'], start: { y: 2026, m: 3, d: 1, clock: 480 }, places: [] },
-        me: { name: '', needs: NEED_SET.map(n => ({ ...n })), traits: '' },
+        me: { name: '', needs: NEED_SET.map(n => ({ ...n })), gauges: GAUGE_SET.map(g => ({ ...g })), attrs: ATTR_SET.map(a => ({ ...a })), traits: '' },
         people: [],
         stages: REL_STAGES.map(s => ({ ...s })),
         src: { from: 'blank', at: 0, sig: {} },
@@ -97,6 +100,8 @@ export function normBook(b) {
     e.me.traits = line(me.traits);
     const needs = arr(me.needs).map(n => ({ key: safeKey(n?.key) || safeKey(n?.name), name: line(n?.name, 8), icon: line(n?.icon, 4) || '•', start: clamp(num(n?.start, 80), 0, 100), rate: clamp(num(n?.rate, 2), 0, 50), sym: n?.sym && typeof n.sym === 'object' ? { 주의: line(n.sym.주의, 40), 위험: line(n.sym.위험, 40) } : null })).filter(n => n.key && n.name).slice(0, 5);
     if (needs.length) e.me.needs = needs;
+    if (Array.isArray(me.gauges)) e.me.gauges = me.gauges.map(g => ({ key: safeKey(g?.key) || safeKey(g?.name), name: line(g?.name, 8), max: Math.max(1, num(g?.max, 100)), start: num(g?.start, num(g?.max, 100)), desc: line(g?.desc, 40), color: /^#[0-9a-f]{6}$/i.test(g?.color ?? '') ? g.color : '#e5484d' })).filter(g => g.key && g.name).slice(0, 4);
+    if (Array.isArray(me.attrs)) e.me.attrs = me.attrs.map(a => ({ name: line(a?.name, 6), v: clamp(num(a?.v), -5, 10) })).filter(a => a.name).slice(0, 6);
     e.people = arr(b.people).map(normPerson).filter(Boolean).slice(0, LIMIT.people);
     if (arr(b.stages).length >= 2) e.stages = arr(b.stages).map(s => ({ at: clamp(num(s?.at), 0, 100), name: line(s?.name, 10), call: line(s?.call, 20), act: line(s?.act, 40) })).filter(s => s.name).sort((a, b2) => a.at - b2.at);
     e.src = { from: line(b.src?.from, 10) || 'user', at: num(b.src?.at), sig: b.src?.sig && typeof b.src.sig === 'object' ? b.src.sig : {} };

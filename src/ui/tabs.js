@@ -2,7 +2,7 @@
 import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, MODS, slot, syncSwipe, msgKey, userName } from '../base/st.js';
 import { esc, fmt, signed, short, dateText, DAY, slotName, clamp, num } from '../base/util.js';
 import { row, card, chip, seg, bar, empty, btn, sheet, toast, putInput } from './kit.js';
-import { fold, derived, needStage, relStage, nextStage, diceMod, worldEvent, priceMul, whereNow } from '../rules/engine.js';
+import { fold, derived, needStage, relStage, nextStage, diceMod, diceParts, worldEvent, priceMul, whereNow } from '../rules/engine.js';
 import { layout, lineEdges, lineNodes, route, floorsOf, elevSVG } from './metro.js';
 import { personOf, placeOf, bookTokens, personTokens, normBook, PLACE_KINDS, LIMIT } from '../rules/book.js';
 import { moodTags, pickQuote, pickMusic } from '../rules/mood.js';
@@ -14,7 +14,7 @@ const stageKind = (st) => (st === '위험' ? 'bad' : st === '주의' ? 'mid' : '
 const money = (r, n) => `${fmt(n)} ${esc(r.book.world.currency)}`;
 
 export const TABS = [
-    { id: 'now', icon: '✨', name: '지금' }, { id: 'bag', icon: '👜', name: '소지품', mod: 'wallet' }, { id: 'rel', icon: '💞', name: '관계', mod: 'rel' },
+    { id: 'now', icon: '❤️', name: '수치' }, { id: 'dice', icon: '🎲', name: '주사위', mod: 'dice' }, { id: 'bag', icon: '👜', name: '소지품', mod: 'wallet' }, { id: 'rel', icon: '💞', name: '관계', mod: 'rel' },
     { id: 'map', icon: '🗺️', name: '지도', mod: 'map' }, { id: 'cal', icon: '📅', name: '달력', mod: 'calendar' }, { id: 'news', icon: '📰', name: '소식', mod: 'news' },
     { id: 'rec', icon: '📒', name: '기록', mod: 'record' }, { id: 'mind', icon: '💭', name: '속마음', mod: 'mind' }, { id: 'custom', icon: '🧩', name: '내 탭', mod: 'custom' },
     { id: 'book', icon: '📘', name: '설정집' }, { id: 'gauge', icon: '🎚️', name: '영향력' },
@@ -33,22 +33,74 @@ export function turnCard(r, i) {
     return card('이번 답에서 바뀐 것', fl.map(f => row({ icon: '⚠️', title: '확인 필요', sub: esc(f.text), value: btn('무시', 'flagok', `${i}:${f.i}`) })).join('') + ch.map(c => changeRow(c, i)).join(''));
 }
 
-// ───── 지금 ─────
+// ───── ❤️ 수치: 상태 딱지 · 욕구 · 게이지 · 능력치 · 이 장면 · 이번 답 (dev 수치 카드 기준 + 이유 · 다음 경계까지 · 회복 방법) ─────
+const STAGE_COLOR = { 정상: 'good', 주의: 'mid', 위험: 'bad' };
+function recoverOf(r, key) {
+    const { book, S } = r, out = [];
+    for (const it of S.items) if (num(it.fx?.[key]) > 0) out.push({ t: `👜 ${it.name} ${signed(it.fx[key])}`, say: `${it.name}을(를) 먹는다.` });
+    const here = placeOf(book, S.loc), mul = priceMul(S);
+    for (const g of here?.goods ?? []) if (num(g.fx?.[key]) > 0) out.push({ t: `🛒 ${g.name} ${signed(g.fx[key])} · ${Math.round(g.price * mul)}${book.world.currency}`, say: `${g.name} 하나 주세요.`, poor: S.cash < Math.round(g.price * mul) });
+    if (num(here?.rest?.[key]) > 0) out.push({ t: `🛏 ${here.name}에서 쉬기 ${signed(here.rest[key])}`, say: '잠깐 쉰다.' });
+    if (key === 'energy') out.push({ t: '😴 자기 · 시간당 +12', say: '잠을 잔다.' });
+    if (key === 'hygiene') { const b = book.world.places.find(q => q.kind === 'bath' || q.kind === 'home'); if (b) out.push({ t: `🫧 ${b.name}에서 씻기 +60`, say: b.name === S.loc ? '씻는다.' : `${b.name}(으)로 가서 씻는다.` }); }
+    if (key === 'hunger' && !out.length) { const f = book.world.places.find(q => q.kind === 'food'); if (f) out.push({ t: `🍜 ${f.name} · 식사 ≈${book.world.meal}${book.world.currency}`, say: `${f.name}(으)로 밥 먹으러 간다.` }); }
+    return out.slice(0, 3);
+}
+function needCard(r, n, last) {
+    const { S } = r, v = Math.round(S.needs[n.key] ?? 0), st = needStage(v), c = last.find(x => x.f === `need.${n.key}` && x.src !== 'time');
+    const nextAt = st === '정상' ? 40 : st === '주의' ? 15 : 0, hrs = n.rate > 0 && v > nextAt ? (v - nextAt) / n.rate : null;
+    const sym = derived(r.book, S).find(d => d.key === n.key);
+    const rec = st !== '정상' || v < 60 ? recoverOf(r, n.key) : [];
+    return `<div class="ml-gc ${STAGE_COLOR[st]}"><div class="ml-gc-h"><span>${n.icon}</span><b>${esc(n.name)}</b><span class="ml-pill ${STAGE_COLOR[st] === 'good' ? 'good' : STAGE_COLOR[st] === 'bad' ? 'bad' : ''}">${st}</span>${c ? `<span class="ml-why ${c.to < c.from ? 'neg' : 'pos'}">${signed(c.to - c.from)} · ${esc(c.why)}</span>` : ''}<em>${v}<small>/100</small></em></div>
+        <div class="ml-gbar"><b style="width:${v}%"></b><i style="left:40%"></i><i style="left:15%"></i></div>
+        <div class="ml-gc-f">${sym ? `<span>⚠ ${esc(sym.text)}${sym.stage === '위험' ? ` · 🎲${sym.dice}` : ''}</span>` : ''}${hrs != null && hrs < 48 ? `<span class="dim">${st === '위험' ? '' : `${st === '정상' ? '주의' : '위험'}까지 약 ${hrs < 1 ? `${Math.round(hrs * 60)}분` : `${Math.round(hrs)}시간`}`}</span>` : ''}<span class="dim">−${n.rate}/시간</span></div>
+        ${rec.length ? `<div class="ml-gc-r">${rec.map(x => btn(esc(x.t), 'say', x.say, `xs${x.poor ? ' poor' : ''}`)).join('')}</div>` : ''}</div>`;
+}
+function gaugeCard(r, g, last) {
+    const { S } = r, v = Math.round(S.gauges[g.key] ?? g.start), pct = Math.round(v / g.max * 100), c = last.find(x => x.f === `gauge.${g.key}`);
+    return `<div class="ml-gc"><div class="ml-gc-h"><b>${esc(g.name)}</b>${c ? `<span class="ml-why ${c.to < c.from ? 'neg' : 'pos'}">${signed(c.to - c.from)} · ${esc(c.why)}</span>` : ''}<em>${v}<small>/${g.max}</small></em></div>
+        <div class="ml-gbar" style="--gc:${g.color}"><b style="width:${pct}%;background:var(--gc)"></b></div>
+        <div class="ml-gc-f"><span class="ml-steps2">${[-10, -1, 1, 10].map(d => `<button class="ml-mini2" data-act="gstep" data-v="${esc(g.name)}:${d}">${d > 0 ? '+' : '−'}${Math.abs(d)}</button>`).join('')}</span><span class="dim">${esc(g.desc)}</span></div></div>`;
+}
 function now(r) {
     const { S, book } = r, meta = getMeta(), li = lastAI(), last = r.changes[li] ?? [];
     const dz = derived(book, S);
-    const tags = [...S.status.map(s => chip(`${s.src === 'fate' ? '🔮' : ''}${esc(s.name)}${s.until ? ` · ${Math.max(1, Math.round((s.until - S.t) / 60))}h` : ''}${s.dice ? ` · 🎲${signed(s.dice)}` : ''}`, s.kind === 'good' ? 'good' : s.kind === 'bad' ? 'bad' : 'mid')),
+    const tags = [...S.status.map(s => chip(`${s.src === 'fate' ? '🔮 ' : ''}${esc(s.name)}${s.until ? ` · ${Math.max(1, Math.round((s.until - S.t) / 60))}h` : ''}${s.dice ? ` · 🎲${signed(s.dice)}` : ''}`, s.kind === 'good' ? 'good' : s.kind === 'bad' ? 'bad' : 'mid')),
         ...dz.filter(d => d.stage === '위험').map(d => chip(`${d.icon} ${esc(d.name)} 위험 · 🎲${d.dice}`, 'bad'))];
-    let h = tags.length ? `<div class="ml-chips">${tags.join('')}</div>` : '';
-    if (modOn('stats')) h += card('수치', book.me.needs.map(n => { const v = Math.round(S.needs[n.key] ?? 0), st = needStage(v); const c = last.find(x => x.f === `need.${n.key}` && x.src !== 'time'); return row({ icon: n.icon, title: esc(n.name), sub: `${st}${c ? ` · ${signed(c.to - c.from)} ${esc(c.why)}` : ''}`, value: `${bar(v, stageKind(st))}<b class="ml-num">${v}</b>` }); }).join(''));
-    const tg = moodTags(r, last);
-    const side = [];
-    if (modOn('music')) { const m = S.bgm ? { label: S.bgm, query: S.bgm, why: '답에 나온 곡' } : pickMusic(tg, settings().musicTaste); side.push(row({ icon: '🎵', title: esc(m.label), sub: `지금 공기 · ${esc(m.why)}`, act: 'music', data: m.query, more: true })); }
-    if (modOn('quote')) { const q = pickQuote(tg, meta.recent?.quote ?? [], S.turn); if (q) side.push(row({ icon: '📜', title: esc(q.text), sub: `${esc(q.src)}`, act: 'quote', data: `${q.mean}\n— ${q.src}`, more: true })); }
-    if (side.length) h += card('이 장면', side.join(''));
+    let h = `<h4 class="ml-h4">상태 딱지</h4><div class="ml-chips">${tags.join('') || '<span class="ml-sub">없음</span>'}</div>`;
+    const tg = moodTags(r, last), side = [];
+    if (modOn('music')) { const m = S.bgm ? { label: S.bgm, query: S.bgm, why: '답에 나온 곡' } : pickMusic(tg, settings().musicTaste); side.push(`<div class="ml-scene tap" data-act="music" data-v="${esc(m.query)}"><i>🎵</i><span><b>${esc(m.label)}</b><small>${esc(tg.map(t => MOOD_KO[t] ?? t).slice(0, 3).join(' · '))}</small></span><em>▶</em></div>`); }
+    if (modOn('quote')) { const q = pickQuote(tg, meta.recent?.quote ?? [], S.turn); if (q) side.push(`<div class="ml-scene tap" data-act="quote" data-v="${esc(`${q.text}\n\n${q.mean}\n— ${q.src}`)}"><i>📜</i><span><b>${esc(q.text)}</b><small>${esc(q.src)}</small></span><em>ⓘ</em></div>`); }
+    if (side.length) h += `<h4 class="ml-h4">이 장면</h4><div class="ml-scenes">${side.join('')}</div>`;
+    if (modOn('stats')) {
+        h += `<h4 class="ml-h4">욕구 <span>달력 시간으로 줄어요</span></h4><div class="ml-gcs">${book.me.needs.map(n => needCard(r, n, last)).join('')}</div>`;
+        if (book.me.gauges.length) h += `<h4 class="ml-h4">게이지</h4><div class="ml-gcs">${book.me.gauges.map(g => gaugeCard(r, g, last)).join('')}</div>`;
+        if (book.me.attrs.length) h += `<h4 class="ml-h4">능력치 <span>주사위 보정</span></h4><div class="ml-attrs">${book.me.attrs.map(a => { const gear = S.items.filter(it => it.worn && num(it.fx?.[a.name])).reduce((x, it) => x + num(it.fx[a.name]), 0); return `<div class="ml-attr tap" data-act="rollattr" data-v="${esc(a.name)}"><small>${esc(a.name)}</small><b>${signed(S.attrs[a.name] ?? 0)}</b>${gear ? `<em>👕${signed(gear)}</em>` : ''}</div>`; }).join('')}</div>`;
+    }
     h += turnCard(r, li);
     if (S.with.length && modOn('rel')) h += `<h4 class="ml-h4">같이 있는 사람</h4><div class="ml-rcs">${S.with.map(n => relCard(r, n)).join('')}</div>`;
-    return h || empty('아직 바뀐 게 없어요.');
+    return h;
+}
+const MOOD_KO = { love: '설렘', sad: '울적', tired: '나른함', hungry: '허기', rain: '비', conflict: '갈등', jealous: '질투', festive: '들뜸', friend: '함께', hope: '희망', money: '빠듯함', bad: '불운', good: '행운', calm: '잔잔함' };
+// ───── 🎲 주사위: 능력치 + 보정 내역 → d20 · 결과는 입력창에 (이야기에 남게) ─────
+const DCS = [['쉬움', 8], ['보통', 12], ['어려움', 15], ['매우 어려움', 18], ['극한', 22]];
+let diceSel = { attr: '', dc: 12 };
+export const setDice = (k, v) => { diceSel[k] = v; };
+function dice(r) {
+    const { book, S } = r, attrs = book.me.attrs.map(a => a.name);
+    if (!diceSel.attr && attrs.length) diceSel.attr = attrs[0];
+    const P = diceParts(book, S, diceSel.attr), on = level('dice') >= 3 || level('stats') >= 3;
+    const mod = P.filter(x => on || x.why === diceSel.attr || x.why.endsWith('착용')).reduce((a, x) => a + x.n, 0);
+    let ok = 1; for (let k = 2; k <= 19; k++) if (k + mod >= diceSel.dc) ok++;
+    const req = S.rolls.slice(-3).reverse();
+    let h = req.length ? `<h4 class="ml-h4">이야기에서 요청한 판정</h4>${req.map(q => `<div class="ml-rl tap" data-act="jump" data-v="${q.i}"><i>📣</i>${esc(q.what)}</div>`).join('')}` : '';
+    h += `<h4 class="ml-h4">능력치</h4><div class="ml-chips">${attrs.map(a => `<button class="ml-btn xs${diceSel.attr === a ? ' on' : ''}" data-act="dset" data-v="attr:${esc(a)}">${esc(a)} ${signed(S.attrs[a] ?? 0)}</button>`).join('')}</div>`;
+    h += `<h4 class="ml-h4">난이도</h4><div class="ml-chips">${DCS.map(([n, v]) => `<button class="ml-btn xs${diceSel.dc === v ? ' on' : ''}" data-act="dset" data-v="dc:${v}">${n} ${v}</button>`).join('')}</div>`;
+    h += `<h4 class="ml-h4">보정 내역 ${on ? '' : '<span>상태 보정은 영향력 3부터 적용</span>'}</h4><div class="ml-rc">${P.length ? P.map(x => `<div class="ml-rl${on || x.why === diceSel.attr || x.why.endsWith('착용') ? '' : ' dim'}"><i>${x.fate ? '🔮' : x.n < 0 ? '⬇️' : '⬆️'}</i>${esc(x.why)} <b class="${x.n < 0 ? 'neg' : 'pos'}">${signed(x.n)}</b></div>`).join('') : '<div class="ml-rl dim"><i>·</i>보정 없음</div>'}<div class="ml-rl"><i>🎯</i>d20 ${signed(mod)} ≥ ${diceSel.dc} <span>성공 확률 ${Math.round(ok / 20 * 100)}%</span></div></div>`;
+    h += `<div class="ml-acts">${btn(`🎲 굴리기 (${esc(diceSel.attr || '판정')})`, 'roll', String(mod), 'main')}</div>`;
+    const hist = getMeta().recent?.rolls ?? [];
+    if (hist.length) h += `<h4 class="ml-h4">최근 굴림</h4>${hist.map(x => `<div class="ml-rl"><i>${x.res === '대성공' || x.res === '성공' ? '✅' : '❌'}</i>${esc(x.text)}</div>`).join('')}`;
+    return h;
 }
 // ───── 소지품 · 재산 (+ 상점 미니 선택지) ─────
 function bag(r) {
@@ -258,7 +310,7 @@ function gauge() {
 }
 const slider = (id, v, name = '전체') => { const c = levelCost(v); return `<div class="ml-gauge"><div class="ml-gauge-h"><b>${esc(name)}</b><span class="ml-pill ${v >= 3 ? 'love' : ''}">${v} · ${LEVELS[v].name}</span><small>주입 ≈${c.tok}토큰 · 추가 호출 ${c.calls}회</small></div><input type="range" class="ml-range" min="0" max="4" step="1" value="${v}" data-gauge="${id}"><div class="ml-gauge-t">${LEVELS.map(l => `<span class="${l.n === v ? 'on' : ''}">${l.name}</span>`).join('')}</div></div>`; };
 
-export const RENDER = { now, bag, rel, map, cal, news, rec, mind, custom, book, gauge };
+export const RENDER = { now, dice, bag, rel, map, cal, news, rec, mind, custom, book, gauge };
 
 // ───── 누르기 ─────
 export async function onAct(act, v, el) {
@@ -269,6 +321,16 @@ export async function onAct(act, v, el) {
         case 'quote': { sheet('한 구절', `<p class="ml-quote">${esc(v).replace(/\n/g, '<br>')}</p>`); const t = el?.querySelector('b')?.textContent; if (t) { meta.recent.quote = [t, ...(meta.recent.quote ?? [])].slice(0, 8); saveMeta(); } return; }
         case 'person': personSheet(r, v); return;
         case 'mapsel': setMapSel(v); app.refresh?.(); return;
+        case 'dset': { const [k, x] = v.split(':'); setDice(k, k === 'dc' ? Number(x) : x); app.refresh?.(); return; }
+        case 'rollattr': setDice('attr', v); app.openSheet?.('dice'); return;
+        case 'roll': {
+            const mod = Number(v), d = 1 + Math.floor(Math.random() * 20), tot = d + mod;
+            const res = d === 20 ? '대성공' : d === 1 ? '대실패' : tot >= diceSel.dc ? '성공' : '실패';
+            const text = `(🎲 ${diceSel.attr} 판정: d20 ${d}${mod ? ` ${signed(mod)}` : ''} = ${tot} vs ${diceSel.dc} → ${res})`;
+            meta.recent.rolls = [{ text, res }, ...(meta.recent.rolls ?? [])].slice(0, 5); saveMeta();
+            toast(`${res}! ${d}${mod ? signed(mod) : ''} = ${tot}`, res.includes('성공') ? 'good' : 'bad'); putInput(text); app.refresh?.(); return;
+        }
+        case 'gstep': { const [g, d] = v.split(':'); hand(`${g}: ${Number(d) > 0 ? '+' : ''}${d}`, '직접'); return; }
         case 'jump': app.jump?.(Number(v)); return;
         case 'tab-book': app.openSheet?.('book'); return;
         case 'undo': { const [i, j] = v.split(':').map(Number); const m = ctx().chat[i], sl = slot(m, true); if (!sl.ops && j < 1000) sl.ops = (await import('../rules/tags.js')).readOps(m.mes); sl.undo = [...new Set([...(sl.undo ?? []), j])]; sl.rev = (sl.rev ?? 0) + 1; syncSwipe(m); ctx().saveChatDebounced?.(); app.refresh?.(); toast('되돌렸어요'); return; }

@@ -12,6 +12,7 @@ export function initState(book) {
     const S = {
         t: w.start.clock, loc: '', with: [], weather: w.weather[0] ?? '',
         needs: Object.fromEntries(book.me.needs.map(n => [n.key, n.start])),
+        gauges: Object.fromEntries(book.me.gauges.map(g => [g.key, g.start])), attrs: Object.fromEntries(book.me.attrs.map(a => [a.name, a.v])),
         cash: 0, items: [], status: [], promises: [], news: [], rel: {},
         mind: {}, watch: {}, cell: {}, bgm: '', custom: {}, turn: 0, rolls: [],
     };
@@ -45,6 +46,13 @@ function makeCtx(book, S, ch, flags) {
         const from = S.needs[key] ?? 0, to = clamp(Math.round(from + d), 0, 100);
         if (to === from) return;
         S.needs[key] = to; ch.push({ f: `need.${key}`, label: nd.name, icon: nd.icon, from, to, why, src, sure, i });
+    };
+    const gauge = (raw) => { const n = norm(raw); return book.me.gauges.find(x => norm(x.key) === n || norm(x.name) === n) ?? null; };
+    const setGauge = (key, d, why, src, sure, i) => {
+        const g = book.me.gauges.find(x => x.key === key); if (!g) return;
+        const from = S.gauges[key] ?? g.start, to = clamp(Math.round(from + d), 0, g.max); if (to === from) return;
+        S.gauges[key] = to; ch.push({ f: `gauge.${key}`, label: g.name, icon: '❤️', from, to, why, src, sure, i, kind: to < from ? 'bad' : 'good' });
+        if (to === 0 && from > 0) ch.push({ f: `gauge.${key}.zero`, label: g.name, icon: '⚠️', from: '', to: '0', why: g.desc || '바닥남', src: 'auto', sure: true, i, cross: true, kind: 'bad' });
     };
     const setCash = (d, why, src, sure, i) => { const from = S.cash, to = Math.round((from + d) * 100) / 100; S.cash = to; ch.push({ f: 'cash', label: book.world.currency, icon: '💰', from, to, why, src, sure, i }); };
     const findItem = (raw) => { const n = norm(raw); const hit = S.items.find(x => norm(x.name) === n); if (hit) return hit; const mm = match(raw, S.items); return mm ? S.items.find(x => x.name === mm.name) ?? null : null; };
@@ -91,14 +99,15 @@ function makeCtx(book, S, ch, flags) {
         // 기간이 끝난 딱지는 저절로 풀린다
         for (const st of [...S.status]) if (st.until != null && st.until <= S.t) { S.status.splice(S.status.indexOf(st), 1); ch.push({ f: `status.${st.name}`, label: st.name, icon: st.src === 'fate' ? '🔮' : '🏷️', from: '있음', to: '풀림', why: '기간 끝', src: 'auto', sure: true, i, kind: st.kind }); }
     };
-    return { people, who, need, setNeed, setCash, findItem, addItem, rel, setRel, pass, flag: (text, i) => flags.push({ text, i }) };
+    return { people, who, need, setNeed, gauge, setGauge, setCash, findItem, addItem, rel, setRel, pass, flag: (text, i) => flags.push({ text, i }) };
 }
 
 const DEF = { meal: 35, snack: 15, sleepPerH: 12, wash: 60, restPerH: 10, workPerH: 6, giftLike: 6, giftHate: -4, gift: 2, up: 3, down: -4 };
 const isSnack = (t) => /간식|빵|과자|사탕|snack|cookie|bread|커피|coffee|음료|차\b/i.test(t);
 
 export function applyOp(book, S, x, k, v, i, src, ch) {
-    const kind = kindOf(k, book.me.needs.flatMap(n => [n.name, n.key]));
+    const kind = kindOf(k, [...book.me.needs.flatMap(n => [n.name, n.key]), ...book.me.gauges.flatMap(g => [g.name, g.key])]);
+    if (kind === 'skip' && /^(attr|능력치|능력)$/i.test(String(k).trim())) { const m = /^(.*?)\s*([+\-−]\s*\d+)/.exec(v); if (m && S.attrs[m[1].trim()] != null) { const d = parseDelta(m[2]).n, from = S.attrs[m[1].trim()]; S.attrs[m[1].trim()] = clamp(from + d, -5, 10); ch.push({ f: `attr.${m[1].trim()}`, label: m[1].trim(), icon: '💪', from, to: from + d, why: short(parts(v)[1] || '성장', 20), src, sure: true, i }); } return; }
     const [a = '', b = '', c = ''] = parts(v);
     const why = (t) => short(t || v, 24);
     switch (kind) {
@@ -184,6 +193,8 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
         case 'need': {
             // 「허기: -10」 또는 옛 「stat: 체력 -3」
             const m = /^(.*?)\s*([+\-−]?\s*\d+)\s*(?:\|\s*(.*))?$/.exec(v);
+            const gg = x.gauge(k) ?? (m && x.gauge(m[1]));
+            if (gg && !x.need(k)) { const dd = parseDelta(x.gauge(k) ? a : m?.[2]); if (dd) x.setGauge(gg.key, dd.rel ? dd.n : dd.n - (S.gauges[gg.key] ?? 0), why(x.gauge(k) ? b : m?.[3]) || '변화', src, true, i); return; }
             const nd = x.need(k) ?? (m && x.need(m[1])); if (!nd) return;
             const dd = parseDelta(x.need(k) ? a : m?.[2]); if (!dd) return;
             x.setNeed(nd.key, dd.rel ? dd.n : dd.n - S.needs[nd.key], why(x.need(k) ? b : m?.[3]) || '변화', src, true, i); return;
@@ -193,7 +204,7 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             const dm = /([+\-−]\s*\d)/.exec(`${a} ${c}`), sp = spanOf(b) ?? (kind === 'fate' ? DAY * 3 : null);
             const name = short(a.replace(/[+\-−]\s*\d+/, '').trim(), 12); if (!name) return;
             const bad = /저주|감기|숙취|부상|피로|병|curse|sick|hurt|불운|탈진|우울/i.test(a) || (dm && /[-−]/.test(dm[1]));
-            addStatus(S, { name, kind: kind === 'fate' ? (bad ? 'bad' : 'good') : (bad ? 'bad' : /축복|행운|기쁨|bless|lucky/i.test(a) ? 'good' : 'neutral'), until: sp ? S.t + sp : null, dice: dm ? Number(dm[1].replace(/\s/g, '').replace('−', '-')) : (bad ? -1 : 0), src: kind === 'fate' ? 'fate' : src }, ch, i, kind === 'fate' ? '운명' : why(c));
+            addStatus(S, { name, kind: kind === 'fate' ? (bad ? 'bad' : 'good') : (bad ? 'bad' : /축복|행운|기쁨|bless|lucky/i.test(a) ? 'good' : 'neutral'), until: sp ? S.t + sp : null, dice: dm ? Number(dm[1].replace(/\s/g, '').replace('−', '-')) : (bad ? -1 : 0), src: kind === 'fate' ? 'fate' : src }, ch, i, kind === 'fate' ? '운명' : (c ? short(c, 24) : '상태'));
             return;
         }
         case 'roll': S.rolls.push({ t: S.t, what: short(v, 40), i }); return;
@@ -240,6 +251,14 @@ export function derived(book, S) {
     }
     return out;
 }
+export function diceParts(book, S, attr = '') {
+    const out = [];
+    if (attr && S.attrs[attr]) out.push({ why: `${attr}`, n: S.attrs[attr] });
+    for (const d of derived(book, S)) if (d.stage === '위험') out.push({ why: `${d.name} 위험`, n: d.dice });
+    for (const st of S.status) if (num(st.dice)) out.push({ why: st.name, n: num(st.dice), fate: st.src === 'fate' });
+    for (const it of S.items) if (it.worn && attr && num(it.fx?.[attr])) out.push({ why: `${it.name} 착용`, n: num(it.fx[attr]) });
+    return out;
+}
 export const diceMod = (book, S) => derived(book, S).reduce((a, d) => a + (d.stage === '위험' ? d.dice : 0), 0) + S.status.reduce((a, s) => a + num(s.dice), 0);
 
 // ───── 접기 (캐시: 메시지마다 서명이 같으면 다시 계산하지 않음) ─────
@@ -283,6 +302,7 @@ export function startState(meta) {
     if (Array.isArray(st.items)) S.items = st.items.map(it => ({ name: safeKey(it.name), n: Math.max(1, num(it.n, 1)), worn: !!it.worn, fx: it.fx ?? {} })).filter(it => it.name);
     if (st.loc) S.loc = st.loc;
     if (st.needs) for (const [k, v] of Object.entries(st.needs)) if (k in S.needs) S.needs[k] = clamp(num(v), 0, 100);
+    if (st.gauges) for (const [k, v] of Object.entries(st.gauges)) if (k in S.gauges) S.gauges[k] = num(v);
     if (st.rel) for (const [k, v] of Object.entries(st.rel)) if (S.rel[k]) Object.assign(S.rel[k], { aff: num(v.aff, S.rel[k].aff), trust: num(v.trust, S.rel[k].trust) });
     return S;
 }

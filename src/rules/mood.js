@@ -19,7 +19,10 @@ export function moodTags(r, last = []) {
 }
 // 한 구절: 태그가 많이 겹치는 것 · 최근에 쓴 것 피함 · 같은 턴에는 같은 것
 export function pickQuote(tags, recent = [], turn = 0) {
-    const score = (q) => q.tags.filter(t => tags.includes(t)).length - (recent.includes(q.text) ? 5 : 0);
+    // 힘든 쪽(지침 · 울적 · 불운 · 갈등)이 있으면 그쪽을 먼저 — 위험한데 들뜬 구절이 뜨지 않게
+    const HEAVY = ['tired', 'sad', 'bad', 'conflict', 'hungry', 'jealous'];
+    const heavy = tags.some(t => HEAVY.includes(t));
+    const score = (q) => q.tags.reduce((a, t) => a + (tags.includes(t) ? (HEAVY.includes(t) ? 2 : 1) : 0), 0) - (heavy && q.tags.some(t => ['festive', 'good'].includes(t)) ? 3 : 0) - (recent.includes(q.text) ? 5 : 0);
     const best = Math.max(...QUOTES.map(score));
     const pool = QUOTES.filter(q => score(q) === best);
     return pool[parseInt(hash(`${turn}`), 36) % pool.length];
