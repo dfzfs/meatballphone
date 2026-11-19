@@ -10,6 +10,7 @@ import { level } from '../rules/inject.js';
 import { upcoming, lastAI, turnCard, getDice } from './tabs.js';
 import { btn } from './kit.js';
 import { mascot, MASCOTS, MEATCON, mascotUrl, MASCOT_SOUNDS, PACK, packOn } from './mascot.js';
+import { extApps, extOf, catalog, loadCatalog, hasApp, waitsReload } from '../extra/apps.js';
 
 // 앱 목록 — mod가 있으면 받기 · 지우기 가능, sys는 늘 있음
 export const APPS = [
@@ -31,8 +32,8 @@ export const APPS = [
     { id: 'look', icon: '🎨', name: '꾸미기', sys: true, c: '#a0c4ff' },
     { id: 'market', icon: '🛍️', name: '마켓', sys: true, c: '#ff9f1c' },
 ];
-export const appOf = (id) => APPS.find(a => a.id === id);
-export const installed = (a) => a.sys || modOn(a.mod);
+export const appOf = (id) => (String(id).startsWith('x:') ? extOf(id) : APPS.find(a => a.id === id));
+export const installed = (a) => a.sys || a.ext || modOn(a.mod);
 const Wx = (title, body, open = '', extra = '') => `<section class="ml-w"${open ? ` data-act="open" data-v="${open}"` : ''}><h4>${title}${open ? '<i>›</i>' : ''}${extra}</h4>${body}</section>`;
 
 // 🎲 d20 그림 (위젯 · 주사위 앱 공용)
@@ -126,6 +127,7 @@ export function homeCfg() {
     if (!Array.isArray(H.hidden)) H.hidden = [...(s.partsOff?.home ?? [])].filter(id => W_NAMES[id]); // 예전 「보일 것」을 옮겨 옴
     if (!Array.isArray(H.apps)) H.apps = [];
     if (!Array.isArray(H.dock)) H.dock = [...DEF_DOCK];
+    if (!Array.isArray(H.extOff)) H.extOff = []; // 홈에서 숨긴 기타 앱
     return H;
 }
 let editing = false;
@@ -144,8 +146,9 @@ function holder(r, P) {
         h += `<div class="ml-wslot${off ? ' off' : ''}" data-w="${id}">${editing ? `<button class="ml-wx" data-act="w-toggle" data-v="${id}" title="${off ? '다시 보이기' : '숨기기'}">${off ? '＋' : '✕'}</button>` : ''}`
             + `${body || `<section class="ml-w ghost"><h4>${W_NAMES[id]}</h4><small>지금은 보일 내용이 없어요</small></section>`}</div>`;
     }
-    const all = APPS.filter(installed), rank = (a) => { const k = H.apps.indexOf(a.id); return k < 0 ? 999 + APPS.indexOf(a) : k; };
-    const dock = H.dock.map(appOf).filter(a => a && installed(a)).slice(0, 4), inDock = new Set(dock.map(a => a.id));
+    const all = [...APPS.filter(installed), ...extApps().filter(a => !H.extOff.includes(a.appId))];
+    const rank = (a) => { const k = H.apps.indexOf(a.id); return k < 0 ? 999 + (a.ext ? APPS.length : APPS.indexOf(a)) : k; };
+    const dock = H.dock.map(appOf).filter(a => a && installed(a) && !(a.ext && H.extOff.includes(a.appId))).slice(0, 4), inDock = new Set(dock.map(a => a.id));
     h += `<div class="ml-apps" data-zone="apps">${all.filter(a => !inDock.has(a.id)).sort((a, b) => rank(a) - rank(b)).map(a => appIcon(a, bd)).join('')}</div>`;
     if (dock.length || editing) h += `<div class="ml-dock" data-zone="dock">${dock.map(a => appIcon(a, bd)).join('') || '<small>앱을 여기로 끌어 오세요 (4개까지)</small>'}</div>`;
     return h;
@@ -184,7 +187,29 @@ export function setupView(r) {
         + `<h4 class="ml-h4">🔒 보조</h4><div class="ml-mks">${apps.filter(a => a.to !== 'main').map(row).join('')}</div>`
         + `<div class="ml-acts">${btn('▶ 시작', 'setup-start', '', 'main')}</div>`;
 }
+// 🛍 마켓 탭: 기본 앱 · 기타 앱(밖에서 만든 미트볼폰 앱)
+let mktTab = 'base';
+export const setMktTab = (v) => { mktTab = v === 'ext' ? 'ext' : 'base'; };
 export function market() {
+    const tabs = `<div class="ml-seg ml-mkt-tabs" data-seg="mkt">${[['base', '📱 기본 앱'], ['ext', `🧩 기타 앱${extApps().length ? ` ${extApps().length}` : ''}`]].map(([v, l]) => `<button class="${mktTab === v ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div>`;
+    return tabs + (mktTab === 'ext' ? marketExt() : marketBase());
+}
+function marketExt() {
+    const H = homeCfg(), mine = extApps();
+    if (!catalog()) loadCatalog();
+    const row = (a) => { const off = H.extOff.includes(a.appId); return `<div class="ml-mk"><i style="--c:${a.c}">${a.icon}</i><span><b>${esc(a.name)}</b>`
+        + `<small>${esc(a.desc || '밖에서 깐 앱')}</small><small class="ml-to aux">🧩 ${a.version ? `v${esc(a.version)} · ` : ''}깔려 있음</small></span>`
+        + `${btn('열기', 'open', a.id, 'xs')}<button class="ml-mini" data-act="x-home" data-v="${esc(a.appId)}" title="${off ? '홈에 보이기' : '홈에서 숨기기'}">${off ? '👁‍🗨' : '🙈'}</button></div>`; };
+    const cat = (catalog() ?? []).filter(x => !hasApp(x.id));
+    const crow = (x) => `<div class="ml-mk"><i style="--c:#8d99ae">${x.icon}</i><span><b>${esc(x.name)}</b><small>${esc(x.desc)}</small>`
+        + `<small class="ml-to aux">${x.by ? `만든 사람 ${esc(x.by)} · ` : ''}<a href="${esc(x.repo)}" target="_blank" rel="noopener">저장소</a></small></span>`
+        + `${waitsReload(x.id) ? '<button class="ml-btn xs main" data-act="x-reload">새로 고침</button>' : `<button class="ml-btn xs main ml-get" data-act="x-install" data-v="${esc(x.id)}">설치</button>`}</div>`;
+    return `<div class="ml-hint">미트볼폰에 맞게 만든 앱이에요. 깔면 홈에 아이콘이 생겨요. 지우기는 실리태번 › 확장 관리에서 해요.</div>`
+        + `<h4 class="ml-h4">🧩 깔린 앱</h4><div class="ml-mks">${mine.length ? mine.map(row).join('') : '<small class="ml-empty">아직 깔린 기타 앱이 없어요</small>'}</div>`
+        + `<h4 class="ml-h4">✅ 받을 수 있는 앱 <span>미트볼폰에서 코드를 확인한 앱만 올라와요</span></h4><div class="ml-mks">`
+        + `${!catalog() ? '<small class="ml-empty">목록 불러오는 중…</small>' : cat.length ? cat.map(crow).join('') : '<small class="ml-empty">새로 받을 앱이 없어요</small>'}</div>`;
+}
+function marketBase() {
     const row = (a) => { const on = installed(a); return `<div class="ml-mk"><i style="--c:${a.c}">${a.icon}</i><span><b>${a.name}</b><small>${esc(a.desc)}`
         + `</small>${a.to === 'main' ? `<small class="ml-to main">📤 본편: ${esc(a.main)}</small>` : '<small class="ml-to aux">🔒 상태창 안에서만</small>'}`
         + `</span>${on ? `${btn('열기', 'open', a.id, 'xs')}<button class="ml-mini" data-act="uninstall" data-v="${a.id}" title="지우기">🗑</button>` : `<button class="ml-btn xs main ml-get" data-act="install" data-v="${a.id}">받기</button>`}`
@@ -294,6 +319,7 @@ export function look() {
         <div class="ml-walls">${WALLS.map(([id, n, bg]) => `<button class="ml-wall${(L.wall ?? '') === id ? ' on' : ''}" data-act="look-set" data-v="wall|${id}" style="background:${bg}"><span>${n}</span></button>`).join('')}`
         + `<label class="ml-wall up${L.wall === 'img' ? ' on' : ''}"${L.wallImg ? ` style="background:url('${L.wallImg}') center/cover"` : ''}><span>🖼 내 사진</span><input type="file" accept="image/*" data-wallfile hidden></label></div>
         <div class="ml-card"><div class="ml-gauge"><div class="ml-gauge-h"><b>배경 어둡게</b><span class="ml-pill">${L.wallDim ?? 0}%</span></div><input type="range" class="ml-range" min="0" max="60" step="5" value="${L.wallDim ?? 0}" data-look="wallDim"></div></div>
+        <h4 class="ml-h4">창 자리 <span>노트북 · PC만 · 휴대폰은 늘 꽉 차요</span></h4><div class="ml-picks">${[['left', '◧ 왼쪽'], ['right', '◨ 오른쪽']].map(([v, n]) => `<button class="ml-btn xs${(L.side ?? 'left') === v ? ' on' : ''}" data-act="look-set" data-v="side|${v}">${n}</button>`).join('')}</div>
         <h4 class="ml-h4">앱 아이콘</h4><div class="ml-picks">${[['color', '컬러'], ['tone', '배경 톤에 맞춤']].map(([v, n]) => `<button class="ml-btn xs${(L.icons ?? 'color') === v ? ' on' : ''}" data-act="look-set" data-v="icons|${v}">${n}</button>`).join('')}</div>
         <div class="ml-acts">${btn('기본으로', 'look-reset', '', 'xs')}${btn('✏️ 홈 편집', 'home-edit', '', 'xs')}</div>`;
 }

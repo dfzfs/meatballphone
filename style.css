@@ -107,7 +107,9 @@ body.ml-open #ml-mini{display:none}
 #ml-full .ml-body{max-width:none;padding:12px}
 #ml-full .ml-top{padding:8px 12px}
 }
-@media (min-width:900px){}
+@media (min-width:900px){
+#ml-full.left{inset:0 auto 0 0;border-left:0;border-right:var(--bd) solid var(--line);box-shadow:8px 0 24px rgb(0 0 0/.12)}
+}
 /* 영향력 게이지: 이름 줄 위 · 막대 아래 · 단계 이름 눈금 (실리태번 기본 슬라이더 규칙을 이김) */
 .ml-gauge{padding:8px 12px;border-bottom:1px solid var(--line)}.ml-gauge:last-child{border-bottom:0}
 .ml-gauge-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.ml-gauge-h b{font-weight:600}.ml-gauge-h small{margin-left:auto;font-size:11px;color:var(--sub)}
@@ -402,3 +404,19 @@ a.ml-play,a.ml-scene{text-decoration:none;color:inherit}
 #ml-full.home.dark-wall .ml-status{color:#fff}#ml-full.home.dark-wall .ml-status .ml-ib{color:#fff}#ml-full.home.dark-wall .ml-app span{color:#fff;text-shadow:0 1px 3px rgb(0 0 0/.6)}
 .ml-star{border:0;background:none;cursor:pointer;font-size:16px;line-height:1;padding:2px 4px;color:var(--sub)}.ml-star.on{color:#f4b400}
 .ml-card .ml-wp{padding:6px 2px}
+/* 🧩 기타 앱 · 마켓 탭 */
+.ml-mkt-tabs{margin:0 0 10px}
+.ml-mks>.ml-empty{padding:14px 8px;display:block}
+.ml-ext{min-height:40vh}
+#ml-full .ml-to a{color:inherit;text-decoration:underline}
+/* 📱 HUD: 따로 떠 있는 회색 상자들 → 폰 상태바 같은 캡슐 한 줄 (노트북 · 모바일 같음) */
+#ml-hud{gap:0;padding:3px;margin:4px auto 2px 8px;width:max-content;max-width:calc(100% - 16px);box-sizing:border-box;border-radius:999px;background:color-mix(in srgb,var(--bg,#fff) 82%,transparent);border:1px solid color-mix(in srgb,var(--fg,#000) 10%,transparent);box-shadow:0 2px 10px rgb(0 0 0/.06);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);line-height:1;font-variant-numeric:tabular-nums}
+#ml-hud .ml-h{display:inline-flex;align-items:center;gap:3px;padding:4px 8px;margin:0;border-radius:999px;background:none;font-weight:600;letter-spacing:-.01em}
+#ml-hud .ml-h+.ml-h:not(.bad):not(.shop)::before{content:"";width:1px;height:10px;margin:0 8px 0 -8px;background:color-mix(in srgb,var(--fg,#000) 14%,transparent)}
+#ml-hud button.ml-h{appearance:none;-webkit-appearance:none;border:0;outline:0;box-shadow:none;font:inherit;color:inherit;cursor:pointer;padding:2px 6px 2px 4px;min-width:0;width:auto;height:auto;filter:none}
+#ml-hud button.ml-h::before,#ml-hud button.ml-h::after{content:none!important}
+#ml-hud .ml-h.mid{background:none;color:#d97706}
+#ml-hud .ml-h.bad{background:var(--bad);color:#fff;margin:0 2px}
+#ml-hud .ml-h.shop{background:color-mix(in srgb,var(--a) 12%,transparent);margin:0 1px;font-weight:500}
+#ml-hud .ml-h.meter{font-weight:400}
+#ml-hud::-webkit-scrollbar{display:none}

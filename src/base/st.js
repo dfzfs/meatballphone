@@ -4,7 +4,7 @@ import { normBook } from '../rules/book.js';
 
 export const MODULE = 'meatlite';
 export const OLD = 'statussim';
-export const VERSION = '0.33.0';
+export const VERSION = '0.34.0';
 export const DATA_V = 2;
 export const TITLE = '미트볼폰';
 export const INJ = { facts: 'meatlite_facts', hint: 'meatlite_hint', rule: 'meatlite_rule' };
@@ -24,7 +24,7 @@ export const DEFAULTS = Object.freeze({
     mascotVolume: 60,
     mascotPick: 'idle',
     conPack: false,          // 🐱 미트볼콘 팩 60개를 받았나 (마켓)      // 평소 모습: 표정 7개 · con:미트볼콘 14개
-    look: { accent: '#e07a5f', font: '', size: 1, radius: 14, border: 1, shadow: 1, dark: 'auto', wall: 'cream', wallImg: '', wallDim: 0, icons: 'color' },
+    look: { accent: '#e07a5f', font: '', size: 1, radius: 14, border: 1, shadow: 1, dark: 'auto', wall: 'cream', wallImg: '', wallDim: 0, icons: 'color', side: 'left' }, // side: 노트북에서 폰 창 자리 (left · right) · 휴대폰은 늘 꽉 참
     home: null, // 홈 위젯 순서 · 숨기기 · 앱 순서 · 독 (home.js homeCfg)
     influence: { all: 2, by: {} },  // 이야기 영향력 게이지 (전체 기본값 · 채팅마다 덮어쓸 수 있음)
     preset: 'flash',        // 본편 지시 프리셋: flash | general

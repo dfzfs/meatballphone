@@ -1,10 +1,11 @@
 // 🔌 다른 미트볼 확장(미트볼 선택지 등)이 읽는 통로 — 읽기만. 바꾸는 건 늘 본편 답의 사건 태그로.
 import { getMeta, saveMeta, ready, VERSION, ctx, msgKey } from '../base/st.js';
 import { mode } from '../rules/classify.js';
-import { norm, signed, periodName, dateOf } from '../base/util.js';
-import { fold, priceMul, derived, diceParts, whereNow } from '../rules/engine.js';
-import { placeOf, personOf } from '../rules/book.js';
+import { norm, signed, periodName, dateOf, faceOf } from '../base/util.js';
+import { fold, priceMul, derived, diceParts, whereNow, relStage } from '../rules/engine.js';
+import { placeOf, personOf, isStar } from '../rules/book.js';
 import { luckOf, luckFit } from '../rules/luck.js';
+import { addApp, mountApps } from './apps.js';
 
 // 선택지 글 → 대가 미리 보기 (배지 글만) { text: '−3골드 · 허기 +20', ok: false면 흐리게 }
 //   먼저 이름으로 맞춘다: 이 가게 물건 → 내 소지품 → 인물 → 장소. 어느 것도 안 맞을 때만 낱말(잠 · 먹 · 씻)로 짐작.
@@ -73,6 +74,16 @@ function scene() {
         .map(n => ({ name: n, want: S.rel[n].want || personOf(book, n)?.want || '' }));
     return structuredClone({ goods, people });
 }
+// 👥 인물 목록 (연락 같은 앱용) — ⭐ 주요 인물 먼저 · 떠난 인물 빼고
+function people() {
+    const r = ready() ? fold() : null; if (!r) return [];
+    const { S, book } = r, meta = getMeta();
+    return structuredClone(Object.entries(S.rel).filter(([, x]) => !x.gone).map(([name, x]) => {
+        const p = personOf(book, name);
+        return { name, face: faceOf(x.face || p?.face, '🙂'), star: isStar(meta, book, name), stage: relStage(book, x.aff, name)?.name ?? '', aff: x.aff, trust: x.trust,
+            here: S.with.includes(name), likes: x.seen.likes, hates: x.seen.hates, about: p?.line || x.line || '' };
+    }).sort((a, b) => b.star - a.star || b.aff - a.aff));
+}
 // 🎲 선택지 → 분류 모델: 이 사용자 메시지에서 고른 선택과 결과 (주사위 · 대가 · 함정)
 //   data를 주면 적어 두고, 안 주면 지금 적힌 것(사용자 메시지 extra.mbc 또는 여기 적힌 것)을 돌려준다
 function pendingChoice(i, data) {
@@ -86,6 +97,7 @@ export function mount() {
         ready: () => ready(),
         state,
         scene,
+        people,
         // 지금 사건 고르기 모드: 'A' 본편 태그 · 'B' 분류 모델 (B면 본편에 「사건 줄을 적어라」를 넣지 않음)
         mode,
         pendingChoice,
@@ -95,6 +107,9 @@ export function mount() {
         // 🍀 오늘 운세 쪽지 + 이 글과 맞는지 (1 · 0 · −1)
         luck: (label = '') => { const r = ready() ? fold() : null; if (!r) return null; const l = luckOf(r.book, r.S, ctx().getCurrentChatId?.(), getMeta()?.luckRoll); if (!l.rolled) return { ...l, fit: 0 }; return { ...l, fit: label ? luckFit(l, label) : 0 }; },
         paused: () => !!getMeta()?.paused,
+        // 📲 폰에 앱 넣기 — 앱 쪽은 (globalThis.MeatballPhoneApps ??= []).push({...}) 를 쓰면 켜지는 순서를 신경 안 써도 됨
+        addApp,
     });
+    mountApps();
 }
 export function announce() { document.dispatchEvent(new CustomEvent('meatlite:update')); }

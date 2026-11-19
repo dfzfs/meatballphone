@@ -4,7 +4,8 @@ import { esc, dateText, periodName, short, fmt, clockText } from '../base/util.j
 import { fold, derived, needStage } from '../rules/engine.js';
 import { placeOf } from '../rules/book.js';
 import { RENDER, onAct, changeRow, setRecFilter } from './tabs.js';
-import { home, market, cat, look, appOf, installed, markSeen, firstView, setupView, homeCfg, homeEditing, setHomeEdit, wallCss } from './home.js';
+import { home, market, cat, look, appOf, installed, markSeen, firstView, setupView, homeCfg, homeEditing, setHomeEdit, wallCss, setMktTab } from './home.js';
+import { renderExt, setAppsChange, installApp } from '../extra/apps.js';
 import { bindHomeEdit } from './homeedit.js';
 import { toolbar, onTool, TOOL_ACTS, applyGloss } from './tools.js';
 import { applyTr, trOn, trBusy } from '../extra/translate.js';
@@ -70,6 +71,7 @@ export function drawFrame() {
     } else mb?.remove();
 }
 // ───── 전체화면 ─────
+setAppsChange(() => { if (document.getElementById('ml-full') && (cur === 'home' || cur === 'market')) drawSheet(); });
 export function openSheet(tab = 'home') {
     if (tab === 'now' && !document.getElementById('ml-full')) tab = 'home';
     cur = tab; past = null;
@@ -96,7 +98,8 @@ export function drawSheet() {
         return;
     }
     const R2 = { ...RENDER, home, market, cat, look };
-    if (!R2[cur] || (appOf(cur) && !installed(appOf(cur)))) cur = 'home';
+    const xa = String(cur).startsWith('x:') ? appOf(cur) : null;
+    if (!xa && (!R2[cur] || (appOf(cur) && !installed(appOf(cur))))) cur = 'home';
     const view = past != null ? { ...r, S: r.stateAt(past) ?? r.S } : r;
     const meta = getMeta(), a = appOf(cur);
     const keep = el.querySelector(':scope > .ml-bs'); // 열려 있는 시트는 다시 그려도 그대로
@@ -105,6 +108,7 @@ export function drawSheet() {
     const L = settings().look, wall = wallCss(L);
     el.classList.toggle('home', cur === 'home'); el.classList.toggle('has-wall', !!wall); el.classList.toggle('editing', cur === 'home' && homeEditing());
     el.classList.toggle('tone', (L.icons ?? 'color') === 'tone');
+    el.classList.toggle('left', (L.side ?? 'left') === 'left');
     el.classList.toggle('dark-wall', !!wall && (L.wall === 'night' || (L.wallDim ?? 0) >= 35));
     el.style.setProperty('--ml-wall', wall || 'none'); el.style.setProperty('--ml-wdim', `${(L.wallDim ?? 0) / 100}`);
     if (cur === 'home') {
@@ -112,6 +116,14 @@ export function drawSheet() {
         applyGloss(el.querySelector('.ml-body')); applyTr(el.querySelector('.ml-body'));
         if (keep) el.appendChild(keep);
         if (same) el.querySelector('.ml-body').scrollTop = scroll;
+        return;
+    }
+    if (xa) { // 🧩 기타 앱: 앱이 그린 화면은 다시 그리지 않음 (앱 쪽 상태 지키기)
+        if (same && el.querySelector('.ml-ext')) return;
+        el.innerHTML = `<header class="ml-top"><button class="ml-ib back" data-tab="home" title="홈">‹</button><b>${esc(xa.icon)} ${esc(xa.name)}</b><span class="ml-sp"></span>`
+            + `<button class="ml-ib" data-act="close">✕</button></header><main class="ml-body" data-tab="${esc(cur)}"><div class="ml-ext"></div></main>`;
+        renderExt(el.querySelector('.ml-ext'), xa, Object.freeze({ close: closeSheet, redraw: () => { el.querySelector('.ml-ext')?.remove(); drawSheet(); }, toast: (t) => toast(String(t)) }));
+        if (keep) el.appendChild(keep);
         return;
     }
     el.innerHTML = `<header class="ml-top"><button class="ml-ib back" data-tab="home" title="홈">‹</button><b>${a ? `${a.icon} ${a.name}` : ''}</b>`
@@ -128,6 +140,7 @@ async function clickHandler(e) {
     const t = e.target.closest('[data-tab]'); if (t && t.tagName === 'BUTTON') { cur = t.dataset.tab; drawSheet(); return; }
     const o = e.target.closest('[data-act="open"]'); if (o && !e.target.closest('[data-act]:not([data-act="open"])')) { cur = o.dataset.v; drawSheet(); el0()?.querySelector('.ml-body')?.scrollTo(0, 0); return; }
     const s = e.target.closest('.ml-seg button'); if (s) { const name = s.parentElement.dataset.seg, v = s.dataset.v, meta = getMeta();
+        if (name === 'mkt') { setMktTab(v); drawSheet(); return; }
         if (name === 'hide') meta.hideNums = v === '1';
         if (name === 'scope') { meta.influence = v === 'chat' ? structuredClone(settings().influence) : null; }
         if (name === 'recf') setRecFilter(v);
@@ -143,6 +156,9 @@ async function clickHandler(e) {
     if (act === 'cc') return controlCenter();
     if (act === 'cc-open') { document.querySelector('.ml-bs')?.remove(); cur = v; drawSheet(); return; }
     if (act === 'home-edit') { document.querySelector('.ml-bs')?.remove(); cur = 'home'; setHomeEdit(true); drawSheet(); return; }
+    if (act === 'x-home') { const H = homeCfg(); H.extOff = H.extOff.includes(v) ? H.extOff.filter(x => x !== v) : [...H.extOff, v]; saveSettings(); drawSheet(); return; }
+    if (act === 'x-reload') { location.reload(); return; }
+    if (act === 'x-install') { a.disabled = true; a.textContent = '설치 중…'; try { await installApp(v); toast('설치했어요 · 새로 고침하면 켜져요', 'good'); } catch (e) { toast(`⚠ ${e.message}`, 'bad'); } drawSheet(); return; }
     if (act === 'home-done') { setHomeEdit(false); drawSheet(); return; }
     if (act === 'w-toggle') { const H = homeCfg(); H.hidden = H.hidden.includes(v) ? H.hidden.filter(x => x !== v) : [...H.hidden, v]; saveSettings(); drawSheet(); return; }
     if (homeEditing() && a.closest('.ml-app')) return; // 편집 중엔 앱을 열지 않음
