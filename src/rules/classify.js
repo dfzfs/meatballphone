@@ -125,9 +125,16 @@ async function send(system, user) {
     return clsStats.lastReply;
 }
 
-// 가벼운 모델 한 번 (버튼 · 새 인물 규칙): 분류 연결이 있으면 그것, 없으면 상태창 만들기 연결
+// 가벼운 AI 1회 (다른 곡 · 다른 구절 · 번역 등): 분류 연결로 → 그 연결이 막히면(권한 · 키 · 모델 없음) 만들기 연결로 한 번 더
+let lightWarned = false;
 export async function askLight(system, user) {
-    if (clsRoute()) return send(system, user);
+    if (clsRoute()) {
+        try { return await send(system, user); }
+        catch (e) {
+            console.warn('[미트볼폰] 분류 연결 실패 → 만들기 연결로', e);
+            if (!lightWarned) { lightWarned = true; (await import('../ui/kit.js')).toast(`분류 연결이 안 돼서(${String(e?.message ?? e).match(/\b(40[0-9]|429|5\d\d)\b/)?.[1] ?? '오류'}) 만들기 연결로 대신했어요 · 확장 설정 › AI › 분류 연결을 확인해 주세요`, 'bad'); }
+        }
+    }
     return (await import('./ai.js')).ask(user, system);
 }
 // 받은 줄 거르기: 목록 밖의 키 · 행동은 조용히 버림 · 비슷한 말은 목록 행동으로 맞춤
