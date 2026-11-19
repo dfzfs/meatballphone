@@ -400,3 +400,5 @@ a.ml-play,a.ml-scene{text-decoration:none;color:inherit}
 .ml-wall span{position:absolute;left:4px;right:4px;bottom:4px;padding:2px 4px;border-radius:6px;background:rgb(255 255 255/.75);color:#222;font-size:10px;text-align:center}
 .ml-wall.up{display:grid;place-items:center;background:color-mix(in srgb,var(--fg) 6%,transparent)}
 #ml-full.home.dark-wall .ml-status{color:#fff}#ml-full.home.dark-wall .ml-status .ml-ib{color:#fff}#ml-full.home.dark-wall .ml-app span{color:#fff;text-shadow:0 1px 3px rgb(0 0 0/.6)}
+.ml-star{border:0;background:none;cursor:pointer;font-size:16px;line-height:1;padding:2px 4px;color:var(--sub)}.ml-star.on{color:#f4b400}
+.ml-card .ml-wp{padding:6px 2px}

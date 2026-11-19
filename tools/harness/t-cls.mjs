@@ -71,9 +71,13 @@ try {
     check(await page.evaluate(() => globalThis.MeatballLite.mode()) === 'B' && await page.evaluate(() => globalThis.MeatballLite.pendingChoice(SillyTavern.getContext().chat.length - 2)?.label) === '문을 부순다', '통로: mode() · pendingChoice()');
     // 새 인물: 처음 나오면 그 인물당 한 번만 규칙 채우기
     await page.evaluate(() => { window.__clsReply['새 손님 장면'] = '<meatball>\nnpc: Mia | 꽃집 주인\nwith: Leon, Mia\n</meatball>'; window.__addUser('꽃집'); }); await page.evaluate(() => window.__addAI('새 손님 장면. Mia가 인사했다.')); await settle(); await sleep(300);
+    check(await page.evaluate(() => window.__sent.filter(x => /rule card/.test(x.prompt?.[0]?.content ?? '')).length) === 0, '⭐ 아닌 새 인물은 규칙을 안 채움 (AI 0회)');
+    // ⭐ 주요 인물로 올리면 그때 한 번 채움
+    await page.evaluate(() => __ML__.app.openSheet('rel')); await sleep(200);
+    await page.evaluate(() => document.querySelector('.ml-star[data-v="Mia"]').click()); await sleep(600);
     await page.evaluate(() => window.__addAI('새 손님 장면. Mia가 또 웃었다.')); await settle(); await sleep(300);
     const mia = await page.evaluate(() => ({ p: __ML__.getMeta().book.people.find(p => p.name === 'Mia'), n: window.__sent.filter(x => /rule card/.test(x.prompt?.[0]?.content ?? '')).length, aff: __ML__.fold().S.rel.Mia?.aff }));
-    check(mia.p?.up.length === 3 && mia.p.down.length === 3 && mia.p.face === '🌸' && mia.n === 1, '새 인물 규칙 채우기 (그 인물당 한 번)', JSON.stringify(mia));
+    check(mia.p?.up.length === 3 && mia.p.down.length === 3 && mia.p.face === '🌸' && mia.n === 1, '⭐로 올린 새 인물: 규칙 채우기 (그 인물당 한 번)', JSON.stringify(mia));
     // 숫자 규칙 판: 고친 시점부터만 새 폭 (도와줌 +4 → +6)
     const v0 = await page.evaluate(() => (__ML__.getMeta().ruleVers ?? []).length);
     const before = (await S()).aff, hist = await page.evaluate(() => __ML__.fold().changes.map(ch => ch.filter(c => c.f === 'rel.Leon.aff').map(c => c.to - c.from)).flat());

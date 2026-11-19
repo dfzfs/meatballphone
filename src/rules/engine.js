@@ -499,14 +499,14 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             return;
         }
         case 'roll':
-            S.rolls.push({ t: S.t, what: short(v, 40), i });
+            S.rolls.push({ t: S.t, what: short(v, 120), i });
             return;
         case 'mind':
         case 'watch':
         case 'cell': {
             if (!a || !b) return;
             const who = x.who(a) ?? safeKey(a),
-                text = short(parts(v).slice(1).join(' | '), 120);
+                text = short(parts(v).slice(1).join(' | '), 240);
             S[kind][who] = text;
             S.mindLog = [...(S.mindLog ?? []), { k: kind, who, text, t: S.t }].slice(-40);
             return;
@@ -515,20 +515,20 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             const name = x.who(a);
             if (!name) return;
             const r = x.rel(name);
-            r.jealous = short(b || '질투', 40);
+            r.jealous = short(b || '질투', 120);
             remember(S, r, `질투: ${b}`);
             x.setRel(name, 'trust', -1, '질투', src, false, i);
-            news(S, '💢', `${name} — ${short(b || '질투가 남', 30)}`, 'jealous', name);
+            news(S, '💢', `${name} — ${short(b || '질투가 남', 120)}`, 'jealous', name);
             return;
         }
         case 'life': {
             const name = x.who(a) ?? safeKey(a);
             if (!name || !b) return;
-            x.rel(name).life = short(b, 60);
-            news(S, '🌙', `${name} — ${short(b, 40)}`, 'life', name);
+            x.rel(name).life = short(b, 200);
+            news(S, '🌙', `${name} — ${short(b, 200)}`, 'life', name);
             return;
         }
-        case 'conflict': if (v) x.flag(short(v, 60), i); return; // 분류 모델이 본 「답 글 ↔ 지금 상태」 어긋남 → 확인 필요
+        case 'conflict': if (v) x.flag(short(v, 200), i); return; // 분류 모델이 본 「답 글 ↔ 지금 상태」 어긋남 → 확인 필요
         case 'pair': {
             // 🔗 인물끼리: pair: A | B | +5 | 이유  ·  pair: A | B | 라이벌
             const A = x.who(a) ?? safeKey(a),
@@ -544,12 +544,12 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
                     to = clamp(Math.round(from + clamp(dd.n, -15, 15)), -100, 100);
                 if (to === from) return;
                 pr.v = to;
-                pr.why = short(d4 || '변화', 30);
+                pr.why = short(d4 || '변화', 80);
                 ch.push({ f: `pair.${key}`, label: `${A}↔${B}`, icon: '🔗', from, to, why: pr.why, src, sure: true, i });
             } else if (c) {
                 const was = pr.label;
                 pr.label = short(c, 16);
-                if (d4) pr.why = short(d4, 30);
+                if (d4) pr.why = short(d4, 80);
                 if (was !== pr.label)
                     ch.push({
                         f: `pair.${key}`,
@@ -568,7 +568,7 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
         }
         case 'want': {
             const name = x.who(a);
-            if (name && b) x.rel(name).want = short(b, 60);
+            if (name && b) x.rel(name).want = short(b, 160);
             return;
         }
         case 'memory': {
@@ -592,7 +592,7 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             const name = x.who(a) ?? safeKey(a);
             if (!name || S.rel[name]) return;
             S.rel[name] = relOf(personOf(book, name)); // 규칙을 채운 새 인물이면 그 시작 값
-            S.rel[name].line = short(b, 40);
+            S.rel[name].line = short(b, 120);
             S.rel[name].face = faceOf(c);
             ch.push({ f: `npc.${name}`, label: name, icon: '👤', from: '', to: '새 인물', why: short(b, 20), src, sure: true, i, who: name });
             return;
@@ -600,7 +600,7 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
         case 'gone': {
             const name = x.who(a);
             if (!name) return;
-            x.rel(name).gone = short(b || '떠남', 30);
+            x.rel(name).gone = short(b || '떠남', 80);
             ch.push({
                 f: `gone.${name}`,
                 label: name,
@@ -623,7 +623,7 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
                 return;
             }
             const due = dayOfDate(book.world.start, b, S.t) ?? (spanOf(b) != null ? S.t + spanOf(b) : null);
-            S.promises.push({ text: short(a, 50), due, at: S.t, done: null, i });
+            S.promises.push({ text: short(a, 120), due, at: S.t, done: null, i });
             return;
         }
         case 'anniv': {
@@ -638,7 +638,7 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             const title = short(unq(hm ? hm[1] : head), 60), artist = short(hm ? unq(hm[2]) : '', 40);
             if (!title || /^(없음|none|-)$/i.test(title) || norm(title) === norm(S.bgm?.title)) return;
             const from = S.bgm?.title ?? '';
-            S.bgm = { title, artist, mood: short(mood, 12), why: short(why2, 60) };
+            S.bgm = { title, artist, mood: short(mood, 16), why: short(why2, 240) };
             S.bgmLog = [...(S.bgmLog ?? []), S.bgm].slice(-30);
             ch.push({ f: 'bgm', label: '추천 음악', icon: '🎵', from, to: title, why: artist || short(mood, 12), src, sure: true, i });
             return;
@@ -648,19 +648,19 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             const [text = '', from2 = '', mean = '', why2 = ''] = parts(v);
             const t = short(text.replace(/^["“'「『]|["”'」』]$/g, '').trim(), 120);
             if (!t || /^(없음|none|-)$/i.test(t) || norm(t) === norm(S.quote?.text)) return;
-            S.quote = { text: t, src: short(from2, 40), mean: short(mean, 120), why: short(why2, 60) };
+            S.quote = { text: t, src: short(from2, 80), mean: short(mean, 300), why: short(why2, 240) };
             S.quoteLog = [...(S.quoteLog ?? []), S.quote].slice(-30);
             ch.push({ f: 'quote', label: '한 구절', icon: '📜', from: '', to: short(t, 24), why: short(from2, 20), src, sure: true, i });
             return;
         }
         case 'newsline':
-            if (v) news(S, '📰', short(v, 60), 'world', '');
+            if (v) news(S, '📰', short(v, 240), 'world', '');
             return;
         case 'custom': {
             const tab = safeKey(a),
                 f = safeKey(b);
             if (tab && f) {
-                (S.custom[tab] ??= {})[f] = short(c, 40);
+                (S.custom[tab] ??= {})[f] = short(c, 120);
             }
             return;
         }
@@ -681,7 +681,7 @@ function addStatus(S, st, ch, i, why) {
     S.status.push({ ...st, at: S.t });
     ch.push({ f: `status.${st.name}`, label: st.name, icon: st.src === 'fate' ? '🔮' : '🏷️', from: '', to: st.until ? `${Math.round((st.until - S.t) / 60)}시간` : '붙음', why, src: st.src ?? 'tag', sure: true, i, kind: st.kind });
 }
-function remember(S, r, text) { r.mem = [{ t: S.t, text: short(text, 50) }, ...r.mem.filter(m => m.text !== short(text, 50))].slice(0, 5); }
+function remember(S, r, text) { r.mem = [{ t: S.t, text: short(text, 160) }, ...r.mem.filter(m => m.text !== short(text, 160))].slice(0, 5); }
 function news(S, icon, text, kind, who) { S.news.unshift({ t: S.t, icon, text, kind, who }); S.news.length = Math.min(S.news.length, 40); }
 
 // 위험 단계 → 상태 딱지(주사위 보정)는 계산해서 붙인다 (저장 안 함)

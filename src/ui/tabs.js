@@ -1,6 +1,6 @@
 // 전체화면 안의 탭들 — 목록 행 + 묶음 카드. 설명은 한 줄까지.
 import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, msgData, syncSwipe, msgKey, userName, bumpMeta, saveChatSoon } from '../base/st.js';
-import { esc, fmt, signed, short, dateText, dateOf, DAY, periodName, num, norm, tokens, dayIndexOf, monthDays, monthName, weekName } from '../base/util.js';
+import { esc, fmt, signed, short, dateText, dateOf, DAY, periodName, num, norm, tokens, dayIndexOf, monthDays, monthName, weekName, faceOf } from '../base/util.js';
 import { row, card, chip, seg, bar, empty, btn, sheet, toast, putInput, form } from './kit.js';
 import { fold, derived, needStage, relStage, nextStage, stagesOf, pairKey, diceParts, worldEvent, priceMul, whereNow } from '../rules/engine.js';
 import { luckOf } from '../rules/luck.js';
@@ -9,7 +9,7 @@ const d20Svg = (n, c) => `<svg class="ml-d20 big ${c}" viewBox="0 0 100 100">${n
     + `class="f0" points="50,4 92,28 92,72 50,96 8,72 8,28"/><polygon class="f1" points="50,22 78,66 22,66"/><polyline class="ed" points="50,4 50,22 `
     + `92,28 78,66 92,72 50,96 78,66 22,66 8,72 22,66 8,28 50,22 22,66"/><text x="50" y="56">${n}</text></svg>`;
 import { layout, lineEdges, lineNodes, route, floorsOf } from './metro.js';
-import { personOf, placeOf, bookTokens, personTokens, normBook, PLACE_KINDS, LIMIT } from '../rules/book.js';
+import { personOf, placeOf, bookTokens, personTokens, normBook, PLACE_KINDS, LIMIT, isStar } from '../rules/book.js';
 import { musicView, quoteView, songLine, quoteLine, musicAct } from './music.js';
 import { LEVELS, GAUGES, PRESETS, level, gaugeCfg, levelCost } from '../rules/inject.js';
 import { fillBook } from '../rules/ai.js';
@@ -93,7 +93,7 @@ function now(r) {
                 .join('')}</div>`;
     }
     if (V('turn')) h += turnCard(r, li);
-    if (S.with.length && modOn('rel') && V('with')) h += `<h4 class="ml-h4">같이 있는 사람</h4><div class="ml-rcs">${S.with.map(n => relCard(r, n)).join('')}</div>`;
+    if (false) h += `<h4 class="ml-h4">같이 있는 사람</h4><div class="ml-rcs">${S.with.map(n => relCard(r, n)).join('')}</div>`;
     return h;
 }
 // ───── 🎲 주사위: 능력치 + 보정 내역 → d20 · 결과는 입력창에 (이야기에 남게) ─────
@@ -198,7 +198,14 @@ function rel(r) {
     const head = `<div class="ml-relbar">${seg('relv', [['card', '👥 카드'], ['route', '💞 루트 비교'], ['pair', `🔗 인물끼리${np ? ` ${np}` : ''}`]], view)}<span class="ml-sp"></span>${seg('hide', [['0', '숫자'], ['1', '숨기기']], getMeta().hideNums ? 1 : 0)}</div>`;
     if (view === 'route') return head + routeView(r, on);
     if (view === 'pair') return head + pairView(r, on);
-    return head + `<div class="ml-sub">${on.length}명${here.size ? ` · 지금 ${here.size}명과 함께` : ''}</div><div class="ml-rcs">${on.map(n => relCard(r, n)).join('')}</div>` + (off.length ? `<h4 class="ml-h4">이야기에서 빠진 사람</h4><div class="ml-rcs">${off.map(n => relCard(r, n)).join('')}</div>` : '');
+    const meta = getMeta(), stars = on.filter(n => isStar(meta, r.book, n)), rest = on.filter(n => !isStar(meta, r.book, n));
+    const lite = (n) => { const x = r.S.rel[n], p = personOf(r.book, n), st = relStage(r.book, x.aff, n), v = p?.noLove ? x.trust : x.aff;
+        return `<div class="ml-wp tap" data-act="person" data-v="${esc(n)}"><span>${faceOf(p?.face || x.face, '🙂')}</span><b>${esc(n)}</b><span class="ml-pill love">${esc(p?.noLove ? '친구' : st.name)}</span>`
+            + `${here.has(n) ? '<span class="ml-pill good">함께</span>' : ''}<span class="ml-bar love"><i style="width:${v}%"></i></span><em>${getMeta().hideNums ? '' : v}</em>`
+            + `<button class="ml-star" data-act="star" data-v="${esc(n)}" title="주요 인물로">☆</button></div>`; };
+    return head + `<div class="ml-sub">⭐ 주요 인물 ${stars.length}명 · 그 외 ${rest.length}명${here.size ? ` · 지금 ${here.size}명과 함께` : ''}</div>`
+        + `<div class="ml-rcs">${stars.map(n => relCard(r, n)).join('') || '<div class="ml-sub dim">☆를 눌러 주요 인물을 정해요</div>'}</div>`
+        + (rest.length ? `<h4 class="ml-h4">그 외 인물 <span>가볍게 · ☆를 누르면 주요 인물(자세히 · 규칙 채우기)</span></h4><div class="ml-card">${rest.map(lite).join('')}</div>` : '') + (off.length ? `<h4 class="ml-h4">이야기에서 빠진 사람</h4><div class="ml-rcs">${off.map(n => relCard(r, n)).join('')}</div>` : '');
 }
 // 💞 루트 비교: 애정 순 · 단계 진행 · 다음 단계까지 · 최근 흐름(최근 30답 애정 합) · 아는 취향
 function routeView(r, on) {
@@ -276,7 +283,7 @@ function relCard(r, name, inSheet = false) {
     const acts = x.gone ? btn('돌아옴', 'gone', name, 'xs') : `${fillBtn}${btn('🎁<span> 선물</span>', 'say', `${name}에게 선물을 건넨다.`, 'xs')}${inSheet ? '' : btn('더보기', 'person', name, 'xs')}`;
     return `<div class="ml-rc${x.gone ? ' gone' : ''}"><div class="ml-rc-h"><span class="ml-face"${inSheet ? '' : ` data-act="person" data-v="${esc(name)}"`}`
         + `>${p?.face || x.face || '🙂'}</span><b${inSheet ? '' : ` class="tap" data-act="person" data-v="${esc(name)}"`}>${esc(name)}</b>${pills}`
-        + `<span class="ml-sp"></span>${acts}`
+        + `<span class="ml-sp"></span>${inSheet ? '' : `<button class="ml-star on" data-act="star" data-v="${esc(name)}" title="주요 인물에서 빼기">⭐</button>`}${acts}`
         + `</div>${(p?.line || x.line) && vis('rel', 'line') ? `<div class="ml-rc-line">${esc(p?.line || x.line)}</div>` : ''}${L.join('')}</div>`;
 }
 export function personSheet(r, name) {
@@ -503,8 +510,7 @@ function mind(r) {
     const hist = log.length ? card('지난 속마음', log.map(e => row({ icon: personOf(r.book, e.who)?.face ?? IC[e.k], title: esc(e.who), sub: `${esc(e.text)} · ${dateText(r.book.world.start, e.t)}`, act: 'jump', data: e.m, more: true })).join('')) : '';
     return tools + opts + (h || empty('다음 답부터 같이 적혀요.')) + hist;
 }
-// ───── 내 탭 (+ 최면 어플 템플릿) ─────
-const TEMPLATES = { hypno: { name: '최면 어플', icon: '🌀', fields: [{ name: '최면 깊이', max: 100, stages: [30, 70] }, { name: '대상', max: 0 }, { name: '명령', max: 0 }] } };
+// ───── 내 탭 ─────
 function custom(r) {
     const tabs = getMeta().custom ?? [];
     let h = '';
@@ -528,7 +534,7 @@ function custom(r) {
             `<a data-act="ctab-del" data-v="${ti}">지우기</a>`,
         );
     }
-    return h + `<div class="ml-acts">${btn('＋ 새 탭', 'ctab-new')}${btn('🌀 최면 어플 템플릿', 'ctab-tpl', 'hypno')}</div><div class="ml-hint">AI는 「custom: 탭 | 칸 | 값」으로 적어요</div>`;
+    return h + `<div class="ml-acts">${btn('＋ 새 탭', 'ctab-new')}</div><div class="ml-hint">AI는 「custom: 탭 | 칸 | 값」으로 적어요</div>`;
 }
 // ───── 📘 설정집 ─────
 function book(r) {
@@ -608,6 +614,14 @@ export async function onAct(act, v, el) {
             return;
         case 'song-new': case 'quote-new': case 'musicapp': case 'musicpop': case 'taste-edit': {
             const done = await musicAct(act, v, r, hand); if (done === 'refresh') app.refresh?.(); return;
+        }
+        case 'star': {
+            const meta = getMeta(), r0 = fold(), now = isStar(meta, r0.book, v);
+            (meta.stars ??= {})[v] = !now; saveMeta();
+            // ⭐로 올린 인물이 설정집에 규칙이 없으면 한 번 채움 (AI 1회)
+            if (!now && !personOf(r0.book, v)) { toast(`⭐ ${v} — 규칙을 채우는 중…`); app.fillPerson?.(v); }
+            app.refresh?.();
+            return;
         }
         case 'person':
             personSheet(r, v);
@@ -1031,13 +1045,6 @@ export async function onAct(act, v, el) {
             const w = new Set(meta.mindWho ?? ['cast']);
             w.has(v) ? w.delete(v) : w.add(v);
             meta.mindWho = [...w];
-            saveMeta();
-            app.refresh?.();
-            return;
-        }
-        case 'ctab-tpl': {
-            const t = structuredClone(TEMPLATES[v]);
-            meta.custom = [...(meta.custom ?? []), t];
             saveMeta();
             app.refresh?.();
             return;

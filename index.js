@@ -3,7 +3,7 @@ import { app, ctx, settings, saveSettings, getMeta, saveMeta, msgData, syncSwipe
 import { esc, short, tokens, dateOf } from './src/base/util.js';
 import { readOps, stripTags, hasTag } from './src/rules/tags.js';
 import { fold, resetCache, noteRules } from './src/rules/engine.js';
-import { normBook, personOf } from './src/rules/book.js';
+import { normBook, personOf, isStar } from './src/rules/book.js';
 import { ruleText, factText, injTokens } from './src/rules/inject.js';
 import { fillBook, templateBook } from './src/rules/ai.js';
 import { mode, modeNote, profiles, enqueue, fingerprint, newPeople, fillPerson, clsStats, testConnection, presetText } from './src/rules/classify.js';
@@ -110,7 +110,8 @@ async function onReceived(i, type) {
 app.afterClassify = (i) => {
     const t = perf.turns.at(-1); if (t) { t.calls = (t.calls ?? 0) + 1; t.cls = clsStats.lastTok; }
     refresh(); setTimeout(alerts, 300);
-    if (mode() === 'B') for (const [n, why] of newPeople()) fillPerson(n, why);
+    // 새 인물은 ⭐ 주요 인물일 때만 규칙을 채움 (그 외 인물은 기본 행동만 · AI 호출 없음)
+    if (mode() === 'B') { const m = getMeta(), r = fold(); for (const [n, why] of newPeople()) if (r && isStar(m, r.book, n)) fillPerson(n, why); }
 };
 app.reclassify = (i) => { if (mode() !== 'B') return toast('분류 모델(B)일 때만 다시 고를 수 있어요'); enqueue(i, true); };
 app.fillPerson = (n) => fillPerson(n);

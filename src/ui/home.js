@@ -24,7 +24,7 @@ export const APPS = [
     { id: 'quote', to: 'main', main: '한 구절 (영향력을 올렸을 때만)', icon: '📜', name: '한 구절', mod: 'quote', desc: 'AI가 고른 속담 · 명대사 · 책 · 시 · 명언 · 사자성어', c: '#b08968' },
     { id: 'rec', to: 'aux', main: '', icon: '📒', name: '기록', mod: 'record', desc: '타임라인 · 책갈피 · 그때 상태 · 그래프', c: '#e9c46a' },
     { id: 'mind', to: 'main', main: '속마음을 적어 달라는 지시', icon: '💭', name: '속마음', mod: 'mind', desc: '인물 · 관전자 · 세포들의 속마음', c: '#a78bfa' },
-    { id: 'custom', to: 'aux', main: '', icon: '🧩', name: '내 탭', mod: 'custom', desc: '직접 만드는 칸 · 최면 어플 템플릿', c: '#43aa8b' },
+    { id: 'custom', to: 'aux', main: '', icon: '🧩', name: '내 탭', mod: 'custom', desc: '직접 만드는 칸', c: '#43aa8b' },
     { id: 'book', icon: '📘', name: '설정집', sys: true, c: '#4361ee' },
     { id: 'gauge', icon: '🎚️', name: '영향력', sys: true, c: '#8d99ae' },
     { id: 'cat', icon: '😺', name: '마스코트', sys: true, c: '#f2a7b5' },

@@ -179,3 +179,12 @@ export const personTokens = (book, p) => tokens(bookText({ ...book, people: [p],
 
 // 💞 모든 인물의 기본 행동: 설정집에 딱 맞는 행동이 없어도 큰일은 반영되게 (분류 모델 목록 · 계산 둘 다)
 export const BASIC_ACTS = { up: { act: '기쁘게 함', d: 2 }, down: { act: '상처 줌', d: -3 } };
+
+// ⭐ 주요 인물: 설정집에서 온 인물은 기본 ⭐ · 이야기 중 새로 나온 인물(npc)은 기본 아님 · 누르면 바뀜 (meta.stars)
+//   ⭐만 자세히(카드 · 규칙 채우기 AI 1회) · 나머지는 이름 · 단계 · 애정만 가볍게
+export function isStar(meta, book, name) {
+    const v = meta?.stars?.[name];
+    if (typeof v === 'boolean') return v;
+    const p = personOf(book, name);
+    return !!p && p.auto !== 'npc';
+}
