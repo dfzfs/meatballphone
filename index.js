@@ -45,7 +45,7 @@ export function inject() {
     const ft = factText(r, li >= 0 ? r.changes[li] ?? [] : []);
     setInj({ rule: ruleText(r.book), ...ft });
 }
-app.refresh = refresh; app.inject = inject; app.openSheet = openSheet; app.closeSheet = closeSheet; app.openPast = openPast;
+app.refresh = refresh; app.inject = inject; app.lastInj = () => lastInj; app.openSheet = openSheet; app.closeSheet = closeSheet; app.openPast = openPast;
 app.find = () => findAll();
 app.jump = async (i) => {
     closeSheet();

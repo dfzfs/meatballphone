@@ -1,12 +1,12 @@
 // 전체화면 안의 탭들 — 목록 행 + 묶음 카드. 설명은 한 줄까지.
 import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, MODS, slot, syncSwipe, msgKey, userName, bumpMeta } from '../base/st.js';
-import { esc, fmt, signed, short, dateText, DAY, slotName, clamp, num, norm } from '../base/util.js';
+import { esc, fmt, signed, short, dateText, dateOf, DAY, slotName, clamp, num, norm, tokens } from '../base/util.js';
 import { row, card, chip, seg, bar, empty, btn, sheet, toast, putInput, form } from './kit.js';
 import { fold, derived, needStage, relStage, nextStage, diceMod, diceParts, worldEvent, priceMul, whereNow, matchOf, myTraits } from '../rules/engine.js';
 import { traitOf } from '../../data/traits.js';
 import { luckOf } from '../rules/luck.js';
 import { QUOTES } from '../../data/quotes.js';
-import { vis } from './tools.js';
+import { vis, handLines } from './tools.js';
 const QN = QUOTES.length;
 const d20Svg = (n, c) => `<svg class="ml-d20 big ${c}" viewBox="0 0 100 100">${n === 1 ? '<polyline class="crack" points="38,8 46,30 36,44 52,60 44,78 54,94"/>' : ''}<polygon class="f0" points="50,4 92,28 92,72 50,96 8,72 8,28"/><polygon class="f1" points="50,22 78,66 22,66"/><polyline class="ed" points="50,4 50,22 92,28 78,66 92,72 50,96 78,66 22,66 8,72 22,66 8,28 50,22 22,66"/><text x="50" y="56">${n}</text></svg>`;
 import { layout, lineEdges, lineNodes, route, floorsOf } from './metro.js';
@@ -246,11 +246,36 @@ function upcoming(r) {
     for (const [n, x] of Object.entries(S.rel)) { const d = personOf(book, n)?.day || x.day; if (d) { const m = /(\d{1,2})\s*[월/.]\s*(\d{1,2})/.exec(d); if (m) out.push({ icon: '🎂', text: `${n} · ${d}`, t: null, md: `${m[1]}/${m[2]}` }); } }
     return out;
 }
+// ───── 📅 달력 (dev 월 화면 기준): 오늘 · 시간 넘기기 · 날씨 · 월 달력(점) · 날짜 누르면 그날 일정 · 일정 추가 · 이 날로 이동 ─────
+let calView = null, calDay = null;
+export const setCal = (k, v) => { if (k === 'nav') { calView.m += v; if (calView.m < 1) { calView.m = 12; calView.y--; } if (calView.m > 12) { calView.m = 1; calView.y++; } calDay = null; } if (k === 'day') calDay = v; if (k === 'today') { calView = null; calDay = null; } };
+const SEASON = (m) => (m <= 2 || m === 12 ? '겨울' : m <= 5 ? '봄' : m <= 8 ? '여름' : '가을');
+function eventsOnDay(r, y, m, d) {
+    const { book, S } = r, out = [], st = book.world.start;
+    const day = Math.round((Date.UTC(y, m - 1, d) - Date.UTC(st.y, st.m - 1, st.d)) / 86400000);
+    for (const p of S.promises) if (p.due != null && Math.floor(p.due / DAY) === day) out.push({ icon: p.done ? '✅' : '🤝', text: p.text, i: p.i });
+    for (const p of book.people) { const md = /(\d{1,2})\s*[월/.]\s*(\d{1,2})/.exec(p.day || S.rel[p.name]?.day || ''); if (md && Number(md[1]) === m && Number(md[2]) === d) out.push({ icon: '🎂', text: `${p.name} · ${p.day}` }); }
+    const me = /(\d{1,2})\s*[월/.]\s*(\d{1,2})/.exec(book.me.day || ''); if (me && Number(me[1]) === m && Number(me[2]) === d) out.push({ icon: '🎉', text: '내 생일' });
+    if (day >= 0) { const ev = worldEvent(day); if (ev) out.push({ icon: '🎪', text: ev.text }); }
+    return { out, day };
+}
 function cal(r) {
-    const { book, S } = r, ev = worldEvent(Math.floor(S.t / DAY));
-    let h = card('지금', row({ icon: '🕰️', title: dateText(book.world.start, S.t), value: '' }) + row({ icon: '🌦️', title: esc(S.weather || '-'), sub: /비|눈/.test(S.weather) ? '밖에 있으면 위생 · 기분이 더 빨리 줄어요' : '' }) + (ev ? row({ icon: '🎪', title: esc(ev.name), sub: esc(ev.text) }) : ''));
-    const up = upcoming(r);
-    h += card('다가오는 것', up.length ? up.map(u => row({ icon: u.icon, title: esc(u.text), value: u.t != null ? (u.t - S.t <= DAY ? chip('하루 안', 'bad') : dateText(book.world.start, u.t, false)) : esc(u.md) })).join('') : row({ title: '없어요', faint: true }));
+    const { book, S } = r, now = dateOf(book.world.start, S.t), today = Math.floor(S.t / DAY);
+    calView ??= { y: now.y, m: now.m };
+    const { y, m } = calView, days = new Date(Date.UTC(y, m, 0)).getUTCDate(), first = new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
+    let h = `<div class="ml-today"><div class="ml-hero-d"><small>${now.m}월</small><b>${now.d}</b><small>${now.w}요일</small></div><div class="ml-hero-b"><small>오늘 · ${SEASON(now.m)}</small><b>${dateText(book.world.start, S.t)}</b><span>🌦 ${esc(S.weather || '-')} ${btn('날씨', 'c-wx', '', 'xs')}</span></div></div>`;
+    h += `<div class="ml-timebar">${btn(`⏭ ${slotName(S.t + 180) !== slotName(S.t) ? slotName(S.t + 180) : '다음 시간대'}`, 'c-time', 'next', 'xs')}${btn('+1시간', 'c-time', '+1h', 'xs')}${btn('☀️ 다음 날 아침', 'c-time', '+1d', 'xs')}${btn('🕰 시각 맞추기', 'c-time', 'set', 'xs')}</div>`;
+    const cells = []; for (let k = 0; k < first; k++) cells.push('<div class="ml-cc x"></div>');
+    for (let d = 1; d <= days; d++) { const { out, day } = eventsOnDay(r, y, m, d); cells.push(`<button class="ml-cc${day === today ? ' today' : ''}${calDay === d ? ' sel' : ''}${day < today ? ' past' : ''}" data-act="c-day" data-v="${d}"><span>${d}</span>${out.length ? `<i>${out.slice(0, 3).map(() => '<b></b>').join('')}</i>` : ''}</button>`); }
+    h += `<div class="ml-calh">${btn('‹', 'c-nav', '-1', 'xs')}<b>${y}년 ${m}월</b>${btn('›', 'c-nav', '1', 'xs')}${y !== now.y || m !== now.m ? btn('오늘', 'c-today', '', 'xs') : ''}</div><div class="ml-calg">${'일월화수목금토'.split('').map(w => `<div class="ml-cw">${w}</div>`).join('')}${cells.join('')}</div>`;
+    if (calDay) {
+        const { out, day } = eventsOnDay(r, y, m, calDay);
+        h += `<div class="ml-rc ml-calday"><div class="ml-rc-h"><b>${m}월 ${calDay}일</b><span class="ml-sp"></span>${btn('✕', 'c-day', '', 'xs')}</div>${out.map(e => `<div class="ml-rl${e.i != null ? ' tap' : ''}"${e.i != null ? ` data-act="jump" data-v="${e.i}"` : ''}><i>${e.icon}</i>${esc(e.text)}</div>`).join('') || '<div class="ml-rl dim"><i>·</i>일정 없음</div>'}<div class="ml-acts">${btn('＋ 이 날 일정', 'c-add', `${m}/${calDay}`, 'xs')}${day > today ? btn('⏩ 이 날로 시간 이동', 'c-go', `${m}/${calDay}`, 'xs') : ''}</div></div>`;
+    } else h += '<div class="ml-hint">날짜를 누르면 그날 일정을 보고 추가할 수 있어요.</div>';
+    const month = []; for (let d = 1; d <= days; d++) for (const e of eventsOnDay(r, y, m, d).out) month.push([d, e]);
+    h += `<h4 class="ml-h4">이달 일정 <span>${month.length}</span></h4>${month.map(([d, e]) => `<div class="ml-rl tap" data-act="c-day" data-v="${d}"><i>${e.icon}</i><b>${d}일</b> ${esc(e.text)}</div>`).join('') || '<div class="ml-rl dim"><i>·</i>이 달엔 일정이 없어요</div>'}`;
+    const up = []; for (let k = 0; k <= 30; k++) { const dt = dateOf(book.world.start, (today + k) * DAY); for (const e of eventsOnDay(r, dt.y, dt.m, dt.d).out) up.push([k, e]); }
+    h += `<h4 class="ml-h4">다가오는 일정 <span>30일</span></h4>${up.slice(0, 8).map(([k, e]) => `<div class="ml-rl"><i>${e.icon}</i><b class="${k === 0 ? 'neg' : ''}">${k === 0 ? '오늘' : `D-${k}`}</b> ${esc(e.text)}</div>`).join('') || '<div class="ml-rl dim"><i>·</i>30일 안에 일정이 없어요</div>'}`;
     return h;
 }
 // ───── 세계 소식: 화면 밖 생활 · 속셈 · 기념일 · 하루 사건 (AI 0회) ─────
@@ -319,15 +344,33 @@ function book(r) {
     return h;
 }
 // ───── 🎚 영향력 게이지 ─────
+const GAUGE_DO = {
+    stats: ['상태창에만', '경계를 넘은 턴에 증상 한 줄', '위험 · 주의 증상 + 상태 딱지 이름', '+ 위험이면 주사위 보정이 실제로 적용', '+ 설렘처럼 사건을 먼저 만들게 함'],
+    wallet: ['상태창에만', '(없음)', '가진 돈 · 물건 · 착용 중', '+ 「돈보다 많이 못 씀 · 없는 물건 못 씀」', '+ 가게 · 물가 사건'],
+    rel: ['상태창에만', '빠진 사람 · 단계가 바뀐 순간', '장면 인물의 단계 · 기억 · 질투 · 티 나는 반응', '+ 「이 단계를 넘는 행동 금지」', '+ 가끔 설렘 한 스푼'],
+    map: ['상태창에만', '(없음)', '지금 장소 · 같이 있는 사람', '(2와 같음)', '(2와 같음)'],
+    calendar: ['상태창에만', '하루 안 남은 약속', '날짜 · 시간 · 날씨 · 오늘 사건', '(2와 같음)', '(2와 같음)'],
+    dice: ['보정 없이 굴림', '(0과 같음)', '(0과 같음)', '상태 보정(욕구 위험 · 딱지 · 운세)이 굴림에 적용', '(3과 같음)'],
+    news: ['상태창에만', '(없음)', '(없음)', '(없음)', '(없음)'],
+    mind: ['속마음 안 받음', '속마음을 답에 같이 적게 함', '(1과 같음)', '(1과 같음)', '(1과 같음)'],
+    quote: ['상태창에만', '본편에 한 번 녹이기', '(1과 같음)', '(1과 같음)', '(1과 같음)'],
+};
 function gauge() {
     const g = gaugeCfg(), meta = getMeta();
     let h = `<div class="ml-tools">${Object.entries(PRESETS).map(([k, p]) => btn(p.name, 'preset', k, 'sm')).join('')}</div>`;
     h += card('전체', slider('all', g.all ?? 2), `${seg('scope', [['chat', '이 채팅만'], ['all', '전체 기본값']], meta.influence ? 'chat' : 'all')}`);
-    h += card('기능별', GAUGES.map(x => slider(x.id, level(x.id), x.name)).join(''));
-    h += card('단계', LEVELS.map(l => row({ icon: `<b>${l.n}</b>`, title: l.name, sub: l.what })).join(''));
+    h += card('기능별 <span>이름을 누르면 단계별 동작</span>', GAUGES.map(x => slider(x.id, level(x.id), x.name)).join(''));
+    // 지금 본편에 실제로 가는 글 (결과값만)
+    const P = window.__prompts ?? null, inj = app.lastInj?.() ?? {};
+    const parts = [['rule', '적는 법 (규칙)', inj.rule], ['facts', '지금 사실', inj.facts], ['hint', '연출 힌트', inj.hint]].filter(([, , t]) => t);
+    h += `<h4 class="ml-h4">지금 본편에 가는 글 <span>결과값만 · 이번 턴 ≈${parts.reduce((a, [, , t]) => a + tokens(t), 0)}토큰</span></h4>${parts.map(([k, n, t]) => `<details class="ml-inj"${k !== 'rule' ? ' open' : ''}><summary>${n} <small>≈${tokens(t)}토큰</small></summary><pre>${esc(t)}</pre></details>`).join('') || '<div class="ml-rl dim"><i>·</i>지금은 아무것도 안 가요 (일시정지 · 건너뛰기 · 0단계)</div>'}`;
     return h;
 }
-const slider = (id, v, name = '전체') => { const c = levelCost(v); return `<div class="ml-gauge"><div class="ml-gauge-h"><b>${esc(name)}</b><span class="ml-pill ${v >= 3 ? 'love' : ''}">${v} · ${LEVELS[v].name}</span><small>주입 ≈${c.tok}토큰 · 추가 호출 ${c.calls}회</small></div><input type="range" class="ml-range" min="0" max="4" step="1" value="${v}" data-gauge="${id}"><div class="ml-gauge-t">${LEVELS.map(l => `<span class="${l.n === v ? 'on' : ''}">${l.name}</span>`).join('')}</div></div>`; };
+export function gaugeTable(id) {
+    const x = GAUGES.find(q => q.id === id); if (!x) return;
+    sheet(`🎚 ${esc(x.name)} 단계별 동작`, `<div class="ml-card">${LEVELS.map(l => row({ icon: `<b>${l.n}</b>`, title: l.name, sub: esc(GAUGE_DO[id]?.[l.n] ?? l.what), value: level(id) === l.n ? '<span class="ml-pill love">지금</span>' : '' })).join('')}</div><div class="ml-hint">숫자 · 보정 같은 중간값은 어느 단계에서도 본편에 안 가요.</div>`);
+}
+const slider = (id, v, name = '전체') => { const c = levelCost(v); return `<div class="ml-gauge"><div class="ml-gauge-h"><b${id !== 'all' ? ` class="tap" data-act="g-table" data-v="${id}"` : ''}>${esc(name)}${id !== 'all' ? ' ⓘ' : ''}</b><span class="ml-pill ${v >= 3 ? 'love' : ''}">${v} · ${LEVELS[v].name}</span><small>주입 ≈${c.tok}토큰 · 추가 호출 ${c.calls}회</small></div><input type="range" class="ml-range" min="0" max="4" step="1" value="${v}" data-gauge="${id}"><div class="ml-gauge-t">${LEVELS.map(l => `<span class="${l.n === v ? 'on' : ''}">${l.name}</span>`).join('')}</div></div>`; };
 
 export { upcoming, lastAI, relCard };
 function music(r) {
@@ -375,6 +418,21 @@ export async function onAct(act, v, el) {
             meta.luckRoll = { day: Math.floor(r.S.t / DAY), d, two: T.some(t => t.luck) ? [r1, r2] : null }; saveMeta();
             toast(`🎲 ${d}${d === 20 ? ' · 대길!' : d === 1 ? ' · 대흉…' : ''}`, d >= 11 ? 'good' : 'bad'); app.refresh?.(); return;
         }
+        case 'g-table': return gaugeTable(v);
+        case 'c-nav': setCal('nav', Number(v)); app.refresh?.(); return;
+        case 'c-today': setCal('today'); app.refresh?.(); return;
+        case 'c-day': setCal('day', v ? Number(v) : null); app.refresh?.(); return;
+        case 'c-time': {
+            if (v === 'set') { const fv = await form('🕰 시각 맞추기', [{ k: 't', label: '시각', ph: '14:30 · 오후 2시', chips: ['07:00', '12:00', '18:00', '22:00'] }]); if (!fv?.t.trim()) return; return hand(`time: ${fv.t.trim()}`, '직접 시간 맞춤'); }
+            if (v === '+1d') { // 다음 날 아침 8시까지 — 그 사이 밤잠(최대 8시간)은 자는 것으로
+                const cur = r.S.t % DAY, m = (DAY - cur) + 480, sleep = Math.min(480, m), awake = m - sleep;
+                return handLines([...(awake > 0 ? [`pass: ${awake}분`] : []), `slept: ${sleep}분`], '다음 날 아침으로');
+            }
+            return hand(v === 'next' ? `time: ${slotName(r.S.t + 180)}` : 'time: +1h', '직접 시간 넘김');
+        }
+        case 'c-wx': { const fv = await form('🌦 날씨', [{ k: 'w', label: '날씨', type: 'pick', v: r.S.weather, opts: [...new Set([...meta.book.world.weather, '맑음', '흐림', '비', '눈', '안개'])].map(w => [w, w]) }]); if (!fv?.w || fv.w === r.S.weather) return; return hand(`weather: ${fv.w}`, '직접 바꿈'); }
+        case 'c-add': { const fv = await form(`📅 ${v} 일정`, [{ k: 't', label: '일정', ph: 'Leon과 저녁 식사', chips: ['약속', '시험', '마감', '생일 파티'] }]); if (!fv?.t.trim()) return; return hand(`promise: ${fv.t.trim()} | ${v}`, '일정 추가'); }
+        case 'c-go': return hand(`date: ${v}`, '이 날로 이동');
         case 'dset': { const [k, x] = v.split(':'); setDice(k, k === 'dc' ? Number(x) : x); app.refresh?.(); return; }
         case 'rollattr': setDice('attr', v); app.openSheet?.('dice'); return;
         case 'roll': {

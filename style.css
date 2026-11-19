@@ -260,3 +260,17 @@ body.ml-open #ml-mini{display:none}
 .ml-trait.on{border-color:#06d6a0;background:color-mix(in srgb,#06d6a0 12%,transparent)}.ml-trait.add{border-style:dashed;color:var(--sub)}
 .ml-steps3{display:flex;gap:4px;margin:6px 0}.ml-steps3 span{flex:1;text-align:center;font-size:11px;padding:4px 0;border-radius:6px;background:var(--line)}.ml-steps3 .done{background:#06d6a0;color:#fff}.ml-steps3 .on{outline:2px solid #06d6a0}
 .ml-match{display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--line)}.ml-match .ml-tx b small{font-weight:400;color:var(--sub);margin-left:4px}.ml-match em{font-style:normal;font-weight:800}
+/* 📅 달력 */
+.ml-today{display:flex;gap:12px;align-items:center;padding:12px;border-radius:var(--r);background:linear-gradient(135deg,color-mix(in srgb,var(--trust) 12%,transparent),color-mix(in srgb,var(--a) 8%,transparent));margin:0 0 8px}.ml-today .ml-hero-b small{color:var(--sub);font-size:11px}
+.ml-timebar{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 12px}
+.ml-calh{display:flex;align-items:center;justify-content:center;gap:8px;margin:0 0 6px}.ml-calh b{font-size:15px;min-width:110px;text-align:center}
+.ml-calg{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;margin:0 0 10px}
+.ml-cw{text-align:center;font-size:11px;color:var(--sub);padding:2px 0}.ml-cw:first-child{color:var(--bad)}
+.ml-cc{aspect-ratio:1/0.85;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:0;border-radius:10px;background:color-mix(in srgb,var(--fg) 3%,transparent);color:inherit;font:inherit;font-size:13px;cursor:pointer;padding:0}
+.ml-cc.x{background:none;cursor:default}.ml-cc.past{opacity:.5}.ml-cc.today{background:var(--a);color:#fff;font-weight:700}.ml-cc.sel{outline:2px solid var(--a)}
+.ml-cc i{display:flex;gap:2px}.ml-cc i b{width:4px;height:4px;border-radius:50%;background:var(--a)}.ml-cc.today i b{background:#fff}
+.ml-calday{margin:0 0 10px}
+/* 🎚 지금 본편에 가는 글 */
+.ml-inj{border:1px solid var(--line);border-radius:10px;margin:0 0 6px;padding:6px 10px}.ml-inj summary{cursor:pointer;font-size:13px;font-weight:600}.ml-inj summary small{font-weight:400;color:var(--sub)}
+.ml-inj pre{white-space:pre-wrap;font-size:11px;line-height:1.5;margin:6px 0 0;max-height:220px;overflow:auto;color:var(--sub)}
+.ml-sec h4 span span{font-weight:400}
