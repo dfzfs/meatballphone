@@ -323,6 +323,14 @@ function showPerf() {
 async function boot() {
     initLog(); settings(); applyLook(); // 테마 변수는 늘 열어 둔다 (선택지 확장이 미트볼폰 디자인을 따름)
     if (oldActive()) { resting = true; console.info(`[${TITLE}] 옛 미트볼이 켜져 있어서 쉽니다.`); return; }
+    // 🔁 같은 확장이 두 번 깔린 경우(옛 「미트볼 라이트」 폴더 + 새 「meatballphone」 폴더): 새 폴더 쪽만 돈다
+    const folder = (import.meta.url.match(/third-party\/([^/]+)\//) ?? [])[1] ?? '', hasNew = [...document.querySelectorAll('script[src]')].some(e => /third-party\/meatballphone\//i.test(e.src));
+    if ((folder && folder !== 'meatballphone' && hasNew) || globalThis.__meatballPhoneBoot) {
+        resting = true; console.warn(`[${TITLE}] 같은 확장이 두 번 깔려 있어서 이쪽(${folder || '?'})은 쉽니다.`);
+        setTimeout(() => toastr?.warning?.(`미트볼폰이 두 번 깔려 있어요. 실리태번 › 확장 관리에서 옛 「${folder || '미트볼 라이트'}」를 지워 주세요.`, '미트볼폰'), 1500);
+        return;
+    }
+    globalThis.__meatballPhoneBoot = folder || 'dev';
     mountSettings(); bindOuter(); mountApi(); initMascot();
     const c = ctx(), E = c.event_types, on = (n, f) => n && c.eventSource.on(n, f);
     on(E.GENERATION_AFTER_COMMANDS, onBeforeGen);
