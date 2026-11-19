@@ -51,5 +51,13 @@ try {
     await page.evaluate(() => document.querySelector('[data-act="x-install"][data-v="choices"]').click()); await sleep(500);
     check(installed?.url === 'https://github.com/dfzfs/meatballphone-choices' && installed.global === false, '설치: 실리태번 확장 설치에 저장소 주소 보냄', JSON.stringify(installed));
     check(await page.evaluate(() => !!document.querySelector('[data-act="x-reload"]')), '설치 뒤 「새로 고침」 버튼');
-    check(!logs.some((l) => /error/i.test(l) && !/boom|ERR_FAILED|net::/.test(l)), '오류 없음', logs.filter((l) => /error/i.test(l)).slice(0, 3).join(' | '));
+    // 실패: 실리태번의 영어 오류문 대신 쉬운 한국어
+    await page.unroute('**/api/extensions/install');
+    for (const [status, body] of [[500, 'Internal Server Error. Check the server logs for more details.'], [403, 'Forbidden: No permission to install global extensions.'], [400, 'Bad Request: A valid URL is required in the request body.']]) {
+        await page.route('**/api/extensions/install', r => r.fulfill({ status, contentType: 'text/plain', body }));
+        const msg = await page.evaluate(async () => { const A = await import('/ext/src/extra/apps.js'); try { await A.installApp('choices'); return 'ok'; } catch (e) { return e.message; } });
+        check(/[가-힣]/.test(msg) && !/[A-Za-z]{4,}/.test(msg), `설치 실패 ${status}: 쉬운 한국어`, msg);
+        await page.unroute('**/api/extensions/install');
+    }
+    check(!logs.some((l) => /error/i.test(l) && !/boom|ERR_FAILED|net::|status of (500|403|400)|앱 설치 실패/.test(l)), '오류 없음', logs.filter((l) => /error/i.test(l)).slice(0, 3).join(' | '));
 } finally { await close(); }

@@ -57,11 +57,19 @@ export function loadCatalog() {
         .then(x => { list = x; loading = null; onChange(); return x; });
     return loading;
 }
+const INSTALL_ERR = {
+    409: '이미 깔려 있어요 (실리태번 확장 목록에서 켜져 있는지 보세요)',
+    403: '이 계정은 확장을 설치할 권한이 없어요. 관리자에게 부탁하세요',
+    404: '이 실리태번은 확장 설치가 꺼져 있어요',
+    500: '내려받지 못했어요. 인터넷이나 git 설치를 확인하고 다시 해 보세요',
+};
 const fresh = new Set(); // 이번에 설치해서 새로 고침을 기다리는 앱
 export const waitsReload = (id) => fresh.has(id);
 export async function installApp(id) {
     const it = (list ?? []).find(x => x.id === id); if (!it) throw new Error('목록에 없는 앱');
-    const res = await fetch('/api/extensions/install', { method: 'POST', headers: ctx().getRequestHeaders?.() ?? { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: it.repo, global: false }) });
-    if (!res.ok) { const t = await res.text().catch(() => ''); throw new Error(res.status === 409 ? '이미 깔려 있어요 (실리태번 확장 목록에서 켜져 있는지 보세요)' : (t || `설치 실패 (${res.status})`)); }
+    const res = await fetch('/api/extensions/install', { method: 'POST', headers: ctx().getRequestHeaders?.() ?? { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: it.repo, global: false }) })
+        .catch(() => { throw new Error('실리태번 서버에 닿지 않아요. 서버가 켜져 있는지 보세요'); });
+    // 실리태번이 주는 영어 오류문은 화면에 안 띄우고 쉬운 말로 바꾼다 (원문은 콘솔에만)
+    if (!res.ok) { const t = await res.text().catch(() => ''); console.warn('[미트볼폰] 앱 설치 실패', res.status, t); throw new Error(INSTALL_ERR[res.status] ?? `설치하지 못했어요 (${res.status}). 실리태번 › 확장 설치에 주소를 직접 넣어 보세요`); }
     fresh.add(id); onChange();
 }
