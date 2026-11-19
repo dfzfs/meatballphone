@@ -104,3 +104,6 @@ body.ml-open #ml-mini{display:none}
 .ml-gauge-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.ml-gauge-h b{font-weight:600}.ml-gauge-h small{margin-left:auto;font-size:11px;color:var(--sub)}
 #ml-full input[type="range"].ml-range{display:block;width:100%;min-width:0;margin:8px 0 2px;padding:0;accent-color:var(--a)}
 .ml-gauge-t{display:flex;justify-content:space-between;font-size:10px;color:var(--sub)}.ml-gauge-t span.on{color:var(--a);font-weight:700}
+/* 바텀시트는 패널 안에서 (패널 폭 · 패널 높이 안) */
+#ml-full .ml-bs{position:absolute;z-index:10;align-items:flex-end}
+#ml-full .ml-bs-box{max-width:none;max-height:88%;border-radius:var(--r) var(--r) 0 0}

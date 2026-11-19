@@ -16,4 +16,5 @@ try {
     await page.screenshot({ path: '/tmp/n-rel-more.png' });
     await page.evaluate(() => document.querySelector('.ml-bs [data-bs="x"]').click());
     await page.setViewportSize({ width: 1440, height: 900 }); await page.evaluate(() => __ML__.app.openSheet('rel')); await sleep(200); await page.screenshot({ path: '/tmp/n-rel-laptop.png' });
+    await page.evaluate(() => document.querySelector('#ml-full [data-act="person"]').click()); await sleep(200); await page.screenshot({ path: '/tmp/n-rel-laptop-more.png' });
 } finally { await close(); }

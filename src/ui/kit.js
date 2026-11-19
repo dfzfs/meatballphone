@@ -18,7 +18,8 @@ export function sheet(title, html, { onOk = null, ok = '저장' } = {}) {
     const el = document.createElement('div');
     el.className = 'ml-bs ml-scope';
     el.innerHTML = `<div class="ml-bs-dim"></div><div class="ml-bs-box"><header><b>${title}</b><button class="ml-x" data-bs="x">✕</button></header><div class="ml-bs-body">${html}</div>${onOk ? `<footer><button class="ml-btn main" data-bs="ok">${ok}</button></footer>` : ''}</div>`;
-    document.body.appendChild(el);
+    // 패널(펼친 화면)이 열려 있으면 그 안에 띄운다 — 화면 전체를 덮지 않게
+    (document.getElementById('ml-full') ?? document.body).appendChild(el);
     const close = () => el.remove();
     el.addEventListener('click', async (e) => {
         const b = e.target.closest('[data-bs]');
