@@ -3,7 +3,7 @@ import { clone, hash } from './util.js';
 
 export const MODULE = 'meatlite';
 export const OLD = 'statussim';
-export const VERSION = '0.12.0';
+export const VERSION = '0.13.0';
 export const DATA_V = 2;
 export const TITLE = '미트볼 라이트';
 export const INJ = { facts: 'meatlite_facts', hint: 'meatlite_hint', rule: 'meatlite_rule' };
@@ -34,6 +34,7 @@ export const DEFAULTS = Object.freeze({
     profile: '',            // 미트볼 AI 호출에 쓸 연결 프로필 (비우면 지금 연결)
     saveLang: 'ko',         // 상태창 저장 언어: ko | en (en이면 화면 번역)
     trProfile: '',
+    trAuto: 'ai',            // 영어 저장일 때 모르는 말: ai(모아서 1회) | off(직접만)
     musicApp: 'youtube',
     musicTaste: '',
     pinBook: 'auto',        // 설정집 한두 줄을 본편에 붙일지: auto | off

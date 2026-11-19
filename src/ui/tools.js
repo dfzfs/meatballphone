@@ -8,6 +8,7 @@ import { normBook, personOf, placeOf, PLACE_KINDS, fxOf } from '../rules/book.js
 import { ask, parseJSON } from '../rules/ai.js';
 import { readOps } from '../rules/tags.js';
 import { glossList, gloss } from '../base/gloss.js';
+import { trOn, trList, flush } from '../extra/translate.js';
 export { glossList, gloss };
 
 // 앱 → 영향력 게이지 칸 (🙈 숨기기가 끄는 것)
@@ -234,7 +235,7 @@ export async function aiEdit(appId) {
 export async function editGloss() {
     const meta = getMeta(), all = settings().glossary ?? [], chat = meta.glossary ?? [];
     const rows = [...chat.map((g, i) => ({ ...g, sc: 'chat', i })), ...all.map((g, i) => ({ ...g, sc: 'all', i }))];
-    sheet('🌐 용어집 · 번역 고정', `<div class="ml-hint">한 번 정해 두면 상태창 화면 · 이름 맞추기 · 미트볼 AI가 늘 이 말을 써요. 본편에는 안 가요.</div><div class="ml-card">${rows.map(g => `<div class="ml-row tap" data-act="g-edit" data-v="${g.sc}|${g.i}"><span class="ml-tx"><b>${esc(g.from)} → ${esc(g.to)}</b><small>${g.sc === 'all' ? '모든 채팅' : '이 채팅'}</small></span><span class="ml-val"><i class="ml-chev">›</i></span></div>`).join('') || '<div class="ml-row"><span class="ml-tx"><small>아직 없어요</small></span></div>'}</div><div class="ml-acts">${btn('＋ 용어', 'g-edit', '')}${btn('📘 설정집 이름 모두 넣기', 'g-fill', '')}</div>`);
+    sheet('🌐 용어집 · 번역 고정', `<div class="ml-hint">한 번 정해 두면 상태창 화면 · 이름 맞추기 · 미트볼 AI가 늘 이 말을 써요. 본편에는 안 가요.</div><div class="ml-card">${rows.map(g => `<div class="ml-row tap" data-act="g-edit" data-v="${g.sc}|${g.i}"><span class="ml-tx"><b>${esc(g.from)} → ${esc(g.to)}</b><small>${g.sc === 'all' ? '모든 채팅' : '이 채팅'}</small></span><span class="ml-val"><i class="ml-chev">›</i></span></div>`).join('') || '<div class="ml-row"><span class="ml-tx"><small>아직 없어요</small></span></div>'}</div><div class="ml-acts">${btn('＋ 용어', 'g-edit', '')}${btn('📘 설정집 이름 모두 넣기', 'g-fill', '')}</div>${trOn() ? `<h4 class="ml-h4">번역 사전 <span>영어 저장 · 화면만 한국어 · 누르면 고치기</span></h4><div class="ml-card">${trList().map(([k, v]) => `<div class="ml-row tap" data-act="tr-edit" data-v="${esc(k)}"><span class="ml-tx"><b>${esc(k)} → ${esc(v)}</b></span><span class="ml-val"><i class="ml-chev">›</i></span></div>`).join('') || '<div class="ml-row"><span class="ml-tx"><small>아직 없어요 · 화면을 열면 모아서 번역해요</small></span></div>'}</div><div class="ml-acts">${btn('🔄 지금 번역', 'tr-now', '', 'xs')}${btn('🗑 사전 비우기', 'tr-clear', '', 'xs')}</div>` : '<div class="ml-hint">영어로 저장하는 채팅이면 확장 설정에서 「상태창 저장 언어: 영어」를 고르세요. 화면만 한국어로 보여요.</div>'}`);
 }
 export async function glossItem(v) {
     const meta = getMeta();
@@ -275,7 +276,18 @@ export async function onTool(act, v) {
         case 't-gloss': return editGloss();
         case 'g-edit': return glossItem(v);
         case 'g-fill': return glossFill();
+        case 'tr-edit': {
+            const cur = meta.tr?.[v] ?? '';
+            const fv = await form('🌐 번역 고치기', [{ k: 'to', label: esc(v), v: cur }, { k: 'how', label: '어디에', type: 'pick', v: 'tr', opts: [['tr', '번역 사전 (이 채팅)'], ['fix', '🌐 용어집에 고정'], ['del', '지우고 다시 번역']] }]);
+            if (!fv) return;
+            if (fv.how === 'del') delete meta.tr[v];
+            else if (fv.how === 'fix') { (meta.glossary ??= []).push({ from: v, to: fv.to.trim() || cur }); delete meta.tr[v]; }
+            else (meta.tr ??= {})[v] = fv.to.trim() || cur;
+            saveMeta(); app.refresh?.(); return editGloss();
+        }
+        case 'tr-now': await flush(); return editGloss();
+        case 'tr-clear': meta.tr = {}; saveMeta(); app.refresh?.(); return editGloss();
         default: return editItem(act, v);
     }
 }
-export const TOOL_ACTS = new Set(['t-edit', 't-ai', 't-hide', 't-parts', 't-gloss', 'g-edit', 'g-fill', 'e-need', 'e-gauge', 'e-attr', 'e-status', 'e-add-stat', 'e-item', 'e-place', 'e-cfield', 'e-mark']);
+export const TOOL_ACTS = new Set(['tr-edit', 'tr-now', 'tr-clear', 't-edit', 't-ai', 't-hide', 't-parts', 't-gloss', 'g-edit', 'g-fill', 'e-need', 'e-gauge', 'e-attr', 'e-status', 'e-add-stat', 'e-item', 'e-place', 'e-cfield', 'e-mark']);

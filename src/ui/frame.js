@@ -6,6 +6,7 @@ import { placeOf } from '../rules/book.js';
 import { TABS, RENDER, onAct, changeRow, setRecFilter } from './tabs.js';
 import { home, market, cat, look, APPS, appOf, installed, markSeen } from './home.js';
 import { toolbar, onTool, TOOL_ACTS, applyGloss } from './tools.js';
+import { applyTr, trOn, trBusy } from '../extra/translate.js';
 import { traitsView, traitAct, TRAIT_ACTS } from './traits.js';
 import { chip, sheet, bar } from './kit.js';
 
@@ -41,7 +42,7 @@ export function drawFrame() {
     if (settings().hud) {
         if (!hud) { hud = document.createElement('div'); hud.id = 'ml-hud'; hud.className = 'ml-scope'; const host = document.getElementById('sheld') ?? document.body; settings().hudPos === 'bottom' ? (document.getElementById('form_sheld') ?? host).before(hud) : host.prepend(hud); }
         const h = `<button class="ml-h tap" data-act="open" data-v="home">😼</button>${hudHTML(r)}${getMeta().paused ? '<span class="ml-h bad">⏸</span>' : ''}`;
-        if (hud.dataset.h !== h) { hud.innerHTML = h; hud.dataset.h = h; applyGloss(hud); }
+        if (hud.dataset.h !== h) { hud.innerHTML = h; hud.dataset.h = h; applyGloss(hud); applyTr(hud); }
     } else hud?.remove();
     if (settings().minibar) {
         if (!mb) { mb = document.createElement('div'); mb.id = 'ml-mini'; mb.className = 'ml-scope'; document.body.appendChild(mb); }
@@ -74,7 +75,8 @@ export function drawSheet() {
     const scroll = el.querySelector('.ml-body')?.scrollTop ?? 0, same = el.querySelector('.ml-body')?.dataset.tab === cur;
     el.innerHTML = `<header class="ml-top">${cur === 'home' ? `${mascot('head')}<b>${TITLE}</b>` : `<button class="ml-ib back" data-tab="home" title="홈">‹</button><b>${a ? `${a.icon} ${a.name}` : ''}</b>`}${past != null ? chip(`🕰 #${past} 시점 · 읽기 전용`, 'mid', 'past-off') : ''}<span class="ml-sp"></span><button class="ml-ib" data-act="pause" title="일시정지">${meta.paused ? '▶' : '⏸'}</button><button class="ml-ib" data-act="skip" title="다음 1번 건너뛰기">${meta.skipNext ? '⏭✓' : '⏭'}</button><button class="ml-ib" data-act="find" title="검색">🔍</button><button class="ml-ib" data-act="close">✕</button></header>`
         + `<main class="ml-body" data-tab="${cur}">${a && !a.sys ? toolbar(cur) : ''}${R2[cur](view)}</main>`;
-    applyGloss(el.querySelector('.ml-body'));
+    applyGloss(el.querySelector('.ml-body')); applyTr(el.querySelector('.ml-body'));
+    if (trOn() && trBusy()) el.querySelector('.ml-sp')?.insertAdjacentHTML('beforebegin', '<span class="ml-pill">🌐 번역 중…</span>');
     if (a && !a.sys) markSeen(cur, r);
     if (keep) el.appendChild(keep);
     if (same) el.querySelector('.ml-body').scrollTop = scroll;
@@ -130,7 +132,7 @@ export function drawChips() {
         if (!ch.length && !fl.length) { box?.remove(); continue; }
         const h = fl.map(f => chip(`⚠ 확인 필요 · ${esc(short(f.text, 24))}`, 'bad')).join('') + ch.slice(0, 8).map(c => chip(`${c.icon} ${esc(c.label)} ${typeof c.to === 'number' && typeof c.from === 'number' ? (c.f === 'time' ? '' : signed2(c.to - c.from)) : esc(c.to)}${c.why ? ` · ${esc(short(c.why, 12))}` : ''}`, c.kind === 'bad' || (typeof c.to === 'number' && c.to < c.from) ? 'bad' : 'good', 'turncard', String(i))).join('') + (ch.length > 8 ? chip(`+${ch.length - 8}`, 'mid', 'turncard', String(i)) : '');
         if (!box) { box = document.createElement('div'); box.className = 'ml-msg ml-scope'; el.after(box); }
-        if (box.innerHTML !== h) box.innerHTML = h;
+        if (box.dataset.h !== h) { box.innerHTML = h; box.dataset.h = h; applyTr(box); }
     }
 }
 const signed2 = (n) => (n > 0 ? `+${Math.round(n)}` : `−${Math.abs(Math.round(n))}`);

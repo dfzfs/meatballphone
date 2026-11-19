@@ -132,6 +132,7 @@ ${sw('enabled', '켜기')}
 <h4>AI</h4>${sel('preset', '본편 지시', [['flash', '플래시용 (짧은 키 + 예시)'], ['general', '일반']])}${sw('fillMissing', '태그가 빠졌을 때만 보충 (AI 1회)')}${sw('skipQuiet', '퀵리플라이 · /gen 답엔 안 붙이기')}${sw('ooc', 'OOC 메시지는 건너뛰기')}
 <label>미트볼 AI 연결 프로필 <input class="text_pole" data-ml-s="profile" value="${esc(s.profile)}" placeholder="비우면 지금 연결"></label>
 ${sel('pinBook', '장면 인물의 증상 한 줄 본편에', [['auto', '붙이기'], ['off', '안 붙이기']])}
+<h4>번역</h4>${sel('saveLang', '상태창 저장 언어', [['ko', '한국어'], ['en', '영어 (화면만 한국어로)']])}${sel('trAuto', '모르는 말', [['ai', '모아서 AI로 번역 (1회씩)'], ['off', '직접 고친 것만']])}
 <h4>저장 · 옮기기</h4><div class="ml-set-btns"><button class="menu_button" data-ml="perf">🏎 부하 재기</button><button class="menu_button" data-ml="backup">💾 백업</button><button class="menu_button" data-ml="restore">📂 불러오기</button><button class="menu_button" data-ml="card">🃏 카드에 붙이기</button><button class="menu_button" data-ml="migrate">🍖 옛 미트볼 옮겨 오기</button></div>
 </div></div>`;
 }
