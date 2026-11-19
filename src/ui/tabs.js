@@ -5,6 +5,7 @@ import { row, card, chip, seg, bar, empty, btn, sheet, toast, putInput, form } f
 import { fold, derived, needStage, relStage, nextStage, diceMod, diceParts, worldEvent, priceMul, whereNow } from '../rules/engine.js';
 import { luckOf } from '../rules/luck.js';
 import { QUOTES } from '../../data/quotes.js';
+import { vis } from './tools.js';
 const QN = QUOTES.length;
 const d20Svg = (n, c) => `<svg class="ml-d20 big ${c}" viewBox="0 0 100 100"><polygon class="f0" points="50,4 92,28 92,72 50,96 8,72 8,28"/><polygon class="f1" points="50,22 78,66 22,66"/><polyline class="ed" points="50,4 50,22 92,28 78,66 92,72 50,96 78,66 22,66 8,72 22,66 8,28 50,22 22,66"/><text x="50" y="56">${n}</text></svg>`;
 import { layout, lineEdges, lineNodes, route, floorsOf } from './metro.js';
@@ -71,19 +72,20 @@ function now(r) {
     const dz = derived(book, S);
     const tags = [...S.status.map(s => chip(`${s.src === 'fate' ? '🔮 ' : ''}${esc(s.name)}${s.until ? ` · ${Math.max(1, Math.round((s.until - S.t) / 60))}h` : ''}${s.dice ? ` · 🎲${signed(s.dice)}` : ''}`, s.kind === 'good' ? 'good' : s.kind === 'bad' ? 'bad' : 'mid')),
         ...dz.filter(d => d.stage === '위험').map(d => chip(`${d.icon} ${esc(d.name)} 위험 · 🎲${d.dice}`, 'bad'))];
-    let h = `<h4 class="ml-h4">상태 딱지</h4><div class="ml-chips">${tags.join('') || '<span class="ml-sub">없음</span>'}</div>`;
+    const V = (k) => vis('now', k);
+    let h = !V('tags') ? '' : `<h4 class="ml-h4">상태 딱지</h4><div class="ml-chips">${tags.join('') || '<span class="ml-sub">없음</span>'}</div>`;
     const tg = moodTags(r, last), side = [];
     if (modOn('music')) { const m = S.bgm ? { label: S.bgm, query: S.bgm, why: '답에 나온 곡' } : pickMusic(tg, settings().musicTaste); side.push(`<div class="ml-scene tap" data-act="music" data-v="${esc(m.query)}"><i>🎵</i><span><b>${esc(m.label)}</b><small>${esc(tg.map(t => MOOD_KO[t] ?? t).slice(0, 3).join(' · '))}</small></span><em>▶</em></div>`); }
     if (modOn('quote')) { const q = pickQuote(tg, meta.recent?.quote ?? [], S.turn); if (q) side.push(`<div class="ml-scene tap" data-act="quote" data-v="${esc(`${q.text}\n\n${q.mean}\n— ${q.src}`)}"><i>📜</i><span><b>${esc(q.text)}</b><small>${esc(q.src)}</small></span><em>ⓘ</em></div>`); }
     { const l = luckOf(book, S, ctx().getCurrentChatId?.()); side.push(`<div class="ml-scene luck"><i>🍀</i><span><b>${esc(l.text)}</b><small>오늘 운세 · 선택지에 🍀 · ⚠로 보여요</small></span></div>`); }
-    if (side.length) h += `<h4 class="ml-h4">이 장면</h4><div class="ml-scenes">${side.join('')}</div>`;
+    if (side.length && V('scene')) h += `<h4 class="ml-h4">이 장면</h4><div class="ml-scenes">${side.join('')}</div>`;
     if (modOn('stats')) {
-        h += `<h4 class="ml-h4">욕구 <span>달력 시간으로 줄어요</span></h4><div class="ml-gcs">${book.me.needs.map(n => needCard(r, n, last)).join('')}</div>`;
-        if (book.me.gauges.length) h += `<h4 class="ml-h4">게이지</h4><div class="ml-gcs">${book.me.gauges.map(g => gaugeCard(r, g, last)).join('')}</div>`;
-        if (book.me.attrs.length) h += `<h4 class="ml-h4">능력치 <span>주사위 보정</span></h4><div class="ml-attrs">${book.me.attrs.map(a => { const gear = S.items.filter(it => it.worn && num(it.fx?.[a.name])).reduce((x, it) => x + num(it.fx[a.name]), 0); return `<div class="ml-attr tap" data-act="rollattr" data-v="${esc(a.name)}"><small>${esc(a.name)}</small><b>${signed(S.attrs[a.name] ?? 0)}</b>${gear ? `<em>👕${signed(gear)}</em>` : ''}</div>`; }).join('')}</div>`;
+        if (V('needs')) h += `<h4 class="ml-h4">욕구 <span>달력 시간으로 줄어요</span></h4><div class="ml-gcs">${book.me.needs.map(n => needCard(r, n, last)).join('')}</div>`;
+        if (book.me.gauges.length && V('gauges')) h += `<h4 class="ml-h4">게이지</h4><div class="ml-gcs">${book.me.gauges.map(g => gaugeCard(r, g, last)).join('')}</div>`;
+        if (book.me.attrs.length && V('attrs')) h += `<h4 class="ml-h4">능력치 <span>주사위 보정</span></h4><div class="ml-attrs">${book.me.attrs.map(a => { const gear = S.items.filter(it => it.worn && num(it.fx?.[a.name])).reduce((x, it) => x + num(it.fx[a.name]), 0); return `<div class="ml-attr tap" data-act="rollattr" data-v="${esc(a.name)}"><small>${esc(a.name)}</small><b>${signed(S.attrs[a.name] ?? 0)}</b>${gear ? `<em>👕${signed(gear)}</em>` : ''}</div>`; }).join('')}</div>`;
     }
-    h += turnCard(r, li);
-    if (S.with.length && modOn('rel')) h += `<h4 class="ml-h4">같이 있는 사람</h4><div class="ml-rcs">${S.with.map(n => relCard(r, n)).join('')}</div>`;
+    if (V('turn')) h += turnCard(r, li);
+    if (S.with.length && modOn('rel') && V('with')) h += `<h4 class="ml-h4">같이 있는 사람</h4><div class="ml-rcs">${S.with.map(n => relCard(r, n)).join('')}</div>`;
     return h;
 }
 const MOOD_KO = { love: '설렘', sad: '울적', tired: '나른함', hungry: '허기', rain: '비', conflict: '갈등', jealous: '질투', festive: '들뜸', friend: '함께', hope: '희망', money: '빠듯함', bad: '불운', good: '행운', calm: '잔잔함' };
@@ -114,9 +116,10 @@ function dice(r) {
 // ───── 소지품 · 재산 (+ 상점 미니 선택지) ─────
 function bag(r) {
     const { S, book } = r, place = placeOf(book, S.loc), mul = priceMul(S);
-    let h = card('재산', row({ icon: '💰', title: '가진 돈', sub: `식사 한 끼 ≈ ${money(r, book.world.meal)}`, value: `<b class="ml-num">${money(r, S.cash)}</b>`, act: 'edit-cash', more: true }));
-    h += card('소지품', S.items.length ? S.items.map(it => row({ icon: it.worn ? '👕' : '📦', title: `${esc(it.name)}${it.n > 1 ? ` ×${it.n}` : ''}`, sub: it.worn ? '착용 중' : Object.entries(it.fx).map(([k, v]) => `${book.me.needs.find(n => n.key === k)?.name ?? k} ${signed(v)}`).join(' · '), value: choiceBtns([[Object.keys(it.fx).length ? `먹기` : '쓰기', `${it.name}을(를) 먹는다`], [it.worn ? '벗기' : '입기', `${it.name}을(를) ${it.worn ? '벗는다' : '입는다'}`]]) })).join('') : row({ icon: '📦', title: '비어 있어요', faint: true }));
-    if (place?.goods.length) h += card(`${PLACE_KINDS[place.kind]} ${esc(place.name)} 가게`, place.goods.map(g => goodRow(r, g, mul)).join(''), mul !== 1 ? `오늘 값 ×${mul}` : '');
+    const V = (k) => vis('bag', k);
+    let h = !V('cash') ? '' : card('재산', row({ icon: '💰', title: '가진 돈', sub: `식사 한 끼 ≈ ${money(r, book.world.meal)}`, value: `<b class="ml-num">${money(r, S.cash)}</b>`, act: 'edit-cash', more: true }));
+    if (V('items')) h += card('소지품', S.items.length ? S.items.map(it => row({ icon: it.worn ? '👕' : '📦', title: `${esc(it.name)}${it.n > 1 ? ` ×${it.n}` : ''}`, sub: it.worn ? '착용 중' : Object.entries(it.fx).map(([k, v]) => `${book.me.needs.find(n => n.key === k)?.name ?? k} ${signed(v)}`).join(' · '), value: choiceBtns([[Object.keys(it.fx).length ? `먹기` : '쓰기', `${it.name}을(를) 먹는다`], [it.worn ? '벗기' : '입기', `${it.name}을(를) ${it.worn ? '벗는다' : '입는다'}`]]) })).join('') : row({ icon: '📦', title: '비어 있어요', faint: true }));
+    if (place?.goods.length && V('shop')) h += card(`${PLACE_KINDS[place.kind]} ${esc(place.name)} 가게`, place.goods.map(g => goodRow(r, g, mul)).join(''), mul !== 1 ? `오늘 값 ×${mul}` : '');
     return h;
 }
 function goodRow(r, g, mul) {
@@ -154,26 +157,26 @@ function relCard(r, name, inSheet = false) {
         S.with.includes(name) && '<span class="ml-pill good">함께 있음</span>',
         x.jealous && `<span class="ml-pill bad">💢 질투</span>`,
         p?.noLove && '<span class="ml-pill mid">애정 꺼 둠</span>'].filter(Boolean).join('');
-    const L = [];
+    const L = [], V = (k) => vis('rel', k);
     if (!x.gone) {
-        if (!p?.noLove) L.push(meter('love', '애정', x.aff, ticks, hide, name));
-        L.push(meter('trust', '우정', x.trust, [], hide, name));
+        if (V('meters') && !p?.noLove) L.push(meter('love', '애정', x.aff, ticks, hide, name));
+        if (V('meters')) L.push(meter('trust', '우정', x.trust, [], hide, name));
         if (hide) L.push(`<div class="ml-rl"><i>👀</i>${esc(sign || '아직 속을 모르겠다')}</div>`);
-        L.push(`<div class="ml-rl"><i>🗣</i><b>${esc(st.call)}</b><span>· ${esc(st.act)}</span></div>`);
-        if (nx && !p?.noLove) L.push(`<div class="ml-rl"><i>🔓</i>다음 「${esc(nx.name)}」까지 ${hide ? '조금 더' : `애정 ${nx.at - x.aff}`} <span>→ ${esc(nx.call)} · ${esc(nx.act)}</span></div>`);
-        if (last) L.push(`<div class="ml-rl tap" data-act="jump" data-v="${last.i}"><i>${last.c.icon}</i>최근 ${hide ? '' : `<b class="${last.c.to < last.c.from ? 'neg' : 'pos'}">${signed(last.c.to - last.c.from)}</b>`} ${esc(last.c.why)} <span>#${last.i}</span></div>`);
-        if (x.want) L.push(`<div class="ml-rl"><i>🎯</i>${esc(x.want)}</div>`);
+        if (V('call')) L.push(`<div class="ml-rl"><i>🗣</i><b>${esc(st.call)}</b><span>· ${esc(st.act)}</span></div>`);
+        if (V('next') && nx && !p?.noLove) L.push(`<div class="ml-rl"><i>🔓</i>다음 「${esc(nx.name)}」까지 ${hide ? '조금 더' : `애정 ${nx.at - x.aff}`} <span>→ ${esc(nx.call)} · ${esc(nx.act)}</span></div>`);
+        if (V('last') && last) L.push(`<div class="ml-rl tap" data-act="jump" data-v="${last.i}"><i>${last.c.icon}</i>최근 ${hide ? '' : `<b class="${last.c.to < last.c.from ? 'neg' : 'pos'}">${signed(last.c.to - last.c.from)}</b>`} ${esc(last.c.why)} <span>#${last.i}</span></div>`);
+        if (V('want') && x.want) L.push(`<div class="ml-rl"><i>🎯</i>${esc(x.want)}</div>`);
         if (x.jealous) L.push(`<div class="ml-rl"><i>💢</i>${esc(x.jealous)}</div>`);
         if (x.life) L.push(`<div class="ml-rl"><i>🌙</i>${esc(x.life)}</div>`);
         const mem = x.mem.filter(m => !x.jealous || !m.text.includes(x.jealous));
-        if (mem[0]) L.push(`<div class="ml-rl"><i>💬</i>${esc(mem[0].text)}${mem.length > 1 ? ` <span>외 ${mem.length - 1}개</span>` : ''}</div>`);
+        if (V('mem') && mem[0]) L.push(`<div class="ml-rl"><i>💬</i>${esc(mem[0].text)}${mem.length > 1 ? ` <span>외 ${mem.length - 1}개</span>` : ''}</div>`);
         const tl = [...x.seen.likes.map(t => `<span class="ml-tag good">${esc(t)}</span>`), ...x.seen.hates.map(t => `<span class="ml-tag bad">${esc(t)}</span>`)];
-        if (tl.length) L.push(`<div class="ml-rl"><i>🎁</i>${tl.join('')}</div>`);
+        if (V('taste') && tl.length) L.push(`<div class="ml-rl"><i>🎁</i>${tl.join('')}</div>`);
         const day = p?.day || x.day, meta2 = [nowAt && `📍 ${esc(nowAt)}`, day && `🎂 ${esc(day)}`].filter(Boolean);
-        if (meta2.length) L.push(`<div class="ml-rl dim"><i></i>${meta2.join('<span>·</span>')}</div>`);
+        if (V('place') && meta2.length) L.push(`<div class="ml-rl dim"><i></i>${meta2.join('<span>·</span>')}</div>`);
     }
     const acts = x.gone ? btn('돌아옴', 'gone', name, 'xs') : `${btn('🎁<span> 선물</span>', 'say', `${name}에게 선물을 건넨다.`, 'xs')}${inSheet ? '' : btn('더보기', 'person', name, 'xs')}`;
-    return `<div class="ml-rc${x.gone ? ' gone' : ''}"><div class="ml-rc-h"><span class="ml-face"${inSheet ? '' : ` data-act="person" data-v="${esc(name)}"`}>${p?.face || x.face || '🙂'}</span><b${inSheet ? '' : ` class="tap" data-act="person" data-v="${esc(name)}"`}>${esc(name)}</b>${pills}<span class="ml-sp"></span>${acts}</div>${p?.line || x.line ? `<div class="ml-rc-line">${esc(p?.line || x.line)}</div>` : ''}${L.join('')}</div>`;
+    return `<div class="ml-rc${x.gone ? ' gone' : ''}"><div class="ml-rc-h"><span class="ml-face"${inSheet ? '' : ` data-act="person" data-v="${esc(name)}"`}>${p?.face || x.face || '🙂'}</span><b${inSheet ? '' : ` class="tap" data-act="person" data-v="${esc(name)}"`}>${esc(name)}</b>${pills}<span class="ml-sp"></span>${acts}</div>${(p?.line || x.line) && vis('rel', 'line') ? `<div class="ml-rc-line">${esc(p?.line || x.line)}</div>` : ''}${L.join('')}</div>`;
 }
 export function personSheet(r, name) {
     const { book, S } = r, x = S.rel[name], p = personOf(book, name); if (!x) return;
@@ -204,9 +207,10 @@ function map(r) {
     const nodes = lineNodes(places, { pos, here: S.loc, sel: sel.name, net, pins: (p) => at.get(p.name) ?? [] });
     const [x0, y0, x1, y1] = nodes.ext, pad = 4;
     const svg = `<svg class="ml-map" viewBox="${x0 - pad} ${y0 - pad} ${x1 - x0 + pad * 2} ${y1 - y0 + pad * 2}" preserveAspectRatio="xMidYMid meet"><g class="edges">${net.svg}</g>${nodes.svg}</svg>`;
-    let h = `<div class="ml-maphead"><span>📍 지금 <b>${esc(S.loc || '어딘가')}</b> · ${sl}</span>${ev ? `<span class="ml-pill ${ev.kind === 'good' ? 'good' : ev.kind === 'bad' ? 'bad' : 'love'}">🎪 ${esc(ev.name)}</span>` : ''}</div><div class="ml-mapwrap">${svg}</div>`;
+    const V = (k) => vis('map', k);
+    let h = `<div class="ml-maphead"><span>📍 지금 <b>${esc(S.loc || '어딘가')}</b> · ${sl}</span>${ev ? `<span class="ml-pill ${ev.kind === 'good' ? 'good' : ev.kind === 'bad' ? 'bad' : 'love'}">🎪 ${esc(ev.name)}</span>` : ''}</div>${V('map') ? `<div class="ml-mapwrap">${svg}</div>` : ''}`;
     const who = [...at.entries()].flatMap(([pl, L]) => L.map(x => ({ ...x, pl })));
-    if (who.length) h += `<div class="ml-pinrow">${who.map(x => `<span class="ml-pin tap" data-act="mapsel" data-v="${esc(x.pl)}" title="${esc(x.why)}">${x.e} ${esc(x.name)} <small>${esc(x.pl)}</small></span>`).join('')}</div>`;
+    if (who.length && V('pins')) h += `<div class="ml-pinrow">${who.map(x => `<span class="ml-pin tap" data-act="mapsel" data-v="${esc(x.pl)}" title="${esc(x.why)}">${x.e} ${esc(x.name)} <small>${esc(x.pl)}</small></span>`).join('')}</div>`;
     h += placeCard(r, sel, at.get(sel.name) ?? [], path, ev, mul);
     return h;
 }
@@ -230,7 +234,7 @@ function placeCard(r, p, here2, path, ev, mul) {
     const photo = p.photo ? `<div class="ml-photo"><img src="${esc(p.photo)}" alt="${esc(p.name)}" loading="lazy"><button class="ml-mini" data-act="photo" data-v="${esc(p.name)}" title="사진 바꾸기">📷</button></div>` : `<button class="ml-photo empty" data-act="photo" data-v="${esc(p.name)}">📷<small>사진 붙이기</small></button>`;
     const elev = `<div class="ml-bld${lift ? '' : ' nolift'}">${lift}${photo}</div>`;
     const acts = isHere ? [Object.keys(p.rest).length || p.kind === 'home' ? btn(`🛏 쉬기 <small>${esc(fxTxt(p.rest) || '에너지+')}</small>`, 'say', '잠깐 쉰다.', 'xs') : '', p.kind === 'bath' || p.kind === 'home' ? btn('🫧 씻기 <small>위생+60</small>', 'say', '씻는다.', 'xs') : '', p.kind === 'work' ? btn('💼 일하기 <small>에너지−6/시간</small>', 'say', '일을 시작한다.', 'xs') : ''].join('') : btn(`🚶 ${esc(p.name)}(으)로 가기`, 'say', `${p.name}(으)로 간다.`, 'xs');
-    return `<div class="ml-rc ml-place"><div class="ml-rc-h"><span class="ml-face">${PLACE_KINDS[p.kind]}</span><b>${esc(p.name)}</b>${p.line ? `<span class="ml-pill">${esc(p.line)}</span>` : ''}${isHere ? '<span class="ml-pill good">지금 여기</span>' : ''}</div>${L.join('')}${goods ? `<h4 class="ml-h4">물가</h4><div class="ml-goods">${goods}</div>` : ''}<h4 class="ml-h4">${fl.length ? '건물 안' : '사진'}</h4>${elev}<div class="ml-acts">${acts}</div></div>`;
+    return `<div class="ml-rc ml-place"><div class="ml-rc-h"><span class="ml-face">${PLACE_KINDS[p.kind]}</span><b>${esc(p.name)}</b>${p.line ? `<span class="ml-pill">${esc(p.line)}</span>` : ''}${isHere ? '<span class="ml-pill good">지금 여기</span>' : ''}</div>${L.join('')}${goods && vis('map', 'goods') ? `<h4 class="ml-h4">물가</h4><div class="ml-goods">${goods}</div>` : ''}${vis('map', 'building') ? `<h4 class="ml-h4">${fl.length ? '건물 안' : '사진'}</h4>${elev}` : ''}<div class="ml-acts">${acts}</div></div>`;
 }
 // ───── 달력 · 시간 · 날씨 ─────
 function upcoming(r) {
@@ -402,19 +406,41 @@ export function hand(line, why) {
     const m = ctx().chat[i], sl = slot(m, true), k = line.slice(0, line.indexOf(':')), v = line.slice(line.indexOf(':') + 1).trim();
     sl.hand = [...(sl.hand ?? []), { k, v, why }]; sl.rev = (sl.rev ?? 0) + 1; syncSwipe(m); ctx().saveChatDebounced?.(); app.refresh?.();
 }
-function editBook(act, v) {
+async function editBook(act, v) {
     const meta = getMeta(), b = meta.book;
-    const part = act === 'bk-person' ? (personOf(b, v) ?? { name: '', line: '', face: '🙂', start: { aff: 10, trust: 10 }, up: [], down: [], likes: [], hates: [], haunt: [], routine: [], signs: [], syn: [], day: '', want: '' }) : act === 'bk-me' ? b.me : act === 'bk-world' ? { ...b.world, places: undefined } : b.world.places;
-    sheet('📘 고치기', `<textarea class="ml-json">${esc(JSON.stringify(part, null, 1))}</textarea><div class="ml-hint">칸 이름은 그대로 두고 값만 고쳐요</div>`, {
-        onOk: (el) => {
-            let j; try { j = JSON.parse(el.querySelector('.ml-json').value); } catch { toast('모양이 깨졌어요', 'bad'); return false; }
-            if (act === 'bk-person') { const nb = normBook({ ...b, people: [j] }); const p = nb.people[0]; if (!p) return false; const i = b.people.findIndex(x => x.name === v); if (i >= 0) b.people[i] = p; else b.people.push(p); }
-            else if (act === 'bk-me') meta.book = normBook({ ...b, me: j });
-            else if (act === 'bk-world') meta.book = normBook({ ...b, world: { ...j, places: b.world.places } });
-            else meta.book = normBook({ ...b, world: { ...b.world, places: j } });
-            meta.book.src.from = 'user'; saveMeta(); app.refresh?.(true);
-        },
-    });
+    if (act === 'bk-me') return (await import('./tools.js')).editApp('now');
+    if (act === 'bk-places') return (await import('./tools.js')).editApp('map');
+    const L = (a) => (a ?? []).join(', '), P = (t) => String(t ?? '').split(/[,、]/).map(x => x.trim()).filter(Boolean);
+    if (act === 'bk-world') {
+        const w = b.world, fv = await form('🌍 세계', [{ k: 'genre', label: '장르', v: w.genre, chips: ['현대', '판타지', '학원', '무협', 'SF', '아포칼립스'] }, { k: 'cur', label: '화폐 단위', v: w.currency, chips: ['원', '골드', '달러', '엔', '냥'] }, { k: 'meal', label: '식사 한 끼 값 (물가 기준)', type: 'number', v: w.meal }, { k: 'wx', label: '날씨 (쉼표로)', v: L(w.weather) }, { k: 'start', label: '이야기 시작 날짜', v: `${w.start.y}-${w.start.m}-${w.start.d}`, ph: '2026-3-1' }]);
+        if (!fv) return;
+        const [y, m, d] = String(fv.start).split(/[-./]/).map(Number);
+        meta.book = normBook({ ...b, world: { ...w, genre: fv.genre, currency: fv.cur, meal: num(fv.meal, w.meal), weather: P(fv.wx), start: { ...w.start, y: y || w.start.y, m: m || w.start.m, d: d || w.start.d } } });
+        meta.book.src.from = 'user'; saveMeta(); app.refresh?.(true); return;
+    }
+    // 👤 인물 — 설정집 칸 그대로 (성격 · 시작값 · 오르는/내리는 행동 · 증상 · 시너지 · 장소 · 루틴 · 취향 · 기념일 · 속셈)
+    const p = v ? personOf(b, v) : null;
+    const acts = (a) => (a ?? []).map(x => `${x.act}${x.d != null ? ` ${x.d > 0 ? '+' : ''}${x.d}` : ''}`).join(', ');
+    const fv = await form(p ? `${p.face} ${esc(p.name)}` : '＋ 인물', [
+        { k: 'name', label: '이름', v: p?.name ?? '' }, { k: 'face', label: '얼굴 이모지', v: p?.face ?? '🙂', chips: ['🙂', '😎', '🥰', '😤', '🦊', '🐺', '🛡️', '🌸'] },
+        { k: 'aka', label: '다른 이름 · 영어 이름 (쉼표로)', v: L(p?.aka) }, { k: 'line', label: '성격 한 줄', v: p?.line ?? '' },
+        { k: 'aff', label: '애정 시작값', type: 'number', v: p?.start.aff ?? 10 }, { k: 'trust', label: '우정 시작값', type: 'number', v: p?.start.trust ?? 10 },
+        { k: 'up', label: '오르는 행동 (「칭찬 +3」 쉼표로)', v: acts(p?.up) }, { k: 'down', label: '내리는 행동', v: acts(p?.down) },
+        { k: 'signs', label: '티 나는 반응 (「40: 눈을 피함」 쉼표로)', v: (p?.signs ?? []).map(x => `${x.at}: ${x.text}`).join(', ') },
+        { k: 'syn', label: '다른 사람과 (「Mia: 라이벌」 쉼표로)', v: (p?.syn ?? []).map(x => `${x.to}: ${x.text}`).join(', ') },
+        { k: 'haunt', label: '주로 있는 곳', v: L(p?.haunt), chips: b.world.places.map(x => x.name).slice(0, 6) },
+        { k: 'routine', label: '하루 루틴 (「아침 길드, 낮 시장」)', v: (p?.routine ?? []).map(x => `${x.at} ${x.place}`).join(', ') },
+        { k: 'likes', label: '좋아하는 것', v: L(p?.likes) }, { k: 'hates', label: '싫어하는 것', v: L(p?.hates) },
+        { k: 'day', label: '기념일 · 생일', v: p?.day ?? '', ph: '10월 6일 생일' }, { k: 'want', label: '지금 원하는 것 (속셈)', v: p?.want ?? '' },
+        { k: 'love', label: '애정', type: 'pick', v: p?.noLove ? 'off' : 'on', opts: [['on', '💗 켜기'], ['off', '💔 우정만']] },
+        ...(p ? [{ k: 'del', label: '이 인물', type: 'pick', v: '', opts: [['', '남기기'], ['del', '설정집에서 빼기']] }] : []),
+    ]);
+    if (!fv?.name.trim()) return;
+    if (fv.del) { b.people = b.people.filter(x => x.name !== v); meta.book = normBook(b); saveMeta(); app.refresh?.(true); return; }
+    const pairs = (t) => P(t).map(x => { const i = x.search(/[:：]/); return i < 0 ? null : [x.slice(0, i).trim(), x.slice(i + 1).trim()]; }).filter(Boolean);
+    const np = { name: fv.name.trim(), face: fv.face, aka: P(fv.aka), line: fv.line, start: { aff: num(fv.aff, 10), trust: num(fv.trust, 10) }, up: P(fv.up), down: P(fv.down), signs: pairs(fv.signs).map(([a, t]) => ({ at: num(a, 40), text: t })), syn: pairs(fv.syn).map(([to, t]) => ({ to, text: t })), haunt: P(fv.haunt), routine: P(fv.routine).map(x => { const [at, ...pl] = x.split(/\s+/); return { at, place: pl.join(' ') }; }), likes: P(fv.likes), hates: P(fv.hates), day: fv.day, want: fv.want, noLove: fv.love === 'off' };
+    const list = p ? b.people.map(x => (x.name === v ? np : x)) : [...b.people, np];
+    meta.book = normBook({ ...b, people: list }); meta.book.src.from = 'user'; saveMeta(); app.refresh?.(true);
 }
 
 // 📷 장소 사진: 파일(크기를 줄여 이 채팅에 저장 · 약 30KB) 또는 주소 · 빈칸이면 빼기

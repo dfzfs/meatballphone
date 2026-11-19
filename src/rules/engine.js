@@ -5,6 +5,7 @@ import { slot, getMeta, ctx } from '../base/st.js';
 import { readOps, kindOf, parts } from './tags.js';
 import { match } from './names.js';
 import { NEED_STAGES, NEED_SYMPTOM, personOf, placeOf } from './book.js';
+import { glossList } from '../base/gloss.js';
 
 // ───── 처음 상태 (설정집에서) ─────
 export function initState(book) {
@@ -38,7 +39,8 @@ export const priceMul = (S) => worldEvent(Math.floor(S.t / DAY))?.price ?? 1;
 // ───── 한 메시지 적용 ─────
 // ch: 이 메시지에서 바뀐 것 [{ f, label, from, to, why, src, sure, i(줄 번호) }]
 function makeCtx(book, S, ch, flags) {
-    const people = () => [...book.people.map(p => ({ name: p.name, aka: p.aka })), ...Object.keys(S.rel).filter(n => !personOf(book, n)).map(name => ({ name }))];
+    const G = glossList();
+    const people = () => [...book.people.map(p => ({ name: p.name, aka: [...p.aka, ...G.filter(g => g.to === p.name).map(g => g.from)] })), ...Object.keys(S.rel).filter(n => !personOf(book, n)).map(name => ({ name }))];
     const who = (raw) => match(raw, people())?.name ?? null;
     const need = (raw) => { const n = norm(raw); return book.me.needs.find(x => norm(x.key) === n || norm(x.name) === n) ?? null; };
     const setNeed = (key, d, why, src, sure, i) => {
@@ -59,7 +61,7 @@ function makeCtx(book, S, ch, flags) {
     const addItem = (name, n, why, src, i, fx) => {
         name = safeKey(name); if (!name) return;
         const it = findItem(name) ?? (S.items.push({ name, n: 0, worn: false, fx: fx ?? {} }), S.items[S.items.length - 1]);
-        it.n += n; if (fx && !Object.keys(it.fx).length) it.fx = fx;
+        it.n += n; if (fx && !Object.keys(it.fx).length) it.fx = fx; if (!Object.keys(it.fx).length && book.world.itemFx?.[it.name]) it.fx = { ...book.world.itemFx[it.name] };
         ch.push({ f: 'item', label: it.name, icon: '👜', from: it.n - n, to: it.n, why, src, sure: true, i });
         if (it.n <= 0) S.items.splice(S.items.indexOf(it), 1);
     };
@@ -223,6 +225,7 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
         }
         case 'anniv': { const name = x.who(a); if (name) x.rel(name).day = short(b, 16); return; }
         case 'bgm': S.bgm = short(v, 60); return;
+        case 'newsline': if (v) news(S, '📰', short(v, 60), 'world', ''); return;
         case 'custom': { const tab = safeKey(a), f = safeKey(b); if (tab && f) { (S.custom[tab] ??= {})[f] = short(c, 40); } return; }
         case 'meddle': {
             // ✍ 인물이 내 상태창에 손댄다 — 「meddle: Leon | 기분 | +20 | 낙서」 → 그 인물 이름으로 기록 (되돌리기 가능)
@@ -288,7 +291,7 @@ export function fold(force = false) {
         if (!m.is_user && !m.is_system) {
             S.mind = {}; S.watch = {}; S.cell = {}; S.turn++;
             const x = makeCtx(meta.book, S, ch, flags);
-            for (const o of opsOf(m)) { try { applyOp(meta.book, S, x, o.k, o.v, o.j, o.src, ch); } catch (e) { console.warn('[미트볼 라이트] 줄 건너뜀', o, e); } }
+            for (const o of opsOf(m)) { const n0 = ch.length; try { applyOp(meta.book, S, x, o.k, o.v, o.j, o.src, ch); } catch (e) { console.warn('[미트볼 라이트] 줄 건너뜀', o, e); } if (o.why) for (let q = n0; q < ch.length; q++) if (ch[q].src === o.src) ch[q].why = o.why; }
         }
         cache.sig[i] = sigOf(m); cache.changes[i] = ch; cache.flags[i] = flags;
         cache.states[i] = structuredClone(S);

@@ -50,9 +50,11 @@ export function ruleText(book) {
     return head + ex;
 }
 // 지금 사실 고정 · 경계 한 줄 · 연출 힌트 (게이지에 따라)
+// 본편에는 「결과값」만: 지금 사실(돈 · 장소 · 시간 · 같이 있는 사람) · 경계를 넘은 결과(증상) · 관계 단계 · 상태 이름 · 약속
+// 중간값(숫자 · 보정 · 배수 · 특성 · 별자리 · 운세 · 능력치)은 상태창 안에서만 쓴다
 export function factText(r, lastChanges = []) {
     const { S, book } = r, L = [], H = [];
-    const lv = (id) => (modOn(id) ? level(id) : 0);
+    const lv = (id) => (modOn(id) && !getMeta()?.hideAI?.[id] ? level(id) : 0); // 🙈 AI에게 숨긴 앱은 0
     const crossNeed = new Set(lastChanges.filter(c => c.f.startsWith('need.')).map(c => c.f.slice(5)));
     // 수치 · 욕구
     const dz = derived(book, S);
@@ -60,7 +62,7 @@ export function factText(r, lastChanges = []) {
         const n = lv('stats'), crossed = crossNeed.has(d.key);
         if (n >= 2 || (n === 1 && crossed)) (n >= 2 && !crossed ? L : H).push(`${d.name} ${d.stage}: ${d.text}`);
     }
-    if (lv('dice') >= 3) { const dm = diceMod(book, S); if (dm) L.push(`checks: ${dm} (condition)`); }
+    // 🎲 주사위 보정 · 특성 · 별자리 · 운세 · 능력치 같은 중간값은 본편에 안 보낸다 (판정 결과는 입력창 문장으로 간다)
     // 돈
     if (lv('wallet') >= 2) L.push(`${userName()} money: ${S.cash} ${book.world.currency}${S.items.length ? ` · has: ${S.items.slice(0, 8).map(i => `${i.name}${i.n > 1 ? `×${i.n}` : ''}${i.worn ? '(worn)' : ''}`).join(', ')}` : ''}`);
     if (lv('wallet') >= 3) L.push('cannot spend more money than this; items not listed are not owned');
@@ -74,7 +76,7 @@ export function factText(r, lastChanges = []) {
         if (r2.gone && lv('rel') >= 1) { L.push(`${name} has left the story (${r2.gone}) — must not appear`); continue; }
         if (lv('rel') >= 2) {
             const st = relStage(book, r2.aff);
-            L.push(`${name}: ${p?.noLove ? `friend ${r2.trust}` : `${st.name} (${st.act})`}${r2.mem[0] ? ` · remembers: ${r2.mem[0].text}` : ''}${r2.jealous ? ` · jealous: ${r2.jealous}` : ''}`);
+            L.push(`${name}: ${p?.noLove ? 'friend' : `${st.name} (${st.act})`}${r2.mem[0] ? ` · remembers: ${r2.mem[0].text}` : ''}${r2.jealous ? ` · jealous: ${r2.jealous}` : ''}`);
             // 📘 설정집 예외: 장면에 나온 인물만 증상 한 줄
             const sign = p?.signs?.filter(s => r2.aff >= s.at).pop(); if (sign && settings().pinBook !== 'off') L.push(`${name} shows: ${sign.text}`);
         }
@@ -83,7 +85,7 @@ export function factText(r, lastChanges = []) {
     if (lv('rel') >= 4 && S.turn % 6 === 3) H.push('add one small heart-flutter moment this reply (설렘 한 스푼)');
     // 바뀐 단계 · 딱지
     for (const c of lastChanges) if (c.cross && lv('rel') >= 1) H.push(`${c.label}: ${c.from} → ${c.to}`);
-    for (const st of S.status) if (lv('stats') >= 2) L.push(`status: ${st.name}${st.until ? ` (${Math.max(1, Math.round((st.until - S.t) / 60))}h left)` : ''}`);
+    for (const st of S.status) if (lv('stats') >= 2) L.push(`status: ${st.name}`);
     // 약속 하루 전
     for (const p of S.promises) if (!p.done && p.due != null && p.due - S.t <= DAY && p.due >= S.t && lv('calendar') >= 1) H.push(`promise due soon: ${p.text}`);
     return { facts: L.length ? `[NOW — keep the story consistent with this]\n${L.join('\n')}` : '', hint: H.length ? `[HINT — show it naturally, don't state numbers]\n${H.join('\n')}` : '' };

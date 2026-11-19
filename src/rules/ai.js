@@ -2,6 +2,7 @@
 import { ctx, settings, userName } from '../base/st.js';
 import { normBook, emptyBook, bookText } from './book.js';
 import { short } from '../base/util.js';
+import { gloss } from '../base/gloss.js';
 
 export const stats = { calls: 0, ms: 0, last: 0 };
 export async function ask(prompt, system = '') {
@@ -41,7 +42,7 @@ export async function fillBook(only = null) {
     const src = await sources();
     const sys = 'You build a compact status-sheet rulebook for a roleplay. Output JSON only. Korean values. Keep every line short. Prices must be consistent with "meal" (one meal). 3-6 places that matter, 3-5 goods per shop/food place. needs: 3-5 (hunger/energy/hygiene/mood style; rate = drop per hour).';
     const ask2 = only ? `Rebuild ONLY these people: ${only.join(', ')}. Output {"people":[...]}` : 'Fill the whole rulebook.';
-    const raw = await ask(`${ask2}\nSchema:\n${SCHEMA}\n\nSource:\n${src.text}`, sys);
+    const raw = await ask(`${ask2}\n${gloss()}\nSchema:\n${SCHEMA}\n\nSource:\n${src.text}`, sys);
     const j = parseJSON(raw);
     if (!j) return { book: null, src };
     return { book: j, src };
@@ -58,6 +59,6 @@ export function templateBook() {
 // 태그가 빠졌을 때만: 마지막 답 + 짧은 현재 상태 → 사건 줄
 export async function supplement(text, r) {
     const now = `money ${r.S.cash} · place ${r.S.loc || '-'} · with ${r.S.with.join(', ') || '-'}`;
-    const raw = await ask(`Read the reply and write ONLY the event lines that happened, in "key: value" form, inside <meatball></meatball>. Keys: loc, time(+2h or 14:30), ate, slept(6h), washed, buy(item | price), earn, got, used, gift(name | item), act(name | what), with(names), weather, status(name | 3d), memory(name | event). Nothing else.\nNow: ${now}\n${bookText(r.book, r.S.with).slice(0, 1200)}\n\nReply:\n${short(text, 3000)}`, 'You extract events. Output only the <meatball> block.');
+    const raw = await ask(`Read the reply and write ONLY the event lines that happened, in "key: value" form, inside <meatball></meatball>. Keys: loc, time(+2h or 14:30), ate, slept(6h), washed, buy(item | price), earn, got, used, gift(name | item), act(name | what), with(names), weather, status(name | 3d), memory(name | event). Nothing else.\n${gloss()}\nNow: ${now}\n${bookText(r.book, r.S.with).slice(0, 1200)}\n\nReply:\n${short(text, 3000)}`, 'You extract events. Output only the <meatball> block.');
     return raw;
 }

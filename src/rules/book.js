@@ -96,6 +96,7 @@ export function normBook(b) {
     e.world.weather = list(w.weather, 6).length ? list(w.weather, 6) : e.world.weather;
     e.world.start = { y: num(w.start?.y, 2026), m: clamp(num(w.start?.m, 3), 1, 12), d: clamp(num(w.start?.d, 1), 1, 31), clock: clamp(num(w.start?.clock, 480), 0, 1439) };
     e.world.places = arr(w.places).map(normPlace).filter(Boolean).slice(0, LIMIT.places);
+    e.world.itemFx = Object.fromEntries(Object.entries(w.itemFx && typeof w.itemFx === 'object' ? w.itemFx : {}).map(([k, v]) => [safeKey(k), fxOf(v)]).filter(([k]) => k).slice(0, 60));
     const me = b.me ?? {};
     e.me.name = line(me.name, 30);
     e.me.traits = line(me.traits);

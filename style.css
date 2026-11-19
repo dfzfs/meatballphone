@@ -209,3 +209,11 @@ body.ml-open #ml-mini{display:none}
 .ml-dodds{position:relative;width:64px;height:64px;display:grid;place-items:center}.ml-dodds span{position:absolute;inset:0;border-radius:50%;background:conic-gradient(var(--good) var(--p),var(--line) 0);-webkit-mask:radial-gradient(circle,transparent 58%,#000 60%);mask:radial-gradient(circle,transparent 58%,#000 60%)}.ml-dodds b{font-size:14px}.ml-dodds small{position:absolute;bottom:-14px;font-size:10px;color:var(--sub)}
 .ml-dhist{display:flex;gap:6px}.ml-dhist span{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-weight:800;color:#fff;background:#d9534f}.ml-dhist span.ok{background:#2fa56b}
 .ml-qcard{padding:20px;border-radius:var(--r);background:linear-gradient(135deg,#f6efe3,#efe2cc);color:#3b2f22;margin:0 0 12px}.ml-qcard b{font-size:20px;display:block;line-height:1.5}.ml-qcard p{margin:8px 0}.ml-qcard small{color:#7a6650}
+.ml-to{font-size:10px!important;margin-top:2px}.ml-to.main{color:var(--a)!important}.ml-to.aux{color:var(--good)!important}
+/* 🧰 공통 도구줄 */
+.ml-tools2{display:flex;gap:4px;overflow-x:auto;margin:0 0 12px;padding-bottom:2px;scrollbar-width:none}
+.ml-tool{flex:none;min-height:30px;padding:0 10px;border:1px solid var(--line);border-radius:999px;background:color-mix(in srgb,var(--fg) 3%,transparent);color:inherit;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}
+.ml-tool.on{background:color-mix(in srgb,var(--bad) 14%,transparent);border-color:color-mix(in srgb,var(--bad) 40%,transparent);color:var(--bad)}
+#ml-full input[type="checkbox"].ml-sw{width:40px;height:22px;appearance:none;-webkit-appearance:none;border-radius:999px;background:var(--line);position:relative;cursor:pointer;margin:0;flex:none}
+#ml-full input[type="checkbox"].ml-sw::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgb(0 0 0/.2)}
+#ml-full input[type="checkbox"].ml-sw:checked{background:var(--a)}#ml-full input[type="checkbox"].ml-sw:checked::after{left:20px}

@@ -5,6 +5,7 @@ import { fold, derived, needStage } from '../rules/engine.js';
 import { placeOf } from '../rules/book.js';
 import { TABS, RENDER, onAct, changeRow, setRecFilter } from './tabs.js';
 import { home, market, APPS, appOf, installed } from './home.js';
+import { toolbar, onTool, TOOL_ACTS, applyGloss } from './tools.js';
 import { chip, sheet, bar } from './kit.js';
 
 const MASCOT = (n) => new URL(`../../img/mascot_${n}.webp`, import.meta.url).href;
@@ -33,8 +34,8 @@ export function drawFrame() {
     const r = fold(); if (!r) return;
     if (settings().hud) {
         if (!hud) { hud = document.createElement('div'); hud.id = 'ml-hud'; hud.className = 'ml-scope'; const host = document.getElementById('sheld') ?? document.body; settings().hudPos === 'bottom' ? (document.getElementById('form_sheld') ?? host).before(hud) : host.prepend(hud); }
-        const h = `<button class="ml-h tap" data-act="open" data-v="now">😼</button>${hudHTML(r)}${getMeta().paused ? '<span class="ml-h bad">⏸</span>' : ''}`;
-        if (hud.innerHTML !== h) hud.innerHTML = h;
+        const h = `<button class="ml-h tap" data-act="open" data-v="home">😼</button>${hudHTML(r)}${getMeta().paused ? '<span class="ml-h bad">⏸</span>' : ''}`;
+        if (hud.dataset.h !== h) { hud.innerHTML = h; hud.dataset.h = h; applyGloss(hud); }
     } else hud?.remove();
     if (settings().minibar) {
         if (!mb) { mb = document.createElement('div'); mb.id = 'ml-mini'; mb.className = 'ml-scope'; document.body.appendChild(mb); }
@@ -63,8 +64,13 @@ export function drawSheet() {
     if (!R2[cur] || (appOf(cur) && !installed(appOf(cur)))) cur = 'home';
     const view = past != null ? { ...r, S: r.states[past] ?? r.S } : r;
     const meta = getMeta(), a = appOf(cur);
+    const keep = el.querySelector(':scope > .ml-bs'); // 열려 있는 시트는 다시 그려도 그대로
+    const scroll = el.querySelector('.ml-body')?.scrollTop ?? 0, same = el.querySelector('.ml-body')?.dataset.tab === cur;
     el.innerHTML = `<header class="ml-top">${cur === 'home' ? `<b>${TITLE}</b>` : `<button class="ml-ib back" data-tab="home" title="홈">‹</button><b>${a ? `${a.icon} ${a.name}` : ''}</b>`}${past != null ? chip(`🕰 #${past} 시점 · 읽기 전용`, 'mid', 'past-off') : ''}<span class="ml-sp"></span><button class="ml-ib" data-act="pause" title="일시정지">${meta.paused ? '▶' : '⏸'}</button><button class="ml-ib" data-act="skip" title="다음 1번 건너뛰기">${meta.skipNext ? '⏭✓' : '⏭'}</button><button class="ml-ib" data-act="find" title="검색">🔍</button><button class="ml-ib" data-act="close">✕</button></header>`
-        + `<main class="ml-body" data-tab="${cur}">${R2[cur](view)}</main>`;
+        + `<main class="ml-body" data-tab="${cur}">${a && !a.sys ? toolbar(cur) : ''}${R2[cur](view)}</main>`;
+    applyGloss(el.querySelector('.ml-body'));
+    if (keep) el.appendChild(keep);
+    if (same) el.querySelector('.ml-body').scrollTop = scroll;
 }
 async function clickHandler(e) {
     const t = e.target.closest('[data-tab]'); if (t && t.tagName === 'BUTTON') { cur = t.dataset.tab; drawSheet(); return; }
@@ -76,6 +82,7 @@ async function clickHandler(e) {
         saveMeta(); drawSheet(); return; }
     const a = e.target.closest('[data-act]'); if (!a) return;
     const act = a.dataset.act, v = a.dataset.v;
+    if (TOOL_ACTS.has(act)) return onTool(act, v);
     const meta = getMeta();
     if (act === 'close') return closeSheet();
     if (act === 'pause') { meta.paused = !meta.paused; saveMeta(); app.refresh(); return; }
@@ -99,7 +106,7 @@ export function bindOuter() {
         if (a.dataset.act === 'open') openSheet(a.dataset.v);
         if (a.dataset.act === 'meow' && settings().mascotSound) new Audio(new URL('../../snd/nyang_short.mp3', import.meta.url).href).play().catch(() => {});
     });
-    document.addEventListener('click', async (e) => { const a = e.target.closest('.ml-bs [data-act], .ml-msg [data-act]'); if (!a) return; if (a.dataset.act === 'turncard') return turnSheet(Number(a.dataset.v)); await onAct(a.dataset.act, a.dataset.v, a); });
+    document.addEventListener('click', async (e) => { const a = e.target.closest('.ml-bs [data-act], .ml-msg [data-act]'); if (!a || a.closest('#ml-full')) return; /* 패널 안 시트는 패널이 처리 */ if (a.dataset.act === 'turncard') return turnSheet(Number(a.dataset.v)); if (TOOL_ACTS.has(a.dataset.act)) { a.closest('.ml-bs')?.remove(); return onTool(a.dataset.act, a.dataset.v); } await onAct(a.dataset.act, a.dataset.v, a); });
 }
 // ───── 답 밑 칩: 보이는 최근 메시지에만 ─────
 const CHIP_N = 6;
