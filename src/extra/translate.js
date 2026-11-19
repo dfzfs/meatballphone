@@ -8,7 +8,7 @@ export const trOn = () => settings().saveLang === 'en';
 const LATIN = /[A-Za-z]{2,}/;
 const pending = new Set();
 let timer = 0, busy = false;
-export const trBusy = () => busy || pending.size > 0;
+export const trBusy = () => busy || (pending.size > 0 && settings().trAuto !== 'off'); // 저절로 번역을 꺼 뒀으면 쌓인 말이 있어도 「번역 중」 아님
 
 function dict() {
     const meta = getMeta(); const d = { ...(meta?.tr ?? {}) };
