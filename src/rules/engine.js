@@ -175,6 +175,7 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             const cost = price ?? Math.round(book.world.meal * (isSnack(name) ? 0.4 : 1));
             if (S.cash < cost) { x.flag(`돈 부족: ${name} ${cost} (가진 돈 ${S.cash})`, i); return; }
             x.setCash(-cost, `${short(name, 12)} 삼`, src, sure, i);
+            ch.push({ f: 'receipt', label: '영수증', icon: '🧾', from: '', to: `${short(name, 12)} ${cost}${book.world.currency}`, why: `남은 돈 ${S.cash}${place ? ` · ${place.name}` : ''}`, src: 'auto', sure, i });
             { const bm = x.T.reduce((q, t) => q + (t.buyMood ?? 0), 0); if (bm) x.setNeed('mood', bm, '🧬 쇼핑', 'auto', true, i); }
             if (good && place.kind === 'food') { S.tasted ??= []; if (!S.tasted.includes(good.name)) S.tasted.push(good.name); }
             if (good && place.kind === 'food') { for (const [nk, d] of Object.entries(good.fx)) x.setNeed(nk, d, good.name, src, true, i); if (!Object.keys(good.fx).length) x.setNeed('hunger', DEF.meal, good.name, src, false, i); }

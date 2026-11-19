@@ -1,3 +1,5 @@
+@font-face{font-family:'Galmuri11';src:url('font/Galmuri11.woff2') format('woff2');font-display:swap}
+@font-face{font-family:'Galmuri11';src:url('font/Galmuri11-Bold.woff2') format('woff2');font-weight:700;font-display:swap}
 /* 미트볼 라이트 — 한 파일. 여백은 4·8·12·16·24만, 글자는 4단계(큰 제목 · 제목 · 본문 · 작은 글) */
 .ml-scope{--a:var(--ml-accent,#e07a5f);--r:var(--ml-radius,14px);--bd:var(--ml-border,1px);--sh:var(--ml-shadow,none);--bg:var(--SmartThemeBlurTintColor,#fff);--fg:var(--SmartThemeBodyColor,#222);--line:color-mix(in srgb,var(--fg) 12%,transparent);--sub:color-mix(in srgb,var(--fg) 55%,transparent);--good:#3a9d6a;--bad:#d9534f;--mid:#8a8f98;font-family:var(--ml-font,inherit);font-size:calc(14px*var(--ml-size,1));color:var(--fg)}
 .ml-scope *{box-sizing:border-box}
@@ -276,3 +278,5 @@ body.ml-open #ml-mini{display:none}
 .ml-sec h4 span span{font-weight:400}
 .ml-h.meter{opacity:.6;font-size:.92em}
 .ml-graph circle{fill:var(--a);stroke:var(--bg);stroke-width:.6;vector-effect:non-scaling-stroke;cursor:pointer}.ml-graph{width:96px;height:28px}
+.ml-h.shop{background:color-mix(in srgb,var(--a) 12%,transparent)}.ml-h.shop.poor{opacity:.45;text-decoration:line-through}
+.ml-swatch{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 8px}.ml-swatch button{width:32px;height:32px;border-radius:50%;border:3px solid var(--bg);background:var(--c);box-shadow:0 0 0 1px var(--line);cursor:pointer}.ml-swatch button.on{box-shadow:0 0 0 2px var(--c)}.ml-swatch input{width:36px;height:32px;border:0;background:none;padding:0}

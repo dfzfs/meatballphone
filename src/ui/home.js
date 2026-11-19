@@ -1,6 +1,6 @@
 // 🏠 홈: 위에 위젯(지금 · 이 장면 · 운세 · 욕구 · 주사위 · 달력 · 소식 · 같이 있는 사람) + 아래에 받은 앱 아이콘
 // 🛍 마켓: 앱을 「받는」 느낌 — 실제로는 다 들어 있고 칸을 켜고 끈다 (지우면 홈 · 본편 주입에서 빠짐)
-import { ctx, getMeta, saveMeta, settings, modOn } from '../base/st.js';
+import { ctx, getMeta, saveMeta, settings, modOn, saveSettings, DEFAULTS, app } from '../base/st.js';
 import { esc, signed, dateText, dateOf, DAY, slotName, hhmm, fmt, num } from '../base/util.js';
 import { derived, needStage, relStage, worldEvent, priceMul, diceParts, whereNow, wantsOf } from '../rules/engine.js';
 import { personOf, placeOf, PLACE_KINDS } from '../rules/book.js';
@@ -30,6 +30,7 @@ export const APPS = [
     { id: 'book', icon: '📘', name: '설정집', sys: true, c: '#4361ee' },
     { id: 'gauge', icon: '🎚️', name: '영향력', sys: true, c: '#8d99ae' },
     { id: 'cat', icon: '😺', name: '마스코트', sys: true, c: '#f2a7b5' },
+    { id: 'look', icon: '🎨', name: '꾸미기', sys: true, c: '#a0c4ff' },
     { id: 'market', icon: '🛍️', name: '마켓', sys: true, c: '#ff9f1c' },
 ];
 export const appOf = (id) => APPS.find(a => a.id === id);
@@ -157,4 +158,16 @@ export function markSeen(appId, r) {
     const meta = getMeta(), seen = (meta.seen ??= {});
     const v = { news: r.S.news.length, dice: r.S.rolls.length, rec: r.changes.length }[appId];
     if (v != null && seen[appId] !== v) { seen[appId] = v; saveMeta(); }
+}
+
+// 🎨 꾸미기 — 직접 고르기 하나 (색 · 글꼴 · 글자 크기 · 모서리 · 테두리 · 그림자) · 바로 보임
+const SWATCH = ['#e07a5f', '#e0567f', '#7c5cff', '#3a8ee6', '#2f9e7a', '#f4a261', '#6c7a89', '#222222'];
+const FONTS = [['', '실리태번 글꼴'], ['Galmuri11', '갈무리 (도트)'], ['system-ui', '시스템'], ['serif', '명조']];
+export function look() {
+    const L = settings().look;
+    const sl = (k, n, min, max, step) => `<div class="ml-gauge"><div class="ml-gauge-h"><b>${n}</b><span class="ml-pill">${L[k]}</span></div><input type="range" class="ml-range" min="${min}" max="${max}" step="${step}" value="${L[k]}" data-look="${k}"></div>`;
+    return `<h4 class="ml-h4">강조색</h4><div class="ml-swatch">${SWATCH.map(c => `<button style="--c:${c}" class="${L.accent === c ? 'on' : ''}" data-act="look-set" data-v="accent|${c}"></button>`).join('')}<input type="color" data-look="accent" value="${L.accent}"></div>
+        <h4 class="ml-h4">글꼴</h4><div class="ml-picks">${FONTS.map(([v, n]) => `<button class="ml-btn xs${L.font === v ? ' on' : ''}" data-act="look-set" data-v="font|${v}" style="font-family:${v || 'inherit'}">${n}</button>`).join('')}</div>
+        <div class="ml-card">${sl('size', '글자 크기', 0.85, 1.3, 0.05)}${sl('radius', '모서리', 0, 24, 2)}${sl('border', '테두리 두께', 0, 3, 1)}${sl('shadow', '그림자', 0, 3, 1)}</div>
+        <div class="ml-acts">${btn('기본으로', 'look-reset', '', 'xs')}</div>`;
 }

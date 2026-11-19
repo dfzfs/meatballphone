@@ -4,7 +4,7 @@ import { esc, dateText, slotName, short, fmt } from '../base/util.js';
 import { fold, derived, needStage } from '../rules/engine.js';
 import { placeOf } from '../rules/book.js';
 import { TABS, RENDER, onAct, changeRow, setRecFilter } from './tabs.js';
-import { home, market, cat, APPS, appOf, installed, markSeen } from './home.js';
+import { home, market, cat, look, APPS, appOf, installed, markSeen } from './home.js';
 import { toolbar, onTool, TOOL_ACTS, applyGloss } from './tools.js';
 import { traitsView, traitAct, TRAIT_ACTS } from './traits.js';
 import { chip, sheet, bar } from './kit.js';
@@ -19,6 +19,8 @@ function hudHTML(r) {
     if (modOn('wallet')) L.push(`<span class="ml-h">💰${fmt(S.cash)}</span>`);
     if (modOn('calendar')) L.push(`<span class="ml-h">🕰${slotName(S.t)}${S.weather ? ` · ${esc(S.weather)}` : ''}</span>`);
     if (modOn('map') && S.loc) { const pl = placeOf(book, S.loc); L.push(`<span class="ml-h tap" data-act="open" data-v="${pl?.goods.length ? 'bag' : 'map'}">📍${esc(S.loc)}${pl?.goods.length ? ' · 🛒' : ''}</span>`); }
+    // 🛒 가게에 있으면 HUD에 물건 한 줄 (누르면 사는 말이 입력창에)
+    if (modOn('wallet') && S.loc) { const pl = placeOf(book, S.loc); if (pl?.goods.length) L.push(...pl.goods.slice(0, 3).map(g => `<span class="ml-h tap shop${S.cash < g.price ? ' poor' : ''}" data-act="say" data-v="${esc(g.name)} 하나 주세요.">${esc(g.name)} ${g.price}</span>`)); }
     if (S.status.length) L.push(`<span class="ml-h">🏷${S.status.length}</span>`);
     // 🔤 토큰 계기판: 이번 턴 본편 주입 · 미트볼 AI 호출 · 걸린 시간 (작게)
     const pt = app.perfLast?.(); if (pt) L.push(`<span class="ml-h meter" title="이번 턴: 본편 주입 ≈${pt.tok}토큰 · 미트볼 AI ${pt.calls}회 · ${pt.ms.toFixed(0)}ms">🔤${pt.tok}${pt.calls ? ` · 🤖${pt.calls}` : ''}</span>`);
@@ -64,7 +66,7 @@ export function closeSheet() { document.getElementById('ml-full')?.remove(); doc
 export function drawSheet() {
     const el = document.getElementById('ml-full'); if (!el) return;
     const r = fold(); if (!r) { closeSheet(); return; }
-    const R2 = { ...RENDER, home, market, cat, traits: traitsView };
+    const R2 = { ...RENDER, home, market, cat, look, traits: traitsView };
     if (!R2[cur] || (appOf(cur) && !installed(appOf(cur)))) cur = 'home';
     const view = past != null ? { ...r, S: r.states[past] ?? r.S } : r;
     const meta = getMeta(), a = appOf(cur);
@@ -98,6 +100,7 @@ async function clickHandler(e) {
     await onAct(act, v, a);
 }
 function changeHandler(e) {
+    const lk = e.target.closest('[data-look]'); if (lk) { const L = settings().look, k = lk.dataset.look; L[k] = lk.type === 'range' ? Number(lk.value) : lk.value; saveSettings(); app.applyLook?.(); drawSheet(); return; }
     const g = e.target.closest('[data-gauge]'); if (!g) return;
     const meta = getMeta(), tgt = meta.influence ?? settings().influence, id = g.dataset.gauge, v = Number(g.value);
     if (id === 'all') tgt.all = v; else { tgt.by ??= {}; tgt.by[id] = v - (tgt.all ?? 2); }
@@ -110,6 +113,7 @@ export function bindOuter() {
     document.addEventListener('click', (e) => {
         const a = e.target.closest('#ml-hud [data-act], #ml-mini [data-act]'); if (!a) return;
         if (a.dataset.act === 'open') openSheet(a.dataset.v);
+        if (a.dataset.act === 'say') onAct('say', a.dataset.v, a);
     });
     document.addEventListener('click', async (e) => { const a = e.target.closest('.ml-bs [data-act], .ml-msg [data-act]'); if (!a || a.closest('#ml-full')) return; /* 패널 안 시트는 패널이 처리 */ if (a.dataset.act === 'turncard') return turnSheet(Number(a.dataset.v)); if (TOOL_ACTS.has(a.dataset.act)) { a.closest('.ml-bs')?.remove(); return onTool(a.dataset.act, a.dataset.v); } await onAct(a.dataset.act, a.dataset.v, a); });
 }

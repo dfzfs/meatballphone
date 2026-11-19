@@ -119,7 +119,7 @@ function dice(r) {
 function bag(r) {
     const { S, book } = r, place = placeOf(book, S.loc), mul = priceMul(S);
     const V = (k) => vis('bag', k);
-    let h = !V('cash') ? '' : card('재산', row({ icon: '💰', title: '가진 돈', sub: `식사 한 끼 ≈ ${money(r, book.world.meal)}`, value: `<b class="ml-num">${money(r, S.cash)}</b>`, act: 'edit-cash', more: true }));
+    let h = !V('cash') ? '' : card('재산', row({ icon: '💰', title: '가진 돈', sub: `식사 한 끼 ≈ ${money(r, book.world.meal)}`, value: `<b class="ml-num">${money(r, S.cash)}</b>`, act: 'edit-cash', more: true }) + row({ icon: '💬', title: '물가 물어보기', sub: '이 세계에서 얼마쯤 할까? (AI 0회 · 설정집 물가 기준)', act: 'askprice', more: true }));
     if (V('items')) h += card('소지품', S.items.length ? S.items.map(it => row({ icon: it.worn ? '👕' : '📦', title: `${esc(it.name)}${it.n > 1 ? ` ×${it.n}` : ''}`, sub: it.worn ? '착용 중' : Object.entries(it.fx).map(([k, v]) => `${book.me.needs.find(n => n.key === k)?.name ?? k} ${signed(v)}`).join(' · '), value: choiceBtns([[Object.keys(it.fx).length ? `먹기` : '쓰기', `${it.name}을(를) 먹는다`], [it.worn ? '벗기' : '입기', `${it.name}을(를) ${it.worn ? '벗는다' : '입는다'}`]]) })).join('') : row({ icon: '📦', title: '비어 있어요', faint: true }));
     if (place?.goods.length && V('shop')) h += card(`${PLACE_KINDS[place.kind]} ${esc(place.name)} 가게`, place.goods.map(g => goodRow(r, g, mul)).join(''), mul !== 1 ? `오늘 값 ×${mul}` : '');
     return h;
@@ -307,7 +307,8 @@ function rec(r) {
         if (lo) hi.push(row({ icon: n.icon, title: esc(n.name), sub: `최저 ${Math.round(lo.v)} (#${lo.i}) · 최고 ${Math.round(top.v)} (#${top.i})${big ? ` · 가장 크게 ${signed(big.d)} (#${big.i})` : ''}`, value: graph(r, n.key) }));
     }
     const marks = (meta.marks ?? []).map(m => ({ ...m, i: chat.findIndex(x => msgKey(x) === m.key) })).filter(m => m.i >= 0);
-    return `<div class="ml-tools">${seg('recf', REC_F, recF)}${btn('⭐ 마지막 답 책갈피', 'mark')}${btn('🕰 그때 상태 보기', 'past')}</div>` + card('책갈피', marks.map(m => row({ icon: '⭐', title: esc(m.name), sub: `#${m.i}`, act: 'jump', data: m.i, more: true })).join('')) + card('하이라이트', hi.join('')) + card('타임라인', L.join('') || row({ title: '아직 기록이 없어요', faint: true }));
+    const RF = REC_F.filter(([k]) => ({ need: 'stats', cash: 'wallet', item: 'wallet', rel: 'rel', loc: 'map', status: 'stats' }[k] ?? null) == null || modOn({ need: 'stats', cash: 'wallet', item: 'wallet', rel: 'rel', loc: 'map', status: 'stats' }[k]));
+    return `<div class="ml-tools">${seg('recf', RF, recF)}${btn('⭐ 마지막 답 책갈피', 'mark')}${btn('🕰 그때 상태 보기', 'past')}</div>` + card('책갈피', marks.map(m => row({ icon: '⭐', title: esc(m.name), sub: `#${m.i}`, act: 'jump', data: m.i, more: true })).join('')) + card('하이라이트', hi.join('')) + card('타임라인', L.join('') || row({ title: '아직 기록이 없어요', faint: true }));
 }
 function graph(r, key) {
     const pts = []; r.states.forEach((s, i) => { if (s?.needs?.[key] != null && (i === 0 || r.changes[i]?.length)) pts.push([i, s.needs[key]]); });
@@ -434,6 +435,17 @@ export async function onAct(act, v, el) {
         case 'c-wx': { const fv = await form('🌦 날씨', [{ k: 'w', label: '날씨', type: 'pick', v: r.S.weather, opts: [...new Set([...meta.book.world.weather, '맑음', '흐림', '비', '눈', '안개'])].map(w => [w, w]) }]); if (!fv?.w || fv.w === r.S.weather) return; return hand(`weather: ${fv.w}`, '직접 바꿈'); }
         case 'c-add': { const fv = await form(`📅 ${v} 일정`, [{ k: 't', label: '일정', ph: 'Leon과 저녁 식사', chips: ['약속', '시험', '마감', '생일 파티'] }]); if (!fv?.t.trim()) return; return hand(`promise: ${fv.t.trim()} | ${v}`, '일정 추가'); }
         case 'c-go': return hand(`date: ${v}`, '이 날로 이동');
+        case 'askprice': {
+            const fv = await form('💬 물가 물어보기', [{ k: 'q', label: '무엇?', ph: '빵 · 여관 하룻밤 · 칼 · 마차', chips: ['커피', '하룻밤 숙박', '옷 한 벌', '무기', '꽃다발'] }], { ok: '어림하기' }); if (!fv?.q.trim()) return;
+            const q = fv.q.trim(), b = meta.book, meal = b.world.meal, cur = b.world.currency;
+            const known = b.world.places.flatMap(p => p.goods.filter(g => norm(g.name).includes(norm(q)) || norm(q).includes(norm(g.name))).map(g => `${p.name} ${g.name} ${g.price}${cur}`));
+            const RATIO = [[/커피|음료|차|물|우유|주스/, 0.3, '음료'], [/빵|간식|과자|사탕|떡/, 0.4, '간식'], [/식사|밥|정식|요리|도시락/, 1, '한 끼'], [/술|맥주|와인/, 0.6, '술 한 잔'], [/숙박|하룻밤|방|여관|호텔/, 4, '하룻밤'], [/옷|신발|모자|외투/, 3, '옷'], [/꽃/, 0.5, '꽃'], [/책/, 1.5, '책'], [/칼|검|활|무기|창|도끼/, 8, '무기'], [/갑옷|방패/, 12, '방어구'], [/약|포션|물약/, 2, '약'], [/마차|기차|버스|택시|배/, 1, '탈것 한 번'], [/말|탈것|차$/, 60, '탈것 사기'], [/집|땅/, 2000, '집']];
+            const hit = RATIO.find(([re]) => re.test(q));
+            sheet(`💬 ${esc(q)}`, `<div class="ml-card">${known.length ? known.map(k => row({ icon: '🛒', title: esc(k), sub: '설정집에 있는 값' })).join('') : ''}${row({ icon: '🧮', title: hit ? `약 ${Math.max(1, Math.round(meal * hit[1]))}${esc(cur)}` : `약 ${meal}~${meal * 3}${esc(cur)}`, sub: hit ? `${hit[2]} · 식사 한 끼(${meal}) × ${hit[1]}` : '비슷한 게 없어서 식사 1~3끼로 어림' })}</div><div class="ml-hint">계산만 해요. 실제 값은 이야기에서 정해져요.</div>`);
+            return;
+        }
+        case 'look-set': { const [k, x] = v.split('|'); settings().look[k] = x; saveSettings(); app.applyLook?.(); app.refresh?.(); return; }
+        case 'look-reset': settings().look = { ...(await import('../base/st.js')).DEFAULTS.look }; saveSettings(); app.applyLook?.(); app.refresh?.(); return;
         case 'dset': { const [k, x] = v.split(':'); setDice(k, k === 'dc' ? Number(x) : x); app.refresh?.(); return; }
         case 'rollattr': setDice('attr', v); app.openSheet?.('dice'); return;
         case 'roll': {
