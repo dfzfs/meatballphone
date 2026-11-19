@@ -6,6 +6,8 @@ import { placeOf } from '../rules/book.js';
 import { RENDER, onAct, changeRow, setRecFilter } from './tabs.js';
 import { home, market, cat, look, appOf, installed, markSeen, firstView, setupView, homeCfg, homeEditing, setHomeEdit, wallCss, setMktTab } from './home.js';
 import { renderExt, setAppsChange, installApp } from '../extra/apps.js';
+import { resetCal } from './calplus.js';
+import { loveAct } from './love.js';
 import { bindHomeEdit } from './homeedit.js';
 import { toolbar, onTool, TOOL_ACTS, applyGloss } from './tools.js';
 import { applyTr, trOn, trBusy } from '../extra/translate.js';
@@ -74,6 +76,7 @@ export function drawFrame() {
 setAppsChange(() => { if (document.getElementById('ml-full') && (cur === 'home' || cur === 'market')) drawSheet(); });
 export function openSheet(tab = 'home') {
     if (tab === 'now' && !document.getElementById('ml-full')) tab = 'home';
+    if (tab === 'cal') resetCal();
     cur = tab; past = null;
     let el = document.getElementById('ml-full');
     if (!el) {
@@ -138,7 +141,7 @@ export function drawSheet() {
 }
 async function clickHandler(e) {
     const t = e.target.closest('[data-tab]'); if (t && t.tagName === 'BUTTON') { cur = t.dataset.tab; drawSheet(); return; }
-    const o = e.target.closest('[data-act="open"]'); if (o && !e.target.closest('[data-act]:not([data-act="open"])')) { cur = o.dataset.v; drawSheet(); el0()?.querySelector('.ml-body')?.scrollTo(0, 0); return; }
+    const o = e.target.closest('[data-act="open"]'); if (o && !e.target.closest('[data-act]:not([data-act="open"])')) { if (o.dataset.v === 'cal' && cur !== 'cal') resetCal(); cur = o.dataset.v; drawSheet(); el0()?.querySelector('.ml-body')?.scrollTo(0, 0); return; }
     const s = e.target.closest('.ml-seg button'); if (s) { const name = s.parentElement.dataset.seg, v = s.dataset.v, meta = getMeta();
         if (name === 'mkt') { setMktTab(v); drawSheet(); return; }
         if (name === 'hide') meta.hideNums = v === '1';
@@ -158,6 +161,7 @@ async function clickHandler(e) {
     if (act === 'home-edit') { document.querySelector('.ml-bs')?.remove(); cur = 'home'; setHomeEdit(true); drawSheet(); return; }
     if (act === 'x-home') { const H = homeCfg(); H.extOff = H.extOff.includes(v) ? H.extOff.filter(x => x !== v) : [...H.extOff, v]; saveSettings(); drawSheet(); return; }
     if (act === 'x-reload') { location.reload(); return; }
+    if (act === 'love-up' || act === 'love-down') { loveAct(act, v); return; }
     if (act === 'x-install') { a.disabled = true; a.textContent = '설치 중…'; try { await installApp(v); toast('설치했어요 · 새로 고침하면 켜져요', 'good'); } catch (e) { toast(`⚠ ${e.message}`, 'bad'); } drawSheet(); return; }
     if (act === 'home-done') { setHomeEdit(false); drawSheet(); return; }
     if (act === 'w-toggle') { const H = homeCfg(); H.hidden = H.hidden.includes(v) ? H.hidden.filter(x => x !== v) : [...H.hidden, v]; saveSettings(); drawSheet(); return; }

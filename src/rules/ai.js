@@ -110,7 +110,8 @@ export async function fillBook(only = null, pick = undefined) {
         + '"meal" (one meal). 3-6 places that matter, 3-5 goods per shop/food place. needs: 3-5 (hunger/energy/hygiene/mood style; rate = drop per '
         + 'hour). Birthdays as 「M월 D일」 if known.';
     const ask2 = only ? `Rebuild ONLY these people: ${only.join(', ')}. Output {"people":[...]}` : 'Fill the whole rulebook.';
-    const raw = await ask(`${ask2}\n${gloss()}\nSchema:\n${SCHEMA}\n\nSource:\n${src.text}`, sys);
+    const note = String(getMeta()?.srcNote ?? '').trim();
+    const raw = await ask(`${ask2}\n${gloss()}${note ? `\nUSER'S EXTRA INSTRUCTIONS (follow these over the source when they conflict):\n${note}\n` : ''}\nSchema:\n${SCHEMA}\n\nSource:\n${src.text}`, sys);
     const j = parseJSON(raw);
     if (!j) return { book: null, src };
     return { book: j, src };

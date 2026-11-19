@@ -1,6 +1,6 @@
 // 전체화면 안의 탭들 — 목록 행 + 묶음 카드. 설명은 한 줄까지.
 import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, msgData, syncSwipe, msgKey, userName, bumpMeta, saveChatSoon } from '../base/st.js';
-import { esc, fmt, signed, short, dateText, dateOf, DAY, periodName, num, norm, tokens, dayIndexOf, monthDays, monthName, weekName, faceOf } from '../base/util.js';
+import { esc, fmt, signed, short, dateText, dateOf, DAY, periodName, num, norm, tokens, dayIndexOf, monthDays, monthName, weekName, faceOf, clockOf } from '../base/util.js';
 import { row, card, chip, seg, bar, empty, btn, sheet, toast, putInput, form } from './kit.js';
 import { fold, derived, needStage, relStage, nextStage, stagesOf, pairKey, diceParts, whereNow } from '../rules/engine.js';
 import { luckOf } from '../rules/luck.js';
@@ -288,7 +288,7 @@ function relCard(r, name, inSheet = false) {
     // 이야기 중에 처음 나온 인물: 설정집에 규칙이 없으면 (B는 저절로 한 번 · 실패했거나 A면) 버튼으로
     const tried = getMeta().npcTried?.[name], fillBtn = !p && !x.gone && tried !== 'try' ? btn(tried === 'fail' ? '⚠ 규칙 채우기' : '📋 규칙 채우기', 'npc-fill', name, 'xs') : '';
     const acts = x.gone ? btn('돌아옴', 'gone', name, 'xs') : `${fillBtn}${btn('🎁<span> 선물</span>', 'say', `${name}에게 선물을 건넨다.`, 'xs')}${inSheet ? '' : btn('더보기', 'person', name, 'xs')}`;
-    return `<div class="ml-rc${x.gone ? ' gone' : ''}"><div class="ml-rc-h"><span class="ml-face"${inSheet ? '' : ` data-act="person" data-v="${esc(name)}"`}`
+    return `<div class="ml-rc${x.gone ? ' gone' : ''}"><div class="ml-rc-h"><span class="ml-face${getMeta()?.love?.[name] ? ' ml-face-love' : ''}"${inSheet ? '' : ` data-act="person" data-v="${esc(name)}"`}`
         + `>${p?.face || x.face || '🙂'}</span><b${inSheet ? '' : ` class="tap" data-act="person" data-v="${esc(name)}"`}>${esc(name)}</b>${pills}`
         + `<span class="ml-sp"></span>${inSheet ? '' : `<button class="ml-star on" data-act="star" data-v="${esc(name)}" title="주요 인물에서 빼기">⭐</button>`}${acts}`
         + `</div>${(p?.line || x.line) && vis('rel', 'line') ? `<div class="ml-rc-line">${esc(p?.line || x.line)}</div>` : ''}${L.join('')}</div>`;
@@ -1176,6 +1176,7 @@ export async function onAct(act, v, el) {
         case 'bk-person':
         case 'bk-me':
         case 'bk-world':
+        case 'bk-start':
         case 'bk-places':
             return editBook(act, v);
         case 'preset': {
@@ -1201,6 +1202,18 @@ async function editBook(act, v) {
     if (act === 'bk-me') return (await import('./tools.js')).editApp('now');
     if (act === 'bk-places') return (await import('./tools.js')).editApp('map');
     const L = (a) => (a ?? []).join(', '), P = (t) => String(t ?? '').split(/[,、]/).map(x => x.trim()).filter(Boolean);
+    if (act === 'bk-start') { // 📅 이야기 시작 날짜 · 시각만 빠르게 (쓸 앱 고르기 화면 · 달력)
+        const st = b.world.start, hh = Math.floor((st.clock ?? 480) / 60), mm = (st.clock ?? 480) % 60;
+        const fv = await form('📅 이야기 시작', [
+            { k: 'date', label: '시작 날짜 (년-월-일)', v: `${st.y}-${st.m}-${st.d}`, ph: '2026-3-1' },
+            { k: 'time', label: '시작 시각', v: `${hh}:${String(mm).padStart(2, '0')}`, ph: '8:00', chips: ['7:00', '8:00', '12:00', '18:00', '22:00'] },
+        ]);
+        if (!fv) return;
+        const m = /(\d{1,5})\D+(\d{1,2})\D+(\d{1,2})/.exec(fv.date ?? '');
+        if (m) Object.assign(st, { y: Number(m[1]), m: Math.min(12, Math.max(1, Number(m[2]))), d: Math.min(31, Math.max(1, Number(m[3]))) });
+        const c = clockOf(fv.time); if (c != null) st.clock = c;
+        b.src.from = 'user'; saveMeta(); app.refresh?.(true); toast('시작 날짜를 바꿨어요', 'good'); return;
+    }
     if (act === 'bk-world') {
         const w = b.world,
             cal = w.start.cal ?? {},

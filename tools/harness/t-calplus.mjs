@@ -2,7 +2,7 @@
 import { open, sleep, check } from './lib.mjs';
 const W = Number(process.env.W || 0);
 const { page, logs, close } = await open(W ? { width: W, height: 844 } : {});
-const click = (sel) => page.evaluate((s) => { const el = document.querySelector(s); if (!el) throw new Error(`없음: ${s}`); el.click(); }, sel).then(() => sleep(150));
+const click = (sel) => page.evaluate((s) => { if (/cp-cy|cp-peek/.test(s) && !document.querySelector(s)) document.querySelector('[data-act="cp-set"]')?.click(); return s; }, sel).then(() => sleep(120)).then(() => page.evaluate((s) => { const el = document.querySelector(s); if (!el) throw new Error(`없음: ${s}`); el.click(); }, sel)).then(() => sleep(150)); // ⚙ 달력 설정은 접혀 있음
 const fill = (vals) => page.evaluate((vals) => { for (const [k, v] of Object.entries(vals)) document.querySelector(`#mlf-${k}`).value = v; document.querySelector('.ml-bs [data-bs="ok"]').click(); }, vals).then(() => sleep(200));
 const inj = () => page.evaluate(() => { __ML__.inject(); return __ML__.app.lastInj(); });
 const all = (o) => `${o.facts ?? ''}\n${o.hint ?? ''}`;

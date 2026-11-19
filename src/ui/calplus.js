@@ -6,7 +6,8 @@ import { btn, row, card, form, toast } from './kit.js';
 import { fold } from '../rules/engine.js';
 import { calOf, dayNow, parseDay, ddayLabel, cycleInfo, cycleDays, seenBy, mdOf } from '../rules/calplus.js';
 
-let tab = 'cal';
+let tab = 'cal', setOpen = false;
+export const resetCal = () => { tab = 'cal'; setOpen = false; }; // 앱을 새로 열면 늘 기본 달력부터
 const TABS = [['cal', '📅 달력'], ['dday', '📌 D-day'], ['todo', '✅ 할 일']];
 const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 const ymd = (st, day) => { const d = dateOf(st, day * DAY); return `${d.y}-${d.m}-${d.d}`; };
@@ -46,7 +47,8 @@ export function calDayExtra(r, day) {
 // 📅 달력 탭 아래 설정 줄 · 🩸 생리 주기 카드
 export function calSettings(r) {
     const cal = calOf(), c = cal.cycle, today = dayNow(r.S), st = r.book.world.start;
-    let h = `<div class="ml-cpset"><span>설정</span>${btn(`🩸 생리 주기 ${c.on ? '켬' : '끔'}`, 'cp-cy', 'on', `xs${c.on ? ' on' : ''}`)}`
+    if (!setOpen) return `<div class="ml-cpset">${btn('⚙ 달력 설정 ▾', 'cp-set', '', 'xs')}${c.on ? ' <small>🩸 생리 주기 켬</small>' : ''}${cal.peek ? ' <small>👀 메모 보기 켬</small>' : ''}</div>`;
+    let h = `<div class="ml-cpset">${btn('⚙ 달력 설정 ▴', 'cp-set', '', 'xs on')}${btn(`🩸 생리 주기 ${c.on ? '켬' : '끔'}`, 'cp-cy', 'on', `xs${c.on ? ' on' : ''}`)}`
         + `${btn(`👀 애인이 메모 보기 ${cal.peek ? '켬' : '끔'}`, 'cp-peek', '', `xs${cal.peek ? ' on' : ''}`)}</div>`;
     if (cal.peek) h += '<div class="ml-hint">메모에서 「보여 주기」를 켜면, 애정이 가장 높은 ⭐ 인물이 가끔(8번째 답마다) 그 메모 얘기를 꺼낼 수 있어요.</div>';
     if (!c.on) return h;
@@ -95,6 +97,7 @@ export async function calAct(act, v) {
     const cal = calOf(meta), st = r.book.world.start, today = dayNow(r.S);
     const askDay = (s) => { const d = parseDay(st, s, today); if (d == null) toast('날짜를 못 읽었어요 · 예: 12/25 · 2026-12-25 · 3일 뒤', 'bad'); return d; };
     switch (act) {
+        case 'cp-set': setOpen = !setOpen; app.refresh?.(); return;
         case 'cp-tab': tab = TABS.some(([k]) => k === v) ? v : 'cal'; app.refresh?.(); return;
         case 'cp-dd-add': {
             const fv = await form('📌 새 D-day', [{ k: 'name', label: '이름', ph: '우리 100일', chips: ['우리 100일', '시험', '생일', '여행'] },

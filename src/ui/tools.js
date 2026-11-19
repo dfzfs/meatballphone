@@ -584,7 +584,8 @@ export async function aiEdit(appId) {
     try {
         raw = await ask(`The user wants to change the status window (${appId}): "${fv.say.trim()}"\nCurrent values: ${aiNow(appId, r)}\n`
             + (bookPart ? `Rulebook part (JSON): ${bookPart}\nIf the change is about the rulebook, output ONLY the changed top-level parts as JSON in a \`\`\`json block (same shape; for people/places give the FULL changed list).\n` : '')
-            + `If it is about current values, output event lines inside <meatball></meatball> using keys: ${AI_KEYS}. You may output both. Output nothing else.\n${gloss()}`,
+            + (appId === 'rel' ? `Relationship stages by aff (affection): ${(r.book.stages ?? []).map(s => `${s.name} ${s.at}+`).join(' · ')}. If the user describes where the relationship is NOW (e.g. "not lovers yet", "crush", "broke up"), change the current aff with an aff line so it lands inside that stage (e.g. aff: Name -25 | why), and if they mean how it STARTED, also change people[].start in the rulebook.\n` : '')
+            + `If it is about current values, output event lines inside <meatball></meatball>, ONE per line in the form \`key: value\` (e.g. \`aff: Name -25 | why\`, \`cash: +10 | why\`), using keys: ${AI_KEYS}. Never write key(value). You may output both. Output nothing else.\n${gloss()}`,
             'You edit a status window. Be minimal and exact. Change only what the user asked.');
     } catch (e) { toast(`AI 호출 실패 · ${e.message ?? e}`, 'bad'); return; }
     const lines = readOps(raw).map(([k, v]) => `${k}: ${v}`);

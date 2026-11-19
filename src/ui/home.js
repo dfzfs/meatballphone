@@ -14,6 +14,7 @@ import { sneakBadges, markSneakSeen } from '../rules/sneak.js';
 import { nextAiNo } from '../base/st.js';
 import { mascot, MASCOTS, MEATCON, mascotUrl, MASCOT_SOUNDS, PACK, packOn } from './mascot.js';
 import { extApps, extOf, catalog, loadCatalog, hasApp, waitsReload } from '../extra/apps.js';
+import { loveCards, loveBadge, loveAny, homeHearts } from './love.js';
 
 // 앱 목록 — mod가 있으면 받기 · 지우기 가능, sys는 늘 있음
 export const APPS = [
@@ -115,7 +116,7 @@ export function home(r) {
     }
     // 소식
     if (modOn('news')) { const N = S.news.slice(0, 3); if (N.length) put('세계 소식', N.map(n => `<div class="ml-rl"><i>${n.icon}</i>${esc(n.text)}</div>`).join(''), 'news', '', 'news'); }
-    return holder(r, P);
+    return homeHearts() + holder(r, P);
 }
 
 
@@ -136,8 +137,8 @@ export function homeCfg() {
 let editing = false;
 export const homeEditing = () => editing;
 export const setHomeEdit = (v) => { editing = !!v; };
-const appIcon = (a, bd) => `<button class="ml-app" data-act="open" data-v="${a.id}" data-app="${a.id}"><i style="--c:${a.c}">${a.icon}`
-    + `${bd[a.id] ? `<em class="ml-badge${bd[a.id] === '!' ? ' warn' : ''}">${bd[a.id]}</em>` : ''}</i><span>${a.name}</span></button>`;
+const appIcon = (a, bd) => { const lv = a.id === 'rel' && loveAny(); return `<button class="ml-app${lv ? ' love' : ''}" data-act="open" data-v="${a.id}" data-app="${a.id}"><i style="--c:${lv ? '#ff5c8a' : a.c}">${lv ? '💗' : a.icon}`
+    + `${bd[a.id] ? `<em class="ml-badge${bd[a.id] === '!' ? ' warn' : ''}">${bd[a.id]}</em>` : ''}</i><span>${a.name}</span></button>`; };
 function holder(r, P) {
     const H = homeCfg(), bd = badges(r);
     let h = editing ? '<div class="ml-editbar"><span><b>✏️ 홈 편집</b><small>끌어서 순서 · 아래 독으로 옮기기 · ✕ 숨기기 · ＋ 다시 보이기</small></span>'
@@ -185,7 +186,9 @@ export function setupView(r) {
     const row = (a) => `<label class="ml-mk ml-pick"><input type="checkbox" class="ml-setup-cb" data-mod="${a.mod}" ${rec.has(a.mod) ? 'checked' : ''}>`
         + `<i style="--c:${a.c}">${a.icon}</i><span><b>${a.name}</b><small>${esc(a.desc)}</small>`
         + `${a.to === 'main' ? `<small class="ml-to main">📤 본편: ${esc(a.main)}</small>` : '<small class="ml-to aux">🔒 상태창 안에서만</small>'}</span></label>`;
-    return `<div class="ml-hint">🛍️ 쓸 앱을 고르세요. ${esc(r.book.world.genre || '이 이야기')}에 맞는 것을 미리 체크해 뒀어요. 「시작」을 눌러야 깔리고, 나중에 마켓에서 더하거나 뺄 수 있어요.</div>`
+    const st = r.book.world.start, hh = Math.floor((st.clock ?? 480) / 60), mm = String((st.clock ?? 480) % 60).padStart(2, '0');
+    const startRow = `<div class="ml-scene tap" data-act="bk-start"><i>📅</i><span><b>이야기 시작: ${st.cal?.era ? `${esc(st.cal.era)} ` : ''}${st.y}년 ${st.m}월 ${st.d}일 ${hh}:${mm}</b><small>누르면 시작 날짜 · 시각을 바꿔요</small></span><em>›</em></div>`;
+    return startRow + `<div class="ml-hint">🛍️ 쓸 앱을 고르세요. ${esc(r.book.world.genre || '이 이야기')}에 맞는 것을 미리 체크해 뒀어요. 「시작」을 눌러야 깔리고, 나중에 마켓에서 더하거나 뺄 수 있어요.</div>`
         + `<h4 class="ml-h4">📤 본편 반영</h4><div class="ml-mks">${apps.filter(a => a.to === 'main').map(row).join('')}</div>`
         + `<h4 class="ml-h4">🔒 보조</h4><div class="ml-mks">${apps.filter(a => a.to !== 'main').map(row).join('')}</div>`
         + `<div class="ml-acts">${btn('▶ 시작', 'setup-start', '', 'main')}</div>`;
@@ -193,9 +196,9 @@ export function setupView(r) {
 // 🛍 마켓 탭: 기본 앱 · 기타 앱(밖에서 만든 미트볼폰 앱)
 let mktTab = 'base';
 export const setMktTab = (v) => { mktTab = v === 'ext' ? 'ext' : 'base'; };
-export function market() {
+export function market(r) {
     const tabs = `<div class="ml-seg ml-mkt-tabs" data-seg="mkt">${[['base', '📱 기본 앱'], ['ext', `🧩 기타 앱${extApps().length ? ` ${extApps().length}` : ''}`]].map(([v, l]) => `<button class="${mktTab === v ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div>`;
-    return tabs + (mktTab === 'ext' ? marketExt() : marketBase());
+    return (r ? loveCards(r) : '') + tabs + (mktTab === 'ext' ? marketExt() : marketBase());
 }
 function marketExt() {
     const H = homeCfg(), mine = extApps();
@@ -290,6 +293,7 @@ export function badges(r) {
     const rq = S.rolls.length - (seen.dice ?? 0); if (rq > 0) b.dice = rq;
     const ch = r.changes.length - (seen.rec ?? 0); if (ch > 0 && seen.rec != null) b.rec = '•';
     sneakBadges(getMeta(), S, b); // ✍ 몰래 생긴 것 (처음 열어 볼 때까지)
+    loveBadge(r, b); // 💗 연인 업데이트
     return b;
 }
 export function markSeen(appId, r) {

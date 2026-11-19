@@ -75,6 +75,19 @@ function scene() {
         .map(n => ({ name: n, want: S.rel[n].want || personOf(book, n)?.want || '' }));
     return structuredClone({ goods, people });
 }
+// 📝 지금 사실 몇 줄 (연락 답장 같은 앱 AI 호출에 그대로 붙이는 용도 · 결과만 · 숫자 없음)
+//   생리 주기는 달력에서 「본편에 알리기」를 켰을 때만 (사용자가 고른 공개 범위를 따름)
+async function facts() {
+    const r = ready() && !getMeta()?.off ? fold() : null; if (!r) return [];
+    const { S, book } = r, L = [], cp = await import('../rules/calplus.js'), cal = cp.calOf(), today = cp.dayNow(S);
+    const user = (await import('../base/st.js')).userName();
+    L.push(`Now: ${dateOf(book.world.start, S.t).mn} ${dateOf(book.world.start, S.t).d} · ${periodName(S.t)}${S.weather ? ` · ${S.weather}` : ''}${S.loc ? ` · ${user} is at ${S.loc}` : ''}`);
+    if (S.status.length) L.push(`${user}'s condition: ${S.status.map(s => s.name).join(', ')}`);
+    for (const d of cal?.dday ?? []) { if (d.day === today) L.push(`Today is "${d.name}".`); else if (d.day === today + 1) L.push(`Tomorrow is "${d.name}".`); }
+    const ci = cal?.cycle?.tell ? cp.cycleInfo(cal, today) : null;
+    if (ci?.dayN) L.push(`${user} is on her period (day ${ci.dayN}).`);
+    return L;
+}
 // 👥 인물 목록 (연락 같은 앱용) — ⭐ 주요 인물 먼저 · 떠난 인물 빼고
 function people() {
     const r = ready() ? fold() : null; if (!r) return [];
@@ -82,7 +95,7 @@ function people() {
     return structuredClone(Object.entries(S.rel).filter(([, x]) => !x.gone).map(([name, x]) => {
         const p = personOf(book, name);
         return { name, face: faceOf(x.face || p?.face, '🙂'), star: isStar(meta, book, name), stage: relStage(book, x.aff, name)?.name ?? '', aff: x.aff, trust: x.trust,
-            here: S.with.includes(name), likes: x.seen.likes, hates: x.seen.hates, about: p?.line || x.line || '' };
+            here: S.with.includes(name), love: !!meta?.love?.[name], likes: x.seen.likes, hates: x.seen.hates, about: p?.line || x.line || '' };
     }).sort((a, b) => b.star - a.star || b.aff - a.aff));
 }
 // ✋ 앱이 상태에 손대기 (좁은 칸만 · 마지막 AI 답에 손 고침으로 붙음 → 기록에 앱 이름 · 되돌리기 · 리롤 · 삭제를 그대로 따라감)
@@ -118,6 +131,7 @@ export function mount() {
         state,
         scene,
         people,
+        facts,
         // 지금 사건 고르기 모드: 'A' 본편 태그 · 'B' 분류 모델 (B면 본편에 「사건 줄을 적어라」를 넣지 않음)
         mode,
         pendingChoice,

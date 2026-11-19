@@ -32,22 +32,27 @@ export function applyTr(root) {
         let x = raw; for (const [re, to] of res) x = x.replace(re, to);
         if (x !== raw) n.nodeValue = x;
         // 아직 영어가 남은 덩어리 (문장 부호로 자름 · 너무 긴 건 빼고)
-        for (const piece of x.split(/[·|,()\[\]「」:→]/)) { const p = piece.trim(); if (LATIN.test(p) && p.length <= 80 && !d[p]) pending.add(p); }
+        for (const piece of x.split(/[·|,()\[\]「」:→]/)) { const p = piece.trim(); if (LATIN.test(p) && p.length <= 300 && !d[p] && !tried.has(p)) pending.add(p); }
     }
-    if (pending.size && settings().trAuto !== 'off') { clearTimeout(timer); timer = setTimeout(flush, 1500); }
+    if (pending.size && settings().trAuto !== 'off') { clearTimeout(timer); timer = setTimeout(flush, 400); }
 }
-// 모은 말 번역 (AI 1회 · 60개씩)
+// 모은 말 번역 (AI 1회 · 120개씩 · 남은 게 있으면 바로 이어서 · 두 묶음까지 동시에)
+//   가벼운 연결(분류 모델과 같은 깨끗한 경로 · 생각 최소)로 보내서 빠르게
+let running = 0;
+const tried = new Set(); // 이번에 물어봤는데 답이 없던 말은 다시 안 물음 (같은 말을 계속 부르는 것 막기)
 export async function flush() {
-    if (busy || !pending.size || !document.getElementById('ml-full')) return;
-    busy = true;
-    const list = [...pending].slice(0, 60); list.forEach(x => pending.delete(x));
+    if (running >= 2 || !pending.size || !document.getElementById('ml-full')) return;
+    running++; busy = true;
+    const list = [...pending].slice(0, 120); list.forEach(x => pending.delete(x));
+    if (pending.size) setTimeout(flush, 0); // 다음 묶음은 기다리지 않고 바로
     try {
-        const g = glossList(), rules = trRules(); const raw = await ask(`Translate each item into natural Korean for a game status window (names: keep a natural Korean reading). Return JSON object {"original":"번역"} `
+        const g = glossList(), rules = trRules(); const { askLight } = await import('../rules/classify.js'); const raw = await askLight('You translate UI terms. JSON only.', `Translate each item into natural Korean for a game status window (names: keep a natural Korean reading). Return JSON object {"original":"번역"} `
             + `only.\n${rules ? `Rules: ${rules}\n` : ''}${g.length ? `Fixed: ${g.map(x => `${x.from}=${x.to}`).join(', ')}\n` : ''}`
-            + `${JSON.stringify(list)}`, 'You translate UI terms. JSON only.');
+            + `${JSON.stringify(list)}`);
         const j = parseJSON(raw);
-        if (j && typeof j === 'object') { const meta = getMeta(); meta.tr ??= {}; for (const [k, v] of Object.entries(j)) if (typeof v === 'string' && v.trim() && list.includes(k)) meta.tr[k] = v.trim().slice(0, 80); saveMeta(); }
+        list.forEach(x => tried.add(x));
+        if (j && typeof j === 'object') { const meta = getMeta(); meta.tr ??= {}; for (const [k, v] of Object.entries(j)) if (typeof v === 'string' && v.trim() && list.includes(k)) meta.tr[k] = v.trim().slice(0, 400); saveMeta(); }
     } catch (e) { console.warn('[미트볼폰] 번역 실패', e); }
-    busy = false; app.refresh?.();
+    running--; busy = running > 0; app.refresh?.();
 }
 export const trList = () => Object.entries(getMeta()?.tr ?? {});
