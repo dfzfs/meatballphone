@@ -6,7 +6,7 @@ import { readOps, kindOf, parts, stripTags } from './tags.js';
 import { match } from './names.js';
 import { NEED_STAGES, NEED_SYMPTOM, personOf, placeOf } from './book.js';
 import { glossList } from '../base/gloss.js';
-import { traitOf, traitCompat, signOf, signCompat, aspireOf, aspireSteps, syncCustomTraits } from '../../data/traits.js';
+import { traitOf, traitCompat, signOf, signCompat, aspireOf, aspireSteps, syncCustomTraits, personSteps, lvOf } from '../../data/traits.js';
 // 🧬 내 특성 효과 모으기 — S를 주면 「켜지는 조건」(커스텀 특성)이 맞는 것만
 const isHome = (book, S) => /home/.test(placeOf(book, S.loc)?.kind ?? '');
 const WHEN_OK = {
@@ -287,6 +287,20 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
         case 'roll': S.rolls.push({ t: S.t, what: short(v, 40), i }); return;
         case 'mind': case 'watch': case 'cell': { if (a && b) S[kind][x.who(a) ?? safeKey(a)] = short(parts(v).slice(1).join(' | '), 120); return; }
         case 'jealous': { const name = x.who(a); if (!name) return; const r = x.rel(name); r.jealous = short(b || '질투', 40); remember(S, r, `질투: ${b}`); x.setRel(name, 'trust', -Math.max(1, Math.round(tmul(x.T, 'jealousSelf') * tmul(x.T, 'jealousy') * 1.4)), '질투', src, false, i); news(S, '💢', `${name} — ${short(b || '질투가 남', 30)}`, 'jealous', name); return; }
+        case 'aspire': {
+            // ⭐ 야망 진척 (직업 · 기술처럼 셀 수 없는 것): 「aspire: +1 | 승진」 = 나 · 「aspire: Leon | +1 | 첫 무대」 = 인물
+            const me = !a || parseDelta(a) || /^(나|me|i|user|\{\{user\}\})$/i.test(a) || (book.me.name && norm(a) === norm(book.me.name));
+            const who = me ? '나' : x.who(a); if (!who) return;
+            const dd = parseDelta(me && parseDelta(a) ? a : b) ?? { n: 1 }, why2 = short((me && parseDelta(a) ? b : c) || '한 걸음', 20);
+            const asp = me ? aspireOf(book.me.aspire, book) : aspireOf(personOf(book, who)?.aspire); if (!asp) return;
+            const steps = me ? aspireSteps(asp, book) : personSteps(asp), max = steps[steps.length - 1];
+            const from = lvOf(S, who), to = clamp(from + clamp(Math.round(dd.n), -3, 3), 0, max); if (to === from) return;
+            (S.aspLv ??= {})[who] = to;
+            ch.push({ f: `asplv.${who}`, label: `${me ? '' : `${who} `}${asp.name}`, icon: asp.icon, from, to, why: why2, src, sure: true, i, who: me ? undefined : who });
+            if (!me) { const k0 = steps.filter(v2 => from >= v2).length, k1 = steps.filter(v2 => to >= v2).length;
+                if (k1 > k0) { ch.push({ f: `aspire.${who}`, label: `${who}의 야망 ${k1}단계`, icon: asp.icon, from: '', to: k1 >= steps.length ? '달성!' : `${k1}/${steps.length}`, why: asp.name, src: 'auto', sure: true, i, kind: 'good', cross: true, who }); news(S, asp.icon, `${who} — ${asp.name} ${k1 >= steps.length ? '이룸!' : `${k1}단계`}`, 'life', who); remember(S, x.rel(who), `${asp.name} ${k1}단계`); } }
+            return;
+        }
         case 'life': { const name = x.who(a) ?? safeKey(a); if (!name || !b) return; x.rel(name).life = short(b, 60); news(S, '🌙', `${name} — ${short(b, 40)}`, 'life', name); return; }
         case 'exchange': { // 🪙 환전: exchange: 은화 | +10 (기본 화폐로 은화 10개 사기) · -10 (팔기) · 수수료 5%
             const cn = coinOf(book, a); const d = parseDelta(b); if (!cn || !d || !d.n) return; S.coins ??= {};
@@ -521,6 +535,7 @@ export function wantsOf(book, S) {
         else if (r.trust <= 5 || r.trust < (personOf(book, n)?.start?.trust ?? 10) - 3) add('rel', 2, `mend-${n}`, ['🕊️', `${n}와(과) 화해하기`, `${n}에게 먼저 사과한다.`, relUpOf(n, 'trust')]);
         if (here && nx && nx.at - r.aff <= 8) add('rel', 2.5, `step-${n}`, ['💞', `${n}와(과) 한 걸음 더 (${nx.name})`, `${n}에게 한 걸음 다가간다.`, relUpOf(n, 'aff')]);
         if (r.want) add('rel', 2, `their-${n}`, ['🙏', `${n}의 바람 들어주기: ${short(r.want, 14)}`, `${n}이(가) 원하던 걸 해 준다.`, (ch) => ch.some(c => c.f.startsWith(`rel.${n}.`) && c.to > c.from)]);
+        { const pa = aspireOf(personOf(book, n)?.aspire); if (pa && here) add('rel', 1.4, `dream-${n}`, ['⭐', `${n}의 꿈 응원하기 (${pa.name})`, `${n}의 꿈 이야기를 들어 준다.`, (ch) => ch.some(c => (c.f === `asplv.${n}` && c.to > c.from) || (c.f === `rel.${n}.trust` && c.to > c.from))]); }
         if (here && !r.seen.likes.length) add('rel', 1.2, `taste-${n}`, ['🔍', `${n} 취향 알아내기`, `${n}에게 좋아하는 걸 묻는다.`, (ch) => ch.some(c => c.f.startsWith(`rel.${n}.`) && /취향/.test(c.why ?? ''))]);
     }
     if (!near.length && live.length) add('sit', 1.5, 'meet', ['👋', '누군가 만나러 가기', '누굴 만나러 갈까.', (ch, S2) => S2.with.length > 0]);

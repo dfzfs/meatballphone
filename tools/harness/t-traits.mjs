@@ -4,7 +4,7 @@ const { page, logs, close } = await open({ width: 1440, height: 900 });
 try {
     await page.evaluate(() => document.querySelector('[data-ml="create-tpl"]').click()); await sleep(300);
     await page.evaluate(async () => { const st = await import('/ext/src/base/st.js'), { normBook } = await import('/ext/src/rules/book.js'); const m = st.getMeta();
-        m.book.me.traitIds = ['romantic', 'glutton', 'brave']; m.book.me.day = '8월 1일'; m.book.me.aspire = 'lover';
+        m.book.me.traitIds = ['romantic', 'glutton', 'brave']; m.book.me.day = '8월 1일'; m.book.me.aspire = 'rockstar';
         m.book.people[0].day = '4월 1일'; m.book.people[0].traits = ['romantic']; m.book.people.push({ ...m.book.people[0], name: 'Mia', day: '2월 1일', traits: ['stoic'], aka: [] });
         m.book = normBook(m.book); st.saveMeta(); });
     await page.evaluate(() => window.__addUser('안녕')); await page.evaluate(() => window.__addAI('…\n<meatball>\nwith: Leon, Mia\naff: Leon +4 | 웃음\naff: Mia +4 | 웃음\nweather: 맑음\n</meatball>')); await sleep(300);
@@ -24,7 +24,7 @@ try {
     const done = await page.evaluate(() => __ML__.fold().changes.at(-1).some(c => c.f.startsWith('want.')));
     check(w.some(t => t.includes('먹기')) && done, '원하는 것 → 이룸 → 기분 +8');
     // 야망: 사랑꾼 20 넘으면 1단계
-    await page.evaluate(() => window.__addAI('<meatball>\naff: Leon +8 | 꽃\n</meatball>')); await sleep(300);
+    await page.evaluate(() => window.__addAI('<meatball>\naff: Leon +8 | 꽃\naspire: +3 | 첫 무대\n</meatball>')); await sleep(300);
     const asp = await page.evaluate(() => { const R = __ML__.fold(); return { step: R.S.aspStep, proud: R.S.status.some(s => s.name === '뿌듯함') }; });
     check(asp.step >= 1 && asp.proud, '야망 단계 → 뿌듯함 딱지', JSON.stringify(asp));
     await page.evaluate(() => __ML__.app.openSheet('traits')); await sleep(200); await page.screenshot({ path: '/tmp/tr.png' });

@@ -1,7 +1,7 @@
 // 🧬 특성 · 야망 · 별자리 · 지금 원하는 것 · 궁합 — 전부 상태창 안의 중간값 (본편엔 결과만)
 import { app, getMeta, saveMeta } from '../base/st.js';
 import { esc, signed, num } from '../base/util.js';
-import { TRAITS, TRAIT_CATS, traitOf, signOf, ELEMENT_KO, ASPIRES, ASPIRE_CATS, aspireOf, aspireSteps, SIGN_TRAIT, CUSTOM_FX, CUSTOM_CON, WHEN, CUSTOM_MAX, conflictOf, customTraits, syncCustomTraits, normCustomTrait, normCustomAspire, traitCompat } from '../../data/traits.js';
+import { TRAITS, TRAIT_CATS, traitOf, signOf, ELEMENT_KO, ASPIRES, ASPIRE_CATS, aspireOf, aspireSteps, SIGN_TRAIT, CUSTOM_FX, CUSTOM_CON, WHEN, CUSTOM_MAX, conflictOf, customTraits, syncCustomTraits, normCustomTrait, normCustomAspire, traitCompat, personSteps, lvOf } from '../../data/traits.js';
 import { wantsOf, matchOf, myTraits, traitOn } from '../rules/engine.js';
 import { normBook, personOf } from '../rules/book.js';
 import { sheet, form, toast, btn } from './kit.js';
@@ -34,14 +34,14 @@ export function traitsView(r) {
     // 야망
     if (asp) {
         const steps = aspireSteps(asp, book), v = asp.val(S, book), k = steps.filter(x => v >= x).length, next = steps[k];
-        h += `<h4 class="ml-h4">야망</h4><div class="ml-rc"><div class="ml-rc-h"><span class="ml-face">${asp.icon}</span><b>${esc(asp.name)}</b><span class="ml-pill love">${k}/${steps.length}단계</span><span class="ml-sp"></span>${asp.manual ? `${btn('−1', 'tr-asp-tick', '-1', 'xs')}${btn('+1 했어요', 'tr-asp-tick', '1', 'xs')}` : ''}${btn('바꾸기', 'tr-asp', '', 'xs')}</div><div class="ml-rl dim"><i>📝</i>${esc(asp.desc)}</div><div class="ml-steps3">${steps.map((x, j) => `<span class="${j < k ? 'done' : j === k ? 'on' : ''}">${Math.round(x)}</span>`).join('')}</div><div class="ml-rl"><i>📈</i>${esc(asp.unit)} ${Math.round(v)}${next != null ? ` <span>→ 다음 ${Math.round(next)}</span>` : ' <span>다 이뤘어요!</span>'}</div><div class="ml-rl dim"><i>🎁</i>단계마다 기분 +${Math.round(10 * mine.reduce((a, t) => a * (t.aspBonus ?? 1), 1))} · 하루 동안 「뿌듯함」 🎲+1</div></div>`;
-    } else h += `<h4 class="ml-h4">야망</h4><div class="ml-scene tap" data-act="tr-asp"><i>⭐</i><span><b>야망 고르기</b><small>${ASPIRES.length}가지 · 사랑 · 사람 · 돈 · 경험 · 삶 · 나만의 야망</small></span><em>›</em></div>`;
+        h += `<h4 class="ml-h4">야망</h4><div class="ml-rc"><div class="ml-rc-h"><span class="ml-face">${asp.icon}</span><b>${esc(asp.name)}</b><span class="ml-pill love">${k}/${steps.length}단계</span><span class="ml-sp"></span>${asp.kind === 'lv' ? `${btn('−1', 'tr-asp-tick', '나|-1', 'xs')}${btn('+1 한 걸음', 'tr-asp-tick', '나|1', 'xs')}` : ''}${btn('바꾸기', 'tr-asp', '', 'xs')}</div><div class="ml-rl dim"><i>📝</i>${esc(asp.desc)}${asp.kind === 'lv' ? ' · 이야기 속 진척은 AI가 「aspire」로 적거나 직접 +1' : ''}</div><div class="ml-steps3">${steps.map((x, j) => `<span class="${j < k ? 'done' : j === k ? 'on' : ''}">${Math.round(x)}</span>`).join('')}</div><div class="ml-rl"><i>📈</i>${esc(asp.unit)} ${Math.round(v)}${next != null ? ` <span>→ 다음 ${Math.round(next)}</span>` : ' <span>다 이뤘어요!</span>'}</div><div class="ml-rl dim"><i>🎁</i>단계마다 기분 +${Math.round(10 * mine.reduce((a, t) => a * (t.aspBonus ?? 1), 1))} · 하루 동안 「뿌듯함」 🎲+1</div></div>`;
+    } else h += `<h4 class="ml-h4">야망</h4><div class="ml-scene tap" data-act="tr-asp"><i>⭐</i><span><b>야망 고르기</b><small>심즈 3 평생 소원 ${ASPIRES.length}가지 · 직업 · 기술 · 사랑 · 돈 · 수집 · 나만의 야망</small></span><em>›</em></div>`;
     // 지금 원하는 것
     const W = wantsOf(book, S);
     h += `<h4 class="ml-h4">지금 원하는 것 <span>이루면 기분 +8 · 이야기 속 몇 시간마다 바뀌어요</span></h4>${W.length ? `<div class="ml-doable">${W.map(w => `<button class="ml-do" data-act="say" data-v="${esc(w.say)}"><i>${w.icon}</i><span><b>${esc(w.text)}</b><small>${esc(w.srcName)} · 누르면 입력창에</small></span></button>`).join('')}</div>` : '<div class="ml-rl dim"><i>·</i>지금은 바라는 게 없어요</div>'}`;
     // 궁합
     const ppl = book.people.filter(p => !S.rel[p.name]?.gone);
-    if (ppl.length) h += `<h4 class="ml-h4">궁합 <span>💗 애정 · 🤝 우정이 오르는 폭에 곱해져요</span></h4>${ppl.map(p => { const m = matchOf(book, p.name); const cls = (n) => (n > 1 ? 'pos' : n < 1 ? 'neg' : ''); return `<div class="ml-match tap" data-act="tr-person" data-v="${esc(p.name)}"><span class="ml-face">${p.face}</span><span class="ml-tx"><b>${esc(p.name)} ${m.sign ? `<small>${m.sign.icon} ${m.sign.name}</small>` : ''}</b><small>${(p.traits ?? []).map(id => traitOf(id)).filter(Boolean).map(t => `${t.icon}${esc(t.name)}`).join(' · ') || '특성 없음'}${m.tc.why.length ? ` · ${esc(m.tc.why.join(', '))}` : ''}${m.sc.word ? ` · 별자리 ${m.sc.word}` : ''}</small>${m.tc.opp.map(o => `<small class="ml-opp">⇄ 반대가 끌림 — ${esc(o.text)}</small>`).join('')}</span><em class="${cls(m.mul)}">💗${x2(m.mul)}</em><em class="${cls(m.mulT)}">🤝${x2(m.mulT)}</em></div>`; }).join('')}`;
+    if (ppl.length) h += `<h4 class="ml-h4">궁합 <span>💗 애정 · 🤝 우정이 오르는 폭에 곱해져요</span></h4>${ppl.map(p => { const m = matchOf(book, p.name); const cls = (n) => (n > 1 ? 'pos' : n < 1 ? 'neg' : ''); return `<div class="ml-match tap" data-act="tr-person" data-v="${esc(p.name)}"><span class="ml-face">${p.face}</span><span class="ml-tx"><b>${esc(p.name)} ${m.sign ? `<small>${m.sign.icon} ${m.sign.name}</small>` : ''}</b><small>${(p.traits ?? []).map(id => traitOf(id)).filter(Boolean).map(t => `${t.icon}${esc(t.name)}`).join(' · ') || '특성 없음'}${m.tc.why.length ? ` · ${esc(m.tc.why.join(', '))}` : ''}${m.sc.word ? ` · 별자리 ${m.sc.word}` : ''}</small>${m.tc.opp.map(o => `<small class="ml-opp">⇄ 반대가 끌림 — ${esc(o.text)}</small>`).join('')}${(() => { const pa = aspireOf(p.aspire); if (!pa) return `<small class="ml-pasp"><button class="ml-btn xs" data-act="tr-asp" data-v="${esc(p.name)}">⭐ 야망 정하기</button></small>`; const st = personSteps(pa), lv = lvOf(S, p.name), k = st.filter(x => lv >= x).length; return `<small class="ml-pasp">${pa.icon} <b>${esc(pa.name)}</b> ${k}/${st.length}단계 · ${pa.kind === 'lv' ? 'Lv' : '진척'} ${lv} <button class="ml-btn xs" data-act="tr-asp-tick" data-v="${esc(p.name)}|1">+1</button><button class="ml-btn xs" data-act="tr-asp" data-v="${esc(p.name)}">바꾸기</button></small>`; })()}</span><em class="${cls(m.mul)}">💗${x2(m.mul)}</em><em class="${cls(m.mulT)}">🤝${x2(m.mulT)}</em></div>`; }).join('')}`;
     return h;
 }
 
@@ -91,26 +91,33 @@ export async function traitAct(act, v) {
     if (act === 'tr-cdel') { const t = traitOf(v); b.me.customTraits = (b.me.customTraits ?? []).filter(c => c.id !== v); b.me.traitIds = (b.me.traitIds ?? []).filter(x => x !== v); for (const p of b.people) p.traits = (p.traits ?? []).filter(x => x !== v); toast(`🗑 ${t?.name ?? ''} 지웠어요`); save(); return traitAct('tr-pick'); }
     if (act === 'tr-day') { const fv = await form('🎂 내 생일', [{ k: 'day', label: '생일', v: b.me.day, ph: '3월 14일' }]); if (!fv) return; b.me.day = fv.day.trim(); return save(); }
     if (act === 'tr-asp') {
-        const c = b.me.aspireCustom;
-        sheet('⭐ 야망 고르기', `<div class="ml-hint">평생 목표 하나 · 단계를 넘을 때마다 기분 + 「뿌듯함」 · 「지금 원하는 것」에도 나와요</div>${ASPIRE_CATS.map(([k, n]) => `<h4 class="ml-h4">${n}</h4><div class="ml-traits sm">${ASPIRES.filter(a => a.cat === k).map(a => `<button class="ml-trait${b.me.aspire === a.id ? ' on' : ''}" data-act="tr-asp-set" data-v="${a.id}"><i>${a.icon}</i><b>${esc(a.name)}</b><small>${esc(a.desc)}</small><em>${esc(a.unit)} ${aspireSteps(a, b).map(Math.round).join('→')}</em></button>`).join('')}</div>`).join('')}
-            <h4 class="ml-h4">🎯 나만의 야망 <span>셀 것을 하나 골라야 저절로 올라요</span></h4><div class="ml-traits sm">${c ? `<button class="ml-trait${b.me.aspire === 'custom' ? ' on' : ''}" data-act="tr-asp-set" data-v="custom"><i>${c.icon}</i><b>${esc(c.name)}</b><small>${esc(c.desc || '나만의 야망')}</small><em>${esc(aspireOf('custom', b)?.unit ?? '')} ${c.steps.join('→')}</em></button>` : ''}<button class="ml-trait add" data-act="tr-asp-new"><i>${c ? '✏️' : '＋'}</i><b>${c ? '고치기' : '만들기'}</b><small>이름 · 무엇으로 셀지 · 단계</small></button></div>
-            ${b.me.aspire ? `<div class="ml-chips"><span class="ml-chip bad tap" data-act="tr-asp-set" data-v="">야망 없애기</span></div>` : ''}`);
+        // v = '' → 나 · 인물 이름 → 그 인물의 야망
+        const who = v || '', p = who ? personOf(b, who) : null; if (who && !p) return;
+        const cur = who ? p.aspire : b.me.aspire, c = b.me.aspireCustom, myT = who ? (p.traits ?? []) : (b.me.traitIds ?? []);
+        const one = (a) => { const fit = a.fit?.some(t => myT.includes(t)); return `<button class="ml-trait${cur === a.id ? ' on' : ''}" data-act="tr-asp-set" data-v="${esc(who)}|${a.id}"><i>${a.icon}</i><b>${esc(a.name)}${fit ? ' <u>어울림</u>' : ''}</b><small>${esc(a.desc)}</small><em>${a.kind === 'lv' ? `이야기 속 진척 Lv ${(who ? personSteps(a) : a.steps).join('→')}` : `${esc(a.unit)} ${who ? `Lv ${personSteps(a).join('→')}` : aspireSteps(a, b).map(Math.round).join('→')}`}</em></button>`; };
+        sheet(`⭐ ${who ? `${esc(who)}의 ` : ''}야망 고르기`, `<div class="ml-hint">심즈 3의 평생 소원 · 하나만 · 단계를 넘을 때마다 ${who ? '소식 · 기억에 남아요' : '기분 + 「뿌듯함」'}<br>💼 직업 · 🎨 기술처럼 상태로 셀 수 없는 건 이야기 속 진척(Lv)으로 세요 — AI가 「aspire: +1」로 적거나 직접 +1${who ? '<br>인물의 야망은 늘 이야기 속 진척으로 세요' : ''}</div>${ASPIRE_CATS.map(([k, n]) => `<h4 class="ml-h4">${n}</h4><div class="ml-traits sm">${ASPIRES.filter(a => a.cat === k).sort((x, y) => (y.fit?.some(t => myT.includes(t)) ? 1 : 0) - (x.fit?.some(t => myT.includes(t)) ? 1 : 0)).map(one).join('')}</div>`).join('')}
+            ${who ? '' : `<h4 class="ml-h4">🎯 나만의 야망 <span>셀 것을 고르거나 이야기 속 진척으로</span></h4><div class="ml-traits sm">${c ? `<button class="ml-trait${cur === 'custom' ? ' on' : ''}" data-act="tr-asp-set" data-v="|custom"><i>${c.icon}</i><b>${esc(c.name)}</b><small>${esc(c.desc || '나만의 야망')}</small><em>${esc(aspireOf('custom', b)?.unit ?? '')} ${c.steps.join('→')}</em></button>` : ''}<button class="ml-trait add" data-act="tr-asp-new"><i>${c ? '✏️' : '＋'}</i><b>${c ? '고치기' : '만들기'}</b><small>이름 · 무엇으로 셀지 · 단계</small></button></div>`}
+            ${cur ? `<div class="ml-chips"><span class="ml-chip bad tap" data-act="tr-asp-set" data-v="${esc(who)}|">야망 없애기</span></div>` : ''}`);
         return;
     }
-    if (act === 'tr-asp-set') { b.me.aspire = v; document.querySelector('.ml-bs')?.remove(); if (v) toast(`${aspireOf(v, b)?.icon ?? '⭐'} ${aspireOf(v, b)?.name ?? ''}`); return save(); }
+    if (act === 'tr-asp-set') {
+        const [who, id] = String(v).split('|'), p = who ? personOf(b, who) : null; if (who && !p) return;
+        if (p) p.aspire = id; else b.me.aspire = id;
+        document.querySelector('.ml-bs')?.remove(); if (id) toast(`${who ? `${who} · ` : ''}${aspireOf(id, b)?.icon ?? '⭐'} ${aspireOf(id, b)?.name ?? ''}`); return save();
+    }
     if (act === 'tr-asp-new') {
         const c = b.me.aspireCustom;
         const fv = await form('🎯 나만의 야망', [
             { k: 'icon', label: '아이콘', v: c?.icon ?? '🎯', chips: ['🎯', '🏆', '🗡️', '🎻', '🏰', '🌍', '📖', '🐉'] },
             { k: 'name', label: '이름 (12자)', v: c?.name ?? '', ph: '최고의 기사' },
             { k: 'desc', label: '한 줄 설명', v: c?.desc ?? '', ph: '왕국 제일의 검이 되기' },
-            { k: 'base', label: '무엇으로 셀까 (조건)', type: 'pick', v: c?.base ?? 'manual', opts: [['manual', '✋ 직접 체크'], ...ASPIRES.map(a => [a.id, `${a.icon} ${a.unit}`])] },
+            { k: 'base', label: '무엇으로 셀까 (조건)', type: 'pick', v: c?.base ?? 'manual', opts: [['manual', '📖 이야기 속 진척 (AI · 직접 +1)'], ...ASPIRES.filter(a => a.kind !== 'lv').map(a => [a.id, `${a.icon} ${a.unit}`])] },
             { k: 'steps', label: '단계 (작은 수부터 · 쉼표로)', v: (c?.steps ?? [1, 3, 5, 10]).join(', '), ph: '1, 3, 5, 10' },
-        ], { ok: '저장', extra: '<div class="ml-hint">📏 「무엇으로 셀까」를 고르면 그 숫자로 저절로 올라가요 (돈은 실제 금액 그대로). 「직접 체크」는 상태창에서 +1을 눌러야 올라요.<br>⚠ 이야기 속에서 이룬 일을 AI가 알아서 세 주지는 않아서, 셀 것을 안 고르면 적용이 잘 안 될 수 있어요.</div>' });
+        ], { ok: '저장', extra: '<div class="ml-hint">📏 「무엇으로 셀까」를 고르면 그 숫자로 저절로 올라가요 (돈은 실제 금액 그대로). 「이야기 속 진척」은 AI가 「aspire: +1」로 적거나 상태창에서 +1을 눌러야 올라요.<br>⚠ AI가 진척을 잘 안 적을 수 있어서, 셀 것을 안 고르면 적용이 잘 안 될 수 있어요.</div>' });
         if (!fv) return; if (!fv.name.trim()) { toast('이름을 적어 주세요', 'bad'); return; }
-        b.me.aspireCustom = normCustomAspire({ ...fv, n: c?.n ?? 0 }); b.me.aspire = 'custom'; document.querySelector('.ml-bs')?.remove(); toast(`${b.me.aspireCustom.icon} ${b.me.aspireCustom.name}`); return save();
+        b.me.aspireCustom = normCustomAspire(fv); b.me.aspire = 'custom'; document.querySelector('.ml-bs')?.remove(); toast(`${b.me.aspireCustom.icon} ${b.me.aspireCustom.name}`); return save();
     }
-    if (act === 'tr-asp-tick') { const c = b.me.aspireCustom; if (!c) return; c.n = Math.max(0, num(c.n) + Number(v)); return save(); }
+    if (act === 'tr-asp-tick') { const [who, d] = String(v).split('|'), n = Number(d) || 1; return (await import('./tabs.js')).hand(`aspire: ${who === '나' ? '' : `${who} | `}${n > 0 ? '+' : ''}${n} | 직접 체크`, '⭐ 직접 체크'); }
     if (act === 'tr-person') {
         const p = personOf(b, v); if (!p) return;
         syncCustomTraits(b.me.customTraits);

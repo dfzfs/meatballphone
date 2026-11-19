@@ -78,7 +78,7 @@ export const TRAITS = [
     { id: 'sleeper', cat: 'life', icon: '😴', name: '잠꾸러기', desc: '머리만 대면 잠들어요. 자면 크게 회복돼요', sleep: 1.5 },
     { id: 'insomnia', cat: 'life', icon: '🦉', name: '예민한 잠', desc: '작은 소리에도 깨요. 잠으로 덜 회복되지만 감각은 날카로워요', sleep: 0.8, dice: { 감각: 1 } },
     { id: 'workaholic', cat: 'life', icon: '💼', name: '일벌레', desc: '일이 곧 쉼이에요. 일해도 덜 지치고 더 벌어요', workCost: 0.7, workPay: 1.2 },
-    { id: 'ambitious', cat: 'life', icon: '🚀', name: '야심가', desc: '목표가 있어야 살아 있는 느낌. 일하면 더 벌고 야망 보상이 커져요', workPay: 1.15, aspBonus: 1.5 },
+    { id: 'ambitious', cat: 'life', icon: '🚀', name: '야심가', desc: '목표가 있어야 살아 있는 느낌. 일하면 더 벌고 야망 보상이 커져요 (심즈 3처럼)', workPay: 1.15, aspBonus: 1.5 },
     { id: 'lazy', cat: 'life', icon: '🦥', name: '게으름', desc: '내일 할 수 있는 건 내일. 쉬면 잘 회복되지만 일은 힘들어요', rest: 1.5, workCost: 1.3 },
     { id: 'perfectionist', cat: 'life', icon: '📐', name: '완벽주의', desc: '대충은 못 참아요. 꼼꼼하지만 마음이 쉽게 상해요', dice: { 감각: 1 }, rate: { mood: 1.1 } },
     { id: 'frugal', cat: 'life', icon: '🪙', name: '알뜰함', desc: '한 푼이라도 아껴요. 물건을 조금 싸게 사요', price: 0.9 },
@@ -226,80 +226,113 @@ export function signCompat(a, b) {
     return { mul: 1, word: '보통' };
 }
 
-// ⭐ 야망 — 심즈 3의 평생 소원처럼 단계 목표 (지금 상태에서 저절로 확인 · AI 0회)
-//   val(S, book) → 지금 값 · want(S, book) → 「지금 원하는 것」 후보 [아이콘, 글, 입력창 문장, 이뤘는지(ch, S, P)]
+// ⭐ 야망 — 심즈 3의 평생 소원(Lifetime Wish)을 이 상태창에 맞게 옮김
+//   kind 'lv': 직업 · 기술처럼 상태로 셀 수 없는 것 → 이야기 속 진척(Lv)을 AI가 「aspire: +1」로 적거나 직접 +1
+//   그 밖: 지금 상태에서 저절로 셈 (val) · want(S, book) → 「지금 원하는 것」 후보 [아이콘, 글, 입력창 문장, 이뤘는지(ch, S, P)]
 const live = (S) => Object.entries(S.rel).filter(([, r]) => !r.gone);
 const relUp = (n, ax) => (ch) => ch.some(c => c.f === `rel.${n}.${ax}` && c.to > c.from);
 const anyUp = (ax) => (ch) => ch.some(c => c.f.startsWith('rel.') && c.f.endsWith(`.${ax}`) && c.to > c.from);
-const topBy = (S, f) => live(S).sort((x, y) => f(y[1]) - f(x[1]))[0]?.[0];
 const tl = (S, k) => S.tally?.[k] ?? 0;
-export const ASPIRE_CATS = [['love', '💗 사랑'], ['social', '🤝 사람'], ['money', '💰 돈'], ['explore', '🧭 경험'], ['life', '🌱 삶']];
+export const lvOf = (S, who = '나') => S.aspLv?.[who] ?? 0;
+const lvUp = (who = '나') => (ch) => ch.some(c => c.f === `asplv.${who}` && c.to > c.from);
+export const ASPIRE_CATS = [['career', '💼 직업'], ['skill', '🎨 기술'], ['love', '💗 사랑 · 사람'], ['money', '💰 돈'], ['collect', '🧭 수집 · 탐험'], ['special', '🔮 특별한 길']];
+const LV = [3, 6, 8, 10];
+// [id, 분류, 아이콘, 이름, 목표(한국어), 목표(AI용 영어), 할 일, 입력창 문장, 단계(없으면 Lv 3·6·8·10), 어울리는 특성]
+const W = (id, cat, icon, name, desc, en, act, say, steps = LV, fit = []) => ({ id, cat, icon, name, desc, en, kind: 'lv', steps, unit: 'Lv', fit, val: (S) => lvOf(S), want: () => [icon, act, say, lvUp()] });
 export const ASPIRES = [
-    // 사랑
-    { id: 'lover', cat: 'love', icon: '💘', name: '사랑꾼', desc: '누군가와 연인이 되기', steps: [20, 40, 60, 80], val: (S) => Math.max(0, ...live(S).map(([, r]) => r.aff)), unit: '최고 애정',
-        want: (S) => { const n = topBy(S, r => r.aff); return n && ['💘', `${n}와(과) 가까워지기`, `${n}에게 다가간다.`, relUp(n, 'aff')]; } },
-    { id: 'soulmate', cat: 'love', icon: '💫', name: '영혼의 짝', desc: '사랑하면서 믿을 수 있는 한 사람', steps: [20, 40, 60, 85], val: (S) => Math.max(0, ...live(S).map(([, r]) => Math.min(r.aff, r.trust))), unit: '애정 · 우정 중 낮은 쪽',
-        want: (S) => { const n = topBy(S, r => Math.min(r.aff, r.trust)); if (!n) return null; const r = S.rel[n]; return r.trust < r.aff ? ['🤝', `${n}와(과) 속 깊은 얘기 하기`, `${n}에게 진지한 이야기를 꺼낸다.`, relUp(n, 'trust')] : ['💫', `${n}에게 설렘 주기`, `${n}에게 다정하게 군다.`, relUp(n, 'aff')]; } },
-    { id: 'heartbreaker', cat: 'love', icon: '💔', name: '하트브레이커', desc: '여러 사람의 마음 흔들기', steps: [1, 2, 3, 5], val: (S) => live(S).filter(([, r]) => r.aff >= 50).length, unit: '애정 50 넘은 사람',
-        want: (S) => { const n = live(S).filter(([, r]) => r.aff < 50).sort((x, y) => y[1].aff - x[1].aff)[0]?.[0]; return n && ['💔', `${n}의 마음 흔들기`, `${n}에게 은근히 추파를 던진다.`, relUp(n, 'aff')]; } },
-    // 사람
-    { id: 'popular', cat: 'social', icon: '🌟', name: '인기인', desc: '친구 많이 사귀기', steps: [1, 2, 3, 5], val: (S) => live(S).filter(([, r]) => r.trust >= 40).length, unit: '친구(우정 40+)',
+    // 직업 (심즈 3 기본 · 확장)
+    W('astronaut', 'career', '🚀', '우주비행사 되기', '군인의 길 끝에서 우주로', 'become an astronaut (top of a military career)', '훈련받기', '고된 훈련을 버틴다.', LV, ['brave', 'athletic']),
+    W('crossbreeder', 'career', '🤖', '괴물·로봇 교배 전문가', '과학의 정점에서 기묘한 생명 만들기', 'become a top scientist who creates strange creature-robot hybrids', '연구 진척시키기', '연구에 몰두한다.', LV, ['genius', 'evil']),
+    W('thief', 'career', '🦹', '대도둑', '범죄의 길 · 도둑의 정점', 'become a legendary master thief', '한탕 계획하기', '조용히 다음 한탕을 계획한다.', LV, ['kleptomaniac', 'evil']),
+    W('athlete', 'career', '🏅', '슈퍼스타 운동선수', '프로 선수의 정점', 'become a superstar pro athlete', '훈련하기', '땀 흘려 연습한다.', LV, ['athletic', 'active']),
+    W('chef', 'career', '👨‍🍳', '5성급 셰프', '요리의 길 끝에서 별 다섯 개', 'become a celebrated five-star chef', '요리 실력 키우기', '부엌에서 새 요리를 연습한다.', LV, ['naturalcook', 'foodie']),
+    W('ceo', 'career', '🏢', '거대 기업 CEO', '회사의 꼭대기에 앉기', 'become CEO of a mega-corporation', '성과 올리기', '일에서 성과를 낸다.', LV, ['ambitious', 'workaholic', 'schmoozer']),
+    W('forensic', 'career', '🔬', '법의학 전문가', '증거로 진실을 밝히는 수사관', 'become a top forensic specialist in law enforcement', '단서 모으기', '현장의 단서를 살핀다.', LV, ['perceptive', 'genius']),
+    W('spy', 'career', '🕶️', '국제 슈퍼 스파이', '특수 요원의 정점', 'become an international super spy', '임무 해내기', '은밀하게 임무를 수행한다.', LV, ['brave', 'perceptive']),
+    W('leader', 'career', '🏛️', '자유 세계의 지도자', '정치의 정점', 'become leader of the free world (top of a political career)', '지지 모으기', '사람들의 지지를 모은다.', LV, ['charming', 'ambitious']),
+    W('anchor', 'career', '📺', '스타 뉴스 앵커', '기자의 정점', 'become a star news anchor', '특종 쫓기', '특종거리를 쫓는다.', LV, ['charming', 'perceptive']),
+    W('evilemperor', 'career', '👿', '악의 황제', '범죄의 길 · 악당의 정점', 'become the emperor of evil (top of an evil criminal career)', '악행 꾸미기', '음험한 계획을 꾸민다.', LV, ['evil', 'mean']),
+    W('surgeon', 'career', '🩺', '세계적인 외과 의사', '의사의 정점', 'become a world-renowned surgeon', '환자 돌보기', '환자를 돌본다.', LV, ['genius', 'calm']),
+    W('rockstar', 'career', '🎸', '록스타', '음악의 길 · 록 밴드의 정점', 'become a rock star', '무대 서기', '무대에서 연주한다.', LV, ['music', 'partyanimal']),
+    W('composer', 'career', '🎼', '히트 영화 작곡가', '음악의 길 · 교향악의 정점', 'become a hit movie composer', '작곡하기', '악보를 채운다.', LV, ['music', 'artsy']),
+    W('jack', 'career', '🃏', '만능 재주꾼', '서로 다른 일 네 가지에서 한몫하기', 'get decent at four different careers', '새 일 배워 보기', '안 해 본 일을 배워 본다.', [1, 2, 3, 4], ['ambitious']),
+    W('actor', 'career', '🎬', '슈퍼스타 배우', '영화계 · 연기의 정점', 'become a superstar actor', '연기 연습하기', '대본을 외운다.', LV, ['charming', 'emotional']),
+    W('director', 'career', '🎥', '명감독', '영화계 · 연출의 정점', 'become a distinguished film director', '작품 구상하기', '다음 작품을 구상한다.', LV, ['artsy', 'perfectionist']),
+    W('stylist', 'career', '👗', '패션 아이콘', '스타일리스트의 정점', 'become a fashion phenomenon (top stylist)', '스타일 다듬기', '오늘의 옷차림을 고민한다.', LV, ['snob', 'artsy']),
+    W('firefighter', 'career', '🚒', '소방 영웅', '불길 속에서 서른 명 구하기', 'save 30 lives as a firefighter', '사람 구하기', '위험에 처한 사람에게 달려간다.', [5, 10, 20, 30], ['brave', 'good']),
+    W('detective', 'career', '🕵️', '명탐정', '사건 서른다섯 개 해결하기', 'solve 35 cases as a private investigator', '사건 파헤치기', '사건의 실마리를 쫓는다.', [5, 15, 25, 35], ['perceptive', 'genius']),
+    W('ghosthunter', 'career', '👻', '유령 사냥꾼', '초자연 사냥꾼의 정점', 'become a top paranormal profiteer (ghost hunter)', '괴현상 조사하기', '수상한 기척을 조사한다.', LV, ['brave']),
+    // 기술
+    W('chess', 'skill', '♟️', '체스의 전설', '논리를 익히고 체스 그랜드마스터 되기', 'master logic and become a chess grand master', '한 판 두기', '체스판을 편다.', LV, ['genius', 'calm']),
+    W('golden', 'skill', '🎤', '황금 혀, 황금 손가락', '말솜씨와 기타 둘 다 마스터', 'master both charisma and guitar', '말솜씨 · 기타 연습', '기타를 들고 사람들 앞에 선다.', LV, ['charming', 'music']),
+    W('author', 'skill', '✍️', '저명한 작가', '글쓰기와 그림 둘 다 마스터', 'master both writing and painting', '쓰고 그리기', '원고와 캔버스 앞에 앉는다.', LV, ['bookworm', 'artsy']),
+    W('proauthor', 'skill', '📚', '전업 작가', '글로 먹고살 만큼 인세 받기', 'earn a living from book royalties', '원고 쓰기', '원고를 쓴다.', LV, ['bookworm']),
+    W('masterarts', 'skill', '🎨', '예술의 대가', '그림과 기타 둘 다 마스터', 'master both painting and guitar', '작품 만들기', '붓과 기타를 번갈아 잡는다.', LV, ['artsy', 'music']),
+    W('mindbody', 'skill', '🧠', '완벽한 정신, 완벽한 육체', '논리와 운동 둘 다 마스터', 'master both logic and athletics', '머리와 몸 단련', '책을 덮고 운동하러 간다.', LV, ['athletic', 'genius']),
+    W('renaissance', 'skill', '🌟', '르네상스형 인간', '서로 다른 기술 세 가지 마스터', 'master three different skills', '새 기술 연습', '새로운 기술을 연습한다.', [1, 2, 3], ['bookworm', 'perfectionist']),
+    W('tinkerer', 'skill', '🔧', '땜장이', '손재주와 논리 둘 다 마스터', 'master both handiness and logic', '뭔가 고쳐 보기', '고장 난 걸 뜯어본다.', LV, ['genius', 'geek']),
+    W('martial', 'skill', '🥋', '무술 고수', '무술을 끝까지 익혀 그랜드마스터', 'master martial arts and reach grand master rank', '수련하기', '수련을 한다.', LV, ['athletic', 'calm']),
+    W('physical', 'skill', '💪', '육체적 완벽', '무술과 운동 둘 다 마스터', 'master both martial arts and athletics', '몸 단련하기', '몸을 단련한다.', LV, ['athletic', 'active']),
+    W('visionary', 'skill', '📷', '비전가', '그림과 사진 둘 다 마스터', 'master both painting and photography', '작품 남기기', '카메라와 붓을 챙긴다.', LV, ['artsy', 'outdoor']),
+    W('mixologist', 'skill', '🍸', '마스터 바텐더', '칵테일을 마스터하고 내 바 갖기', 'master mixology and own a bar', '새 칵테일 만들기', '셰이커를 흔든다.', LV, ['partyanimal', 'charming']),
+    W('oneband', 'skill', '🥁', '원맨 밴드', '베이스 · 기타 · 드럼 · 피아노 전부 마스터', 'master bass, guitar, drums and piano', '악기 연습', '악기 앞에 앉는다.', LV, ['music', 'perfectionist']),
+    W('magician', 'skill', '🎩', '마스터 마술사', '마술사의 정점', 'become a master magician', '마술 연습', '카드를 섞는다.', LV, ['charming', 'goofball']),
+    W('singer', 'skill', '🎙️', '전설의 가수', '가수의 정점', 'become a vocal legend', '노래 연습', '목을 풀고 노래한다.', LV, ['music', 'excitable']),
+    W('alchemy', 'skill', '⚗️', '연금술 장인', '연금술을 마스터하고 묘약 쉰 병', 'master alchemy and use 50 elixirs', '묘약 빚기', '플라스크에 재료를 넣는다.', LV, ['genius', 'neurotic']),
+    // 사랑 · 사람 (저절로 셈)
+    { id: 'heartbreaker', cat: 'love', icon: '💔', name: '하트브레이커', desc: '열 명과 연인 사이 (애정 60+)', en: 'be the romantic partner of 10 different people', steps: [2, 4, 7, 10], unit: '애정 60+ 인물', fit: ['flirty', 'irresistible'], val: (S) => live(S).filter(([, r]) => r.aff >= 60).length,
+        want: (S) => { const n = live(S).filter(([, r]) => r.aff < 60).sort((x, y) => y[1].aff - x[1].aff)[0]?.[0]; return n && ['💔', `${n}의 마음 흔들기`, `${n}에게 은근히 추파를 던진다.`, relUp(n, 'aff')]; } },
+    { id: 'romancer', cat: 'love', icon: '💋', name: '연애 고수', desc: '다섯 명과 아주 깊은 사이 (애정 80+)', en: 'have deep romances with 5 different people', steps: [1, 2, 3, 5], unit: '애정 80+ 인물', fit: ['flirty', 'kisser'], val: (S) => live(S).filter(([, r]) => r.aff >= 80).length,
+        want: (S) => { const n = live(S).filter(([, r]) => r.aff < 80).sort((x, y) => y[1].aff - x[1].aff)[0]?.[0]; return n && ['💋', `${n}와(과) 분위기 잡기`, `${n}에게 다가간다.`, relUp(n, 'aff')]; } },
+    { id: 'popular', cat: 'love', icon: '🌟', name: '슈퍼 인기인', desc: '스무 명과 친구 (우정 40+)', en: 'be friends with 20 people', steps: [3, 6, 12, 20], unit: '친구', fit: ['outgoing', 'goofball'], val: (S) => live(S).filter(([, r]) => r.trust >= 40).length,
         want: () => ['🌟', '누군가와 우정 쌓기', '말을 걸어 본다.', anyUp('trust')] },
-    { id: 'bestie', cat: 'social', icon: '👯', name: '단짝 친구', desc: '평생 갈 친구 한 명', steps: [25, 45, 65, 90], val: (S) => Math.max(0, ...live(S).map(([, r]) => r.trust)), unit: '최고 우정',
-        want: (S) => { const n = topBy(S, r => r.trust); return n && ['👯', `${n}와(과) 시간 보내기`, `${n}와(과) 같이 시간을 보낸다.`, relUp(n, 'trust')]; } },
-    { id: 'socialite', cat: 'social', icon: '📇', name: '마당발', desc: '아는 사람 늘리기', steps: [3, 5, 8, 12], val: (S) => live(S).length, unit: '아는 사람',
-        want: () => ['📇', '새로운 사람 만나기', '처음 보는 사람에게 말을 건다.', (ch) => ch.some(c => c.f.startsWith('npc.')) || ch.some(c => c.f.startsWith('rel.') && c.from <= 10 && c.to > c.from)] },
-    { id: 'giver', cat: 'social', icon: '🎀', name: '선물 장인', desc: '마음을 담은 선물 주기', steps: [1, 3, 6, 10], val: (S) => tl(S, 'gifts'), unit: '준 선물',
-        want: (S) => { const n = topBy(S, r => r.aff + r.trust); return n && ['🎀', `${n}에게 작은 선물 하기`, `${n}에게 줄 선물을 고른다.`, (ch) => ch.some(c => c.f === `rel.${n}.aff` && /🎁/.test(c.why ?? ''))]; } },
-    { id: 'nemesis', cat: 'social', icon: '⚔️', name: '숙적 만들기', desc: '나를 싫어하는 사람 만들기 (악역 전용)', steps: [1, 2, 3, 4], val: (S) => live(S).filter(([, r]) => r.trust <= 5).length, unit: '우정 5 이하',
-        want: (S) => { const n = live(S).filter(([, r]) => r.trust > 5).sort((x, y) => x[1].trust - y[1].trust)[0]?.[0]; return n && ['⚔️', `${n} 약 올리기`, `${n}을(를) 도발한다.`, (ch) => ch.some(c => c.f === `rel.${n}.trust` && c.to < c.from)]; } },
-    // 돈
-    { id: 'rich', cat: 'money', icon: '💰', name: '부자', desc: '돈 모으기', steps: [10, 30, 100, 300], scale: 'meal', val: (S) => S.cash, unit: '가진 돈',
+    W('family', 'love', '👨‍👩‍👧', '가족에 둘러싸여', '아이 다섯을 십 대까지 키우기', 'raise 5 children from babies to teenagers', '가족 챙기기', '가족과 시간을 보낸다.', [1, 2, 3, 5], ['loyal', 'kind']),
+    W('golddigger', 'love', '💍', '꽃뱀', '부자와 결혼하고 … 그 유령을 보기', 'marry someone rich, outlive them, and see their ghost', '부자에게 접근하기', '돈 많아 보이는 사람에게 미소 짓는다.', [1, 2, 3], ['irresistible', 'evil', 'snob']),
+    // 돈 (저절로 셈 · 한 끼 값 기준)
+    { id: 'swimming', cat: 'money', icon: '💰', name: '돈방석', desc: '통장에 큰돈 모으기', en: 'hold a large fortune in cash', steps: [30, 100, 300, 1000], scale: 'meal', unit: '가진 돈', fit: ['frugal', 'workaholic'], val: (S) => S.cash,
         want: () => ['💰', '돈 벌기', '돈 벌 방법을 찾아본다.', (ch) => ch.some(c => c.f === 'cash' && c.to > c.from)] },
-    { id: 'tycoon', cat: 'money', icon: '💳', name: '큰손', desc: '돈 쓰는 맛 알기', steps: [10, 40, 120, 400], scale: 'meal', val: (S) => tl(S, 'spent'), unit: '쓴 돈',
-        want: () => ['💳', '플렉스 하기', '마음에 드는 걸 산다.', (ch) => ch.some(c => c.f === 'cash' && c.to < c.from)] },
-    { id: 'earner', cat: 'money', icon: '🧾', name: '성실한 일꾼', desc: '꾸준히 일하기', steps: [2, 5, 10, 20], val: (S) => tl(S, 'work'), unit: '일한 횟수',
-        want: () => ['🧾', '오늘 몫 일하기', '일을 시작한다.', (ch) => ch.some(c => c.why === '일한 값' || (c.f === 'need.energy' && /일/.test(c.why ?? '')))] },
-    // 경험
-    { id: 'explorer', cat: 'explore', icon: '🧭', name: '탐험가', desc: '여러 곳 가 보기', steps: [2, 4, 6, 9], val: (S) => (S.visited ?? []).length, unit: '가 본 곳',
-        want: () => ['🧭', '새로운 곳 가 보기', '안 가 본 곳으로 가 본다.', (ch, S, P) => (S.visited?.length ?? 0) > (P.visited ?? 0)] },
-    { id: 'gourmet', cat: 'explore', icon: '🍽️', name: '미식 여행', desc: '여러 음식 먹어 보기', steps: [2, 4, 7, 10], val: (S) => (S.tasted ?? []).length, unit: '먹어 본 음식',
-        want: () => ['🍽️', '새 음식 먹어 보기', '안 먹어 본 걸 먹어 보자.', (ch, S, P) => (S.tasted?.length ?? 0) > (P.tasted ?? 0)] },
-    { id: 'feast', cat: 'explore', icon: '🍱', name: '대식가', desc: '잘 먹고 잘 살기', steps: [5, 15, 30, 60], val: (S) => tl(S, 'meals'), unit: '먹은 끼니',
-        want: () => ['🍱', '든든하게 한 끼', '제대로 한 끼 먹는다.', (ch) => ch.some(c => c.f === 'need.hunger' && c.to > c.from && c.src !== 'time')] },
-    { id: 'collector', cat: 'explore', icon: '🧺', name: '수집가', desc: '여러 물건 모으기', steps: [3, 5, 8, 12], val: (S) => S.items.length, unit: '물건 종류',
-        want: () => ['🧺', '새 물건 얻기', '쓸 만한 게 있나 찾아본다.', (ch) => ch.some(c => c.f === 'item' && c.from === 0)] },
-    { id: 'fashion', cat: 'explore', icon: '👗', name: '멋쟁이', desc: '멋지게 차려입기', steps: [1, 2, 3, 4], val: (S) => S.items.filter(i => i.worn).length, unit: '걸친 것',
-        want: () => ['👗', '새 옷 걸쳐 보기', '거울 앞에서 옷을 갈아입는다.', (ch) => ch.some(c => c.f === 'item' && c.to === '착용 중')] },
-    // 삶
-    { id: 'happy', cat: 'life', icon: '🌈', name: '행복한 삶', desc: '기분 좋은 날 늘리기', steps: [5, 15, 30, 60], val: (S) => tl(S, 'happy'), unit: '기분 70+ 턴',
-        want: () => ['🌈', '오늘을 즐기기', '기분 좋은 일을 찾아 나선다.', (ch) => ch.some(c => c.f === 'need.mood' && c.to > c.from && c.src !== 'time')] },
-    { id: 'survivor', cat: 'life', icon: '🪨', name: '오뚝이', desc: '바닥에서 다시 일어서기', steps: [1, 3, 6, 10], val: (S) => tl(S, 'recover'), unit: '회복한 횟수', want: () => null },
-    { id: 'dreamer', cat: 'life', icon: '🌠', name: '소원 성취', desc: '원하는 것 하나씩 이루기', steps: [3, 8, 15, 25], val: (S) => tl(S, 'wishes'), unit: '이룬 소원', want: () => null },
-    { id: 'promise', cat: 'life', icon: '🤙', name: '약속 지킴이', desc: '한 말은 지키기', steps: [1, 3, 5, 8], val: (S) => (S.promises ?? []).filter(p => p.done).length, unit: '지킨 약속',
-        want: (S) => { const p = (S.promises ?? []).find(q => !q.done); return p && ['🤙', `약속 지키기: ${p.text}`, `${p.text} — 약속을 지키러 간다.`, (ch, S2, P) => (S2.promises ?? []).filter(q => q.done).length > (P.kept ?? 0)]; } },
-    { id: 'gambler', cat: 'life', icon: '🎲', name: '운명 시험', desc: '판정에 몸을 던지기', steps: [3, 8, 15, 30], val: (S) => (S.rolls ?? []).length, unit: '판정',
-        want: () => ['🎲', '한번 부딪쳐 보기', '위험을 무릅쓰고 시도한다.', (ch, S, P) => (S.rolls?.length ?? 0) > (P.rolls ?? 0)] },
-    { id: 'growth', cat: 'life', icon: '📈', name: '성장', desc: '능력치 키우기', steps: [1, 3, 5, 8], val: (S, b) => Object.entries(S.attrs ?? {}).reduce((s, [k, v]) => s + Math.max(0, v - (b?.me.attrs.find(a => a.name === k)?.v ?? 0)), 0), unit: '오른 능력치',
-        want: () => ['📈', '뭔가 연습하기', '실력을 갈고닦는다.', (ch) => ch.some(c => c.f.startsWith('attr.') && c.to > c.from)] },
-    { id: 'chronicle', cat: 'life', icon: '📜', name: '이야기꾼', desc: '긴 이야기를 살아 보기', steps: [10, 30, 60, 100], val: (S) => S.turn ?? 0, unit: '지나온 턴', want: () => null },
-    { id: 'seasons', cat: 'life', icon: '🍂', name: '계절을 보내며', desc: '이 세계에서 오래 살기', steps: [1, 3, 7, 15], val: (S, b) => Math.floor(S.t / 1440) - Math.floor((b?.world.start.clock ?? 0) / 1440), unit: '지난 날', want: () => null },
+    { id: 'luxury', cat: 'money', icon: '🏰', name: '호화로운 생활', desc: '평생 번 돈으로 재산 쌓기', en: 'build great household wealth', steps: [50, 200, 600, 2000], scale: 'meal', unit: '번 돈(누적)', fit: ['snob', 'ambitious'], val: (S) => tl(S, 'earned'),
+        want: () => ['🏰', '한몫 벌기', '큰돈 될 일을 찾는다.', (ch) => ch.some(c => c.f === 'cash' && c.to > c.from)] },
+    W('richfamous', 'money', '🌠', '부와 명성', '유명인이 되고 큰 재산 갖기', 'become a famous celebrity with a large fortune', '이름 알리기', '사람들 앞에 나선다.', LV, ['charming', 'snob']),
+    W('resort', 'money', '🏝️', '리조트 제국', '별 다섯 리조트 갖고 큰 수익 내기', 'own a five-star resort and earn big profits', '사업 키우기', '사업 계획을 세운다.', LV, ['ambitious']),
+    // 수집 · 탐험
+    { id: 'culinary', cat: 'collect', icon: '📖', name: '요리 백과사전', desc: '온갖 요리를 다 맛보고 익히기', en: 'learn every recipe', steps: [5, 10, 20, 30], unit: '맛본 요리', fit: ['foodie', 'naturalcook'], val: (S) => (S.tasted ?? []).length,
+        want: () => ['📖', '새 요리 맛보기', '안 먹어 본 걸 먹어 보자.', (ch, S, P) => (S.tasted?.length ?? 0) > (P.tasted ?? 0)] },
+    { id: 'explorer', cat: 'collect', icon: '🗺️', name: '위대한 탐험가', desc: '여러 곳을 샅샅이 탐험하기', en: 'fully explore many places', steps: [2, 4, 6, 9], unit: '가 본 곳', fit: ['adventurous', 'brave'], val: (S) => (S.visited ?? []).length,
+        want: () => ['🗺️', '새로운 곳 가 보기', '안 가 본 곳으로 가 본다.', (ch, S, P) => (S.visited?.length ?? 0) > (P.visited ?? 0)] },
+    { id: 'museum', cat: 'collect', icon: '🏺', name: '개인 박물관', desc: '진귀한 물건을 모아 집에 전시', en: 'build a private museum of rare relics', steps: [3, 6, 10, 15], unit: '물건 종류', fit: ['materialistic', 'adventurous'], val: (S) => S.items.length,
+        want: () => ['🏺', '진귀한 물건 찾기', '쓸 만한 게 있나 찾아본다.', (ch) => ch.some(c => c.f === 'item' && c.from === 0)] },
+    W('traveler', 'collect', '✈️', '노련한 여행자', '세 나라 비자를 끝까지', 'reach max visa level in three foreign destinations', '여행 준비', '여행 짐을 싼다.', [1, 2, 3], ['adventurous', 'outdoor']),
+    W('garden', 'collect', '🌻', '완벽한 정원', '완벽한 작물 여덟 종 키우기', 'grow 8 kinds of perfect plants', '정원 가꾸기', '정원에 물을 준다.', [2, 4, 6, 8], ['outdoor', 'perfectionist']),
+    W('aquarium', 'collect', '🐠', '완벽한 수족관', '완벽한 물고기 열세 종 모으기', 'collect 13 kinds of perfect fish', '낚시하기', '낚싯대를 드리운다.', [3, 6, 10, 13], ['outdoor', 'calm']),
+    W('catherder', 'collect', '🐈', '고양이 집사', '고양이 열다섯 마리와 친해지기', 'befriend 15 cats', '고양이 만나기', '길고양이에게 다가간다.', [3, 7, 11, 15], ['kind', 'loner']),
+    W('rescuer', 'collect', '🐾', '동물 구조가', '떠돌이 동물 여섯 입양', 'adopt 6 stray animals', '떠돌이 동물 돕기', '떠돌이 동물을 챙긴다.', [1, 2, 4, 6], ['kind', 'good']),
+    W('diver', 'collect', '🤿', '심해 다이버', '잠수를 마스터하고 바다 보물 팔기', 'master diving and profit from sea treasures', '잠수하기', '바다로 뛰어든다.', LV, ['adventurous', 'brave']),
+    // 특별한 길
+    W('psychic', 'special', '🔮', '유명 점술가', '점술가의 정점 (사기꾼 쪽)', 'become a celebrity psychic (scam artist path)', '점 봐 주기', '그럴듯한 점괘를 늘어놓는다.', LV, ['charming', 'mean']),
+    W('mystic', 'special', '🌙', '신비주의의 대가', '점술가의 정점 (진짜 쪽)', 'become a master of mysticism (true fortune teller)', '운명 읽기', '조용히 카드를 펼친다.', LV, ['perceptive', 'calm']),
+    W('packleader', 'special', '🐺', '무리의 우두머리', '늑대인간 무리를 이끌기', 'lead a werewolf pack', '무리 모으기', '무리를 불러 모은다.', [1, 2, 3, 5], ['brave', 'hothead']),
+    W('vampire', 'special', '🧛', '밤의 지배자', '스무 명의 피 · 다섯을 흡혈귀로', 'drink from 20 people and turn 5 into vampires', '밤 사냥', '밤거리로 나선다.', [5, 10, 15, 20], ['evil', 'irresistible']),
+    W('healer', 'special', '✨', '신비한 치유사', '변한 사람 열두 명 되돌리기', 'cure 12 transformed people', '누군가 고쳐 주기', '아픈 사람을 돌본다.', [3, 6, 9, 12], ['good', 'kind']),
 ];
-// 🛠 나만의 야망: 이름 · 아이콘 · 무엇으로 셀지(위 야망의 셈 하나 또는 직접 체크) · 단계 4개
+// 🛠 나만의 야망: 이름 · 아이콘 · 무엇으로 셀지(위 야망의 셈 하나 또는 직접 체크) · 단계
 export function normCustomAspire(c) {
     if (!c || typeof c !== 'object') return null;
     const name = String(c.name ?? '').trim().slice(0, 12); if (!name) return null;
-    const base = c.base === 'manual' || ASPIRES.some(a => a.id === c.base) ? c.base : 'manual';
+    const base = c.base === 'manual' || ASPIRES.some(a => a.id === c.base && a.kind !== 'lv') ? c.base : 'manual';
     let steps = (Array.isArray(c.steps) ? c.steps : String(c.steps ?? '').split(/[,\s/]+/)).map(Number).filter(n => Number.isFinite(n) && n > 0).sort((a, b) => a - b).slice(0, 6);
     if (steps.length < 2) steps = [1, 3, 5, 10];
-    return { name, icon: String(c.icon ?? '').trim().slice(0, 4) || '🎯', desc: String(c.desc ?? '').trim().slice(0, 40), base, steps, n: Math.max(0, Math.floor(Number(c.n) || 0)) };
+    return { name, icon: String(c.icon ?? '').trim().slice(0, 4) || '🎯', desc: String(c.desc ?? '').trim().slice(0, 40), base, steps };
 }
 export function aspireOf(id, book = null) {
     if (id === 'custom') {
         const c = book?.me?.aspireCustom; if (!c) return null;
         const b = ASPIRES.find(a => a.id === c.base);
-        return { id: 'custom', custom: true, manual: !b, icon: c.icon, name: c.name, desc: c.desc || (b ? `${b.unit}로 세요` : '직접 체크'), steps: c.steps, val: b ? b.val : () => c.n, unit: b ? b.unit : '직접 체크', want: b?.want ?? (() => null) };
+        return b ? { id: 'custom', custom: true, icon: c.icon, name: c.name, desc: c.desc || `${b.unit}로 세요`, en: c.name, steps: c.steps, val: b.val, unit: b.unit, want: b.want }
+            : { id: 'custom', custom: true, kind: 'lv', icon: c.icon, name: c.name, desc: c.desc || '나만의 야망', en: c.desc || c.name, steps: c.steps, val: (S) => lvOf(S), unit: 'Lv', want: () => [c.icon, `${c.name}에 한 걸음`, `${c.name}을(를) 위해 움직인다.`, lvUp()] };
     }
     return ASPIRES.find(a => a.id === id) ?? null;
 }
 export function aspireSteps(a, book) { return a.scale === 'meal' ? a.steps.map(x => x * (book.world.meal || 10)) : a.steps; }
+// 인물의 야망: 늘 이야기 속 진척(Lv)으로 센다
+export const personSteps = (a) => (a.kind === 'lv' ? a.steps : LV);

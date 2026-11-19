@@ -4,6 +4,7 @@ import { clamp, dateText, short, tokens, DAY } from '../base/util.js';
 import { derived, relStage, worldEvent, haggleNow } from './engine.js';
 import { moodTags, pickQuote } from './mood.js';
 import { personOf } from './book.js';
+import { aspireOf, aspireSteps, personSteps, lvOf } from '../../data/traits.js';
 
 export const LEVELS = [
     { n: 0, name: '기록만', what: '상태창에만 적어요. 본편에는 한 글자도 안 넣어요.' },
@@ -45,6 +46,7 @@ export function ruleText(book) {
     if (modOn('news') && level('news') >= 3) K.push('life: 이름 | 화면 밖에서 한 일 (가끔)');
     if (modOn('rel') && level('rel') >= 4) K.push('meddle: 이름 | 칸 | +5 | 장난');
     if (modOn('dice')) K.push('roll: 판정할 일');
+    if (modOn('traits') && (book?.me?.aspire || book?.people?.some(p => p.aspire))) K.push('aspire: 이름 | +1 | 이유 (only when someone clearly moves toward their lifetime wish: promotion, mastery, big milestone)');
     if (modOn('mind') && level('mind') > 0) {
         const who = meta?.mindWho ?? ['cast'];
         if (who.includes('cast')) K.push('mind: 이름 | 짧은 속마음 (장면 속 인물마다 · 관계가 가까울수록 솔직하게, 낯설수록 경계하게)');
@@ -92,6 +94,13 @@ export function factText(r, lastChanges = []) {
     }
     if (lv('rel') >= 2 && scene.length > 1) for (const [k, pr] of Object.entries(S.pairs ?? {})) { const [A, B] = k.split('|'); if (scene.includes(A) && scene.includes(B) && (pr.label || pr.v)) L.push(`${A}↔${B}: ${pr.label || (pr.v >= 30 ? 'close' : pr.v <= -30 ? 'hostile' : pr.v > 0 ? 'friendly' : 'tense')}${lv('rel') >= 3 && pr.why ? ` (${pr.why})` : ''}`); }
     if (lv('rel') >= 4 && S.turn % 6 === 3) H.push('add one small heart-flutter moment this reply (설렘 한 스푼)');
+    // ⭐ 평생 소원 — 목표 문장과 단계만 (숫자 계산은 상태창 안에서)
+    if (modOn('traits') && level('rel') >= 2) {
+        const G = [], mine = aspireOf(book.me.aspire, book);
+        if (mine) { const st = aspireSteps(mine, book), k = st.filter(v => (mine.val(S, book) ?? 0) >= v).length; G.push(`${userName()}: ${mine.en} (stage ${k}/${st.length})`); }
+        for (const p of book.people) { const a = aspireOf(p.aspire); if (!a || S.rel[p.name]?.gone) continue; const st = personSteps(a), k = st.filter(v => lvOf(S, p.name) >= v).length; if (S.with.includes(p.name) || G.length < 4) G.push(`${p.name}: ${a.en} (stage ${k}/${st.length})`); }
+        if (G.length) L.push(`lifetime wishes (let them drive choices now and then):\n${G.slice(0, 5).join('\n')}`);
+    }
     // 바뀐 단계 · 딱지
     for (const c of lastChanges) if (c.cross && lv('rel') >= 1) H.push(`${c.label}: ${c.from} → ${c.to}`);
     for (const st of S.status) if (lv('stats') >= 2) L.push(`status: ${st.name}`);

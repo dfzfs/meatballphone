@@ -1,6 +1,6 @@
 // 📘 상태창 설정집 — 칸이 정해진 구조. 계산 코드가 그대로 읽는다. 본편에는 매 턴 넣지 않는다.
 import { arr, clamp, num, short, safeKey, tokens, norm } from '../base/util.js';
-import { isTraitId, normCustomTrait, normCustomAspire, CUSTOM_MAX } from '../../data/traits.js';
+import { isTraitId, normCustomTrait, normCustomAspire, CUSTOM_MAX, ASPIRES } from '../../data/traits.js';
 
 export const LIMIT = { people: 24, lines: 6, places: 30, items: 5, line: 80 };
 // 기본 욕구 4개 (위가 좋음 · 100 만점). rate = 한 시간에 줄어드는 양
@@ -65,6 +65,7 @@ export function normPerson(p) {
         want: line(p.want),
         noLove: !!p.noLove,
         traits: arr(p.traits).map(String).filter(isTraitId).slice(0, 3),
+        aspire: ASPIRES.some(a => a.id === p.aspire) ? p.aspire : '',
     };
 }
 export function normPlace(p) {
@@ -114,7 +115,7 @@ export function normBook(b) {
     { const cid = new Set(e.me.customTraits.map(c => c.id)); e.me.traitIds = arr(me.traitIds).map(String).filter(id => isTraitId(id) && (!id.startsWith('c_') || cid.has(id))).slice(0, 3); }
     e.me.aspireCustom = normCustomAspire(me.aspireCustom);
     e.me.day = line(me.day, 24);
-    e.me.aspire = line(me.aspire, 16);
+    { const OLD = { lover: 'heartbreaker', rich: 'swimming', gourmet: 'culinary', collector: 'museum', socialite: 'popular', tycoon: 'luxury' }; const id = OLD[me.aspire] ?? line(me.aspire, 16); e.me.aspire = id === 'custom' || ASPIRES.some(a => a.id === id) ? id : ''; }
     const needs = arr(me.needs).map(n => ({ key: safeKey(n?.key) || safeKey(n?.name), name: line(n?.name, 8), icon: line(n?.icon, 4) || '•', start: clamp(num(n?.start, 80), 0, 100), rate: clamp(num(n?.rate, 2), 0, 50), sym: n?.sym && typeof n.sym === 'object' ? { 주의: line(n.sym.주의, 40), 위험: line(n.sym.위험, 40) } : null })).filter(n => n.key && n.name).slice(0, 5);
     if (needs.length) e.me.needs = needs;
     if (Array.isArray(me.gauges)) e.me.gauges = me.gauges.map(g => ({ key: safeKey(g?.key) || safeKey(g?.name), name: line(g?.name, 8), max: Math.max(1, num(g?.max, 100)), start: num(g?.start, num(g?.max, 100)), desc: line(g?.desc, 40), color: /^#[0-9a-f]{6}$/i.test(g?.color ?? '') ? g.color : '#e5484d' })).filter(g => g.key && g.name).slice(0, 4);

@@ -37,10 +37,10 @@ try {
     check(w1.length === 3, '원하는 것 3개');
     check(seen.size > 4, `시간이 지나면 바뀜 (${seen.size}가지)`);
     // 야망: 큰손(쓴 돈) · 나만의 야망(직접 체크)
-    await page.evaluate(async () => { const st = await import('/ext/src/base/st.js'); const m = st.getMeta(); m.book.me.aspire = 'tycoon'; st.saveMeta(); });
-    await page.evaluate(() => window.__addAI('<meatball>\nearn: 400 | 상금\nbuy: 반지 | 150\n</meatball>')); await sleep(300);
+    await page.evaluate(async () => { const st = await import('/ext/src/base/st.js'); const m = st.getMeta(); m.book.me.aspire = 'luxury'; st.saveMeta(); });
+    await page.evaluate(() => window.__addAI('<meatball>\nearn: 900 | 상금\nbuy: 반지 | 150\n</meatball>')); await sleep(300);
     const ty = await page.evaluate(() => { const R = __ML__.fold(); return { spent: R.S.tally?.spent, step: R.S.aspStep, gifts: R.S.tally?.gifts }; });
-    check(ty.spent >= 150 && ty.step >= 1, '큰손: 쓴 돈 누적 → 단계', JSON.stringify(ty));
+    check(ty.spent >= 150 && ty.step >= 1, '호화로운 생활: 번 돈 누적 → 단계 · 쓴 돈도 셈', JSON.stringify(ty));
     await page.evaluate(() => __ML__.app.openSheet('traits')); await sleep(200);
     await page.evaluate(() => document.querySelector('[data-act="tr-asp"]')?.click()); await sleep(200);
     const nAsp = await page.evaluate(() => document.querySelectorAll('[data-act="tr-asp-set"]').length);
@@ -55,9 +55,22 @@ try {
     await page.screenshot({ path: '/tmp/pick.png' });
     await page.evaluate(() => document.querySelector('.ml-bs')?.remove());
     await page.evaluate(async () => { const st = await import('/ext/src/base/st.js'), { normBook } = await import('/ext/src/rules/book.js'); const m = st.getMeta(); m.book.me.aspireCustom = { name: '최고의 기사', icon: '🗡️', base: 'manual', steps: '1, 2, 4' }; m.book.me.aspire = 'custom'; m.book = normBook(m.book); st.saveMeta(); __ML__.app.refresh?.(true); }); await sleep(250);
-    await page.evaluate(() => document.querySelector('[data-act="tr-asp-tick"][data-v="1"]')?.click()); await sleep(250);
-    const cu = await page.evaluate(async () => { const st = await import('/ext/src/base/st.js'); return st.getMeta().book.me.aspireCustom.n; });
-    check(cu === 1, '나만의 야망 · 직접 체크 +1');
+    await page.evaluate(() => document.querySelector('[data-act="tr-asp-tick"][data-v="나|1"]')?.click()); await sleep(300);
+    const cu = await page.evaluate(() => __ML__.fold().S.aspLv?.['나']);
+    check(cu === 1, '나만의 야망 · 직접 +1 (이야기 진척)', String(cu));
+    // 인물 야망: AI 태그 → 단계 · 소식 · 본편 주입에 목표 문장
+    await page.evaluate(async () => { const st = await import('/ext/src/base/st.js'), { normBook } = await import('/ext/src/rules/book.js'); const m = st.getMeta(); m.book.people[0].aspire = 'rockstar'; m.book = normBook(m.book); st.saveMeta(); });
+    await page.evaluate(() => window.__addAI('<meatball>\nwith: Leon\naspire: Leon | +3 | 첫 무대\n</meatball>')); await sleep(300);
+    const np = await page.evaluate(async () => { const R = __ML__.fold(), inj = await import('/ext/src/rules/inject.js'); return { lv: R.S.aspLv?.Leon, step: R.changes.at(-1).some(c => c.f === 'aspire.Leon'), news: R.S.news.some(n => n.text.includes('록스타')), fact: inj.factText(R, []).facts, rule: inj.ruleText(R.book) }; });
+    console.log(np.fact);
+    check(np.lv === 3 && np.step && np.news, '인물 야망: aspire 태그 → Lv · 단계 · 소식', JSON.stringify({ lv: np.lv, step: np.step, news: np.news }));
+    check(/lifetime wishes/.test(np.fact) && /rock star/.test(np.fact) && /aspire:/.test(np.rule), '본편: 평생 소원 목표 문장(영어) · aspire 키');
+    await page.evaluate(() => __ML__.app.refresh?.(true)); await sleep(200);
+    await page.evaluate(() => document.querySelector('[data-act="tr-asp"][data-v="Leon"]')?.click()); await sleep(250);
+    const pn = await page.evaluate(() => [...document.querySelectorAll('.ml-bs [data-act="tr-asp-set"]')].filter(b => b.dataset.v.startsWith('Leon|')).length);
+    check(pn >= 50, `인물 야망 시트 (${pn}개)`);
+    await page.screenshot({ path: '/tmp/pasp.png' });
+    await page.evaluate(() => document.querySelector('.ml-bs')?.remove());
     await page.evaluate(() => document.querySelector('.ml-body').scrollTo(0, 0)); await sleep(100); await page.screenshot({ path: '/tmp/tv1.png' });
     await page.evaluate(() => document.querySelector('.ml-body').scrollTo(0, 9999)); await sleep(100); await page.screenshot({ path: '/tmp/tv2.png' });
     check(!logs.length && !(await page.evaluate(() => window.__errors.length)), '콘솔 오류 없음', logs.join('\n'));

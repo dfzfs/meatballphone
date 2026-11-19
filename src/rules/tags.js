@@ -46,6 +46,7 @@ export const KEYMAP = Object.fromEntries([
     ...K('taste', 'taste', '취향'),
     ...K('npc', 'npc', 'new', '인물', '새인물'),
     ...K('gone', 'gone', 'left', 'dead', '떠남', '사망', '퇴장'),
+    ...K('aspire', 'aspire', 'lifetime', 'ambition', 'dream', '야망', '평생소원', '꿈'),
     ...K('want', 'want', 'goal', 'plan', '속셈', '목표'),
     ...K('anniv', 'anniv', 'anniversary', 'birthday', '기념일', '생일'),
     ...K('bgm', 'bgm', 'music', 'song', 'ost', '음악', '노래', '추천곡'),
