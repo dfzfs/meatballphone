@@ -17,7 +17,18 @@ try {
         ] } });
         const L = m.book.people[0]; Object.assign(L, { face: '🛡️', routine: [{ at: '아침', place: '모험가 길드' }, { at: '낮', place: '시장' }], haunt: ['모험가 길드'] });
         m.book.people.push({ ...L, name: 'Mia', face: '🦊', routine: [{ at: '낮', place: '빵집' }], haunt: ['빵집'], aka: [], up: [], down: [], signs: [], syn: [], likes: [], hates: [] });
-        m.book.world.places[0].photo = (() => { const c = document.createElement('canvas'); c.width = 320; c.height = 200; const g = c.getContext('2d'); const gr = g.createLinearGradient(0, 0, 320, 200); gr.addColorStop(0, '#c9a27a'); gr.addColorStop(1, '#6d4c3d'); g.fillStyle = gr; g.fillRect(0, 0, 320, 200); return c.toDataURL('image/jpeg', .8); })();
+        m.book.world.places[0].photo = (() => {
+            const c = document.createElement('canvas');
+            c.width = 320;
+            c.height = 200;
+            const g = c.getContext('2d');
+            const gr = g.createLinearGradient(0, 0, 320, 200);
+            gr.addColorStop(0, '#c9a27a');
+            gr.addColorStop(1, '#6d4c3d');
+            g.fillStyle = gr;
+            g.fillRect(0, 0, 320, 200);
+            return c.toDataURL('image/jpeg', 0.8);
+        })();
         m.start = { cash: 50, loc: '여관' }; st.saveMeta();
     });
     await page.evaluate(() => window.__addUser('나가자'));

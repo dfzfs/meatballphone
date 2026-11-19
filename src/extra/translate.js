@@ -42,7 +42,9 @@ export async function flush() {
     busy = true;
     const list = [...pending].slice(0, 60); list.forEach(x => pending.delete(x));
     try {
-        const g = glossList(), rules = trRules(); const raw = await ask(`Translate each item into natural Korean for a game status window (names: keep a natural Korean reading). Return JSON object {"original":"번역"} only.\n${rules ? `Rules: ${rules}\n` : ''}${g.length ? `Fixed: ${g.map(x => `${x.from}=${x.to}`).join(', ')}\n` : ''}${JSON.stringify(list)}`, 'You translate UI terms. JSON only.');
+        const g = glossList(), rules = trRules(); const raw = await ask(`Translate each item into natural Korean for a game status window (names: keep a natural Korean reading). Return JSON object {"original":"번역"} `
+            + `only.\n${rules ? `Rules: ${rules}\n` : ''}${g.length ? `Fixed: ${g.map(x => `${x.from}=${x.to}`).join(', ')}\n` : ''}`
+            + `${JSON.stringify(list)}`, 'You translate UI terms. JSON only.');
         const j = parseJSON(raw);
         if (j && typeof j === 'object') { const meta = getMeta(); meta.tr ??= {}; for (const [k, v] of Object.entries(j)) if (typeof v === 'string' && v.trim() && list.includes(k)) meta.tr[k] = v.trim().slice(0, 80); saveMeta(); }
     } catch (e) { console.warn('[미트볼 라이트] 번역 실패', e); }

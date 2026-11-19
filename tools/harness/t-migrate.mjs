@@ -18,7 +18,24 @@ try {
     });
     await sleep(200);
     await page.evaluate(() => document.querySelector('[data-ml="migrate"]').click()); await sleep(400);
-    const r = await page.evaluate(() => { const { S } = __ML__.fold(); const m = __ML__.getMeta(); return { cash: S.cash, items: S.items.map(i => `${i.name}${i.n}`), loc: S.loc, leon: S.rel.Leon?.aff, mia: S.rel.Mia?.aff, pair: S.pairs['Leon|Mia'], st: S.status.map(s => s.name), attrs: S.attrs, cal: m.book.world.start, gauges: m.book.me.gauges.map(g => g.name), g: S.gauges, mig: m.migrated }; });
+    const r = await page.evaluate(() => {
+        const { S } = __ML__.fold();
+        const m = __ML__.getMeta();
+        return {
+            cash: S.cash,
+            items: S.items.map((i) => `${i.name}${i.n}`),
+            loc: S.loc,
+            leon: S.rel.Leon?.aff,
+            mia: S.rel.Mia?.aff,
+            pair: S.pairs['Leon|Mia'],
+            st: S.status.map((s) => s.name),
+            attrs: S.attrs,
+            cal: m.book.world.start,
+            gauges: m.book.me.gauges.map((g) => g.name),
+            g: S.gauges,
+            mig: m.migrated,
+        };
+    });
     check(r.mig?.start === 2 && r.mig?.ops === 2, '시작 지점 #2 · 답 2개만 (앞 답 +999는 빠짐)', JSON.stringify(r.mig));
     check(r.cash === 500, '돈: 앞 손 고침 150 → -20 → 뒤 손 고침 500', String(r.cash));
     check(r.items.includes('포션2') && r.items.includes('사과1'), '소지품', r.items.join(','));

@@ -7,7 +7,23 @@ try {
     await page.evaluate(() => window.__addUser('빵집 가자'));
     await page.evaluate(() => window.__addAI('Leon이 웃었다.\n<meatball>\nloc: 시장\nbuy: 빵 | 3\nate: 빵\nact: Leon | 칭찬\ngift: Leon | 꽃\ntime: +3h\nstatus: 감기 | 1d\nbuy: 금괴 | 9999\nmind: Leon | 귀엽네\n</meatball>'));
     await sleep(400);
-    const r = await page.evaluate(() => { const r = __ML__.fold(); const m = window.__st.chat.at(-1); return { cash: r.S.cash, loc: r.S.loc, hunger: r.S.needs.hunger, aff: r.S.rel.Leon?.aff, st: r.S.status.map(s => s.name), flags: r.flags.at(-1).length, mes: m.mes, chips: document.querySelectorAll('.ml-msg .ml-chip').length, inj: Object.keys(window.__prompts).filter(k => window.__prompts[k].value).length, hud: !!document.getElementById('ml-hud'), mini: !!document.getElementById('ml-mini') }; });
+    const r = await page.evaluate(() => {
+        const r = __ML__.fold();
+        const m = window.__st.chat.at(-1);
+        return {
+            cash: r.S.cash,
+            loc: r.S.loc,
+            hunger: r.S.needs.hunger,
+            aff: r.S.rel.Leon?.aff,
+            st: r.S.status.map((s) => s.name),
+            flags: r.flags.at(-1).length,
+            mes: m.mes,
+            chips: document.querySelectorAll('.ml-msg .ml-chip').length,
+            inj: Object.keys(window.__prompts).filter((k) => window.__prompts[k].value).length,
+            hud: !!document.getElementById('ml-hud'),
+            mini: !!document.getElementById('ml-mini'),
+        };
+    });
     console.log(JSON.stringify(r));
     check(r.cash === 47, '돈: 50 − 빵 3 = 47 (금괴는 막힘)');
     check(r.flags === 1, '돈 부족 → 확인 필요 1개');
@@ -18,7 +34,17 @@ try {
     check(r.chips > 0 && r.hud && r.mini, '칩 · HUD · 미니바');
     check(r.inj >= 2, '주입 (규칙 + 사실)');
     // 스와이프 되돌리기: 줄 하나 되돌리기
-    const tabs = await page.evaluate(async () => { const { APPS } = await import('/ext/src/ui/home.js'); const out = []; for (const a of APPS) { __ML__.app.openSheet(a.id); await new Promise(r => setTimeout(r, 30)); const b = document.querySelector('.ml-body'); out.push(`${a.id}:${b?.dataset.tab === a.id || b?.dataset.tab === 'home' ? b.textContent.length : 'X'}`); } return out; });
+    const tabs = await page.evaluate(async () => {
+        const { APPS } = await import('/ext/src/ui/home.js');
+        const out = [];
+        for (const a of APPS) {
+            __ML__.app.openSheet(a.id);
+            await new Promise((r) => setTimeout(r, 30));
+            const b = document.querySelector('.ml-body');
+            out.push(`${a.id}:${b?.dataset.tab === a.id || b?.dataset.tab === 'home' ? b.textContent.length : 'X'}`);
+        }
+        return out;
+    });
     console.log(tabs.join(' '));
     check(tabs.every(t => !t.endsWith(':X') && !t.endsWith(':0')), '앱 전부 열림');
     await page.screenshot({ path: '/tmp/ml-now.png' });

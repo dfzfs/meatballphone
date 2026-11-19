@@ -3,10 +3,25 @@ import { open, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open({ width: 1440, height: 900 });
 try {
     await page.evaluate(() => document.querySelector('[data-ml="create-tpl"]').click()); await sleep(300);
-    await page.evaluate(async () => { const st = await import('/ext/src/base/st.js'); const m = st.getMeta(); const L = m.book.people[0]; Object.assign(L, { face: '🛡️', likes: ['꽃'], routine: [{ at: '저녁', place: '식당' }] }); m.book.people.push({ ...L, name: 'Mia', face: '🦊', routine: [{ at: '아침', place: '식당' }], likes: [], aka: [] }); st.saveMeta(); });
-    await page.evaluate(() => window.__addUser('시장')); await page.evaluate(() => window.__addAI('…\n<meatball>\nloc: 시장\nwith: Leon\ngot: 꽃\ntaste: Leon | +꽃\ntime: +4h\npromise: Leon과 저녁 | 5h\nstatus: 감기 | 3h\nlife: Mia | 빵을 굽다 손을 데었다\nroll: 상인과 흥정\n</meatball>')); await sleep(300);
+    await page.evaluate(async () => {
+        const st = await import('/ext/src/base/st.js');
+        const m = st.getMeta();
+        const L = m.book.people[0];
+        Object.assign(L, { face: '🛡️', likes: ['꽃'], routine: [{ at: '저녁', place: '식당' }] });
+        m.book.people.push({ ...L, name: 'Mia', face: '🦊', routine: [{ at: '아침', place: '식당' }], likes: [], aka: [] });
+        st.saveMeta();
+    });
+    await page.evaluate(() => window.__addUser('시장')); await page.evaluate(() => window.__addAI('…\n<meatball>\nloc: 시장\nwith: Leon\ngot: 꽃\ntaste: Leon | +꽃\ntime: +4h\npromise: Leon과 저녁 | 5h\nstatus: 감기 | 3h\nlife: Mia | 빵을 굽다 손을 데었다\nroll: 상인 설득\n</meatball>')); await sleep(300);
     await page.evaluate(() => __ML__.app.openSheet('home')); await sleep(200);
-    const w = await page.evaluate(() => ({ doable: [...document.querySelectorAll('.ml-do b')].map(x => x.textContent), soon: [...document.querySelectorAll('.ml-w')].find(x => x.textContent.includes('곧 일어날 일'))?.textContent, badges: Object.fromEntries([...document.querySelectorAll('.ml-app')].filter(a => a.querySelector('.ml-badge')).map(a => [a.dataset.v, a.querySelector('.ml-badge').textContent])) }));
+    const w = await page.evaluate(() => ({
+        doable: [...document.querySelectorAll('.ml-do b')].map((x) => x.textContent),
+        soon: [...document.querySelectorAll('.ml-w')].find((x) => x.textContent.includes('곧 일어날 일'))?.textContent,
+        badges: Object.fromEntries(
+            [...document.querySelectorAll('.ml-app')]
+                .filter((a) => a.querySelector('.ml-badge'))
+                .map((a) => [a.dataset.v, a.querySelector('.ml-badge').textContent]),
+        ),
+    }));
     console.log(JSON.stringify(w));
     check(w.doable.some(t => t.includes('사기')) && w.doable.some(t => t.includes('Leon에게')), '지금 할 수 있는 일 (가게 · 선물)');
     check(/감기 풀림/.test(w.soon) && /Leon과 저녁/.test(w.soon), '곧 일어날 일 (딱지 · 약속)');

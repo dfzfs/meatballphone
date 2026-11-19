@@ -4,7 +4,10 @@ import { mascot } from './mascot.js';
 
 // [아이콘] 제목 / 작은 부제 ··· 오른쪽 값 또는 ›
 export const row = ({ icon = '', title, sub = '', value = '', act = '', data = '', faint = false, more = false }) =>
-    `<div class="ml-row${act ? ' tap' : ''}${faint ? ' faint' : ''}"${act ? ` data-act="${act}"` : ''}${data !== '' && data != null ? ` data-v="${esc(data)}"` : ''}>${icon ? `<span class="ml-ic">${icon}</span>` : ''}<span class="ml-tx"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span><span class="ml-val">${value}${more ? '<i class="ml-chev">›</i>' : ''}</span></div>`;
+    `<div class="ml-row${act ? ' tap' : ''}${faint ? ' faint' : ''}"${act ? ` data-act="${act}"` : ''}`
+        + `${data !== '' && data != null ? ` data-v="${esc(data)}"` : ''}>${icon ? `<span class="ml-ic">${icon}</span>` : ''}<span class="ml-tx">`
+        + `<b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span><span class="ml-val">${value}${more ? '<i class="ml-chev">›</i>' : ''}</span>`
+        + `</div>`;
 export const card = (head, body, tail = '') => (body ? `<section class="ml-sec">${head ? `<h4>${head}${tail ? `<span>${tail}</span>` : ''}</h4>` : ''}<div class="ml-card">${body}</div></section>` : '');
 // 색은 의미별 셋만: good · bad · mid
 export const chip = (text, kind = 'mid', act = '', data = '') => `<span class="ml-chip ${kind}${act ? ' tap' : ''}"${act ? ` data-act="${act}"` : ''}${data !== '' && data != null ? ` data-v="${esc(data)}"` : ''}>${text}</span>`;

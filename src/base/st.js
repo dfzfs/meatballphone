@@ -1,9 +1,10 @@
 // 실리태번과 닿는 곳 하나: 설정 · 채팅 메타 · 메시지마다 적는 칸
 import { clone, hash } from './util.js';
+import { normBook } from '../rules/book.js';
 
 export const MODULE = 'meatlite';
 export const OLD = 'statussim';
-export const VERSION = '0.25.0';
+export const VERSION = '0.26.0';
 export const DATA_V = 2;
 export const TITLE = '미트볼 라이트';
 export const INJ = { facts: 'meatlite_facts', hint: 'meatlite_hint', rule: 'meatlite_rule' };
@@ -38,6 +39,7 @@ export const DEFAULTS = Object.freeze({
     musicTaste: '',
     pinBook: 'auto',        // 설정집 한두 줄을 본편에 붙일지: auto | off
 });
+const SETTING_EXTRA = new Set(['glossary', 'trRules', 'partsOff', 'tidied']);
 export function settings() {
     const es = ctx().extensionSettings;
     if (!es[MODULE]) es[MODULE] = clone(DEFAULTS);
@@ -45,6 +47,8 @@ export function settings() {
     for (const k of Object.keys(DEFAULTS)) if (!Object.hasOwn(s, k)) s[k] = clone(DEFAULTS[k]);
     for (const k of Object.keys(DEFAULTS.look)) if (!Object.hasOwn(s.look, k)) s.look[k] = DEFAULTS.look[k];
     if (typeof s.mascotSound === 'boolean') s.mascotSound = s.mascotSound ? 'meow' : 'off';
+    // 한 번 정리: 지금 쓰지 않는 옛 설정 키는 지운다
+    if (!s.tidied) { for (const k of Object.keys(s)) if (!Object.hasOwn(DEFAULTS, k) && !SETTING_EXTRA.has(k)) delete s[k]; s.tidied = 1; }
     return s;
 }
 
@@ -62,7 +66,7 @@ export const MODS = [
     { id: 'quote', icon: '📜', name: '한 구절' },
     { id: 'mind', icon: '💭', name: '속마음' },
     { id: 'custom', icon: '🧩', name: '내 탭' },
-    { id: 'traits', icon: '🧬', name: '특성 · 야망' },
+    { id: 'traits', icon: '🧬', name: '특성' },
 ];
 export const MOD_IDS = MODS.map(m => m.id);
 
@@ -73,6 +77,18 @@ export function newMeta() {
         mods: Object.fromEntries(MOD_IDS.map(id => [id, id !== 'mind'])),
         paused: false, skipNext: false, influence: null, marks: [], hideNums: false, custom: [], recent: { quote: [], music: [] }, mindWho: ['cast'],
     };
+}
+// 한 번 정리: v0.26에서 지운 기능이 채팅에 남긴 데이터 (설정집은 지금 모양으로 다시 맞춤 · 지운 특성은 가장 가까운 것으로)
+function tidyMeta(m) {
+    delete m.saves; delete m.autoSave; delete m.mapStyle;
+    const F = m.start?.full;
+    if (F && typeof F === 'object') {
+        // 불러온 상태로 이어지던 채팅: 그 상태를 보통 시작값으로 바꿔 둔다
+        const rel = Object.fromEntries(Object.entries(F.rel ?? {}).map(([k, r]) => [k, { aff: r?.aff, trust: r?.trust }]));
+        m.start = { name: m.start.name ?? '', cash: F.cash, items: F.items, loc: F.loc, needs: F.needs, gauges: F.gauges, rel, attrs: F.attrs, weather: F.weather, status: F.status, pairs: F.pairs };
+    }
+    if (m.book?.world) m.book = normBook(m.book);
+    m.tidied = 1;
 }
 export function getMeta(create = false) {
     const md = ctx().chatMetadata;
@@ -85,6 +101,7 @@ export function getMeta(create = false) {
         const d = newMeta(); for (const k of Object.keys(d)) if (!Object.hasOwn(m, k)) m[k] = d[k];
         // 새로 생긴 칸은 켠 채로 (목록에 없으면 꺼진 게 아니라 아직 몰랐던 것)
         for (const id of MOD_IDS) if (typeof m.mods[id] !== 'boolean') m.mods[id] = d.mods[id];
+        if (!m.tidied) tidyMeta(m);
     }
     return m ?? null;
 }
@@ -97,7 +114,7 @@ export const ready = (meta = getMeta()) => !!meta?.book;
 
 // ───── 메시지마다 적는 칸: extra.meatlite.sw[스와이프 번호] = { ops, hand, undo, fill } ─────
 // 원본은 메시지에 있다 → 스와이프 · 지우기 · 브랜치가 저절로 맞는다
-export function slot(m, create = false) {
+export function msgData(m, create = false) {
     if (!m) return null;
     const sid = m.swipe_id ?? 0;
     if (create) { m.extra ??= {}; m.extra[MODULE] ??= {}; m.extra[MODULE].sw ??= {}; m.extra[MODULE].sw[sid] ??= {}; }

@@ -1,6 +1,6 @@
 // 📘 상태창 설정집 — 칸이 정해진 구조. 계산 코드가 그대로 읽는다. 본편에는 매 턴 넣지 않는다.
 import { arr, clamp, num, short, safeKey, tokens, norm } from '../base/util.js';
-import { isTraitId, normCustomTrait, normCustomAspire, CUSTOM_MAX, ASPIRES } from '../../data/traits.js';
+import { normCustomTrait, CUSTOM_MAX, migrateTraitIds } from '../../data/traits.js';
 
 export const LIMIT = { people: 24, lines: 6, places: 30, items: 5, line: 80 };
 // 기본 욕구 4개 (위가 좋음 · 100 만점). rate = 한 시간에 줄어드는 양
@@ -33,12 +33,23 @@ export const PLACE_KINDS = { home: '🏠', shop: '🛒', food: '🍜', bath: '�
 
 const line = (v, n = LIMIT.line) => short(v, n);
 const list = (v, n = LIMIT.lines) => arr(v).map(x => line(typeof x === 'string' ? x : x?.name ?? x?.text ?? '')).filter(Boolean).slice(0, n);
-const acts = (v) => arr(v).map(x => (typeof x === 'string' ? (() => { const m = /^(.*?)\s*([+-−]\s*\d+)?$/.exec(x); return { act: line(m[1], 30), d: m[2] ? Number(m[2].replace(/\s/g, '').replace('−', '-')) : null }; })() : { act: line(x?.act ?? x?.name, 30), d: x?.d == null ? null : num(x.d) })).filter(x => x.act).slice(0, LIMIT.lines);
+const acts = (v) =>
+    arr(v)
+        .map((x) =>
+            typeof x === 'string'
+                ? (() => {
+                      const m = /^(.*?)\s*([+-−]\s*\d+)?$/.exec(x);
+                      return { act: line(m[1], 30), d: m[2] ? Number(m[2].replace(/\s/g, '').replace('−', '-')) : null };
+                  })()
+                : { act: line(x?.act ?? x?.name, 30), d: x?.d == null ? null : num(x.d) },
+        )
+        .filter((x) => x.act)
+        .slice(0, LIMIT.lines);
 
 export function emptyBook() {
     return {
         world: { genre: '', currency: '골드', meal: 10, weather: ['맑음', '흐림', '비'], start: { y: 2026, m: 3, d: 1, clock: 480 }, places: [] },
-        me: { name: '', traitIds: [], customTraits: [], day: '', aspire: '', aspireCustom: null, needs: NEED_SET.map(n => ({ ...n })), gauges: GAUGE_SET.map(g => ({ ...g })), attrs: ATTR_SET.map(a => ({ ...a })), traits: '' },
+        me: { name: '', traitIds: [], customTraits: [], day: '', needs: NEED_SET.map(n => ({ ...n })), gauges: GAUGE_SET.map(g => ({ ...g })), attrs: ATTR_SET.map(a => ({ ...a })), traits: '' },
         people: [],
         stages: REL_STAGES.map(s => ({ ...s })),
         src: { from: 'blank', at: 0, sig: {} },
@@ -64,8 +75,7 @@ export function normPerson(p) {
         day: line(p.day, 24),
         want: line(p.want),
         noLove: !!p.noLove,
-        traits: arr(p.traits).map(String).filter(isTraitId).slice(0, 3),
-        aspire: ASPIRES.some(a => a.id === p.aspire) ? p.aspire : '',
+        traits: migrateTraitIds(arr(p.traits).map(String)), // 지운 특성은 가장 가까운 것으로
     };
 }
 export function normPlace(p) {
@@ -97,8 +107,6 @@ export function normBook(b) {
     const w = b.world ?? {};
     e.world.genre = line(w.genre, 30);
     e.world.currency = line(w.currency, 10) || '골드';
-    // 🪙 다른 화폐: 1개 = 기본 화폐 rate (예: 은화 1 = 골드 0.1)
-    e.world.coins = arr(w.coins).map(c => ({ name: line(c?.name, 8), rate: Math.max(0.0001, num(c?.rate, 1)) })).filter(c => c.name && c.name !== e.world.currency).slice(0, 4);
     e.world.meal = Math.max(1, num(w.meal, 10));
     e.world.weather = list(w.weather, 6).length ? list(w.weather, 6) : e.world.weather;
     const c = w.start?.cal ?? {};
@@ -112,13 +120,35 @@ export function normBook(b) {
     e.me.name = line(me.name, 30);
     e.me.traits = line(me.traits);
     e.me.customTraits = arr(me.customTraits).map(normCustomTrait).filter(Boolean).slice(0, CUSTOM_MAX);
-    { const cid = new Set(e.me.customTraits.map(c => c.id)); e.me.traitIds = arr(me.traitIds).map(String).filter(id => isTraitId(id) && (!id.startsWith('c_') || cid.has(id))).slice(0, 3); }
-    e.me.aspireCustom = normCustomAspire(me.aspireCustom);
+    {
+        const cid = new Set(e.me.customTraits.map(c => c.id));
+        e.me.traitIds = migrateTraitIds(arr(me.traitIds).map(String)).filter(id => !id.startsWith('c_') || cid.has(id));
+    }
     e.me.day = line(me.day, 24);
-    { const OLD = { lover: 'heartbreaker', rich: 'swimming', gourmet: 'culinary', collector: 'museum', socialite: 'popular', tycoon: 'luxury' }; const id = OLD[me.aspire] ?? line(me.aspire, 16); e.me.aspire = id === 'custom' || ASPIRES.some(a => a.id === id) ? id : ''; }
-    const needs = arr(me.needs).map(n => ({ key: safeKey(n?.key) || safeKey(n?.name), name: line(n?.name, 8), icon: line(n?.icon, 4) || '•', start: clamp(num(n?.start, 80), 0, 100), rate: clamp(num(n?.rate, 2), 0, 50), sym: n?.sym && typeof n.sym === 'object' ? { 주의: line(n.sym.주의, 40), 위험: line(n.sym.위험, 40) } : null })).filter(n => n.key && n.name).slice(0, 5);
+    const needs = arr(me.needs)
+        .map((n) => ({
+            key: safeKey(n?.key) || safeKey(n?.name),
+            name: line(n?.name, 8),
+            icon: line(n?.icon, 4) || '•',
+            start: clamp(num(n?.start, 80), 0, 100),
+            rate: clamp(num(n?.rate, 2), 0, 50),
+            sym: n?.sym && typeof n.sym === 'object' ? { 주의: line(n.sym.주의, 40), 위험: line(n.sym.위험, 40) } : null,
+        }))
+        .filter((n) => n.key && n.name)
+        .slice(0, 5);
     if (needs.length) e.me.needs = needs;
-    if (Array.isArray(me.gauges)) e.me.gauges = me.gauges.map(g => ({ key: safeKey(g?.key) || safeKey(g?.name), name: line(g?.name, 8), max: Math.max(1, num(g?.max, 100)), start: num(g?.start, num(g?.max, 100)), desc: line(g?.desc, 40), color: /^#[0-9a-f]{6}$/i.test(g?.color ?? '') ? g.color : '#e5484d' })).filter(g => g.key && g.name).slice(0, 4);
+    if (Array.isArray(me.gauges))
+        e.me.gauges = me.gauges
+            .map((g) => ({
+                key: safeKey(g?.key) || safeKey(g?.name),
+                name: line(g?.name, 8),
+                max: Math.max(1, num(g?.max, 100)),
+                start: num(g?.start, num(g?.max, 100)),
+                desc: line(g?.desc, 40),
+                color: /^#[0-9a-f]{6}$/i.test(g?.color ?? '') ? g.color : '#e5484d',
+            }))
+            .filter((g) => g.key && g.name)
+            .slice(0, 4);
     if (Array.isArray(me.attrs)) e.me.attrs = me.attrs.map(a => ({ name: line(a?.name, 6), v: clamp(num(a?.v), -5, 10) })).filter(a => a.name).slice(0, 6);
     e.people = arr(b.people).map(normPerson).filter(Boolean).slice(0, LIMIT.people);
     if (arr(b.stages).length >= 2) e.stages = arr(b.stages).map(s => ({ at: clamp(num(s?.at), 0, 100), name: line(s?.name, 10), call: line(s?.call, 20), act: line(s?.act, 40) })).filter(s => s.name).sort((a, b2) => a.at - b2.at);
@@ -144,7 +174,9 @@ export function bookText(book, who = null) {
     L.push(`[ME] ${book.me.name || '{{user}}'}${book.me.traits ? ` · ${book.me.traits}` : ''} · needs: ${book.me.needs.map(n => n.name).join('/')}`);
     for (const p of book.people) {
         if (who && !who.includes(p.name)) continue;
-        L.push(`[${p.name}] ${p.line}${p.noLove ? ' · (friendship only)' : ''}${p.up.length ? ` · +${p.up.map(a => a.act).join('/')}` : ''}${p.down.length ? ` · -${p.down.map(a => a.act).join('/')}` : ''}${p.likes.length ? ` · likes ${p.likes.join('/')}` : ''}${p.hates.length ? ` · hates ${p.hates.join('/')}` : ''}${p.want ? ` · wants: ${p.want}` : ''}`);
+        L.push(`[${p.name}] ${p.line}${p.noLove ? ' · (friendship only)' : ''}${p.up.length ? ` · +${p.up.map(a => a.act).join('/')}` : ''}`
+            + `${p.down.length ? ` · -${p.down.map(a => a.act).join('/')}` : ''}${p.likes.length ? ` · likes ${p.likes.join('/')}` : ''}`
+            + `${p.hates.length ? ` · hates ${p.hates.join('/')}` : ''}${p.want ? ` · wants: ${p.want}` : ''}`);
     }
     return L.join('\n');
 }

@@ -19,7 +19,9 @@ export function paint(html, words) {
 const GROUPS = [['all', '전체'], ['book', '설정집'], ['now', '지금'], ['rec', '기록'], ['story', '본문']];
 let group = 'all', lastQ = '';
 export function findAll() {
-    const el = sheet('🔍 검색', `<input class="text_pole ml-q" placeholder="이름 · 물건 · 장소 · 속마음 · 기록 · 본문 (조사는 알아서 뗌)" autofocus value="${esc(lastQ)}"><div class="ml-seg ml-fg">${GROUPS.map(([k, l]) => `<button data-g="${k}" class="${k === group ? 'on' : ''}">${l}</button>`).join('')}</div><div class="ml-res"></div>`);
+    const el = sheet('🔍 검색', `<input class="text_pole ml-q" placeholder="이름 · 물건 · 장소 · 속마음 · 기록 · 본문 (조사는 알아서 뗌)" autofocus value="${esc(lastQ)}"><div class="ml-seg `
+        + `ml-fg">${GROUPS.map(([k, l]) => `<button data-g="${k}" class="${k === group ? 'on' : ''}">${l}</button>`).join('')}</div><div `
+        + `class="ml-res"></div>`);
     const q = el.querySelector('.ml-q'), out = el.querySelector('.ml-res');
     let t = 0; const run = () => { lastQ = q.value; out.innerHTML = results(q.value); };
     q.addEventListener('input', () => { clearTimeout(t); t = setTimeout(run, 120); });
@@ -36,9 +38,32 @@ export function results(text, only = group) {
     const G = { book: [], now: [], rec: [], story: [] };
     const R = (g, o) => G[g].push(row({ ...o, title: P(o.title), sub: o.sub != null ? P(o.sub) : undefined, more: true }));
     // 📘 설정집
-    for (const p of book.people) if (hit(p.name, p.line, p.aka, p.likes, p.hates, p.want, p.day, p.haunt, p.signs?.map(s => s.text), p.routine?.map(x => `${x.at} ${x.place}`), p.syn?.map(s => `${s.to} ${s.text}`), p.stages?.map(s => s.name))) R('book', { icon: p.face, title: p.name, sub: [p.line, p.likes?.length && `좋아함 ${p.likes.join(', ')}`, p.want].filter(Boolean).join(' · '), act: 'open', data: 'rel' });
+    for (const p of book.people)
+        if (
+            hit(
+                p.name,
+                p.line,
+                p.aka,
+                p.likes,
+                p.hates,
+                p.want,
+                p.day,
+                p.haunt,
+                p.signs?.map((s) => s.text),
+                p.routine?.map((x) => `${x.at} ${x.place}`),
+                p.syn?.map((s) => `${s.to} ${s.text}`),
+                p.stages?.map((s) => s.name),
+            )
+        )
+            R('book', {
+                icon: p.face,
+                title: p.name,
+                sub: [p.line, p.likes?.length && `좋아함 ${p.likes.join(', ')}`, p.want].filter(Boolean).join(' · '),
+                act: 'open',
+                data: 'rel',
+            });
     for (const p of book.world.places) if (hit(p.name, p.note, p.line, p.goods.map(g => g.name))) R('book', { icon: '📍', title: p.name, sub: [p.note, p.goods.length && `파는 것 ${p.goods.map(g => g.name).join(', ')}`].filter(Boolean).join(' · '), act: 'open', data: 'map' });
-    if (hit(book.world.genre, book.world.currency, book.world.weather, book.world.coins?.map(c => c.name))) R('book', { icon: '🌍', title: `세계 · ${book.world.genre || '장르 없음'}`, sub: `${book.world.currency} · ${book.world.weather.join('/')}`, act: 'open', data: 'book' });
+    if (hit(book.world.genre, book.world.currency, book.world.weather)) R('book', { icon: '🌍', title: `세계 · ${book.world.genre || '장르 없음'}`, sub: `${book.world.currency} · ${book.world.weather.join('/')}`, act: 'open', data: 'book' });
     for (const g of glossList()) if (hit(g.from, g.to)) R('book', { icon: '🌐', title: `${g.from} → ${g.to}`, sub: '용어집', act: 'open', data: 'book' });
     // 🧍 지금 상태
     for (const it of S.items) if (hit(it.name, it.worn && '착용')) R('now', { icon: it.worn ? '👕' : '👜', title: it.name, sub: `×${it.n}${it.worn ? ' · 착용 중' : ''}`, act: 'open', data: 'bag' });
@@ -52,7 +77,16 @@ export function results(text, only = group) {
     // 🗂 기록 (변화) · 책갈피
     const chat = ctx().chat ?? [];
     for (const mk of meta.marks ?? []) { const i = chat.findIndex(x => msgKey(x) === mk.key); if (i >= 0 && hit(mk.name, '책갈피')) R('rec', { icon: '⭐', title: mk.name, sub: `책갈피 · #${i}`, act: 'jump', data: i }); }
-    for (let i = chat.length - 1; i >= 0 && G.rec.length < 50; i--) for (const c of r.changes[i] ?? []) if (c.src !== 'time' && hit(c.label, c.why, String(c.to), String(c.from))) R('rec', { icon: c.icon, title: c.label, sub: `${c.why ?? ''} · ${String(c.from ?? '')}→${String(c.to ?? '')} · #${i}`, act: 'jump', data: i });
+    for (let i = chat.length - 1; i >= 0 && G.rec.length < 50; i--)
+        for (const c of r.changes[i] ?? [])
+            if (c.src !== 'time' && hit(c.label, c.why, String(c.to), String(c.from)))
+                R('rec', {
+                    icon: c.icon,
+                    title: c.label,
+                    sub: `${c.why ?? ''} · ${String(c.from ?? '')}→${String(c.to ?? '')} · #${i}`,
+                    act: 'jump',
+                    data: i,
+                });
     // 📖 이야기 본문 (태그 뺀 글 · 앞뒤 조금만)
     for (let i = chat.length - 1; i >= 0 && G.story.length < 30; i--) {
         const m = chat[i]; if (m.is_system) continue; const t = stripTags(m.mes ?? ''), h = norm(t); if (!words.every(w => h.includes(w))) continue;
@@ -61,6 +95,17 @@ export function results(text, only = group) {
     }
     const NAMES = { book: '📘 설정집', now: '🧍 지금', rec: '🗂 기록', story: '📖 본문' };
     const keys = only === 'all' ? Object.keys(G) : [only];
-    const html = keys.filter(k => G[k].length).map(k => card(`${NAMES[k]} ${G[k].length}`, G[k].slice(0, only === 'all' ? 8 : 60).join('') + (only === 'all' && G[k].length > 8 ? `<div class="ml-row"><span class="ml-tx"><small>외 ${G[k].length - 8}개 · 위에서 「${NAMES[k].slice(2)}」를 누르면 다 보여요</small></span></div>` : ''))).join('');
+    const html = keys
+        .filter((k) => G[k].length)
+        .map((k) =>
+            card(
+                `${NAMES[k]} ${G[k].length}`,
+                G[k].slice(0, only === 'all' ? 8 : 60).join('') +
+                    (only === 'all' && G[k].length > 8
+                        ? `<div class="ml-row"><span class="ml-tx"><small>외 ${G[k].length - 8}개 · 위에서 「${NAMES[k].slice(2)}」를 누르면 다 보여요</small></span></div>`
+                        : ''),
+            ),
+        )
+        .join('');
     return html || '<div class="ml-empty"><p>찾은 게 없어요.</p></div>';
 }

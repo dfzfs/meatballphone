@@ -6,7 +6,17 @@ try {
     await page.evaluate(() => document.querySelector('[data-ml="create-tpl"]').click()); await sleep(300);
     await page.evaluate(() => window.__addUser('1')); await page.evaluate(() => window.__addAI('a\n<meatball>\ncash: +10\n</meatball>')); await sleep(200);
     // 스와이프: 새 답(다른 변화) → 돌아가면 옛 값
-    await page.evaluate(async () => { const st = window.__st, i = st.chat.length - 1, m = st.chat[i]; m.swipes.push('b\n<meatball>\ncash: +99\n</meatball>'); m.swipe_info.push({ extra: {} }); m.swipe_id = 1; m.mes = m.swipes[1]; await SillyTavern.getContext().eventSource.emit('message_received', i, 'swipe'); await SillyTavern.getContext().eventSource.emit('message_swiped', i); });
+    await page.evaluate(async () => {
+        const st = window.__st,
+            i = st.chat.length - 1,
+            m = st.chat[i];
+        m.swipes.push('b\n<meatball>\ncash: +99\n</meatball>');
+        m.swipe_info.push({ extra: {} });
+        m.swipe_id = 1;
+        m.mes = m.swipes[1];
+        await SillyTavern.getContext().eventSource.emit('message_received', i, 'swipe');
+        await SillyTavern.getContext().eventSource.emit('message_swiped', i);
+    });
     await sleep(200); check((await S()).cash === 149, '스와이프 → 새 스와이프 값');
     await page.evaluate(async () => { const st = window.__st, i = st.chat.length - 1, m = st.chat[i]; m.swipe_id = 0; m.mes = m.swipes[0]; await SillyTavern.getContext().eventSource.emit('message_swiped', i); });
     await sleep(200); check((await S()).cash === 60, '옛 스와이프로 돌아가면 옛 값');
@@ -38,12 +48,44 @@ try {
     await page.evaluate(() => window.__addUser('(( OOC: 잠깐 얘기 ))')); await page.evaluate(() => window.__addAI('ooc\n<meatball>\ncash: +7\n</meatball>')); await sleep(200);
     check((await S()).cash === 67, 'OOC 답은 건너뜀');
     // 옛 미트볼 채팅 옮겨 오기
-    await page.evaluate(async () => { await window.__changeChat('old-chat'); const st = window.__st; st.chatMetadata.statussim = { base: { data: { rel: { user: [{ name: 'Leon', aff: 30 }] }, map: { places: [{ name: '여관' }] } } } }; st.chat.push({ name: 'Leon', is_user: false, mes: '옛 답', swipe_id: 0, swipes: ['옛 답'], swipe_info: [{ extra: {} }], extra: { statussim: { bySwipe: { 0: [['cash', '+30'], ['loc', '여관'], ['quest', '사라진 칸']] } } } }); window.__renderAll(); });
+    await page.evaluate(async () => {
+        await window.__changeChat('old-chat');
+        const st = window.__st;
+        st.chatMetadata.statussim = { base: { data: { rel: { user: [{ name: 'Leon', aff: 30 }] }, map: { places: [{ name: '여관' }] } } } };
+        st.chat.push({
+            name: 'Leon',
+            is_user: false,
+            mes: '옛 답',
+            swipe_id: 0,
+            swipes: ['옛 답'],
+            swipe_info: [{ extra: {} }],
+            extra: {
+                statussim: {
+                    bySwipe: {
+                        0: [
+                            ['cash', '+30'],
+                            ['loc', '여관'],
+                            ['quest', '사라진 칸'],
+                        ],
+                    },
+                },
+            },
+        });
+        window.__renderAll();
+    });
     await page.evaluate(() => document.querySelector('[data-ml="migrate"]').click()); await sleep(400);
     const o = await page.evaluate(() => { const r = __ML__.fold(); return { cash: r.S.cash, loc: r.S.loc, ppl: r.book.people.map(p => p.name) }; });
     check(o.loc === '여관' && o.ppl.includes('Leon') && !(await page.evaluate(() => window.__errors.length)), '옛 미트볼 옮겨 오기 (지운 칸 줄은 조용히 건너뜀)', JSON.stringify(o));
     // 휴대폰 폭: 가로로 넘치지 않음
     await page.setViewportSize({ width: 360, height: 760 });
-    for (const a of ['home', 'now', 'rel', 'map', 'cal', 'dice', 'traits', 'market']) { await page.evaluate((a) => __ML__.app.openSheet(a), a); await sleep(120); const ov = await page.evaluate(() => { const b = document.querySelector('.ml-body'); return b.scrollWidth - b.clientWidth; }); check(ov <= 2, `휴대폰 폭 ${a} 가로 넘침 없음 (${ov}px)`); }
+    for (const a of ['home', 'now', 'rel', 'map', 'cal', 'dice', 'traits', 'market']) {
+        await page.evaluate((a) => __ML__.app.openSheet(a), a);
+        await sleep(120);
+        const ov = await page.evaluate(() => {
+            const b = document.querySelector('.ml-body');
+            return b.scrollWidth - b.clientWidth;
+        });
+        check(ov <= 2, `휴대폰 폭 ${a} 가로 넘침 없음 (${ov}px)`);
+    }
     check(!logs.length, '콘솔 오류 없음', logs.join('\n'));
 } finally { await close(); }

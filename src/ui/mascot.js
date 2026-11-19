@@ -4,7 +4,15 @@ const ssWarn = (...a) => console.warn(...a);
 // 그림: 표정 7개(mascot_*.webp) + 미트볼콘 14개(meatcon/*.webp) — 「고르기」로 평소 모습을 정한다
 export const MASCOTS = ['idle', 'happy', 'think', 'surprise', 'sad', 'sleep', 'party'];
 export const MEATCON = ['hi', 'heart', 'proud', 'focus', 'groom', 'tongue', 'roll', 'blanket', 'box', 'pray', 'gasp', 'sulk', 'sad', 'blank'];
-export const mascotUrl = (n) => { const s = String(n ?? 'idle'); if (s.startsWith('pack:')) return `https://cdn.jsdelivr.net/gh/dfzfs/meatballstats@f4b772615c992d1a7f3be46d798c19c09e20094c/${s.slice(5)}.webp`; if (s.startsWith('con:')) { const c = s.slice(4); return new URL(`../../img/meatcon/${MEATCON.includes(c) ? c : 'hi'}.webp`, import.meta.url).href; } return new URL(`../../img/mascot_${MASCOTS.includes(s) ? s : 'idle'}.webp`, import.meta.url).href; };
+export const mascotUrl = (n) => {
+    const s = String(n ?? 'idle');
+    if (s.startsWith('pack:')) return `https://cdn.jsdelivr.net/gh/dfzfs/meatballstats@f4b772615c992d1a7f3be46d798c19c09e20094c/${s.slice(5)}.webp`;
+    if (s.startsWith('con:')) {
+        const c = s.slice(4);
+        return new URL(`../../img/meatcon/${MEATCON.includes(c) ? c : 'hi'}.webp`, import.meta.url).href;
+    }
+    return new URL(`../../img/mascot_${MASCOTS.includes(s) ? s : 'idle'}.webp`, import.meta.url).href;
+};
 export const mascotPick = () => settings().mascotPick || 'idle';
 // 마스코트 그림 한 장 — size: xs · sm · md · lg · head / face: 이번에 보일 표정 (없으면 고른 평소 모습)
 export const mascot = (size = 'sm', face = '', cls = '') => (settings().mascot === false ? '' : `<img class="ss-mascot ${size} ${cls}" data-m0="${face || mascotPick()}" src="${mascotUrl(face || mascotPick())}" alt="" title="눌러 보세요!" draggable="false">`);
@@ -200,7 +208,68 @@ export function initMascot() {
 
 // 🐱 미트볼콘 팩 60개 (dev conpack 브랜치) — 마켓에서 「받기」를 눌렀을 때만 가져온다 (jsDelivr · 커밋 고정이라 한 번 받으면 브라우저가 보관)
 const PACK_BASE = 'https://cdn.jsdelivr.net/gh/dfzfs/meatballstats@f4b772615c992d1a7f3be46d798c19c09e20094c/';
-export const PACK = ["오열", "울먹부들", "엎드려훌쩍", "시무룩", "빵터짐", "깔깔", "킹받음", "분노", "흥칫", "째려봄", "곁눈질", "의기양양", "충격", "비명", "헉", "동공지진", "뒤돌아흥", "부끄", "감동", "제발", "두손모아", "하트", "안녕", "신남", "파라파라", "축하", "담요눈치", "박스", "꿀잠", "수면모자", "냠냠", "커피수혈", "녹아내림", "질주", "메롱", "키보드점령", "롱캣", "하악", "식빵", "뒹굴", "멍", "컵밀기", "발핥기", "냥냥펀치", "휙", "멀뚱", "그루밍", "날름", "식빵 2", "뒹굴 2", "열일", "미안", "째려봄 2", "삐짐", "납작 2", "궁금", "헉 2", "울먹 2", "집중", "축하 2"].map((n, i) => [String(i + 1).padStart(2, '0'), n]);
+export const PACK = [
+    '오열',
+    '울먹부들',
+    '엎드려훌쩍',
+    '시무룩',
+    '빵터짐',
+    '깔깔',
+    '킹받음',
+    '분노',
+    '흥칫',
+    '째려봄',
+    '곁눈질',
+    '의기양양',
+    '충격',
+    '비명',
+    '헉',
+    '동공지진',
+    '뒤돌아흥',
+    '부끄',
+    '감동',
+    '제발',
+    '두손모아',
+    '하트',
+    '안녕',
+    '신남',
+    '파라파라',
+    '축하',
+    '담요눈치',
+    '박스',
+    '꿀잠',
+    '수면모자',
+    '냠냠',
+    '커피수혈',
+    '녹아내림',
+    '질주',
+    '메롱',
+    '키보드점령',
+    '롱캣',
+    '하악',
+    '식빵',
+    '뒹굴',
+    '멍',
+    '컵밀기',
+    '발핥기',
+    '냥냥펀치',
+    '휙',
+    '멀뚱',
+    '그루밍',
+    '날름',
+    '식빵 2',
+    '뒹굴 2',
+    '열일',
+    '미안',
+    '째려봄 2',
+    '삐짐',
+    '납작 2',
+    '궁금',
+    '헉 2',
+    '울먹 2',
+    '집중',
+    '축하 2',
+].map((n, i) => [String(i + 1).padStart(2, '0'), n]);
 export const packUrl = (id) => `${PACK_BASE}${id}.webp`;
 export const packOn = () => settings().conPack === true;
 export async function packDownload(onStep) {

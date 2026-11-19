@@ -1,5 +1,5 @@
 // 미트볼 라이트 — 실리태번 이벤트 연결
-import { app, ctx, settings, saveSettings, getMeta, saveMeta, slot, syncSwipe, ready, MODULE, OLD, VERSION, TITLE, INJ, MODS, DATA_V, bumpMeta, modOn } from './src/base/st.js';
+import { app, ctx, settings, saveSettings, getMeta, saveMeta, msgData, syncSwipe, ready, MODULE, OLD, VERSION, TITLE, INJ, MODS, DATA_V, bumpMeta, modOn } from './src/base/st.js';
 import { esc, short, tokens, dateOf } from './src/base/util.js';
 import { readOps, stripTags, hasTag } from './src/rules/tags.js';
 import { fold, resetCache } from './src/rules/engine.js';
@@ -70,9 +70,9 @@ async function onBeforeGen(type, opts, dry) {
 async function onReceived(i, type) {
     const meta = getMeta(); const m = ctx().chat?.[i];
     if (!m || m.is_user || !ready(meta) || !settings().enabled) return;
-    if ((type === 'quiet' || quietGen) && settings().skipQuiet) { quietGen = false; const q = slot(m, true); q.ops = []; q.skip = true; q.rev = (q.rev ?? 0) + 1; bumpMeta(); syncSwipe(m); refresh(); return; } // 조용한 생성: 태그가 있어도 안 셈
+    if ((type === 'quiet' || quietGen) && settings().skipQuiet) { quietGen = false; const q = msgData(m, true); q.ops = []; q.skip = true; q.rev = (q.rev ?? 0) + 1; bumpMeta(); syncSwipe(m); refresh(); return; } // 조용한 생성: 태그가 있어도 안 셈
     const t0 = performance.now(), calls0 = aiStats.calls;
-    const sl = slot(m, true);
+    const sl = msgData(m, true);
     if (meta.paused || skipThis) {
         sl.ops = []; sl.skip = true; m.mes = stripTags(m.mes);
         if (skipThis && meta.skipNext) { meta.skipNext = false; saveMeta(); }
@@ -94,7 +94,7 @@ async function onReceived(i, type) {
 function onEdited(i) {
     bumpMeta(); // 앞쪽 메시지를 고쳐도 다시 계산되게
     const m = ctx().chat?.[i]; if (!m || m.is_user) return refresh();
-    if (hasTag(m.mes)) { const sl = slot(m, true); sl.ops = readOps(m.mes); sl.rev = (sl.rev ?? 0) + 1; bumpMeta(); m.mes = stripTags(m.mes); syncSwipe(m); ctx().saveChatDebounced?.(); }
+    if (hasTag(m.mes)) { const sl = msgData(m, true); sl.ops = readOps(m.mes); sl.rev = (sl.rev ?? 0) + 1; bumpMeta(); m.mes = stripTags(m.mes); syncSwipe(m); ctx().saveChatDebounced?.(); }
     refresh();
 }
 
@@ -104,9 +104,27 @@ function alerts() {
     const { S, book } = r, sent = new Set(meta.alerted ?? []), out = [];
     for (const p of S.promises) if (!p.done && p.due != null && p.due >= S.t && p.due - S.t <= 1440) out.push([`p|${p.text}|${p.due}`, `📅 하루 안: ${p.text}`]);
     const day0 = Math.floor(S.t / 1440);
-    for (const p of book.people) { const m = /(\d{1,2})\s*[월/.]\s*(\d{1,2})/.exec(p.day || ''); if (!m) continue; for (const k of [0, 1]) { const d = dateOf(book.world.start, (day0 + k) * 1440); if (d.m === Number(m[1]) && d.d === Number(m[2])) out.push([`b|${p.name}|${d.y}`, `🎂 ${k ? '내일' : '오늘'} ${p.name} ${p.day}`]); } }
+    for (const p of book.people) {
+        const m = /(\d{1,2})\s*[월/.]\s*(\d{1,2})/.exec(p.day || '');
+        if (!m) continue;
+        for (const k of [0, 1]) {
+            const d = dateOf(book.world.start, (day0 + k) * 1440);
+            if (d.m === Number(m[1]) && d.d === Number(m[2])) out.push([`b|${p.name}|${d.y}`, `🎂 ${k ? '내일' : '오늘'} ${p.name} ${p.day}`]);
+        }
+    }
     // 💭 속마음이 뜨면 알림 (방금 답의 것만 · 같은 건 한 번)
-    if (modOn('mind') && meta.mindPop !== 'off') { const chat = ctx().chat ?? []; let li = chat.length - 1; while (li >= 0 && (chat[li].is_user || chat[li].is_system)) li--; const IC = { mind: '💭', watch: '👀', cell: '🧠' }; for (const e of (S.mindLog ?? []).filter(e => e.m === li)) out.push([`m|${li}|${chat[li]?.swipe_id ?? 0}|${e.who}|${e.text}`, `${personOf(book, e.who)?.face ?? IC[e.k]} ${e.who} · ${e.text}`, 'mind']); }
+    if (modOn('mind') && meta.mindPop !== 'off') {
+        const chat = ctx().chat ?? [];
+        let li = chat.length - 1;
+        while (li >= 0 && (chat[li].is_user || chat[li].is_system)) li--;
+        const IC = { mind: '💭', watch: '👀', cell: '🧠' };
+        for (const e of (S.mindLog ?? []).filter((e) => e.m === li))
+            out.push([
+                `m|${li}|${chat[li]?.swipe_id ?? 0}|${e.who}|${e.text}`,
+                `${personOf(book, e.who)?.face ?? IC[e.k]} ${e.who} · ${e.text}`,
+                'mind',
+            ]);
+    }
     let n = 0; for (const [k, t, kind] of out) if (!sent.has(k)) { sent.add(k); toast(t, kind ?? 'mid'); n++; }
     if (n) { meta.alerted = [...sent].slice(-80); saveMeta(); }
 }
@@ -126,16 +144,29 @@ function settingsHTML() {
     const s = settings();
     const sw = (k, label) => `<label class="checkbox_label"><input type="checkbox" data-ml-s="${k}" ${s[k] ? 'checked' : ''}> ${label}</label>`;
     const sel = (k, label, opts) => `<label>${label} <select class="text_pole" data-ml-s="${k}">${opts.map(([v, l]) => `<option value="${v}" ${String(s[k]) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`;
-    return `<div class="inline-drawer ml-set"><div class="inline-drawer-toggle inline-drawer-header"><b>😼 ${TITLE} <small>v${VERSION}</small></b><div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div><div class="inline-drawer-content">
+    return `<div class="inline-drawer ml-set"><div class="inline-drawer-toggle inline-drawer-header"><b>😼 ${TITLE} <small>v${VERSION}</small></b><div `
+        + `class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div><div class="inline-drawer-content">
 ${sw('enabled', '켜기')}
-<div class="ml-set-btns"><button class="menu_button" data-ml="create-ai">📘 상태창 만들기 (AI 1회)</button><button class="menu_button" data-ml="create-tpl">⚡ 바로 시작 (AI 0회)</button><button class="menu_button" data-ml="open">펼치기</button></div>
-<h4>화면</h4>${sw('hud', 'HUD')}${sel('hudPos', 'HUD 자리', [['top', '위'], ['bottom', '아래']])}${sw('minibar', '미니바')}${sw('mascot', '마스코트')}${sel('mascotSound', '마스코트 누르면 나는 소리', MASCOT_SOUNDS)}<label>효과음 크기 <input type="range" min="0" max="100" step="5" data-ml-s="mascotVolume" value="${s.mascotVolume}"></label><div class="ml-set-btns"><button class="menu_button" data-ml="cat">😺 마스코트 고르기</button></div>
-<h4>꾸미기</h4><label>강조색 <input type="color" data-ml-look="accent" value="${s.look.accent}"></label> <label>글자 크기 <input type="range" min="0.85" max="1.3" step="0.05" data-ml-look="size" value="${s.look.size}"></label> <label>모서리 <input type="range" min="0" max="24" step="2" data-ml-look="radius" value="${s.look.radius}"></label> <label>테두리 <input type="range" min="0" max="3" step="1" data-ml-look="border" value="${s.look.border}"></label> <label>그림자 <input type="range" min="0" max="3" step="1" data-ml-look="shadow" value="${s.look.shadow}"></label> <label>글꼴 <input class="text_pole" data-ml-look="font" value="${esc(s.look.font)}" placeholder="비우면 실리태번 글꼴"></label>
-<h4>AI</h4>${sel('preset', '본편 지시', [['flash', '플래시용 (짧은 키 + 예시)'], ['general', '일반']])}${sw('fillMissing', '태그가 빠졌을 때만 보충 (AI 1회)')}${sw('skipQuiet', '퀵리플라이 · /gen 답엔 안 붙이기')}${sw('ooc', 'OOC 메시지는 건너뛰기')}
+<div class="ml-set-btns"><button class="menu_button" data-ml="create-ai">📘 상태창 만들기 (AI 1회)</button><button class="menu_button" `
+        + `data-ml="create-tpl">⚡ 바로 시작 (AI 0회)</button><button class="menu_button" data-ml="open">펼치기</button></div>
+<h4>화면</h4>${sw('hud', 'HUD')}${sel('hudPos', 'HUD 자리', [['top', '위'], ['bottom', '아래']])}${sw('minibar', '미니바')}${sw('mascot', '마스코트')}`
+        + `${sel('mascotSound', '마스코트 누르면 나는 소리', MASCOT_SOUNDS)}<label>효과음 크기 <input type="range" min="0" max="100" step="5" `
+        + `data-ml-s="mascotVolume" value="${s.mascotVolume}"></label><div class="ml-set-btns"><button class="menu_button" data-ml="cat">😺 마스코트 `
+        + `고르기</button></div>
+<h4>꾸미기</h4><label>강조색 <input type="color" data-ml-look="accent" value="${s.look.accent}"></label> <label>글자 크기 <input type="range" min="0.85" `
+        + `max="1.3" step="0.05" data-ml-look="size" value="${s.look.size}"></label> <label>모서리 <input type="range" min="0" max="24" step="2" `
+        + `data-ml-look="radius" value="${s.look.radius}"></label> <label>테두리 <input type="range" min="0" max="3" step="1" data-ml-look="border" `
+        + `value="${s.look.border}"></label> <label>그림자 <input type="range" min="0" max="3" step="1" data-ml-look="shadow" value="${s.look.shadow}">`
+        + `</label> <label>글꼴 <input class="text_pole" data-ml-look="font" value="${esc(s.look.font)}" placeholder="비우면 실리태번 글꼴"></label>
+<h4>AI</h4>${sel('preset', '본편 지시', [['flash', '플래시용 (짧은 키 + 예시)'], ['general', '일반']])}${sw('fillMissing', '태그가 빠졌을 때만 보충 (AI 1회)')}`
+        + `${sw('skipQuiet', '퀵리플라이 · /gen 답엔 안 붙이기')}${sw('ooc', 'OOC 메시지는 건너뛰기')}
 <label>미트볼 AI 연결 프로필 <input class="text_pole" data-ml-s="profile" value="${esc(s.profile)}" placeholder="비우면 지금 연결"></label>
 ${sel('pinBook', '장면 인물의 증상 한 줄 본편에', [['auto', '붙이기'], ['off', '안 붙이기']])}
-<h4>번역</h4>${sel('saveLang', '상태창 저장 언어', [['ko', '한국어'], ['en', '영어 (화면만 한국어로)']])}${sel('trAuto', '모르는 말', [['ai', '모아서 AI로 번역 (1회씩)'], ['off', '직접 고친 것만']])}
-<h4>저장 · 옮기기</h4><div class="ml-set-btns"><button class="menu_button" data-ml="perf">🏎 부하 재기</button><button class="menu_button" data-ml="doctor">🩺 자가 진단</button><button class="menu_button" data-ml="backup">💾 백업</button><button class="menu_button" data-ml="restore">📂 불러오기</button><button class="menu_button" data-ml="card">🃏 카드에 붙이기</button><button class="menu_button" data-ml="migrate">🍖 옛 미트볼 옮겨 오기</button></div>
+<h4>번역</h4>${sel('saveLang', '상태창 저장 언어', [['ko', '한국어'], ['en', '영어 (화면만 한국어로)']])}`
+        + `${sel('trAuto', '모르는 말', [['ai', '모아서 AI로 번역 (1회씩)'], ['off', '직접 고친 것만']])}
+<h4>저장 · 옮기기</h4><div class="ml-set-btns"><button class="menu_button" data-ml="perf">🏎 부하 재기</button><button class="menu_button" data-ml="doctor">🩺 `
+        + `자가 진단</button><button class="menu_button" data-ml="backup">💾 백업</button><button class="menu_button" data-ml="restore">📂 불러오기</button>`
+        + `<button class="menu_button" data-ml="card">🃏 카드에 붙이기</button><button class="menu_button" data-ml="migrate">🍖 옛 미트볼 옮겨 오기</button></div>
 </div></div>`;
 }
 function mountSettings() {
@@ -165,11 +196,12 @@ function mountSettings() {
     });
 }
 // 꾸미기: 직접 고르기 하나
+// 🎨 테마 값 → CSS 변수 (--ml-accent · --ml-font · --ml-size · --ml-radius · --ml-border · --ml-shadow) — 문서 전체에 걸어서 다른 확장도 읽음
 function applyLook() {
     const L = settings().look, d = document.documentElement.style;
     d.setProperty('--ml-accent', L.accent); d.setProperty('--ml-size', L.size); d.setProperty('--ml-radius', `${L.radius}px`);
     d.setProperty('--ml-border', `${L.border}px`); d.setProperty('--ml-shadow', ['none', '0 1px 3px rgb(0 0 0/.12)', '0 4px 14px rgb(0 0 0/.16)', '0 10px 30px rgb(0 0 0/.24)'][L.shadow] ?? 'none');
-    d.setProperty('--ml-font', L.font || 'inherit');
+    d.setProperty('--ml-font', L.font || getComputedStyle(document.body).fontFamily || 'sans-serif'); // 안 고르면 실리태번 글꼴 그대로
 }
 // 🏎 부하 재기
 function showPerf() {
@@ -177,14 +209,33 @@ function showPerf() {
     const t1 = performance.now(); fold(); const inc = performance.now() - t1;
     const avg = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
     const T = perf.turns;
-    sheet('🏎 부하 재기', card('지금 채팅', row({ icon: '🧮', title: '처음부터 다시 계산', value: `${full.toFixed(1)}ms` }) + row({ icon: '⚡', title: '바뀐 곳만 계산', value: `${inc.toFixed(2)}ms` }) + row({ icon: '🖼', title: '화면 다시 그리기 (평균)', value: `${avg(perf.refresh).toFixed(1)}ms` }) + row({ icon: '💬', title: '메시지', value: `${ctx().chat?.length ?? 0}개` }))
-        + card('최근 턴', row({ icon: '⏱', title: '한 턴 처리 (평균)', value: `${avg(T.map(t => t.ms)).toFixed(1)}ms` }) + row({ icon: '🤖', title: '미트볼 AI 호출', sub: '태그가 빠진 턴만', value: `${T.reduce((a, t) => a + t.calls, 0)}회 / ${T.length}턴` }) + row({ icon: '🔤', title: '이번 턴 주입', value: `≈${injTokens(lastInj)}토큰` })));
+    sheet(
+        '🏎 부하 재기',
+        card(
+            '지금 채팅',
+            row({ icon: '🧮', title: '처음부터 다시 계산', value: `${full.toFixed(1)}ms` }) +
+                row({ icon: '⚡', title: '바뀐 곳만 계산', value: `${inc.toFixed(2)}ms` }) +
+                row({ icon: '🖼', title: '화면 다시 그리기 (평균)', value: `${avg(perf.refresh).toFixed(1)}ms` }) +
+                row({ icon: '💬', title: '메시지', value: `${ctx().chat?.length ?? 0}개` }),
+        ) +
+            card(
+                '최근 턴',
+                row({ icon: '⏱', title: '한 턴 처리 (평균)', value: `${avg(T.map((t) => t.ms)).toFixed(1)}ms` }) +
+                    row({
+                        icon: '🤖',
+                        title: '미트볼 AI 호출',
+                        sub: '태그가 빠진 턴만',
+                        value: `${T.reduce((a, t) => a + t.calls, 0)}회 / ${T.length}턴`,
+                    }) +
+                    row({ icon: '🔤', title: '이번 턴 주입', value: `≈${injTokens(lastInj)}토큰` }),
+            ),
+    );
 }
 // ───── 시작 ─────
 async function boot() {
-    settings();
+    settings(); applyLook(); // 테마 변수는 늘 열어 둔다 (선택지 확장이 라이트 디자인을 따름)
     if (oldActive()) { resting = true; console.info(`[${TITLE}] 옛 미트볼이 켜져 있어서 쉽니다.`); return; }
-    applyLook(); mountSettings(); bindOuter(); mountApi(); initMascot();
+    mountSettings(); bindOuter(); mountApi(); initMascot();
     const c = ctx(), E = c.event_types, on = (n, f) => n && c.eventSource.on(n, f);
     on(E.GENERATION_AFTER_COMMANDS, onBeforeGen);
     on(E.MESSAGE_RECEIVED, onReceived);

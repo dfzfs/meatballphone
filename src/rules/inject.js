@@ -1,10 +1,9 @@
 // 본편 주입: 이야기 영향력 게이지(0~4)를 따라 켜고 끈다
 import { settings, getMeta, modOn, userName, ctx } from '../base/st.js';
 import { clamp, dateText, short, tokens, DAY } from '../base/util.js';
-import { derived, relStage, worldEvent, haggleNow } from './engine.js';
+import { derived, relStage, worldEvent } from './engine.js';
 import { moodTags, pickQuote } from './mood.js';
 import { personOf } from './book.js';
-import { aspireOf, aspireSteps, personSteps, lvOf } from '../../data/traits.js';
 
 export const LEVELS = [
     { n: 0, name: '기록만', what: '상태창에만 적어요. 본편에는 한 글자도 안 넣어요.' },
@@ -40,7 +39,6 @@ export function ruleText(book) {
     const K = ['loc: 장소', `time: ${tk}`, 'with: 이름, 이름'];
     if (cs.months?.length) K.push(`date: ${cs.months[0].name} 3일 (달: ${cs.months.map(x => x.name).join('·')})`);
     if (modOn('stats')) K.push('ate: 음식', 'slept: 6h', 'washed: -', 'rest: 1h', 'worked: 4h | +30');
-    if (modOn('wallet') && book.world.coins?.length) K.push(`cash: +3 ${book.world.coins[0].name}`);
     if (modOn('wallet')) K.push('buy: 물건 | 가격', 'earn: 30 | 이유', 'got: 물건', 'used: 물건', 'wear: 옷');
     if (modOn('rel')) K.push('act: 이름 | 한 일', 'gift: 이름 | 물건', 'memory: 이름 | 큰 사건', 'jealous: 이름 | 이유', ...(level('rel') >= 3 ? ['pair: 이름 | 이름 | +3 | 이유'] : []), 'promise: 내용 | 3/14');
     if (modOn('calendar')) K.push('weather: 비');
@@ -48,7 +46,6 @@ export function ruleText(book) {
     if (modOn('news') && level('news') >= 3) K.push('life: 이름 | 화면 밖에서 한 일 (가끔)');
     if (modOn('rel') && level('rel') >= 4) K.push('meddle: 이름 | 칸 | +5 | 장난');
     if (modOn('dice')) K.push('roll: 판정할 일');
-    if (modOn('traits') && (book?.me?.aspire || book?.people?.some(p => p.aspire))) K.push('aspire: 이름 | +1 | 이유 (only when someone clearly moves toward their lifetime wish: promotion, mastery, big milestone)');
     if (modOn('mind') && level('mind') > 0) {
         const who = meta?.mindWho ?? ['cast'];
         const mm = meta?.mindMode ?? 'thought', form = { thought: '짧은 속마음 한 줄', emoji: '이모티콘 2~3개만 (글자 없이)', kaomoji: '카모지 하나 + 아주 짧은 말', mix: '짧은 속마음 + 끝에 카모지' }[mm] ?? '짧은 속마음 한 줄';
@@ -64,7 +61,7 @@ export function ruleText(book) {
 }
 // 지금 사실 고정 · 경계 한 줄 · 연출 힌트 (게이지에 따라)
 // 본편에는 「결과값」만: 지금 사실(돈 · 장소 · 시간 · 같이 있는 사람) · 경계를 넘은 결과(증상) · 관계 단계 · 상태 이름 · 약속
-// 중간값(숫자 · 보정 · 배수 · 특성 · 별자리 · 운세 · 능력치)은 상태창 안에서만 쓴다
+// 중간값(숫자 · 보정 · 배수 · 특성 · 운세 · 능력치)은 상태창 안에서만 쓴다
 export function factText(r, lastChanges = []) {
     const { S, book } = r, L = [], H = [];
     const lv = (id) => (modOn(id) && !getMeta()?.hideAI?.[id] ? level(id) : 0); // 🙈 AI에게 숨긴 앱은 0
@@ -75,11 +72,11 @@ export function factText(r, lastChanges = []) {
         const n = lv('stats'), crossed = crossNeed.has(d.key);
         if (n >= 2 || (n === 1 && crossed)) (n >= 2 && !crossed ? L : H).push(`${d.name} ${d.stage}: ${d.text}`);
     }
-    // 🎲 주사위 보정 · 특성 · 별자리 · 운세 · 능력치 같은 중간값은 본편에 안 보낸다 (판정 결과는 입력창 문장으로 간다)
+    // 🎲 주사위 보정 · 특성 · 운세 · 능력치 같은 중간값은 본편에 안 보낸다 (판정 결과는 입력창 문장으로 간다)
     // 내 상태가 나쁘면 장면 속 인물이 알아챔 (결과: 「알아채고 반응」 · 숫자 없음)
     if (lv('stats') >= 2 && S.with.length) { const bad = dz.filter(d => d.stage === '위험'); if (bad.length) L.push(`${S.with[0]} notices ${userName()}: ${bad.map(d => d.text).join(', ')} — reacts in character (worry or tease)`); }
     // 돈
-    if (lv('wallet') >= 2) L.push(`${userName()} money: ${S.cash} ${book.world.currency}${Object.entries(S.coins ?? {}).filter(([, n]) => n).map(([k, n]) => ` · ${n} ${k}`).join('')}${haggleNow(S) ? ` · haggled here today: ${haggleNow(S).pct > 0 ? '+' : ''}${haggleNow(S).pct}% (${haggleNow(S).why})` : ''}${S.items.length ? ` · has: ${S.items.slice(0, 8).map(i => `${i.name}${i.n > 1 ? `×${i.n}` : ''}${i.worn ? '(worn)' : ''}`).join(', ')}` : ''}`);
+    if (lv('wallet') >= 2) L.push(`${userName()} money: ${S.cash} ${book.world.currency}${S.items.length ? ` · has: ${S.items.slice(0, 8).map(i => `${i.name}${i.n > 1 ? `×${i.n}` : ''}${i.worn ? '(worn)' : ''}`).join(', ')}` : ''}`);
     if (lv('wallet') >= 3) L.push('cannot spend more money than this; items not listed are not owned');
     // 장소 · 시간
     if (lv('map') >= 2 && S.loc) L.push(`place: ${S.loc}${S.with.length ? ` · with: ${S.with.join(', ')}` : ''}`);
@@ -97,15 +94,16 @@ export function factText(r, lastChanges = []) {
         }
         if (lv('rel') >= 3) L.push(`${name}: no actions beyond 「${relStage(book, r2.aff, name).name}」 yet`);
     }
-    if (lv('rel') >= 2 && scene.length > 1) for (const [k, pr] of Object.entries(S.pairs ?? {})) { const [A, B] = k.split('|'); if (scene.includes(A) && scene.includes(B) && (pr.label || pr.v)) L.push(`${A}↔${B}: ${pr.label || (pr.v >= 30 ? 'close' : pr.v <= -30 ? 'hostile' : pr.v > 0 ? 'friendly' : 'tense')}${lv('rel') >= 3 && pr.why ? ` (${pr.why})` : ''}`); }
+    if (lv('rel') >= 2 && scene.length > 1)
+        for (const [k, pr] of Object.entries(S.pairs ?? {})) {
+            const [A, B] = k.split('|');
+            if (scene.includes(A) && scene.includes(B) && (pr.label || pr.v))
+                L.push(
+                    `${A}↔${B}: ${pr.label || (pr.v >= 30 ? 'close' : pr.v <= -30 ? 'hostile' : pr.v > 0 ? 'friendly' : 'tense')}` +
+                        `${lv('rel') >= 3 && pr.why ? ` (${pr.why})` : ''}`,
+                );
+        }
     if (lv('rel') >= 4 && S.turn % 6 === 3) H.push('add one small heart-flutter moment this reply (설렘 한 스푼)');
-    // ⭐ 평생 소원 — 목표 문장과 단계만 (숫자 계산은 상태창 안에서)
-    if (modOn('traits') && level('rel') >= 2) {
-        const G = [], mine = aspireOf(book.me.aspire, book);
-        if (mine) { const st = aspireSteps(mine, book), k = st.filter(v => (mine.val(S, book) ?? 0) >= v).length; G.push(`${userName()}: ${mine.en} (stage ${k}/${st.length})`); }
-        for (const p of book.people) { const a = aspireOf(p.aspire); if (!a || S.rel[p.name]?.gone) continue; const st = personSteps(a), k = st.filter(v => lvOf(S, p.name) >= v).length; if (S.with.includes(p.name) || G.length < 4) G.push(`${p.name}: ${a.en} (stage ${k}/${st.length})`); }
-        if (G.length) L.push(`lifetime wishes (let them drive choices now and then):\n${G.slice(0, 5).join('\n')}`);
-    }
     // 바뀐 단계 · 딱지
     for (const c of lastChanges) if (c.cross && lv('rel') >= 1) H.push(`${c.label}: ${c.from} → ${c.to}`);
     for (const st of S.status) if (lv('stats') >= 2) L.push(`status: ${st.name}`);

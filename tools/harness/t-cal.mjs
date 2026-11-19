@@ -1,7 +1,15 @@
 // 📅 판타지 달력 · 시간 적는 법: 설정집 세계 폼 → 달 이름 · 요일 · 연호 · 오전/오후, 날짜 태그로 이동
 import { open, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open();
-const fill = (vals, picks = {}) => page.evaluate(([vals, picks]) => { for (const [k, v] of Object.entries(vals)) document.querySelector(`#mlf-${k}`).value = v; for (const [k, v] of Object.entries(picks)) document.querySelector(`.ml-picks[data-k="${k}"] [data-pick="${v}"]`).click(); document.querySelector('.ml-bs [data-bs="ok"]').click(); }, [vals, picks]);
+const fill = (vals, picks = {}) =>
+    page.evaluate(
+        ([vals, picks]) => {
+            for (const [k, v] of Object.entries(vals)) document.querySelector(`#mlf-${k}`).value = v;
+            for (const [k, v] of Object.entries(picks)) document.querySelector(`.ml-picks[data-k="${k}"] [data-pick="${v}"]`).click();
+            document.querySelector('.ml-bs [data-bs="ok"]').click();
+        },
+        [vals, picks],
+    );
 try {
     await page.evaluate(() => document.querySelector('[data-ml="create-tpl"]').click()); await sleep(300);
     await page.evaluate(() => __ML__.app.openSheet('book')); await sleep(150);

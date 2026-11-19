@@ -1,7 +1,20 @@
 // 공통 도구줄: 편집(장소 · 물건 · 달력) · AI로 수정 · 숨기기 · 보일 것 · 용어집
 import { open, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open({ width: 1440, height: 900 });
-const fill = async (vals) => { await page.evaluate((vals) => { for (const [k, v] of Object.entries(vals)) { const el = document.querySelector(`#mlf-${k}`); if (el) el.value = v; else { const b = document.querySelector(`.ml-picks[data-k="${k}"] [data-pick="${v}"]`); b?.click(); } } document.querySelector('.ml-bs [data-bs="ok"]').click(); }, vals); await sleep(250); };
+const fill = async (vals) => {
+    await page.evaluate((vals) => {
+        for (const [k, v] of Object.entries(vals)) {
+            const el = document.querySelector(`#mlf-${k}`);
+            if (el) el.value = v;
+            else {
+                const b = document.querySelector(`.ml-picks[data-k="${k}"] [data-pick="${v}"]`);
+                b?.click();
+            }
+        }
+        document.querySelector('.ml-bs [data-bs="ok"]').click();
+    }, vals);
+    await sleep(250);
+};
 try {
     await page.addStyleTag({ content: 'input[type="range"]{width:100%}' });
     await page.evaluate(() => document.querySelector('[data-ml="create-tpl"]').click()); await sleep(300);
@@ -25,8 +38,8 @@ try {
     await page.evaluate(() => __ML__.app.openSheet('cal')); await sleep(100);
     await page.evaluate(() => document.querySelector('[data-act="t-edit"]').click()); await sleep(200);
     await fill({ time: '저녁', weather: '비', ev: '레온과 저녁 | 3/5' });
-    const cal = await page.evaluate(() => { const r = __ML__.fold(); return { w: r.S.weather, p: r.S.promises.length, slot: r.S.t % 1440 }; });
-    check(cal.w === '비' && cal.p === 1 && cal.slot >= 19 * 60, '달력 편집 (시간 · 날씨 · 일정)', JSON.stringify(cal));
+    const cal = await page.evaluate(() => { const r = __ML__.fold(); return { w: r.S.weather, p: r.S.promises.length, clock: r.S.t % 1440 }; });
+    check(cal.w === '비' && cal.p === 1 && cal.clock >= 19 * 60, '달력 편집 (시간 · 날씨 · 일정)', JSON.stringify(cal));
     // AI로 수정
     await page.evaluate(() => { window.__ai = () => '<meatball>\ncash: +100\nstatus: 행운 | 1d\n</meatball>'; });
     await page.evaluate(() => __ML__.app.openSheet('bag')); await sleep(100);

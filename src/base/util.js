@@ -26,9 +26,9 @@ export function tokens(t) { t = String(t ?? ''); const ko = (t.match(/[ㄱ-힝]/
 
 // ───── 세계 시간: 시작부터 지난 「분」 하나로 센다 (욕구 · 딱지 · 약속이 모두 같은 자) ─────
 export const DAY = 1440;
-export const SLOTS = [['새벽', 5], ['아침', 8], ['오전', 10], ['낮', 13], ['점심', 12], ['오후', 15], ['저녁', 19], ['밤', 22], ['심야', 1], ['자정', 0]];
-export const SLOT_EN = { dawn: 5, morning: 8, noon: 12, afternoon: 15, evening: 19, night: 22, midnight: 0 };
-export function slotName(min) {
+export const PERIODS = [['새벽', 5], ['아침', 8], ['오전', 10], ['낮', 13], ['점심', 12], ['오후', 15], ['저녁', 19], ['밤', 22], ['심야', 1], ['자정', 0]];
+export const PERIOD_EN = { dawn: 5, morning: 8, noon: 12, afternoon: 15, evening: 19, night: 22, midnight: 0 };
+export function periodName(min) {
     const h = Math.floor(((min % DAY) + DAY) % DAY / 60);
     return h < 5 ? '심야' : h < 7 ? '새벽' : h < 11 ? '아침' : h < 17 ? '낮' : h < 21 ? '저녁' : '밤';
 }
@@ -38,8 +38,8 @@ export function clockOf(v) {
     const s = String(v ?? '').trim().toLowerCase();
     let m = /(\d{1,2})\s*[:시]\s*(\d{1,2})?/.exec(s);
     if (m) { let h = Number(m[1]); const mi = Number(m[2] ?? 0); if (/오후|pm/.test(s) && h < 12) h += 12; if (/오전|am/.test(s) && h === 12) h = 0; if (h < 24 && mi < 60) return h * 60 + mi; }
-    for (const [w, h] of SLOTS) if (s.includes(w)) return h * 60;
-    for (const [w, h] of Object.entries(SLOT_EN)) if (s.includes(w)) return h * 60;
+    for (const [w, h] of PERIODS) if (s.includes(w)) return h * 60;
+    for (const [w, h] of Object.entries(PERIOD_EN)) if (s.includes(w)) return h * 60;
     return null;
 }
 // 「6h」 「6시간」 「30분」 「반나절」 「3일」 → 분
@@ -84,13 +84,13 @@ export function dateOf(start, min) {
 // 시간 적는 법: '' 시간대만 · '24' 14:30 · '12' 오후 2:30
 export function clockText(start, min) {
     const st = start?.cal?.style ?? '24', t = ((min % DAY) + DAY) % DAY, h = Math.floor(t / 60), mi = t % 60;
-    if (st === '') return slotName(min);
+    if (st === '') return periodName(min);
     if (st === '12') return `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(mi).padStart(2, '0')}`;
     return hhmm(min);
 }
 export function dateText(start, min, withTime = true) {
     const d = dateOf(start, min), era = start?.cal?.era ? `${start.cal.era} ${d.y}년 ` : '';
-    return `${era}${d.mn} ${d.d}일 (${d.w})${withTime ? ` ${slotName(min)}${start?.cal?.style === '' ? '' : ` ${clockText(start, min)}`}` : ''}`;
+    return `${era}${d.mn} ${d.d}일 (${d.w})${withTime ? ` ${periodName(min)}${start?.cal?.style === '' ? '' : ` ${clockText(start, min)}`}` : ''}`;
 }
 // 「3월 14일」 「3/14」 「서리달 14일」 → 그날 0시의 분 (지났으면 다음 해)
 export function dayOfDate(start, v, now = 0) {

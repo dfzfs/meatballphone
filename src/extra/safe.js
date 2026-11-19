@@ -1,5 +1,5 @@
 // 💾 백업 · 불러오기 · 카드에 붙이기 · 옛 미트볼 옮겨 오기
-import { ctx, getMeta, saveMeta, slot, syncSwipe, MODULE, OLD, DATA_V, TITLE } from '../base/st.js';
+import { ctx, getMeta, saveMeta, msgData, syncSwipe, MODULE, OLD, DATA_V, TITLE } from '../base/st.js';
 import { normBook, emptyBook } from '../rules/book.js';
 import { clockOf } from '../base/util.js';
 import { toast } from '../ui/kit.js';
@@ -66,7 +66,17 @@ export function migrateOld() {
         b.src.from = 'old';
     }
     const prof = D.profile?.list ?? D.profile?.people ?? [];
-    for (const p of [...(Array.isArray(prof) ? prof : []), ...(D.rel?.user ?? [])]) if (p?.name && !b.people.some(x => nm(x.name) === nm(p.name))) { b.people.push({ name: p.name, line: p.summary ?? p.desc ?? p.personality ?? p.memo ?? '', face: p.face ?? '🙂', noLove: !!p.noLove, start: { aff: 10, trust: 10 } }); rep.people++; }
+    for (const p of [...(Array.isArray(prof) ? prof : []), ...(D.rel?.user ?? [])])
+        if (p?.name && !b.people.some((x) => nm(x.name) === nm(p.name))) {
+            b.people.push({
+                name: p.name,
+                line: p.summary ?? p.desc ?? p.personality ?? p.memo ?? '',
+                face: p.face ?? '🙂',
+                noLove: !!p.noLove,
+                start: { aff: 10, trust: 10 },
+            });
+            rep.people++;
+        }
     for (const pl of D.map?.places ?? []) if (pl?.name && !b.world.places.some(x => nm(x.name) === nm(pl.name))) b.world.places.push({ name: pl.name, kind: /집|home/i.test(pl.name) ? 'home' : 'other', note: pl.desc ?? '' });
     const W = D.wallet; if (W?.currency) b.world.currency = W.currency; else if (W?.currencies?.[0]?.name) b.world.currency = W.currencies[0].name;
     // 수치 막대 → 욕구(이름이 같으면) · 아니면 게이지로
@@ -101,7 +111,7 @@ export function migrateOld() {
     for (let i = snap.startAt; i < chat.length; i++) {
         const m = chat[i]; const by = m.extra?.[OLD]?.bySwipe; if (!by || m.is_user) continue;
         const ops = by[m.swipe_id ?? 0]; if (!Array.isArray(ops)) continue;
-        const sl = slot(m, true); if (sl.ops) continue;
+        const sl = msgData(m, true); if (sl.ops) continue;
         sl.ops = ops.filter(x => Array.isArray(x)).map(([k, v]) => [String(k), String(v)]); sl.rev = (sl.rev ?? 0) + 1; syncSwipe(m); rep.ops++;
     }
     // ✏️ 시작 지점 뒤에 손으로 고친 것: 돈 · 수치 · 장소는 그 답의 손 고침으로, 나머지는 건너뜀(보고)
@@ -112,7 +122,7 @@ export function migrateOld() {
         else if (a.set.mod === 'stats') for (const bar of d.bars ?? []) { const nd = meta.book.me.needs.find(n => nm(n.name) === nm(bar.name)); if (nd) hand.push({ k: nd.name, v: String(Math.round(Number(bar.cur) / (Number(bar.max) || 100) * 100)), why: '옛 미트볼 손 고침' }); }
         else if (a.set.mod === 'map' && d.here) hand.push({ k: 'loc', v: d.here, why: '옛 미트볼 손 고침' });
         if (!hand.length) { rep.skipped++; continue; }
-        const sl = slot(m, true); sl.hand = [...(sl.hand ?? []), ...hand]; sl.rev = (sl.rev ?? 0) + 1; syncSwipe(m); rep.later++;
+        const sl = msgData(m, true); sl.hand = [...(sl.hand ?? []), ...hand]; sl.rev = (sl.rev ?? 0) + 1; syncSwipe(m); rep.later++;
     }
     meta.migrated = { at: Date.now(), ...rep };
     saveMeta(); ctx().saveChatDebounced?.();

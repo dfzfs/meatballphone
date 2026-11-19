@@ -1,5 +1,5 @@
 // 🔍 칩 점검 · 🩺 자가 진단 — AI 0회, 지금 채팅만 봄
-import { ctx, settings, getMeta, slot, modOn, MODULE } from '../base/st.js';
+import { ctx, settings, getMeta, msgData, MODULE } from '../base/st.js';
 import { esc, short } from '../base/util.js';
 import { fold, opsOf } from '../rules/engine.js';
 import { kindOf } from '../rules/tags.js';
@@ -11,18 +11,19 @@ import { sheet, btn } from '../ui/kit.js';
 
 // 이벤트 종류 → 앱
 const KIND_APP = { need: '📊 수치', ate: '📊 수치', slept: '📊 수치', washed: '📊 수치', rest: '📊 수치', worked: '📊 수치 · 💰 재산', status: '🏷️ 상태', fate: '🏷️ 상태',
-    cash: '💰 재산', earn: '💰 재산', buy: '💰 재산', sell: '💰 재산', item: '👜 소지품', got: '👜 소지품', used: '👜 소지품', lost: '👜 소지품', wear: '👕 착용', unwear: '👕 착용', exchange: '🪙 환전', haggle: '🤝 흥정',
+    cash: '💰 재산', earn: '💰 재산', buy: '💰 재산', sell: '💰 재산', item: '👜 소지품', got: '👜 소지품', used: '👜 소지품', lost: '👜 소지품', wear: '👕 착용', unwear: '👕 착용',
     gift: '💞 관계', aff: '💞 관계', trust: '💞 관계', act: '💞 관계', memory: '💞 관계', jealous: '💞 관계', npc: '💞 관계', gone: '💞 관계', want: '💞 관계', taste: '💞 관계', pair: '🔗 인물끼리', meddle: '💞 관계',
     loc: '🗺 지도', with: '🗺 지도', time: '📅 달력', pass: '📅 달력', date: '📅 달력', weather: '📅 달력', promise: '📅 달력', anniv: '📅 달력',
     roll: '🎲 주사위', mind: '💭 속마음', watch: '💭 속마음', cell: '💭 속마음', life: '📰 소식', newsline: '📰 소식', bgm: '🎵 음악', custom: '🧩 내 탭' };
 const SRC = { tag: '태그', fill: '보충', hand: '손 고침', ai: 'AI 고침', scene: '본문', meddle: '장난' };
 export function chipCheck(i) {
     const r = fold(), m = ctx().chat?.[i]; if (!r || !m) return '';
-    const book = getMeta().book, ch = r.changes[i] ?? [], fl = r.flags[i] ?? [], sl = slot(m);
+    const book = getMeta().book, ch = r.changes[i] ?? [], fl = r.flags[i] ?? [], sl = msgData(m);
     const ops = opsOf(m, book), needs = [...book.me.needs.flatMap(n => [n.name, n.key]), ...book.me.gauges.flatMap(g => [g.name, g.key])];
     const rows = ops.map(o => {
         const kind = kindOf(o.k, needs), app = KIND_APP[kind], eff = ch.filter(c => c.i === o.j), bad = fl.filter(f => f.i === o.j);
-        const st = kind === 'unknown' ? ['bad', '모르는 키 · 건너뜀'] : kind === 'skip' ? ['mid', '옛 키 · 조용히 건너뜀'] : bad.length ? ['bad', bad.map(f => f.text).join(' · ')] : eff.length ? ['good', eff.map(c => `${c.icon} ${c.label} ${typeof c.to === 'number' && typeof c.from === 'number' ? (c.to - c.from > 0 ? '+' : '') + Math.round(c.to - c.from) : esc(String(c.to))}`).join(' · ')] : ['mid', '읽었지만 바뀐 것 없음'];
+        const st = kind === 'unknown' ? ['bad', '모르는 키 · 건너뜀'] : kind === 'skip' ? ['mid', '옛 키 · 조용히 건너뜀'] : bad.length ? ['bad', bad.map(f => f.text).join(' · ')] : eff.length ? ['good', eff.map(c => `${c.icon} ${c.label}`
+            + ` ${typeof c.to === 'number' && typeof c.from === 'number' ? (c.to - c.from > 0 ? '+' : '') + Math.round(c.to - c.from) : esc(String(c.to))}`).join(' · ')] : ['mid', '읽었지만 바뀐 것 없음'];
         return `<div class="ml-row ml-chk ${st[0]}"><span class="ml-tx"><b><code>${esc(short(o.k, 16))}: ${esc(short(o.v, 40))}</code></b><small>${app ?? (kind === 'unknown' ? '❓' : '—')} · ${SRC[o.src] ?? o.src} · ${esc(st[1])}</small></span></div>`;
     });
     const head = `<div class="ml-hint">${sl?.skip ? '⏭ 이 답은 건너뛴 답이에요 (조용한 생성 · 건너뛰기 · OOC)' : sl?.fill ? '🩹 태그가 없어 보충 AI가 채운 답이에요' : sl?.ops ? '🏷 본편 AI가 쓴 태그로 읽었어요' : '본문에서 태그를 다시 읽었어요'}</div>`;
@@ -42,7 +43,7 @@ export function doctor(app, perf) {
     if (ais.length) {
         let tag = 0, fill = 0, skip = 0, none = 0; const unk = {};
         const needs = meta?.book ? [...meta.book.me.needs.flatMap(n => [n.name, n.key]), ...meta.book.me.gauges.flatMap(g => [g.name, g.key])] : [];
-        for (const i of ais) { const sl = slot(chat[i]); if (sl?.skip) skip++; else if (sl?.fill) fill++; else if (/<meatball>/i.test(chat[i].mes ?? '') || sl?.ops?.length) tag++; else none++; for (const o of opsOf(chat[i])) if (kindOf(o.k, needs) === 'unknown') unk[o.k] = (unk[o.k] ?? 0) + 1; }
+        for (const i of ais) { const sl = msgData(chat[i]); if (sl?.skip) skip++; else if (sl?.fill) fill++; else if (/<meatball>/i.test(chat[i].mes ?? '') || sl?.ops?.length) tag++; else none++; for (const o of opsOf(chat[i])) if (kindOf(o.k, needs) === 'unknown') unk[o.k] = (unk[o.k] ?? 0) + 1; }
         const rate = Math.round(tag / Math.max(1, ais.length - skip) * 100);
         add(rate >= 70 ? 'good' : rate >= 40 ? 'mid' : 'bad', `태그 쓴 답 ${rate}%`, `최근 ${ais.length}답 · 태그 ${tag} · 보충 ${fill} · 건너뜀 ${skip} · 없음 ${none}${rate < 70 ? ' · 모델 프리셋을 바꾸거나 주입 깊이를 얕게 해 보세요' : ''}`, rate < 70 ? btn('게이지', 'doc-open', 'gauge', 'xs') : '');
         if (none && set.fillMissing === false) add('mid', '보충 꺼짐', `태그 없는 답 ${none}개가 그냥 지나갔어요`, btn('보충 켜기', 'doc-fill', '', 'xs'));
@@ -62,7 +63,7 @@ export function doctor(app, perf) {
     if (ms != null) add(ms < 60 ? 'good' : ms < 150 ? 'mid' : 'bad', `답 하나 처리 ${ms}ms`, `최근 ${perf.turns.length}답 평균${ms >= 60 ? ' · 「부하 재기」로 자세히' : ''}`);
     // 저장 크기
     let bytes = 0; for (const m of chat) if (m.extra?.[MODULE]) bytes += JSON.stringify(m.extra[MODULE]).length; bytes += JSON.stringify(meta ?? {}).length;
-    add(bytes < 400000 ? 'good' : 'mid', `채팅에 붙은 상태창 데이터 ${Math.round(bytes / 1024)}KB`, bytes < 400000 ? '가벼워요' : '조금 커요 · 오래된 세이브 칸을 지워 보세요');
+    add(bytes < 400000 ? 'good' : 'mid', `채팅에 붙은 상태창 데이터 ${Math.round(bytes / 1024)}KB`, bytes < 400000 ? '가벼워요' : '조금 커요 · 오래된 채팅은 새 채팅으로 이어 가 보세요');
     if (trOn()) add(trBusy() ? 'mid' : 'good', '상태창 번역', `영어 저장 · 사전 ${Object.keys(meta?.tr ?? {}).length}개${trBusy() ? ' · 번역 기다리는 중' : ''}`);
     const ok = L.filter(x => x.includes('ml-chk good')).length;
     sheet('🩺 자가 진단', `<div class="ml-hint">AI 부르지 않고 이 채팅만 봤어요 · ${ok}/${L.length} 좋음</div><div class="ml-card">${L.join('')}</div>`);

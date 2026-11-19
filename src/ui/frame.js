@@ -1,9 +1,9 @@
 // 화면은 셋뿐: HUD · 미니바 · 전체화면
-import { app, ctx, settings, getMeta, saveMeta, modOn, ready, TITLE } from '../base/st.js';
-import { esc, dateText, slotName, short, fmt } from '../base/util.js';
+import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, ready, TITLE } from '../base/st.js';
+import { esc, dateText, periodName, short, fmt } from '../base/util.js';
 import { fold, derived, needStage } from '../rules/engine.js';
 import { placeOf } from '../rules/book.js';
-import { RENDER, onAct, changeRow, setRecFilter, bindMapDrag } from './tabs.js';
+import { RENDER, onAct, changeRow, setRecFilter } from './tabs.js';
 import { home, market, cat, look, appOf, installed, markSeen } from './home.js';
 import { toolbar, onTool, TOOL_ACTS, applyGloss } from './tools.js';
 import { applyTr, trOn, trBusy } from '../extra/translate.js';
@@ -18,8 +18,8 @@ let cur = 'home', past = null;
 function hudHTML(r) {
     const { S, book } = r, L = [];
     if (modOn('stats')) for (const n of book.me.needs) { const v = Math.round(S.needs[n.key] ?? 0), st = needStage(v); L.push(`<span class="ml-h ${st === '위험' ? 'bad' : st === '주의' ? 'mid' : ''}" title="${esc(n.name)} ${v}">${n.icon}${v}</span>`); }
-    if (modOn('wallet')) L.push(`<span class="ml-h">💰${fmt(S.cash)}${Object.entries(S.coins ?? {}).filter(([, n]) => n).slice(0, 2).map(([k, n]) => ` · ${fmt(n)}${esc(k)}`).join('')}</span>`);
-    if (modOn('calendar')) L.push(`<span class="ml-h">🕰${slotName(S.t)}${S.weather ? ` · ${esc(S.weather)}` : ''}</span>`);
+    if (modOn('wallet')) L.push(`<span class="ml-h">💰${fmt(S.cash)}</span>`);
+    if (modOn('calendar')) L.push(`<span class="ml-h">🕰${periodName(S.t)}${S.weather ? ` · ${esc(S.weather)}` : ''}</span>`);
     if (modOn('map') && S.loc) { const pl = placeOf(book, S.loc); L.push(`<span class="ml-h tap" data-act="open" data-v="${pl?.goods.length ? 'bag' : 'map'}">📍${esc(S.loc)}${pl?.goods.length ? ' · 🛒' : ''}</span>`); }
     // 🛒 가게에 있으면 HUD에 물건 한 줄 (누르면 사는 말이 입력창에)
     if (modOn('wallet') && S.loc) { const pl = placeOf(book, S.loc); if (pl?.goods.length) L.push(...pl.goods.slice(0, 3).map(g => `<span class="ml-h tap shop${S.cash < g.price ? ' poor' : ''}" data-act="say" data-v="${esc(g.name)} 하나 주세요.">${esc(g.name)} ${g.price}</span>`)); }
@@ -32,7 +32,7 @@ function hudHTML(r) {
 function miniHTML(r) {
     const { S, book } = r;
     const needs = modOn('stats') ? book.me.needs.map(n => { const v = Math.round(S.needs[n.key] ?? 0); return `<div class="ml-mb-n" title="${esc(n.name)}">${n.icon}${bar(v, needStage(v) === '위험' ? 'bad' : '')}</div>`; }).join('') : '';
-    const night = /심야|밤/.test(slotName(S.t)), face = derived(book, S).some(d => d.stage === '위험') ? 'sad' : night && settings().mascotPick === 'idle' ? 'sleep' : '';
+    const night = /심야|밤/.test(periodName(S.t)), face = derived(book, S).some(d => d.stage === '위험') ? 'sad' : night && settings().mascotPick === 'idle' ? 'sleep' : '';
     return `${mascot('sm', face, 'ml-mascot')}${needs}<div class="ml-mb-t">${dateText(book.world.start, S.t, false)}</div><button class="ml-btn sm" data-act="open" data-v="now">펼치기</button>`;
 }
 export function drawFrame() {
@@ -60,7 +60,6 @@ export function openSheet(tab = 'home') {
         document.body.appendChild(el);
         el.addEventListener('click', clickHandler);
         el.addEventListener('change', changeHandler);
-        bindMapDrag(el);
     }
     drawSheet();
     document.body.classList.add('ml-open');
@@ -75,7 +74,10 @@ export function drawSheet() {
     const meta = getMeta(), a = appOf(cur);
     const keep = el.querySelector(':scope > .ml-bs'); // 열려 있는 시트는 다시 그려도 그대로
     const scroll = el.querySelector('.ml-body')?.scrollTop ?? 0, same = el.querySelector('.ml-body')?.dataset.tab === cur;
-    el.innerHTML = `<header class="ml-top">${cur === 'home' ? `${mascot('head')}<b>${TITLE}</b>` : `<button class="ml-ib back" data-tab="home" title="홈">‹</button><b>${a ? `${a.icon} ${a.name}` : ''}</b>`}${past != null ? chip(`🕰 #${past} 시점 · 읽기 전용`, 'mid', 'past-off') : ''}<span class="ml-sp"></span><button class="ml-ib" data-act="pause" title="일시정지">${meta.paused ? '▶' : '⏸'}</button><button class="ml-ib" data-act="skip" title="다음 1번 건너뛰기">${meta.skipNext ? '⏭✓' : '⏭'}</button><button class="ml-ib" data-act="find" title="검색">🔍</button><button class="ml-ib" data-act="close">✕</button></header>`
+    el.innerHTML = `<header class="ml-top">${cur === 'home' ? `${mascot('head')}<b>${TITLE}</b>` : `<button class="ml-ib back" data-tab="home" title="홈">‹</button><b>${a ? `${a.icon} ${a.name}` : ''}</b>`}`
+        + `${past != null ? chip(`🕰 #${past} 시점 · 읽기 전용`, 'mid', 'past-off') : ''}<span class="ml-sp"></span><button class="ml-ib" data-act="pause" `
+        + `title="일시정지">${meta.paused ? '▶' : '⏸'}</button><button class="ml-ib" data-act="skip" title="다음 1번 건너뛰기">${meta.skipNext ? '⏭✓' : '⏭'}`
+        + `</button><button class="ml-ib" data-act="find" title="검색">🔍</button><button class="ml-ib" data-act="close">✕</button></header>`
         + `<main class="ml-body" data-tab="${cur}">${a && !a.sys ? toolbar(cur) : ''}${R2[cur](view)}</main>`;
     applyGloss(el.querySelector('.ml-body')); applyTr(el.querySelector('.ml-body'));
     if (trOn() && trBusy()) el.querySelector('.ml-sp')?.insertAdjacentHTML('beforebegin', '<span class="ml-pill">🌐 번역 중…</span>');
@@ -121,7 +123,16 @@ export function bindOuter() {
         if (a.dataset.act === 'open') openSheet(a.dataset.v);
         if (a.dataset.act === 'say') onAct('say', a.dataset.v, a);
     });
-    document.addEventListener('click', async (e) => { const a = e.target.closest('.ml-bs [data-act], .ml-msg [data-act]'); if (!a || a.closest('#ml-full')) return; /* 패널 안 시트는 패널이 처리 */ if (a.dataset.act === 'turncard') return turnSheet(Number(a.dataset.v)); if (TOOL_ACTS.has(a.dataset.act)) { a.closest('.ml-bs')?.remove(); return onTool(a.dataset.act, a.dataset.v); } await onAct(a.dataset.act, a.dataset.v, a); });
+    document.addEventListener('click', async (e) => {
+        const a = e.target.closest('.ml-bs [data-act], .ml-msg [data-act]');
+        if (!a || a.closest('#ml-full')) return;
+        /* 패널 안 시트는 패널이 처리 */ if (a.dataset.act === 'turncard') return turnSheet(Number(a.dataset.v));
+        if (TOOL_ACTS.has(a.dataset.act)) {
+            a.closest('.ml-bs')?.remove();
+            return onTool(a.dataset.act, a.dataset.v);
+        }
+        await onAct(a.dataset.act, a.dataset.v, a);
+    });
 }
 // ───── 답 밑 칩: 보이는 최근 메시지에만 ─────
 const CHIP_N = 6;
@@ -134,7 +145,8 @@ export function drawChips() {
         const ch = (r.changes[i] ?? []).filter(c => c.src !== 'time'), fl = (r.flags[i] ?? []);
         let box = el.parentElement.querySelector('.ml-msg');
         if (!ch.length && !fl.length) { box?.remove(); continue; }
-        const h = fl.map(f => chip(`⚠ 확인 필요 · ${esc(short(f.text, 24))}`, 'bad')).join('') + ch.slice(0, 8).map(c => chip(`${c.icon} ${esc(c.label)} ${typeof c.to === 'number' && typeof c.from === 'number' ? (c.f === 'time' ? '' : signed2(c.to - c.from)) : esc(c.to)}${c.why ? ` · ${esc(short(c.why, 12))}` : ''}`, c.kind === 'bad' || (typeof c.to === 'number' && c.to < c.from) ? 'bad' : 'good', 'turncard', String(i))).join('') + (ch.length > 8 ? chip(`+${ch.length - 8}`, 'mid', 'turncard', String(i)) : '');
+        const h = fl.map(f => chip(`⚠ 확인 필요 · ${esc(short(f.text, 24))}`, 'bad')).join('') + ch.slice(0, 8).map(c => chip(`${c.icon} ${esc(c.label)} ${typeof c.to === 'number' && typeof c.from === 'number' ? (c.f === 'time' ? '' : signed2(c.to - c.from)) : esc(c.to)}`
+            + `${c.why ? ` · ${esc(short(c.why, 12))}` : ''}`, c.kind === 'bad' || (typeof c.to === 'number' && c.to < c.from) ? 'bad' : 'good', 'turncard', String(i))).join('') + (ch.length > 8 ? chip(`+${ch.length - 8}`, 'mid', 'turncard', String(i)) : '');
         if (!box) { box = document.createElement('div'); box.className = 'ml-msg ml-scope'; el.after(box); }
         if (box.dataset.h !== h) { box.innerHTML = h; box.dataset.h = h; applyTr(box); }
     }
