@@ -39,7 +39,12 @@ export function toolbar(appId) {
 // 손으로 고친 값 → 마지막 답에 (기록에 ✋ · 줄마다 되돌리기)
 const lastAI = () => { const c = ctx().chat ?? []; for (let i = c.length - 1; i >= 0; i--) if (!c[i].is_user && !c[i].is_system) return i; return -1; };
 export function handLines(lines, why, src = 'hand') {
-    const i = lastAI(); if (i < 0) { toast('답이 하나라도 있어야 고칠 수 있어요', 'bad'); return false; }
+    const i = lastAI();
+    if (i < 0) { // AI 답이 아직 없으면 시작 상태에 붙임 (첫 답이 오면 그 위에서 이어짐)
+        const meta = getMeta(); if (!meta) return false;
+        for (const ln of lines) { const k = ln.slice(0, ln.indexOf(':')).trim(), v = ln.slice(ln.indexOf(':') + 1).trim(); if (k && v) (meta.preHand ??= []).push({ k, v, why: short(why, 30), src }); }
+        saveMeta(); app.refresh?.(true); return true;
+    }
     const m = ctx().chat[i], sl = msgData(m, true);
     if (!sl.ops) sl.ops = readOps(m.mes);
     for (const ln of lines) { const k = ln.slice(0, ln.indexOf(':')).trim(), v = ln.slice(ln.indexOf(':') + 1).trim(); if (k && v) (sl.hand ??= []).push({ k, v, why: short(why, 30), src }); }

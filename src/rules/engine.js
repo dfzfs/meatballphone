@@ -755,9 +755,13 @@ export function fold(force = false) {
     // 빠른 길: 채팅 · 마지막 메시지 · 스와이프 · 설정집 저장 번호가 그대로면 지난 결과 (선택지 미리 보기처럼 한 화면에 여러 번 부를 때)
     const last = chat[chat.length - 1], qk = `${id}|${chat.length}|${last ? sigOf(last) : ''}|${metaRev}|${meta.book === quick.book ? 1 : 0}`;
     if (!force && quick.r && quick.key === qk) return quick.r;
-    const bsig = hash(JSON.stringify(meta.book) + JSON.stringify(meta.start ?? {}) + (meta.startAt ?? 0) + JSON.stringify(meta.ruleVers ?? []));
+    const bsig = hash(JSON.stringify(meta.book) + JSON.stringify(meta.start ?? {}) + (meta.startAt ?? 0) + JSON.stringify(meta.ruleVers ?? []) + JSON.stringify(meta.preHand ?? []));
     if (force || cache.chatId !== id || cache.bookSig !== bsig) cache = { chatId: id, bookSig: bsig, sig: [], snap: [], needs: [], changes: [], flags: [], base: null, last: null };
-    if (!cache.base) cache.base = startState(meta);
+    if (!cache.base) {
+        cache.base = startState(meta);
+        // ✋ AI 답이 아직 없을 때 고친 것(다른 곡 · AI로 수정 · 직접 고치기)은 시작 상태에 붙인다
+        if (meta.preHand?.length) { const ch = [], x = makeCtx(meta.book, cache.base, ch, []); for (const o of meta.preHand) { try { applyOp(meta.book, cache.base, x, o.k, o.v, -1, o.src ?? 'hand', ch); } catch (e) { console.warn('[미트볼폰] 시작 고침 건너뜀', o, e); } } }
+    }
     let from = 0;
     while (from < chat.length && from < cache.sig.length && cache.sig[from] === sigOf(chat[from])) from++;
     // 바뀐 곳 바로 앞의 사진에서 다시 시작

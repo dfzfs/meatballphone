@@ -1193,7 +1193,7 @@ export async function onAct(act, v, el) {
 }
 // 손으로 고친 값 → 마지막 답에 이유와 함께 (기록 · 타임라인에 ✋로 보임)
 export function hand(line, why) {
-    const i = lastAI(); if (i < 0) { toast('답이 하나라도 있어야 고칠 수 있어요', 'bad'); return; }
+    const i = lastAI(); if (i < 0) { import('./tools.js').then(m => m.handLines([line], why, 'hand')); return; } // 답이 아직 없으면 시작 상태에
     const m = ctx().chat[i], sl = msgData(m, true), k = line.slice(0, line.indexOf(':')), v = line.slice(line.indexOf(':') + 1).trim();
     sl.hand = [...(sl.hand ?? []), { k, v, why }]; sl.rev = (sl.rev ?? 0) + 1; bumpMeta(); syncSwipe(m); saveChatSoon(); app.refresh?.();
 }
