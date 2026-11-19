@@ -3,7 +3,7 @@ import { clone, hash } from './util.js';
 
 export const MODULE = 'meatlite';
 export const OLD = 'statussim';
-export const VERSION = '0.8.0';
+export const VERSION = '0.9.0';
 export const DATA_V = 2;
 export const TITLE = '미트볼 라이트';
 export const INJ = { facts: 'meatlite_facts', hint: 'meatlite_hint', rule: 'meatlite_rule' };
@@ -62,6 +62,7 @@ export const MODS = [
     { id: 'quote', icon: '📜', name: '한 구절' },
     { id: 'mind', icon: '💭', name: '속마음' },
     { id: 'custom', icon: '🧩', name: '내 탭' },
+    { id: 'traits', icon: '🧬', name: '특성 · 야망' },
 ];
 export const MOD_IDS = MODS.map(m => m.id);
 export const modName = (id) => MODS.find(m => m.id === id)?.name ?? id;

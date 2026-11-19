@@ -6,6 +6,7 @@ import { placeOf } from '../rules/book.js';
 import { TABS, RENDER, onAct, changeRow, setRecFilter } from './tabs.js';
 import { home, market, cat, APPS, appOf, installed, markSeen } from './home.js';
 import { toolbar, onTool, TOOL_ACTS, applyGloss } from './tools.js';
+import { traitsView, traitAct, TRAIT_ACTS } from './traits.js';
 import { chip, sheet, bar } from './kit.js';
 
 import { mascot } from './mascot.js';
@@ -61,7 +62,7 @@ export function closeSheet() { document.getElementById('ml-full')?.remove(); doc
 export function drawSheet() {
     const el = document.getElementById('ml-full'); if (!el) return;
     const r = fold(); if (!r) { closeSheet(); return; }
-    const R2 = { ...RENDER, home, market, cat };
+    const R2 = { ...RENDER, home, market, cat, traits: traitsView };
     if (!R2[cur] || (appOf(cur) && !installed(appOf(cur)))) cur = 'home';
     const view = past != null ? { ...r, S: r.states[past] ?? r.S } : r;
     const meta = getMeta(), a = appOf(cur);
@@ -85,6 +86,7 @@ async function clickHandler(e) {
     const a = e.target.closest('[data-act]'); if (!a) return;
     const act = a.dataset.act, v = a.dataset.v;
     if (TOOL_ACTS.has(act)) return onTool(act, v);
+    if (TRAIT_ACTS.has(act)) return traitAct(act, v);
     const meta = getMeta();
     if (act === 'close') return closeSheet();
     if (act === 'pause') { meta.paused = !meta.paused; saveMeta(); app.refresh(); return; }

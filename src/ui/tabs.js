@@ -2,7 +2,8 @@
 import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, MODS, slot, syncSwipe, msgKey, userName, bumpMeta } from '../base/st.js';
 import { esc, fmt, signed, short, dateText, DAY, slotName, clamp, num, norm } from '../base/util.js';
 import { row, card, chip, seg, bar, empty, btn, sheet, toast, putInput, form } from './kit.js';
-import { fold, derived, needStage, relStage, nextStage, diceMod, diceParts, worldEvent, priceMul, whereNow } from '../rules/engine.js';
+import { fold, derived, needStage, relStage, nextStage, diceMod, diceParts, worldEvent, priceMul, whereNow, matchOf, myTraits } from '../rules/engine.js';
+import { traitOf } from '../../data/traits.js';
 import { luckOf } from '../rules/luck.js';
 import { QUOTES } from '../../data/quotes.js';
 import { vis } from './tools.js';
@@ -97,15 +98,16 @@ export const setDice = (k, v) => { diceSel[k] = v; };
 function dice(r) {
     const { book, S } = r, attrs = book.me.attrs.map(a => a.name);
     if (!diceSel.attr && attrs.length) diceSel.attr = attrs[0];
-    const P = diceParts(book, S, diceSel.attr), on = level('dice') >= 3 || level('stats') >= 3;
     const lk = luckOf(book, S, ctx().getCurrentChatId?.(), getMeta().luckRoll);
-    const mod = P.filter(x => on || x.why === diceSel.attr || x.why.endsWith('착용')).reduce((a, x) => a + x.n, 0);
+    const P = diceParts(book, S, diceSel.attr, lk), on = level('dice') >= 3 || level('stats') >= 3;
+    const base = (x) => x.why === diceSel.attr || x.why.endsWith('착용') || x.why.startsWith('🧬');
+    const mod = P.filter(x => on || base(x)).reduce((a, x) => a + x.n, 0);
     let ok = 1; for (let k = 2; k <= 19; k++) if (k + mod >= diceSel.dc) ok++;
     const req = S.rolls.slice(-3).reverse();
     let h = req.length ? `<h4 class="ml-h4">이야기에서 요청한 판정</h4>${req.map(q => `<div class="ml-rl tap" data-act="jump" data-v="${q.i}"><i>📣</i>${esc(q.what)}</div>`).join('')}` : '';
     h += `<h4 class="ml-h4">능력치</h4><div class="ml-chips">${attrs.map(a => `<button class="ml-btn xs${diceSel.attr === a ? ' on' : ''}" data-act="dset" data-v="attr:${esc(a)}">${esc(a)} ${signed(S.attrs[a] ?? 0)}</button>`).join('')}</div>`;
     h += `<h4 class="ml-h4">난이도</h4><div class="ml-chips">${DCS.map(([n, v]) => `<button class="ml-btn xs${diceSel.dc === v ? ' on' : ''}" data-act="dset" data-v="dc:${v}">${n} ${v}</button>`).join('')}</div>`;
-    h += `<h4 class="ml-h4">보정 내역 ${on ? '' : '<span>상태 보정은 영향력 3부터 적용</span>'}</h4><div class="ml-rc">${P.length ? P.map(x => `<div class="ml-rl${on || x.why === diceSel.attr || x.why.endsWith('착용') ? '' : ' dim'}"><i>${x.fate ? '🔮' : x.n < 0 ? '⬇️' : '⬆️'}</i>${esc(x.why)} <b class="${x.n < 0 ? 'neg' : 'pos'}">${signed(x.n)}</b></div>`).join('') : '<div class="ml-rl dim"><i>·</i>보정 없음</div>'}<div class="ml-rl"><i>🎯</i>d20 ${signed(mod)} ≥ ${diceSel.dc} <span>성공 확률 ${Math.round(ok / 20 * 100)}%</span></div></div>`;
+    h += `<h4 class="ml-h4">보정 내역 ${on ? '' : '<span>상태 보정은 영향력 3부터 적용</span>'}</h4><div class="ml-rc">${P.length ? P.map(x => `<div class="ml-rl${on || base(x) ? '' : ' dim'}"><i>${x.fate ? '🔮' : x.n < 0 ? '⬇️' : '⬆️'}</i>${esc(x.why)} <b class="${x.n < 0 ? 'neg' : 'pos'}">${signed(x.n)}</b></div>`).join('') : '<div class="ml-rl dim"><i>·</i>보정 없음</div>'}<div class="ml-rl"><i>🎯</i>d20 ${signed(mod)} ≥ ${diceSel.dc} <span>성공 확률 ${Math.round(ok / 20 * 100)}%</span></div></div>`;
     const last = getMeta().recent?.rolls?.[0];
     h = `<div class="ml-dhero"><button class="ml-dbtn big${last && Date.now() - (last.at ?? 0) < 2500 ? (last.d === 20 ? ' burst' : last.d === 1 ? ' shake' : '') : ''}" data-act="roll" data-v="${mod}">${d20Svg(last?.d ?? 20, last ? `${last.res.includes('성공') ? 'ok' : 'no'}${last.d === 20 ? ' crit' : last.d === 1 ? ' fumble' : ''}` : '')}${last?.d === 20 && Date.now() - (last.at ?? 0) < 2500 ? `<span class="ml-spark">${[0, 1, 2, 3, 4, 5, 6, 7].map(i => `<i style="--a:${i * 45}deg">✦</i>`).join('')}</span>` : ''}</button><div class="ml-dres">${last ? `<b class="${last.res.includes('성공') ? 'pos' : 'neg'}">${esc(last.res)}</b><span>${last.d}${signed(last.tot - last.d)} = ${last.tot}</span>` : '<b>굴려 볼까요?</b><span>주사위를 눌러요</span>'}</div><div class="ml-dodds"><span style="--p:${Math.round(ok / 20 * 100)}%"></span><b>${Math.round(ok / 20 * 100)}%</b><small>성공</small></div></div>` + h;
     h += `<h4 class="ml-h4">오늘 운세 주사위</h4>${lk.rolled ? `<div class="ml-scene luck"><i>🍀</i><span><b>${esc(lk.text)}</b><small>🎲 ${lk.d} · 이야기 속 하루에 한 번</small></span></div>` : `<div class="ml-scene luck tap" data-act="luckroll"><i>🎲</i><span><b>오늘 운세 굴리기</b><small>선택지에 🍀 · ⚠로 반영돼요</small></span><em>굴리기</em></div>`}`;
@@ -165,6 +167,7 @@ function relCard(r, name, inSheet = false) {
         if (V('call')) L.push(`<div class="ml-rl"><i>🗣</i><b>${esc(st.call)}</b><span>· ${esc(st.act)}</span></div>`);
         if (V('next') && nx && !p?.noLove) L.push(`<div class="ml-rl"><i>🔓</i>다음 「${esc(nx.name)}」까지 ${hide ? '조금 더' : `애정 ${nx.at - x.aff}`} <span>→ ${esc(nx.call)} · ${esc(nx.act)}</span></div>`);
         if (V('last') && last) L.push(`<div class="ml-rl tap" data-act="jump" data-v="${last.i}"><i>${last.c.icon}</i>최근 ${hide ? '' : `<b class="${last.c.to < last.c.from ? 'neg' : 'pos'}">${signed(last.c.to - last.c.from)}</b>`} ${esc(last.c.why)} <span>#${last.i}</span></div>`);
+        if (V('match')) { const m = matchOf(book, name); const tr = (p?.traits ?? []).map(id => traitOf(id)).filter(Boolean); if (m.sign || tr.length) L.push(`<div class="ml-rl"><i>${m.sign?.icon ?? '🧬'}</i>${m.sign ? `${m.sign.name}` : ''}${tr.length ? ` <span>${tr.map(t => `${t.icon}${t.name}`).join(' · ')}</span>` : ''}${m.mul !== 1 ? ` <b class="${m.mul > 1 ? 'pos' : 'neg'}">궁합 ×${m.mul}</b>` : ''}</div>`); }
         if (V('want') && x.want) L.push(`<div class="ml-rl"><i>🎯</i>${esc(x.want)}</div>`);
         if (x.jealous) L.push(`<div class="ml-rl"><i>💢</i>${esc(x.jealous)}</div>`);
         if (x.life) L.push(`<div class="ml-rl"><i>🌙</i>${esc(x.life)}</div>`);
@@ -367,14 +370,17 @@ export async function onAct(act, v, el) {
             meta.mods[a.mod] = act === 'install'; saveMeta(); app.refresh?.(); toast(act === 'install' ? `${a.icon} ${a.name} 받았어요` : `${a.name} 지웠어요`); return;
         }
         case 'luckroll': {
-            const d = 1 + Math.floor(Math.random() * 20); meta.luckRoll = { day: Math.floor(r.S.t / DAY), d }; saveMeta();
+            const T = myTraits(meta.book), r1 = 1 + Math.floor(Math.random() * 20), r2 = 1 + Math.floor(Math.random() * 20);
+            const d = T.some(t => t.luck === 'best') ? Math.max(r1, r2) : T.some(t => t.luck === 'worst') ? Math.min(r1, r2) : r1;
+            meta.luckRoll = { day: Math.floor(r.S.t / DAY), d, two: T.some(t => t.luck) ? [r1, r2] : null }; saveMeta();
             toast(`🎲 ${d}${d === 20 ? ' · 대길!' : d === 1 ? ' · 대흉…' : ''}`, d >= 11 ? 'good' : 'bad'); app.refresh?.(); return;
         }
         case 'dset': { const [k, x] = v.split(':'); setDice(k, k === 'dc' ? Number(x) : x); app.refresh?.(); return; }
         case 'rollattr': setDice('attr', v); app.openSheet?.('dice'); return;
         case 'roll': {
             const mod = Number(v), d = 1 + Math.floor(Math.random() * 20), tot = d + mod;
-            const res = d === 20 ? '대성공' : d === 1 ? '대실패' : tot >= diceSel.dc ? '성공' : '실패';
+            const T = myTraits(meta.book), fum = Math.max(1, ...T.map(t => t.fumble ?? 1)), calm = T.some(t => t.noFumble);
+            const res = d === 20 ? '대성공' : d <= fum && !calm ? '대실패' : tot >= diceSel.dc ? '성공' : '실패';
             const text = `(🎲 ${diceSel.attr} 판정: d20 ${d}${mod ? ` ${signed(mod)}` : ''} = ${tot} vs ${diceSel.dc} → ${res})`;
             document.querySelectorAll('.ml-d20').forEach(x => x.classList.add('spin')); await new Promise(res => setTimeout(res, 650));
             meta.recent.rolls = [{ text, res, d, tot, at: Date.now() }, ...(meta.recent.rolls ?? [])].slice(0, 5); saveMeta();
