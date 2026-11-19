@@ -1,1052 +1,180 @@
-// 미트볼 상태창 (Meatball Stats) — SillyTavern UI extension
-// 어떤 카드·세계관에도 붙는 상태창. 모든 칸은 AI가 처음 채우고, 직접 편집 · 추가 지시 · 다시 생성이 된다.
-import {
-    rev, ctxReset, app, ctx, settings, saveSettings, migrateParts, getMeta, saveMeta, isActive,
-    ready, modOn, esc, splitBar, TITLE, LOG, VERSION, MODULE, rand, ssErr, ssWarn, ssNote, SLOT_SEL, isSlotEl, sealMeta, checkSeal, loadPure, applyTidyStyle,
-} from './src/core.js';
-import { applyGuardLook } from './src/guard.js';
-import { opInfo, blockJunk } from './src/engine.js';
-import {
-    shiftSwipeAnchors, clampAdjust, shiftForDelete, noteGeneration, compute, buildInjection, setInjection, addAdjust, stashStatus, stashAllSwipes,
-    sideSweep, bakedLabels, rebindToUser, shiftSwipeKeys, drawerOps, setDrawer, extractOps, ssValue, undoLast, hasStatus, autoBake, slimLegacy,
-} from './src/engine.js';
-import { analyzeMessage } from './src/ai.js';
-import { mainBusy } from './src/prompts.js';
-import { confirmPopup, applyTheme, mascot, popup } from './src/kit.js';
-import { ensureUI, rerenderPanels, openRoll, panels, renderHud } from './src/shell.js';
-import { F, loadWanted } from './src/feat.js'; // ⚡ 켠 기능만 불러오기 (연락 · 미니홈피 · 점집 · 새 지도)
-import { startViewTr, translateView, scheduleFill, checkKorean, fixDict } from './src/translate.js';
-import { notify } from './src/notify.js';
-import { offerCard, followBranch } from './src/safe.js';
-import { toggleStar, PRESETS } from './src/extra.js';
-import { setBase } from './src/shell.js';
-import { initMascot } from './src/mascot.js';
-import { startErrorCapture } from './src/report.js';
-import { openPip, pipWanted, markSkip, seriousList } from './src/pip.js';
-import { maybeTip, maybeLaterWarn } from './src/tips.js';
-import { registerCommands } from './src/commands.js';
-import { renderSettings } from './src/settings_ui.js';
+// 미트볼 라이트 — 실리태번 이벤트 연결
+import { app, ctx, settings, saveSettings, getMeta, saveMeta, slot, syncSwipe, ready, MODULE, OLD, VERSION, TITLE, INJ, MODS, DATA_V } from './src/base/st.js';
+import { esc, short, tokens } from './src/base/util.js';
+import { readOps, stripTags, hasTag } from './src/rules/tags.js';
+import { fold, resetCache } from './src/rules/engine.js';
+import { normBook } from './src/rules/book.js';
+import { ruleText, factText, injTokens } from './src/rules/inject.js';
+import { fillBook, templateBook, supplement, stats as aiStats } from './src/rules/ai.js';
+import { drawFrame, drawChips, drawSheet, openSheet, closeSheet, openPast, bindOuter } from './src/ui/frame.js';
+import { sheet, toast, row, card } from './src/ui/kit.js';
+import { findAll } from './src/extra/find.js';
+import { mount as mountApi, announce } from './src/extra/api.js';
+import { backup, restore, toCard, fromCard, migrateOld, oldActive } from './src/extra/safe.js';
 
-try { startErrorCapture(); } catch { /* 오류 기록은 없어도 동작 */ }
+const perf = { turns: [], refresh: [] };
+let resting = false;
 
-const REGEX_IDS = { show: 'b7c1a0e2-5a1d-4f0e-9a51-55a1a0c05501', strip: 'b7c1a0e2-5a1d-4f0e-9a51-55a1a0c05502' };
-
-// ───── 메시지 변동 칩 ─────
-// 칩이 없는 옛 답(굳힌 기록)은 한 번 손본 뒤엔 건너뛴다 — 긴 채팅에서 갱신마다 수천 개를 훑던 것 줄이기 (v2.7)
-let doneEl = new WeakMap();
-app.redecorate = () => { doneEl = new WeakMap(); decoDirty = true; };
-// 같은 상태 · 같은 화면을 방금 훑었으면 전부 다시 돌지 않고 마지막 답 몇 개만 본다 (한 턴에 두 번씩 모든 답을 돌던 것 — 「생성 완료」 신호 뒤의 두 번째)
-let decoStamp = null, decoDs = '', decoDirty = true;
-// 꼬리만 훑기: 화면 앞쪽(첫 답 · 설정 · 앨범 · 굳힌 자리)이 그대로이고 답이 뒤에 더해지기만 했으면, 칩 글이 달라진 첫 답부터만 본다 (예전엔 턴마다 화면의 모든 답을 돌았음)
-let decoHead = '', decoCount = 0, decoLastId = -1, decoSnaps = null, decoLastAI = -1, decoLen = 0;
-// v2.7.18: 답을 쓰는 동안 숨긴 칩은 「생성 완료」 신호에서만 다시 붙였다 → 정지 버튼 · 다른 확장의 조용한 생성 뒤엔 한동안 칩이 사라졌음
-// → 숨길 때마다 생성이 끝났는지 1초마다 살펴보고, 끝나면 바로 다시 붙인다
-let chipWait = null;
-function waitChips() {
-    if (chipWait) return;
-    let n = 0;
-    chipWait = setInterval(() => {
-        if (mainBusy() && ++n < 600) return;
-        clearInterval(chipWait); chipWait = null;
-        try { decorateAll(); } catch (e) { ssNote('칩 붙이기 실패', e); }
-    }, 1000);
-}
-// v2.7.21: 칩이 붙은 뒤 다른 확장(번역 등)이 본문을 다시 그리며 칩 자리를 지우면, 다음 사건까지 칩이 안 보였다 (칩 점검 「칩 자리가 사라졌어요」)
-// → #chat 의 바뀜을 지켜보다가 칩이 있어야 할 답에서 칩 자리가 사라졌으면 다시 붙인다 (모아서 한 번 · 칩이 없어야 할 답 · 쓰는 중인 답은 건너뜀)
-let healTimer = null, healN = 0, healAt = 0;
-function needsChip(mesEl) {
-    const i = Number(mesEl.getAttribute('mesid')); if (Number.isNaN(i)) return false;
-    const snap = app.current?.snaps.get(i), set = settings();
-    if (!snap || set.msgCard === 'off' || !(snap.labels.length || snap.roll)) return false;
-    return !slotAlive(mesEl);
-}
-// 칩이 붙어 있나: 지난번에 채운 칩 자리를 기억해 두고 그것부터 본다 (긴 채팅에서 답마다 querySelectorAll을 돌던 것) — 그 자리가 지워졌으면 예전처럼 직접 찾는다
-function slotAlive(mesEl) {
-    const s = mesEl._ssLive; if (s && s.firstChild && mesEl.contains(s)) return true;
-    for (const x of mesEl.querySelectorAll(SLOT_SEL)) if (x.firstChild) { mesEl._ssLive = x; return true; }
-    return false;
-}
-const sameLabels = (a, b) => { if (a === b) return true; if (!a || !b || a.length !== b.length) return false; for (let k = 0; k < a.length; k++) if (a[k] !== b[k]) return false; return true; };
-function healChips() {
-    healTimer = null;
-    if (!app.current || mainBusy()) return;
-    const now = Date.now(); if (now - healAt > 5000) healN = 0; healAt = now;
-    if (++healN > 20) return; // 다른 확장과 서로 지우고 붙이기를 끝없이 하지 않게 (5초에 20번까지)
-    const lost = [...document.querySelectorAll('#chat .mes')].filter(needsChip);
-    if (!lost.length) return;
-    for (const el of lost) doneEl.delete(el);
-    decoDirty = true;
-    try { decorateAll(); } catch (e) { ssWarn(LOG, 'heal', e); }
-}
-function decorateAll() {
-    if (!app.current) return;
-    watchChat();
-    const set = settings();
-    const baked = getMeta()?.startAt ?? 0; // 굳힌 기록 안의 답은 고쳐도 반영되지 않으니 ✏️를 숨긴다
-    const chat = ctx().chat ?? [];
-    const albumOn = set.albumOn !== false; // v2.7.3: 앨범을 끄면 답마다 단추를 붙이지 않는다
-    const out = !!set.chipOutside; // v2.7.3: 번역 확장이 본문을 숨기면 칩을 본문 밖(아래)에
-    const album = albumOn ? new Set((getMeta()?.album ?? []).filter(x => x.kind === 'mes').map(x => x.key)) : null; // 앨범 확인을 답마다 다시 찾지 않게
-    const lastAI = app.current.lastAI;
-    const outWas = app.chipOutWas ?? false; app.chipOutWas = out;
-    if (outWas !== out) { doneEl = new WeakMap(); decoDirty = true; } // 칩 자리를 바꿨으면 모든 답을 한 번 다시
-    const streaming = mainBusy(); // v2.7.15: 답이 써지는 중인 마지막 메시지엔 칩을 안 붙인다 (글자마다 지워졌다 붙으며 깜빡이던 것) — 다 쓰면 붙음
-    const stampDs = `${domSig()}|${getMeta()?.album?.length ?? 0}|${baked}|${chat.length}`;
-    const quick = !decoDirty && !streaming && decoStamp === app.current && decoDs === stampDs;
-    const chatEl0 = document.getElementById('chat'), firstId = chatEl0?.firstElementChild?.getAttribute('mesid'), lastId = Number(chatEl0?.lastElementChild?.getAttribute('mesid')), count = chatEl0?.childElementCount ?? 0;
-    const head = `${firstId}|${set.msgCard}|${albumOn}|${out}|${getMeta()?.album?.length ?? 0}|${baked}`;
-    let from = -1; // -1 = 전부
-    if (!quick && !decoDirty && !streaming && decoSnaps && head === decoHead && count >= decoCount && lastId >= decoLastId && chat.length >= decoLen && Number.isFinite(lastId)) {
-        const cur = app.current.snaps; from = Math.min(decoLastAI < 0 ? Infinity : decoLastAI, decoLen - 1, decoLastId);
-        for (const [k, sn] of cur) { if (k >= from) continue; const p = decoSnaps.get(k); if (!p || !!p.roll !== !!sn.roll || (p.miss?.length ?? 0) !== (sn.miss?.length ?? 0) || !sameLabels(p.labels, sn.labels)) from = k; }
-        for (const k of decoSnaps.keys()) if (k < from && !cur.has(k)) from = k;
-        if (!(from >= 0)) from = -1;
-    }
-    decoStamp = app.current; decoDs = stampDs; decoDirty = false;
-    decoHead = head; decoCount = count; decoLastId = Number.isFinite(lastId) ? lastId : -1; decoSnaps = app.current.snaps; decoLastAI = lastAI ?? -1; decoLen = chat.length;
-    const one = (mesEl) => {
-        const i = Number(mesEl.getAttribute('mesid'));
-        if (Number.isNaN(i)) return;
-        if (streaming && i === chat.length - 1 && !chat[i]?.is_user) { mesEl.querySelectorAll(SLOT_SEL).forEach(x => x.remove()); doneEl.delete(mesEl); decoDirty = true; waitChips(); return; }
-        const m = chat[i];
-        // 굳힌 답(다시 계산하지 않는 옛 답)도 칩은 계속 보인다 (v2.7.23) — 굳힐 때 적어 둔 글 · 고치기 단추는 없음
-        let snap = app.current.snaps.get(i);
-        if (!snap && i < baked && m && !m.is_user) { const bl = bakedLabels(m); if (bl) snap = { labels: bl, roll: null, alerts: [], baked: true }; }
-        const on0 = !!album && album.size > 0 && !!m && album.has(`${m.send_date}|${m.name}`); // 앨범이 비었으면 답마다 열쇠 글자를 만들지 않는다
-        // v2.7.9: 칩이 있는 답도 내용이 그대로면 건너뛴다 (마지막 AI 답은 칩 점검 때문에 늘 다시) — 단, 칩 자리가 지워졌으면 다시
-        // (v2.8: 예전엔 답마다 긴 글자열 서명을 새로 만들어 비교했다 — 긴 채팅에서 갱신 시간의 절반. 이제 값만 하나씩 비교하고, 바뀐 답만 새로 적는다)
-        const isLast = i === lastAI, p = isLast ? null : doneEl.get(mesEl), lv = i >= baked, hasOps = !!snap && !!(m && drawerOps(m));
-        const same = !!p && p.y === !!snap && p.on0 === on0 && p.mc === set.msgCard && p.al === albumOn && p.out === out
-            && (!snap || (p.lv === lv && p.ml === m?.mes?.length && p.sw === m?.swipe_id && p.ops === hasOps && p.roll === !!snap.roll && p.miss === (snap.miss?.length ?? 0) && sameLabels(p.labels, snap.labels)));
-        if (same && (!albumOn || mesEl._ssStar?.isConnected !== false)
-            && (!snap || set.msgCard === 'off' || !(snap.labels.length || snap.roll) || slotAlive(mesEl))) return;
-        const textEl = mesEl.querySelector('.mes_text');
-        if (!textEl) return;
-        if (!isLast) doneEl.set(mesEl, { y: !!snap, on0, mc: set.msgCard, al: albumOn, out, lv, ml: m?.mes?.length, sw: m?.swipe_id, ops: hasOps, roll: !!snap?.roll, miss: snap?.miss?.length ?? 0, labels: snap ? snap.labels.slice() : null });
-        // 🖼️ 추억 앨범 버튼 (메시지 ⋯ 메뉴 옆)
-        const btns = mesEl.querySelector('.mes_buttons');
-        if (btns && m && !m.is_system && albumOn) {
-            let st = btns.querySelector('.ss-star');
-            if (!st) {
-                st = document.createElement('div'); st.className = 'mes_button ss-star fa-regular fa-images'; st.title = '추억 앨범에 담기'; st.dataset.ssStar = '1';
-                const edit = btns.querySelector(':scope > .mes_edit');
-                if (edit) btns.insertBefore(st, edit); else (btns.querySelector('.extraMesButtons') ?? btns).prepend(st);
-            }
-            const on = on0; mesEl._ssStar = st;
-            if (st.classList.contains('on') !== on) { st.classList.toggle('fa-solid', on); st.classList.toggle('fa-regular', !on); st.classList.toggle('on', on); } // 바뀔 때만 (긴 채팅에서 매번 건드리면 화면 다시 계산)
-        } else if (btns && !albumOn) { btns.querySelector('.ss-star')?.remove(); mesEl._ssStar = null; }
-        const hasCard = snap && set.msgCard !== 'off' && (snap.labels.length || snap.roll);
-        // 🔍 칩 점검: 마지막 AI 답에 칩이 없으면 작은 돋보기 (눌러서 씹혔나 · 안 보이나 확인)
-        const pip = !hasCard && i === lastAI && m && !m.is_user ? pipWanted(i, m) : false;
-        const host = textEl.parentElement ?? textEl;
-        if (out) { if ((hasCard || pip) && !host.querySelector(':scope > .ss-slot.out')) { const sl = document.createElement('div'); sl.className = 'ss-slot out'; textEl.after(sl); } }
-        else if ((hasCard || pip) && !textEl.querySelector(SLOT_SEL)) { const sl = document.createElement('div'); sl.className = 'ss-slot'; textEl.appendChild(sl); }
-        if (outWas && !out) host.querySelector(':scope > .ss-slot.out')?.remove(); // 「본문 밖」을 끈 뒤 남은 것 (끈 그때 한 번만)
-        const editBtn = m && i >= baked && drawerOps(m) && !hasStatus(m.mes) ? `<button class="ss-mchip edit" data-ss-edit="${i}" title="이 답의 상태 변화 고치기"><i class="fa-solid fa-pen"></i></button>` : '';
-        const inText = textEl.querySelectorAll(SLOT_SEL);
-        const outer = out ? host.querySelector(':scope > .ss-slot.out') : null;
-        const slots = outer ? [...inText, outer] : inText;
-        const live = out ? outer : inText[0];
-        mesEl._ssLive = (hasCard || pip) ? live ?? null : null;
-        for (const slot of slots) {
-            if (slot !== live || (!hasCard && !pip)) { if (slot.dataset.ssk !== '') { slot.innerHTML = ''; slot.style.display = 'none'; slot.dataset.ssk = ''; } continue; }
-            if (pip) {
-                const key = `pip|${pip.code}`;
-                if (slot.dataset.ssk === key && slot.firstChild) continue;
-                slot.dataset.ssk = key; slot.style.display = '';
-                slot.innerHTML = `<div class="ss-msgcard ss-scope pip"><button class="ss-mchip pip" data-ss-pip="${i}" title="칩 점검 — ${esc(pip.title)}"><i class="fa-solid fa-magnifying-glass"></i>${pip.code === 'running' ? ' 분석 중…' : pip.code === 'skipped' ? '' : ' 칩 없음?'}</button></div>`;
-                continue;
-            }
-            const rollBtn = snap.roll && i === lastAI ? `<button class="ss-mchip roll" data-roll="${esc(snap.roll.label)}|${snap.roll.dc}"><i class="fa-solid fa-dice-d20"></i> ${esc(snap.roll.label)} 굴리기</button>` : '';
-            // 칩 내용이 그대로면 다시 그리지 않는다 (긴 채팅에서 갱신마다 모든 답의 칩을 새로 그리던 것이 렉의 큰 원인)
-            // ⚠ 못 읽은 줄 (v2.7.23): 누르면 칩 점검이 어떤 줄인지 보여 준다
-            const nMiss = seriousList(snap).length; // 「mood: 좋음」 같은 꾸밈 키는 ⚠ 수에서 뺀다
-            const missBtn = nMiss ? `<button class="ss-mchip pip" data-ss-pip="${i}" title="못 읽고 넘어간 줄 ${nMiss}개 — 눌러서 확인">⚠ ${nMiss}</button>` : '';
-            const key = `${snap.labels.join('\u0001')}|${rollBtn ? 1 : 0}|${editBtn ? 1 : 0}|${nMiss}`;
-            if (slot.dataset.ssk === key && slot.firstChild) continue;
-            slot.dataset.ssk = key;
-            slot.style.display = '';
-            slot.innerHTML = `<div class="ss-msgcard ss-scope">${snap.labels.filter(l => !l.startsWith('🎲')).slice(0, 14).map(l => `<span class="ss-mchip ${/[−-]\d/.test(l) ? 'neg' : /\+\d/.test(l) ? 'pos' : ''}">${esc(l).replace(/\s*-&gt;\s*/g, ' <i class="ss-arrow fa-solid fa-arrow-right-long" aria-label="→"></i> ')}</span>`).join('')}${missBtn}${rollBtn}${editBtn}</div>`;
-        }
-    };
-    if (quick) { let el = document.getElementById('chat')?.lastElementChild; for (let k = 0; el && k < 4; k++, el = el.previousElementSibling) if (el.classList.contains('mes')) one(el); }
-    else if (from >= 0) { for (let el = chatEl0.lastElementChild; el; el = el.previousElementSibling) { if (!el.classList.contains('mes')) continue; one(el); if (Number(el.getAttribute('mesid')) < from) break; } }
-    else document.querySelectorAll('#chat .mes').forEach(one);
-}
-// #chat 감시자는 하나 (예전엔 둘이 같은 곳을 따로 지켜봤음 — 「칩 자리가 지워짐」 · 「칩이 있어야 할 답에 칩이 없음」)
-// ① 번역 확장 등이 답 본문(.mes_text)을 통째로 다시 그려 칩 자리(.ss-slot)가 지워지면 → 잠깐 뒤 다시 붙인다
-//    (미트볼이 칩 안쪽만 바꿀 땐 .ss-slot 자체는 안 지워져서 반복되지 않음)
-// ② 그 밖에 남이 본문을 바꿨으면 → 칩이 있어야 할 답에서 사라졌는지 살펴보고 다시 붙인다 (모아서 한 번 · 5초에 20번까지)
-let chatObs = null, slotTimer = 0;
-const isSlot = (n) => n.nodeType === 1 && (isSlotEl(n) || !!n.closest?.(SLOT_SEL));
-function watchChat() {
-    const chatEl = document.getElementById('chat');
-    if (!chatEl || typeof MutationObserver === 'undefined') return;
-    if (chatObs) { if (chatObs._el === chatEl) return; chatObs.disconnect(); }
-    chatObs = new MutationObserver((muts) => {
-        let slotGone = false, foreign = false;
-        for (const m of muts) {
-            for (const n of m.removedNodes) {
-                if (n.nodeType !== 1) continue;
-                if (isSlotEl(n) || n.querySelector(SLOT_SEL)) slotGone = true;
-                if (!isSlot(n)) foreign = true;
-            }
-            if (!foreign) for (const n of m.addedNodes) if (n.nodeType === 1 && !isSlot(n)) { foreign = true; break; }
-        }
-        // 스트리밍 중엔 본문이 글자마다 다시 그려진다 — 끝난 뒤 한 번만 붙인다
-        if (slotGone && !mainBusy()) {
-            clearTimeout(slotTimer);
-            slotTimer = setTimeout(() => { decoDirty = true; try { decorateAll(); } catch (e) { ssWarn(LOG, 'decorate', e); } }, 80);
-            return;
-        }
-        if (foreign && !healTimer && app.current) healTimer = setTimeout(healChips, 250);
+// ───── 새로 그리기 (한 번에 묶어서) ─────
+let pending = 0;
+export function refresh(force = false) {
+    if (resting) return;
+    if (force) resetCache();
+    cancelAnimationFrame(pending);
+    pending = requestAnimationFrame(() => {
+        const t0 = performance.now();
+        try { drawFrame(); drawChips(); if (document.getElementById('ml-full')) drawSheet(); inject(); announce(); } catch (e) { console.error(`[${TITLE}]`, e); }
+        perf.refresh.push(performance.now() - t0); if (perf.refresh.length > 50) perf.refresh.shift();
     });
-    chatObs._el = chatEl;
-    chatObs.observe(chatEl, { childList: true, subtree: true });
 }
-document.addEventListener('click', async (e) => {
-    const star = e.target.closest('.ss-star[data-ss-star]');
-    if (star) {
-        e.stopPropagation();
-        const i = Number(star.closest('.mes')?.getAttribute('mesid'));
-        if (Number.isFinite(i) && app.current) toggleStar(i);
-        else if (!app.current) toastr.info('상태창을 만든 채팅에서 쓸 수 있어요.', TITLE);
-        return;
-    }
-    const pb = e.target.closest('.ss-mchip.pip');
-    if (pb) { e.stopPropagation(); openPip(Number(pb.dataset.ssPip)); return; }
-    const eb = e.target.closest('.ss-mchip.edit');
-    if (eb) {
-        const i = Number(eb.dataset.ssEdit);
-        const m = ctx().chat?.[i];
-        if (!m) return;
-        const cur = (drawerOps(m) ?? []).map(([k, v]) => `${k}: ${v}`).join('\n');
-        const v = await ctx().Popup.show.input(TITLE, '이 답에서 바뀐 상태 (한 줄에 하나, key: 값). 비우면 변화 없음.', cur, { rows: 8 });
-        if (v === null || v === false || v === undefined) return;
-        setDrawer(m, extractOps(`<meatball>\n${v}\n</meatball>`));
-        await ctx().saveChat?.();
-        refreshNow();
-        return;
-    }
-    const b = e.target.closest('.ss-mchip.roll');
-    if (!b) return;
-    const [label, dc] = splitBar(b.dataset.roll);
-    openRoll(label, Number(dc) || 0);
-});
-
-let notified = new Set();
-function notifyLatest() {
-    if (!app.current) return;
+// ───── 본편 주입 ─────
+let lastInj = { rule: '', facts: '', hint: '' };
+function setInj(o) {
+    const c = ctx(), d = settings().injectDepth;
+    c.setExtensionPrompt(INJ.rule, o.rule ?? '', 1, d, false, 0);
+    c.setExtensionPrompt(INJ.facts, o.facts ?? '', 1, d, false, 0);
+    c.setExtensionPrompt(INJ.hint, o.hint ?? '', 1, d, false, 0);
+    lastInj = o;
+}
+export function inject() {
+    const meta = getMeta();
+    if (!settings().enabled || !ready(meta) || meta.paused || meta.off) return setInj({});
+    const r = fold(); if (!r) return setInj({});
+    const chat = ctx().chat ?? []; let li = chat.length - 1; while (li >= 0 && (chat[li].is_user || chat[li].is_system)) li--;
+    const ft = factText(r, li >= 0 ? r.changes[li] ?? [] : []);
+    setInj({ rule: ruleText(r.book), ...ft });
+}
+app.refresh = refresh; app.inject = inject; app.openSheet = openSheet; app.closeSheet = closeSheet; app.openPast = openPast;
+app.find = () => findAll();
+app.jump = async (i) => {
+    closeSheet();
     const c = ctx();
-    const i = app.current.lastAI;
-    const m = c.chat?.[i];
-    if (!m) return;
-    const key = `${c.getCurrentChatId?.()}:${i}:${m.swipe_id ?? 0}:${m.mes?.length}`;
-    if (notified.has(key)) return;
-    notified.add(key);
-    for (const a of app.current.snaps.get(i)?.alerts ?? []) {
-        if (a?.kind === 'confess') { askBond(a.who); continue; }
-        notify(a);
-    }
-}
-// 💌 고백이 오간 것 같을 때: 연인으로 확정할지 물어본다 (로맨스 보정 ① · 「아직」을 골라도 관계 탭에 버튼은 남는다)
-let bondAsking = false;
-async function askBond(who) {
-    if (!settings().romBond || bondAsking) return;
-    const r0 = app.current?.state?.data?.rel?.user?.find(x => x.name === who);
-    if (r0?.bond) return; // 이미 연인 (스와이프·다시 생성으로 같은 알림이 또 와도 다시 안 물어봄)
-    notify({ kind: 'text', icon: '💌', title: `${who}와(과) 고백이 오갔어요`, text: '관계 탭에서 언제든 「연인 확정」', tab: 'rel' }); // 알림함에도 남김
-    bondAsking = true;
-    try {
-        const el = document.createElement('div');
-        el.className = 'ss-root ss-scope ss-bondask';
-        el.innerHTML = `${mascot('party', 'lg')}<h3>💌 ${esc(who)}와(과) 고백이 오간 것 같아요</h3>
-            <p>두 사람, 이제 연인으로 확정할까요?</p>
-            <p class="ss-hint">「아직」을 골라도 괜찮아요. 관계 탭의 <b>💍 연인 확정</b> 버튼은 그대로 있어서, 마음이 정해지면 언제든 누를 수 있어요.</p>`;
-        const yes = await confirmPopup(el, '💍 네, 좋아요', '🌙 음… 아직 지금을 더 즐길래요');
-        if (yes) {
-            await addAdjust({ ops: [['_bond', who]], label: `💍 ${who}와(과) 고백이 오가 연인이 되었다 (확정)` });
-            toastr.success(`${esc(who)}와(과) 연인이 되었어요 💞`, TITLE);
-        } else toastr.info('좋아요, 지금 이 설렘을 조금 더 즐겨요 🌙', TITLE);
-    } catch (e) { ssErr(LOG, 'askBond', e); } finally { bondAsking = false; }
-}
-app.askBond = askBond;
-app.showWhatsNew = (all = true) => showWhatsNew(all);
-
-// ───── 📣 업데이트 알림: 버전이 바뀌면 「바뀐 점」을 한 번 보여 준다 ─────
-const CHANGELOG = [
-    { v: '2.10.1', title: '🕐 내가 쓴 일도 반영 · 「이름 | +2」 읽기', items: [
-        ['✍ 내 글에 쓴 일도', '「5분 뒤」 「편의점으로 갔다」 「빵을 샀다」처럼 내가 직접 쓴 일도 AI가 변화 기록에 적도록 안내해요 (예전엔 AI가 쓴 일만 적어서 시간 · 장소가 그대로였어요).'],
-        ['🕐 시간 칸 설명', '간결 · 초압축 · 변화 위주로 보낼 때도 「period = 지금 시간」 설명이 한 줄 붙어요. 분 단위로 흐르게 하려면 달력 탭 › 🕐 시간 적는 법을 「24시간」으로.'],
-        ['🐞 「aff: 이름 | +2」', 'AI가 숫자를 | 뒤에 적으면 「못 읽은 줄」로 넘어가던 것 — 이제 애정 · 우정에 그대로 들어가요. 그 뒤의 | 는 메모.'],
-    ] },
-    { v: '2.10.0', title: '💭 속마음 탭 · 관전자 · 세포들 · 장신구 여러 개 · 인형 기분 표정', items: [
-        ['💭 속마음 탭 (사람 묶음)', '속마음이 프로필 카드에서 빠지고 사람 › 💭 속마음 탭(관계 옆)으로 옮겼어요. 설정 · 인물 속마음 · 관전석을 여기서 다 봐요.'],
-        ['👀 관전자', '이야기 밖에서 채팅을 구경하는 사람들 — 열성팬 · 안티팬 · 공동작가 · 주변인 · 실시간 채팅 · 직접 만든 관전자. 여러 개 켜면 턴마다 1~2명이 랜덤으로 한마디. 「인물 속마음도 섞기」로 인물도 가끔.'],
-        ['🧠 세포들', '내 머릿속에 사는 동글동글 파스텔 떡 세포 10마리 중 고른 것에서 1~2마리 — 쪼개면서 돌려까는 쪼개세포 · 욕세포 · 우울세포 · 설렘세포 · AI 문장 표현만 지적하는 지적세포 · 불안 · 이성 · 먹보 · 뇌절 · 잠세포.'],
-        ['🗣 어조 · 짧게', '애교체 · 변태체 · 욕설 · 츤데레 · 시니컬 · 인터넷체 · 사투리 · 중2병 · 집사 · 노년체 · 아재개그 · 직접 쓰기 · 어조 만들기. 긴 독백 금지 — 한숨에 끝나는 한마디만. 글 + 카모지 방식 추가 · 카모지 80여 개에서 매번 다르게.'],
-        ['✏ 전부 고쳐요', '프리셋은 시작점일 뿐 — 관전자 · 세포 · 어조마다 이름 · 아이콘 · 색 · 표정 · AI에게 가는 설명 · 그 친구만의 어조를 고치고, 지우고, 직접 만들어요. 한 턴 인원 · 확률 · 글자 수 · 말풍선 시간 · 위치 · 짧게 규칙 글까지 「🔢 세부 숫자 · 규칙」에서.'],
-        ['🌐 언어 · 🗑 지우기', '속마음 · 관전자 한마디만 따로 언어(한국어 · English · 日本語 · 中文 · 직접). 한마디마다 ✕ · 「전부 지우기」. 글자 수 제한은 기본으로 없앴어요 (말이 중간에 끊기던 것).'],
-        ['✨ 뜰 때 연출', '새 한마디가 오면 HUD · 미니바 옆에 컨셉마다 다른 말풍선이 톡 (하트 · 덜덜 · 원고지 · 채팅창 · 생각 구름). 속마음 탭에서 끄거나 미리 보기.'],
-        ['👕 장신구 · 겉옷 여러 개', '내 인형: 기본 칸에 모자 · 장신구 2가 늘었고 「칸 늘리기」로 16칸까지. 장신구 · 겉옷은 겹쳐 입혀져요. 다른 인물: 겉옷 2벌 · 장신구 4개까지.'],
-        ['😊 인형 표정도 기분 따라', '다른 인물 인형의 표정을 「기분 따라」로 두면 최근 속마음을 읽어 화남 · 하트 · 수줍 · 놀람… 으로 바뀌어요. 속마음이 없으면 호감 · 질투로.'],
-    ] },
-    { v: '2.9.1', title: '블루레몬 개조를 원작에 — 버그 고침 · 변화 장부 · 화면 다듬기', items: [
-        ['🐞 숫자가 굳던 것 · 지운 답이 덮이던 것', '「한국어 칸을 영어 저장으로」가 이제 글만 바꿔요 (예전엔 그때의 애정 · 돈이 그 기록에 굳어서 앞 답을 지워도 안 빠졌어요). 중간 답을 지우면 그 뒤의 저장 기록도 같이 당겨져요. 날짜 도장 때문에 같은 칸이 계속 「한국어 칸」으로 잡히던 것도 고쳤어요.'],
-        ['🐞 AI가 적는 줄 읽기', '「loc: 집 -> 편의점」은 편의점으로, 「사무실 - 5층 라운지」는 사무실 안 5층 라운지로 읽어요. 「npc: +A | …, +B | …」처럼 한 줄에 여럿을 적어도 모두 들어가요. 「유나」와 「유나린」, 「Ann」과 「Anna」를 더는 같은 사람으로 합치지 않아요. 태그가 빠진 긴 답은 앞 · 뒤를 반씩 읽어요.'],
-        ['🌐 번역', '번역 모델이 원문에 없는 꺾쇠(「 」)를 붙여 돌려준 것을 바로잡아요 (이미 굳은 것도 채팅을 열 때 한 번). 요일 · 달 · 시간대 · 날씨는 번역기를 부르지 않고 바로 사전에. 알림 글도 화면 번역을 거쳐요. 용어집이 길면 이번 글에 나온 이름 줄만 보내요. 영어 저장 바꾸기 전에 묻기 · 열 때 저절로 바꾸기를 확장 설정에서 고를 수 있어요.'],
-        ['📒 다시 만들 때 변화 장부', '「채팅 전체」로 다시 만들면 본편 AI가 답마다 남긴 애정 · 우정 · 돈 합과 마지막 장소 · 시간을 같이 보내요 (긴 채팅으로 다시 만들면 관계가 처음 만난 사이처럼 낮게 나오던 것). 「최근 채팅」으로 읽을 때 메시지마다 읽을 글자 수도 정할 수 있고, 만들기 창에 실을 양(글자 · 토큰)이 보여요.'],
-        ['👥 프로필 · 합치기', '관계에만 있고 프로필이 없는 사람이 있으면 프로필 탭에 「프로필 더하기」(AI 0회)가 떠요. 합치기 창은 같은 사람일 수 있는 줄(직함 ↔ 이름)을 ⭐로 앞에 보여 줘요. 만들기 때 이름 칸엔 직함 대신 진짜 이름을 쓰게 했어요.'],
-        ['📈 그래프 · 🗺 지도 · 🧠 모델', '변화 그래프의 사람 선은 그 사람 얼굴 색 · 색이 가까우면 점선 · 범례를 누르면 그 사람만 진하게. 노선도 이름표에 층(「7F」 「B2」)이 보여요 (장소 설명 · 카드/채팅 로어북의 「7F: 이름, 이름」). 연결 프로필 없이 모델 이름만 골라 확장 AI · 번역을 보낼 수 있어요.'],
-        ['✨ 화면 다듬기', '「닫기」뿐인 창은 오른쪽 위 ✕로 · 폰에서 누를 자리 44px · 프로필의 이름표 → 값을 두 열로 · 긴 칩은 줄 바꿈 · 종 배지 「9+」 · 긴 창에 「맨 위로」 · AI로 수정 칸에 「작가 노트 넣기」. 확장 설정 › 데이터 · 화면에서 화면 글꼴(실리 테마 글꼴 따라가기 등) · 선 아이콘 · 흐림 효과 · 앨범 단추를 고를 수 있어요.'],
-    ] },
-    { v: '2.9.0', title: '심플 모드 · 바로 시작 · 생활 틀 · 노선도 지도 · 점집 · 도트 인형', items: [
-        ['🍙 심플 모드 (채팅마다)', '탭 없이 타일 판 하나로 보는 모드예요. 상태창을 만들 때 「심플」과 「기본」 중에서 골라요. 추천 6칸에 퀘스트 · 소식 · 운명 · 음악 · 내 탭만 더할 수 있어요.'],
-        ['🧆 바로 시작 (새로 설치한 분만 기본 켬)', '상태창이 없는 채팅을 열면 추천 6칸의 틀이 바로 생겨요 (AI 0회). 관리 › 쓸 기능에서 칸을 고르고 「고른 대로 채우기」를 누르면 그때 AI가 채워요. <b>업데이트로 받은 분은 꺼진 채로 와요</b> — 예전처럼 「만들기」를 눌러야 생겨요. 켜려면 확장 설정 › 화면 · 알림 · 기록 › 「상태창이 없는 채팅을 열면 틀을 바로 만들기」.'],
-        ['📣 단체방을 본편에 · 📚 연락처별 로어북 · 🖼 상태 카드 그림 · 📊 이 채팅 크기', '단체방 위 확성기 단추로 방마다 요약 · 고른 말풍선을 본편에 알릴 수 있어요. 연락처 ⋮ 메뉴에서 그 사람이 읽을 로어북을 골라요. 관리 탭에 상태 카드 그림(PNG) · 이 채팅 크기 단추가 생겼어요.'],
-        ['🔮 점집 (선택 · 기본 끔)', '관리 › 쓸 기능 › 운명 칸 밑에서 타로 · 수정구슬 · 무당(굿 포함)을 하나씩 켜면 운명 탭 맨 아래에 점집이 생겨요. 복채를 내고 어떤 인물이든 운세를 봐요. 운세는 주사위가 먼저 정해서 듣기 좋은 소리만 하지 않아요.'],
-        ['🚇 새 지도 (선택 · 기본 끔)', '관리 › 쓸 기능 › 지도 칸 밑의 「새 지도」를 켜면 지도가 노선도로 바뀌어요 (장소 = 역 · 길 = 색깔 노선 · 이동 모션). 인물 이모지 핀, 건물 정면도 · 층별 평면도, 본거지 집 안 그림, 지도 꾸미기. 끄면 예전 지도 그대로예요 · 화면만이라 토큰 0.'],
-        ['🎮 게임 모드 · 🍞 생활 틀 (채팅마다 · 기본 롤플)', '관리 › 쓸 기능 맨 위에서 생활 · 융합 · 아포칼립스를 고르면 저절로 줄어드는 욕구 게이지(단계 · 바닥) · 미트볼 상점 · 생활비 · 상태 딱지 · 화면 연출이 들어가요. 기본은 「롤플」이라 예전과 같아요.'],
-        ['🧸 도트 인형 · 👕 꾸미기 탭 (채팅마다 · 기본 끔)', '관리 › 쓸 기능 맨 위의 「🎨 꾸미기 탭」을 켜면 인물마다 도트 인형을 꾸미고 옷을 입혀요 (얼굴형 · 눈 · 색 · 칸 단위로 직접 그리기). 다마고치 화면은 욕구 탭에.'],
-        ['💭 속마음 개편', '속마음이 프로필 탭에서 인물마다 프로필 밑에 떠요. 「💗? 엿보기」 단추는 없어졌어요. 켜고 끄기 · 뜨는 때(매 턴 · 가끔 · 볼 때만)는 관리 › 쓸 기능 › 프로필 칸 밑에서도 골라요.'],
-        ['✋ 퀘스트 완료 확인', '단계가 남은 퀘스트를 AI가 멋대로 「완료」라고 적으면 바로 끝내지 않고 확인을 기다려요 (보상도 확인한 뒤에).'],
-        ['🕐 시간 적는 법', '시간대 · 24시간 · 오전/오후 · 시간대 + 시각 중에서 골라요 (달력 탭 · 채팅마다).'],
-        ['🛡 간섭 차단 · 그 밖의 설정', '다른 확장이 상태창 자료 · 화면에 끼어드는 것 막기(기본 끔), 만들 때 채팅 읽는 방식 · 작가 노트 읽기, 눈 단추로 숨긴 답은 계산에서 빼기(기본 끔), 지우기 전에 확인, 폰 뒤로 가기로 창 닫기. 전부 관리 › 쓸 기능 맨 아래에 모여 있어요.'],
-        ['🧲 변화 줄을 더 잘 읽어요', 'AI가 키를 굵게(**cash**) 적거나 「체력 = 50」 「체력 85/100」 「3,000원 지출」 「잃어버린 반지 완료」(| 없이) 「msg: Leon: 안녕」 「time: +1」처럼 적은 줄을 이제 바르게 읽어요. 예전엔 버려지거나 엉뚱하게 읽혔어요. 숫자 뒤에 「| 이유」를 붙인 줄도요. AI가 돌려주는 JSON이 조금 깨져도(따옴표 · 쉼표 · True/None) 더 잘 살리고, 추론 모델의 생각 과정(<think>)은 문자 답장에 안 들어가요.'],
-        ['🔧 고친 것', '아주 큰 날짜를 적으면 화면이 멈추던 문제, 한 줄이 오류를 내면 그 채팅 계산이 통째로 멈추던 문제(이제 그 줄만 건너뜀), 본거지 탭이 안 열리던 문제 등을 고쳤어요.'],
-    ] },
-    { v: '2.8.0', title: '미니홈피 · 모양 셋 · 부가 기능 탭 · 파도타기/방명록 · 단체방', items: [
-        ['📒 새 화면 「미니홈피」 (선택 · 기본 끔)', '확장 설정 › 데이터 · 화면 › 「전체화면은 미니홈피 모양으로」를 켜면, 상태창의 전체화면이 새 화면으로 열려요 — 위에 메뉴, 왼쪽에 프로필 · 상태, 가운데에 지금 탭, 오른쪽에 일촌 · 퀘스트 · 소식. 켜기 전에는 늘 보던 화면 그대로예요. 무겁게 느껴지면 그 아래 「🪶 가볍게」(옆 창 없이).'],
-        ['🎨 모양 고르기 창 · 모양 세 가지', '상태창을 처음 만들었을 때 · 업데이트 뒤 처음 켰을 때 한 번 떠요: 예전 그대로 · 깔끔 · 도트 · 폰. 「예전 그대로」를 고르면 아무것도 안 바뀌어요. 언제든 「꾸미기 › 모양」에서 다시 골라요.'],
-        ['🎛 꾸미기 모드', '「꾸미기」를 누르거나 빈 곳을 길게 누르면 화면은 그대로 두고 아래 판에서 골라요 — 모양 · 색(포인트 · 밝게/어둡게 · 사진에서 색 뽑기) · 글씨 크기와 글꼴 · 모서리와 여백 · 창 더하기/숨기기. 바꿀 곳(창 제목 · 창 · 카드 · 단추)을 누르면 그 부분만 따로 꾸며요. 「완료」로 저장, 「취소」로 들어오기 전으로.'],
-        ['🪟 창 자리 · 내용', '창 순서 · 폭을 바꾸거나 「자유롭게」로 끌어 옮기고 크기를 바꿔요. 프로필 그림은 비어 있으니 눌러서 넣어요. 창 제목 · 메뉴 이름 바꾸기, 메모 창 · 수치 창 만들기, 글꼴 파일 · 바탕 그림 올리기, 꾸밈 세트 저장 · 채팅별 적용 · 코드로 주고받기는 「더보기」에 있어요.'],
-        ['📱 폰 · 태블릿', '폰에서는 한 줄로 쌓이고 메뉴가 아래 탭 줄로 내려와요. 태블릿 세로는 두 줄이에요.'],
-        ['🗂 자잘한 탭은 「모음」으로', '추천 음악 · 추억 앨범 · 플레이 기록은 「모음」 한 탭에 제목만 보이고, 누르면 펼쳐져요 (미니홈피에서만 · 꾸미기 › 더보기 › 창 안의 내용에서 고름).'],
-        ['🎲 주사위', '굴리기 단추를 없앴어요 — 주사위 그림을 누르면 굴려요.'],
-        ['🗂 관리 탭 안의 탭', '관리 탭이 플레이 · 쓸 기능 · 저장 · 도구 · 문제 해결 · 초기화 여섯 탭으로 나뉘었어요. 쓸 기능은 묶음마다 접히고 「추천만 · 전부 · 전부 끄기」로 한 번에 골라요. 저장 탭에 「편집 기록 싹 지우기」(바로 되살리기 가능)가 생겼어요.'],
-        ['🧩 부가 기능 탭 (관리 옆)', '공략 · 단체방 · 이야기 장치 14개 같은 선택 기능의 화면이 여기로 모였어요. 켜고 끄는 곳은 관리 › 쓸 기능 › 부가 기능. 공략 탭은 사람 묶음에서 이리로 옮겼어요. 공략 말고는 전부 기본 끔 — 켠 것만 토큰을 써요.'],
-        ['🌊 파도타기 · 일촌평 · 방명록 (선택 · 기본 끔)', '미니홈피에서 인물의 홈피를 구경하고, 인물이 내 홈피에 방명록 · 일촌평을 남기고, 나도 남겨요. 프로필에 TODAY · TOTAL. 둘 다 켜면 사람 묶음에 「방명록」 탭이 생겨요. 본편 AI에게는 가지 않아요.'],
-        ['💗 연락 · 방명록에서 호감 반영 (선택 · 기본 끔)', '켜면 메신저 · 편지 답장과 방명록 답글에 따라 호감이 −2~+2 움직여요. 그 글을 지우거나 채팅을 되감으면 돌아와요.'],
-        ['👥 단체방 (선택 · 기본 끔)', '인물 여럿이 있는 방을 만들어요. 말을 걸 때마다 AI 1회. 대화는 본편 AI에게 가지 않아요.'],
-        ['🧩 덧붙이는 기능 (전부 기본 끔)', '날씨 · 시간대 효과(비 오는 날 흥정이 쉬워짐) · 밤에는 가게 닫기 · 취향에 맞는 선물 · 약속 기한 · 합칠 때 연락도 옮기기 · 그래프에 수치 더하기.'],
-        ['🪙 기본값은 아끼는 쪽', '프로필 모드는 늘 「최소」에서 시작하고 AI가 바꾸지 않아요. 새로 설치하면 연락 속 인물의 기억 기본이 「조금」이에요 (쓰던 설정은 그대로 · 확장 설정 › 연락 ④). 기본 6칸만 쓰면 AI에게 가는 글은 2.7.23과 같아요.'],
-        ['🔧 고친 것', '확장 설정 창이 일부 환경에서 안 열리던 문제, 아주 큰 금액을 적으면 돈이 깨지던 문제, 특정 이름의 인물에서 변화 그래프가 멈추던 문제, 미니바를 펼쳤을 때 묶음 이름이 잘리던 것을 고쳤어요.'],
-        ['📚 읽을 로어북 고르기', '「상태창 만들기」의 「참고할 자료」에서 로어북을 켜면 그 아래에 로어북 이름이 나와요 — 끈 것은 읽지 않고, 이 채팅에 연결되지 않은 로어북도 더할 수 있어요. 고른 것은 이 채팅에 기억돼서 칸을 다시 만들 때도 그대로 써요. 손대지 않으면 예전처럼 연결된 로어북을 모두 읽어요.'],
-        ['🗑 번역 전체 삭제', '번역이 마음에 안 들 때 이 채팅의 번역을 통째로 지우고 다시 받아요 — 확장 설정 › 상태창 언어 · 번역, 또는 관리 › 도구의 「번역 전체 삭제」. 📌 내가 고친 번역은 남기고, 저장된 상태 · 숫자는 그대로예요. 지운 뒤 바로 다시 번역할지 물어봐요.'],
-    ] },
-    { v: '2.7.23', title: '놓치던 변화 줄 읽기 · 인물 합치기 · 변화 그래프', items: [
-        ['🧲 놓치던 변화 줄', 'AI가 「Leon +2 (웃어서)」처럼 숫자 뒤에 이유를 붙이거나, 「체력」을 HP · Health로 적어도 이제 읽어요. 예전엔 그 줄이 조용히 버려지거나 새 게이지가 생겼어요. 진행 중인 채팅은 전에 놓친 줄이 반영되면서 숫자가 조금 달라질 수 있어요.'],
-        ['⚠ 못 읽은 줄 표시', '그래도 못 읽은 줄이 있으면 칩 옆에 ⚠ 숫자가 떠요. 누르면 어떤 줄인지 보여 줘요.'],
-        ['🔗 인물 합치기', '같은 사람이 이름만 달라 둘로 생겼을 때(Leon · 레온) 관계 카드의 🔗 단추로 합쳐요. 수치는 더해지고, 그 뒤로는 어느 이름으로 적어도 한 사람에게 반영돼요.'],
-        ['📈 변화 그래프', '관계 탭의 「변화 그래프」 또는 /ss-graph — 애정 · 우정 · 돈이 어떻게 변해 왔는지 선으로 보여 줘요 (AI 0회).'],
-        ['🌀 최면 어플', '연락 목록 위의 「최면 어플」 단추 — 부른 인물이 솔직하게만 답하고 시키는 말도 따르는, 연락의 어두운 판이에요. 이야기 밖 놀이라 수치는 안 바뀌고 본편 AI에게도 안 가요 (말을 걸 때마다 AI 1회).'],
-        ['✍ 연락처마다 추가 지시', '연락처 ⋮ 메뉴 › 「추가 지시」 — 그 사람의 말투 · 성격 · 답장 길이 · 하지 말 것을 적어 두면 그 사람의 답장 · 편지 · 선톡에 붙어요.'],
-        ['🔕 상대가 알아서 연락 꺼 두기', '메신저에서 상대가 화났거나 · 일하거나 · 자면 스스로 한동안 연락을 끊을 수 있어요. 그동안 보낸 말은 안 읽히고 AI도 안 불러요. 시간이 지나면 풀리고, 급하면 「그래도 불러내기」. 끄려면 확장 설정 › 연락 ⑥.'],
-        ['🚫 연락에서 「갈게 · 만나자」 하지 않기', '연락 속 인물이 자꾸 지금 오겠다 · 만나자고 하던 것을 막았어요 (기본 켬). 끄려면 확장 설정 › 연락 ⑤.'],
-        ['🧠 연락 속 인물의 기억', '답장할 때 최근 14줄만 보던 것을, 정한 분량 안에서 보관된 대화 전부를 읽게 했어요. 확장 설정 › 연락 ④에서 조금 · 보통 · 많이 · 전부를 골라요 (많을수록 답장 토큰이 늘어요). 보관도 한 사람당 200개까지.'],
-        ['💨 편지 퀵 · 동봉 돌려받기', '「오늘 도착」 급행 대신 퀵이 생겼어요 — 바로 · 1~3시간대 뒤를 고르고, 빠를수록 요금이 더 붙어요. 「답장도 퀵으로」를 켜면 답장도 같은 속도로 와요. 보낸 편지를 지울 때 동봉한 선물 · 돈을 돌려받을 수 있어요.'],
-        ['🔗 연락 — 구간 고르기 · 요약 직접 쓰기', '말풍선의 ↕ 단추를 첫 말풍선 · 끝 말풍선에서 한 번씩 누르면 그 사이를 한꺼번에 📌 고정 · 풀기 · 지우기 할 수 있어요. 「이 구간만 본편에」를 누르면 그 구간만 본편 AI에게 가요. 한 줄 요약은 ⋮ 메뉴에서 직접 쓰거나 AI로 만들어요.'],
-        ['📦 부가 기능은 따로 보관', '연락 · 뉴스 · 가십지 · 게시판 · SNS에서 한 일은 기록으로 쌓이지 않아요. 연락을 많이 해도 답이 통째로 합쳐지지 않고 파일이 작아져요. 대신 채팅을 지워도 연락 · 게시물은 남아요. 예전처럼 채팅과 같이 되감기게 하려면 확장 설정 › 「부가 기능 — 채팅에 붙이기」에서 칸마다 켜요.'],
-        ['⏪ 지우면 되돌아가게', '상태창에서 아이템을 쓰거나 물건을 사고 메시지를 보낸 뒤, 그 메시지를 지우면 썼던 물건 · 돈이 돌아와요. 예전엔 안 돌아왔어요.'],
-        ['📱 연락 — 지우기', '내가 보낸 말풍선을 지우면 본편 AI에게 가던 「방금 보냄」 기록도 같이 빠져요. 보낸 선물 · 송금을 지울 땐 「돌려받고 지우기」를 고를 수 있어요.'],
-        ['🩹 그 밖에', 'AI에게 보내는 출력 규칙 문구가 깨져 나가던 것 · 안 닫힌 <meatball> 뒤의 대사가 본문에서 잘리던 것 · 키보드로 옮겨 다닐 때 단추 테두리 표시.'],
-    ] },
-    { v: '2.7.22', title: '다인 · 풀사칭을 위한 선택 기능 · 더 가볍게 켜짐', items: [
-        ['👑 루트 비교 (선택)', '관계 탭 › 보일 것 › 선택 기능에서 켜면 맨 위에 인물별 진행도를 나란히 보여 줘요. 앞선 사람에 👑, 최근 메시지 20개 동안의 변화는 ▲▼. 화면만 바뀌고 토큰은 0이에요.'],
-        ['💞 인물끼리 호감 (선택)', '유저 말고 인물 둘 사이도 수치로 쌓여요 (pairaff). 「인물끼리」 목록에 게이지 · 단계 · − ＋ 단추가 붙어요. 끄면 AI에게 가르치지 않고 적어 와도 반영하지 않아요.'],
-        ['🎬 풀사칭 · 군상극', '주인공 없는 풀사칭은 관리 탭 › 플레이 방식에서 「주인공 없음 — 군상극」을 켜요. 인물끼리의 관계만 AI에게 가요. 유저 이름과 주인공 이름이 같은 풀사칭도 AI가 헷갈리지 않게 규칙문을 따로 써요.'],
-        ['⚡ 빠른 세트', '만들기 창 맨 위에서 여성향 연애 · 다인 루트 미정 · 풀사칭 · 군상극을 고르면 플레이 방식과 쓸 기능이 한 번에 맞춰져요.'],
-        ['📊 칸별 토큰', '프롬프트 · 토큰 창 › 「칸별로 보기」 — 어느 칸이 토큰을 많이 쓰는지 막대로 보여 줘요.'],
-        ['⚙️ 가볍게', '도움말 · 만들기 · 프롬프트 · 꾸미기 창은 눌렀을 때 불러와요. 조용히 넘기던 오류도 오류 보고문에 남아요.'],
-    ] },
-    { v: '2.7.21', title: 'HUD · 미니창 새 모양 · 속마음 · 보일 것 × AI', items: [
-        ['📱 모바일 HUD', '폰에서는 단추 줄이 판 아래로 내려가 칸이 화면 폭을 다 써요. 편집 배지도 손가락으로 누르기 쉽게 넓혔고, 아이폰에서 그림 올리기가 「너무 커요」로 막히던 것도 고쳤어요.'],
-        ['🧩 HUD · 미니창 타일 판', 'HUD와 사이드 미니창이 같은 타일 판이 됐어요. ✎ 편집에서 칸을 끌어 아무 줄 · 자리에 놓고, 모서리 ⤡를 끌어 크기를 바꾸고, − 로 빼고 ＋ 로 더해요. 글은 자르지 않고 칸에 맞게 줄어들어요.'],
-        ['🌼 배경 · 스티커 · 색', '판 배경 무늬(모눈 데이지 · 하늘 체크 · 땡땡이 · 줄무늬)와 내 배경 그림 · 이모지와 그림 스티커 · 판과 칸마다 배경 · 테두리 · 글자 색을 바꿔요.'],
-        ['💭 속마음', '관계 탭이나 꾸미기에서 켜면 장면 속 인물의 속마음을 1인칭 짧은 말 · 이모티콘 · 카모지로 보여 줘요. 빈도는 항상 · 랜덤. 본편 AI가 같이 적어서 추가 호출이 없어요.'],
-        ['🐱 얼굴 이모지', '관계 탭에서 사람 얼굴을 누르면 이모지를 골라요. 미니창 · HUD · 카드 · 연락에 같이 보여요.'],
-        ['🤖 보일 것 → AI에게도', '로봇 표시가 붙은 항목은 끄면 AI에게 보내는 글에서도 빠져요. 예전에 꺼 둔 것은 다시 누르기 전까지 화면에서만 숨겨요.'],
-        ['⏪ 다시 생성 · 지우기 = 되감기', '답을 보고 한 행동(구매 · 이동 · 판정 · 연락 …)은 그 답에 묶여요. 그 답을 다시 생성하거나 · 다른 스와이프로 넘기거나 · 몇 개 전으로 지우면 같이 사라지고, 원래 스와이프로 돌아오면 돌아와요. 번역 · 정리 · 애정 끄기 같은 설정은 그대로 남아요.'],
-        ['🛠 고친 것', '지운 대화방 · 연락처가 되살아나던 것 · 다시 생성한 답의 소문이 옛 소문에 덮이던 것 · 영어 저장 때 대화방이 사람과 끊기던 것 · 짧은 주입문이 AI에게 소지품 · 퀘스트를 안 주던 것 · 칩 자리가 다른 확장에 지워지면 안 돌아오던 것'],
-    ] },
-    { v: '2.7.19', title: '모든 탭에 「보일 것」 · 받는 돈 · 번역 정리', items: [
-        ['👁 보일 것', '관계 탭에만 있던 「보일 것」이 모든 탭에 생겼어요. 탭 맨 위를 펼쳐 칸 · 단추 · 안내 글을 하나씩 끄고 켜요. 화면에서만 숨기고 내용 · AI에게 보내는 글은 그대로예요. 확장 설정에서 한 번에 다시 보이게 할 수 있어요.'],
-        ['💸 받는 돈 · 선물', '연락에서 상대가 실제로 돈 · 선물을 보낼 수 있어요. 말풍선(💸 · 🎁)으로 오고 소지금 · 소지품에 진짜 들어와요. 예전엔 「보냈어」라고 말만 하고 아무것도 안 왔어요.'],
-        ['🌐 번역', '「번역 모델로 넘길까요?」 같은 확인 창과 경고가 더 안 떠요. 실리 번역기가 못 바꾼 글은 알아서 번역 모델로 넘겨요 (확장 설정에서 끌 수 있어요). 편지 · 기사처럼 긴 글이 영영 영어로 남던 것, 「HP +25」 같은 글이 「남은 글」에 남던 것도 고쳤어요.'],
-        ['🔧 번역 고치기', '지금 연 탭의 글부터 보여요. 이름을 고치면 그 이름(「Grey」 같은 이름 조각까지)이 든 다른 문장도 바로 같이 바뀌어요. 줄마다 📌 단추로 고정을 켜고 꺼요. 이름이 엉뚱하게 옮겨진 문장은 저장하면 새 이름으로 다시 번역해요.'],
-        ['🐞 안 되던 것', '아이템 효과 「Stamina +30, Stress -5」가 오히려 Stamina를 깎던 것, AI가 「aff: A +2, B +3」 · 「cond: +A, +B」처럼 한 줄에 여러 개 적으면 안 되던 것, 변화 위주 턴엔 「우정만」 · 「단계 잠금」이 AI에게 안 가던 것, 형제 · 친구가 우정만으로 연애 느낌 단계에 오르던 것(관계 탭 「고치기」), 기본 업적이 거의 안 깨지던 것(이제 숫자로 직접 확인)을 고쳤어요.'],
-        ['📰 뉴스', '기사를 열 때마다 뉴스 전체가 편집 기록에 복사되던 것을 작은 「읽음」 기록으로 바꿨어요.'],
-        ['📅 달력', 'AI가 만든 달력에 일정이 없으면 기본 일정을 넣어요. 빈 달력엔 「기본 일정 넣기」 단추가 생겨요.'],
-        ['🧹 정리', '2.7.18에서 뺀 기능(의도 먼저 · 먼저 움직이기 · 사건 한 스푼)의 설정이 「켜짐」으로 남아 보이던 것을 지웠어요.'],
-    ] },
-    { v: '2.7.18', title: '페이블 점검 반영 · 지우기 · 달력', items: [
-        ['🌐 번역', '실리 번역기가 못 바꾼 글도 🌐 「남은 글」에 세서, 번역 모델로 넘길지 물어봐요. 섞인 줄(「다음 … → 영어」)도 번역되고, 번역 고치기가 바로 보여요.'],
-        ['📱 연락', '다시 「자세히」가 기본이에요. 간단 모드는 잠깐 가볍게 놀 때용으로 다시 만들었어요. 보낸 메시지가 바로 보이고, 선물 · 송금 단추가 돌아왔고, 편지 답이 안 잘려요.'],
-        ['💞 관계 보일 것', '관계 탭 위 「보일 것」에서 단계 · 해금 · 메모 · 단추를 하나씩 끌 수 있어요. 다 끄면 숫자만.'],
-        ['🧹 지우기', '탭마다 🧹 전체 삭제, 주사위 기록 ×, 관리 탭 편집 기록에서 버튼 하나 누른 것까지 골라 지우기 (찌꺼기 없이).'],
-        ['📅 달력', '기본 일정이 생기고, 글자가 안 잘리게 다시 꾸몄어요. 시간 넘기기 「되돌리기」.'],
-        ['📋 상태 복사', '상태창 머리의 📋로 지금 상태를 통째로 복사해서 붙여 넣을 수 있어요.'],
-    ] },
-    { v: '2.7.17', title: '다시 점검', items: [
-        ['📬 편지 답장', '간단 모드로 바뀌기 전에 부친 편지의 답장도 말풍선에서 「열기」로 받을 수 있어요.'],
-    ] },
-    { v: '2.7.16', title: '상태창답게 정리 — 관계 · 연락', items: [
-        ['🧹 관계는 수치 · 단계로만', '의도 먼저 · 내 추가 주입문 · 먼저 움직이기 · 사건 한 스푼을 뺐어요. 내 주입문에 글이 있었다면 작가 노트로 옮겨 주세요.'],
-        ['🔤 번역 그대로 오던 것', '섞인 글을 구글이 그대로 돌려주던 것을 고쳤어요. 반쯤 번역된 옛 글도 다시 번역하고, 끝까지 안 바뀌면 물어본 뒤 번역 모델로 (AI 1회).'],
-        ['📱 연락 간단하게', '편지 세계도 메신저처럼 바로 주고받고 꾸밈 기능은 숨겼어요. 확장 설정에서 끄면 예전 그대로.'],
-    ] },
-    { v: '2.7.15', title: '스트리밍 칩 깜빡임 · 관계 인물 따라다님', items: [
-        ['🎬 칩 깜빡임', '답이 써지는 동안엔 칩을 안 붙이고, 다 쓴 뒤 한 번만 붙여요.'],
-        ['🚶 따라다님', '관계 목록에 있다고 매 장면 나타나지 않게 AI에게 알려요.'],
-    ] },
-    { v: '2.7.14', title: '점검에서 나온 것 고침', items: [
-        ['🌐 한국어 섞임', '영어 저장인데 키 설명이 한국어로 AI에게 가던 것을 고쳤어요.'],
-        ['🔤 번역 그대로', '번역기가 영어를 그대로 돌려주면 다시 보내지 않고 한 번 알려 줘요. surgeon · sleeping 같은 한 낱말도 번역돼요.'],
-        ['💾 저장', '1초 모아서 한 번 · 미트볼 창 밖을 누르거나 탭을 내리면 바로 저장해요.'],
-        ['✨ 확률', '설렘 · 사건 확률이 정말 「답 1번마다」로 동작해요.'],
-    ] },
-    { v: '2.7.13', title: '설렘 한 스푼 · 사건 한 스푼', items: [
-        ['✨ 설렘 한 스푼', '가끔 장면 속 인물이 지금 관계 단계에 맞는 설레는 한 순간을 스스로 만들어요. 친구면 작은 선물 · 툭 나온 진심까지 — 고백 · 연인 행동은 안 해요.'],
-        ['🎬 사건 한 스푼', '가끔 세상 쪽에서 새 일 하나 (방문객 · 소식 · 기회 · 작은 문제). 확장 설정 › ✨ 설렘 · 사건 한 스푼에서 켜요.'],
-    ] },
-    { v: '2.7.12', title: '남은 영어 번역 · 팁 덜 자주 · 도우미 설명서 정리', items: [
-        ['🔤 남은 영어 번역', '🌐 버튼에 영어로 남은 글 수가 보이고, 「남은 글 번역하기」로 그것만 번역해요. 직업 · 상태 메시지도 이제 번역돼요.'],
-        ['💡 팁 덜 자주', '「이것도 아세요?」는 접속당 1번 · 3시간에 한 번 · 하루 2번까지. 알림의 「팁 그만」으로 바로 끌 수 있어요.'],
-        ['📖 도우미', '설명서를 7묶음으로 정리하고 자주 묻는 답(스와이프 · 저장 · 번역 · 다른 상태창 · 렉)을 새로 넣었어요.'],
-    ] },
-    { v: '2.7.11', title: '저장 놓침 막기 · 다른 상태창 알림', items: [
-        ['💾 저장', '버튼을 누르고 바로 채팅을 옮겨도 마지막 변경이 저장돼요. 탭을 닫거나 앱을 내릴 때도 바로 저장해요.'],
-        ['🔔 다른 상태창', 'MVU · RPG Companion 같은 다른 상태창이 같이 돌고 있으면 채팅마다 한 번만 알려 줘요.'],
-    ] },
-    { v: '2.7.10', title: '꼼꼼 점검 — 스와이프 삭제 · 채팅 바뀜 · 안전', items: [
-        ['🔀 스와이프 삭제', '앞 스와이프를 지우면 뒤 스와이프의 숫자가 조용히 바뀌던 것을 고쳤어요.'],
-        ['💾 스와이프 왕복', '칩 분석 결과가 스와이프 칸에도 저장돼서, 넘겼다 돌아와도 다시 AI를 부르지 않아요.'],
-        ['🚪 채팅 옮김', '답을 기다리는 사이 다른 채팅으로 옮기면, 그 결과를 옮긴 채팅에 넣지 않아요.'],
-        ['🛡 안전', 'AI가 칸 이름 등에 HTML을 적어도 화면에서 실행되지 않게 막았어요.'],
-        ['🪶 옛 채팅', '예전에 쌓인 연락 · 피드 통째 기록을 한 번 줄여요 (상태는 그대로).'],
-    ] },
-    { v: '2.7.9', title: '계산 더 가볍게', items: [
-        ['⚡ 상태 계산', '답 글이 그대로면 변화 줄을 다시 읽지 않아요 — 계산이 약 3배 빨라졌어요.'],
-        ['🏷 변동 칩', '칩 내용이 그대로인 답은 다시 그리지 않아요.'],
-    ] },
-    { v: '2.7.8', title: '스크롤 버벅임 · 동시 요청 충돌', items: [
-        ['🖱 스크롤', '지도 휠 확대가 페이지 전체 스크롤을 붙잡던 것을 지도 위에서만 동작하게 바꿨어요.'],
-        ['🚦 동시 요청', '확장 AI가 메인 연결을 쓸 땐 본편 AI가 답을 다 쓴 뒤에 보내요 (로컬 백엔드 「바쁨」 · 무료 API 429 방지).'],
-    ] },
-    { v: '2.7.7', title: '가벼워졌어요 — 연락 · 피드 · 긴 채팅', items: [
-        ['🪶 연락 · 피드 기록', '버튼을 누를 때마다 칸 전체를 통째로 복사하던 것을 바뀐 부분만 적게 바꿨어요. 메신저를 많이 쓰면 채팅 파일이 MB로 커져 저장할 때 멈칫하던 원인이에요.'],
-        ['💬 대화방 50개', '한 사람과의 대화는 최근 50개까지 남겨요 (예전 80). AI에게 가는 건 원래 최근 몇 줄뿐이에요.'],
-        ['🏎 한 턴 계산 줄이기', '생성 직전 계산을 다시 쓰고, 바뀐 게 없으면 변동 칩을 다시 훑지 않아요.'],
-    ] },
-    { v: '2.7.6', title: '골라 되돌리기 · 흥정 · 일하기 판정 · 번역 사전 정리', items: [
-        ['↩ 골라 되돌리기', '관리 탭 › 되돌리기 › 「편집 기록에서 골라 되돌리기」 — 최근 편집 20개 중 하나만 골라 취소해요. 그 뒤의 편집은 그대로예요.'],
-        ['🎲 흥정', '상점 물건 옆 🎲 — 매력 · 화술 같은 능력치로 d20. 대성공 30% · 성공 15% 깎고, 대실패면 10% 올라요. 하루에 물건마다 한 번 (AI 0회).'],
-        ['🎲 일하기 판정', '일거리도 d20 — 대성공 일당 1.5배 · 실패 절반 · 대실패 허탕. 확장 설정 › 기능 켜고 끄기에서 끌 수 있어요.'],
-        ['🧹 번역 사전 정리', '확장 설정 › 상태창 언어 · 번역 › 「번역 사전 정리」 — 지금 상태창에 없는 옛 번역을 지워 채팅 파일을 줄이고 화면 번역을 빠르게 (📌 고정한 건 남겨요).'],
-    ] },
-    { v: '2.7.5', title: '퀘스트 기한 · 진행 기록 · 이야기에서 빠진 사람 · 안 씹히게', items: [
-        ['⌛ 퀘스트 기한', '「3일 안에」 · 「3월 14일까지」 같은 기한을 달력으로 읽어 카드에 D-3처럼 보여 주고, 마지막 날엔 알림, 지나면 실패로 넘겨요. AI에게도 남은 날을 알려 줘요 (토큰 0 · 확장 설정에서 끌 수 있어요).'],
-        ['📜 진행 기록이 깔끔해졌어요', 'AI가 적는 진행 내용은 「해 둔 일」로 체크된 채 들어가고, 할 일 목록과 비슷하면 그 단계를 체크해요. 받지도 않은 퀘스트의 진행이 오면 진행 중으로 옮겨요.'],
-        ['🕊 이야기에서 빠진 사람', '관계 카드의 🕊 단추로 「세상을 떠남 · 떠남」을 표시하면, 기록은 남기고 AI에게는 「등장하지 않음」으로 알려요. 연락 · 장면 인물에서도 빠져요. 언제든 되돌릴 수 있어요.'],
-        ['🔍 안 씹히게', '태그는 있는데 모르는 키만 적힌 답도 A+B에서 따로 분석해요. 빈 태그(바뀐 것 없음)는 그대로 둬요.'],
-        ['🔴 본 탭 기억', '빨간 점을 본 탭은 새로고침해도 꺼진 채로 남아요.'],
-    ] },
-    { v: '2.7.4', title: '다시 받기 · 호환 점검', items: [
-        ['🔁 다시 받아 주세요', 'v2.7.3을 정리해서 다시 올렸어요. 기능은 v2.7.3과 같아요 — 칩 점검 · 퀘스트 판정 · 빨간 점 · 기능 끄기 · 버린 물건 · 번역 점검. 업데이트가 실패하면 확장을 지웠다가 다시 설치해 주세요.'],
-        ['🧩 함께 쓰는 확장 호환 점검', '다른 확장이 기대는 이름 · 설정 칸 구조를 그대로 두었는지 개발할 때 자동으로 확인해요 (쓰는 분은 할 일 없음).'],
-    ] },
-    { v: '2.7.3', title: '칩 점검 · 퀘스트 판정 · 빨간 점 · 기능 끄기', items: [
-        ['🔍 칩 점검', '칩이 안 보이면 「씹혔나(변화를 못 읽음) / 화면에만 안 보이나」를 가려내요. 마지막 답 밑 🔍나 /ss-pip — 태그 다시 읽기 · AI로 다시 분석 · 칩 다시 붙이기를 손으로 불러요.'],
-        ['🎲 퀘스트 완료 판정', '퀘스트마다 능력치 · 목표를 고르고, 완료할 때 d20을 굴려요. 대성공 보상 1.5배 · 실패 절반 · 대실패 보상 없음 (AI 0회).'],
-        ['📜 퀘스트 단추가 안 먹던 것', '포기 · 지우기 · 완료한 퀘스트를 AI가 다음 답에서 되살리던 걸 막았어요. 끝남 칸에서 「다시 진행」.'],
-        ['🔴 방금 바뀐 곳에 빨간 점', '마지막 AI 답에서 바뀐 탭 · 미니창 · 띠 · 줄에 작은 빨간 점이 붙어요. 탭을 열면 꺼져요.'],
-        ['🧹 기능 켜고 끄기', '확장 설정 › 기능 켜고 끄기 — 메모 · 추억 앨범 · 속마음 · 플레이 기록을 모든 채팅에서 끌 수 있어요. 「부가 기능 한 번에 끄기」도.'],
-        ['🗑 버린 물건 · 🌐 번역 · 🏎 가볍게', '버리거나 판 물건을 AI에게 「이제 없음」으로 알려요. 소문자 이름이 영어로 남던 번역을 고치고, 큰 번역 사전에서 화면 번역이 약 10배 빨라졌어요. /ss-perf로 부하를 재 볼 수 있어요.'],
-    ] },
-    { v: '2.7.2', title: '무료 번역 기본 · 상태창 언어 고르기 · 도우미 AI 없이', items: [
-        ['🌐 번역은 무료가 기본', '상태창 번역 담당의 기본이 무료 「실리 기본 번역」(Chat Translation · 기본 Google)이 됐어요. 번역 모델(AI)을 쓰던 분께는 한 번 물어봐요. 이야기 중 새로 생긴 영어도 저절로 한국어로 보여요.'],
-        ['🇺🇸 만들 때 상태창 언어 고르기', '상태창 만들기 창에 「상태창 언어」. 「영어로 저장 · 화면은 한국어로」를 고르면 카드 · 지시가 한국어여도 전부 영어로 만들어 저장하고(기본 틀 · 날씨까지), 화면에서만 한국어로 보여 줘요. 영어 채팅이면 미리 골라 둬요.'],
-        ['🐱 도우미가 AI 없이 답해요', '미트볼 도우미가 안내서(README)를 읽고 바로 답해요 (토큰 0). 「칩이 안 떠요」 「토큰 아끼기」는 지금 설정을 직접 확인해 줘요. 부족하면 「AI에게 더 물어보기」.'],
-        ['🗑 쓰레기통 완전 삭제 · ♻ 중고 값 자동', '쓰레기통에서 흔적 없이 지우기 · 비우기. 중고장터 팔기는 값을 알아서 매겨요 (AI 0회).'],
-        ['🗺 영어로 들어오던 이름 · 💱 환율 창', '영어 롤플에서 지도 · 소지품 이름이 영어로 들어오던 것을 고쳤어요. 화폐 · 환율 창은 「1 Gold = ○ 원」처럼 쉽게.'],
-        ['🧱 자잘한 것', '「이것도 아세요?」는 30분에 한 번 · 하루 4번까지. 신문 머리 · 「3월(3월)」 깨짐 고침.'],
-    ] },
-    { v: '2.7.1', title: '가리기 · 토큰 줄이기 · 알림 편하게', items: [
-        ['🙈 칸마다 가리기', '각 탭 도구줄의 👁 버튼을 누르면 그 칸을 AI에게 안 보내요. 턴이 지나도 그대로고, 다시 눌러야 다시 들어가요 (채팅마다). 화면·직접 편집·변화 기록은 그대로예요. 홈 탭에서 누르면 세계관 줄을 가려요.'],
-        ['✂️ 세계관 요약은 매 턴 안 보내요', '세계관 요약·규칙은 보통 카드·로어북에 이미 있어서 중복이라 기본으로 뺐어요 (매 턴 최대 1천 자 절약). 칸을 AI로 만들 때는 계속 참고해요. 다시 보내려면 확장 설정 › 「세계관 요약·규칙도 매 턴 보내기」.'],
-        ['💞 미니창 관계 칸 고르기', '꾸미기 › 「미니창 · 홈 관계 칸」에서 보일 수치(애정·우정·단계·질투), 순서, 인원, 고정할 사람을 골라요.'],
-        ['🔔 알림 눌러서 펼치기', '알림 본문을 누르면 닫히지 않고 펼쳐져서 전체 글이 보여요 (펼친 동안 안 닫힘). 폰에선 손가락을 대고 있으면 멈춰요. 「이것도 아세요?」 팁도 알림함에 남아요.'],
-        ['🌐 번역 확장과 같이 쓰기', '번역 확장이 답을 번역해서 다시 그리면 미트볼 변동 칩이 사라지던 문제를 고쳤어요. 칩이 지워지면 바로 다시 붙여요.'],
-        ['🧱 긴 이름 줄바꿈', '가구·소지품 이름이 길면 카드 밖으로 잘리던 문제, 사이드 패널에서 제목이, 창고에서 가구 이름이 한 글자씩 세로로 찌그러지던 문제를 고쳤어요. 창이 좁으면 위쪽 버튼 줄이 제목 아래로 내려가요.'],
-    ] },
-    { v: '2.7.0', title: '기본 틀 · 긴 채팅 가볍게 · 안정화', items: [
-        ['🐞 오류 보고문', '미트볼 도우미 창 맨 위 「오류 보고문 만들기」(또는 도우미에게 「보고문 써 줘」, /ss-report). AI 없이 만들어지고, 이름은 [유저]·[인물1]로 가려지고 채팅 내용·키·주소는 안 들어가서 공개 게시판에 그대로 올려도 돼요.'],
-        ['⚙️ 기본 설정 = 가벼운 모델 맞춤', '처음 설치하면 「기본 (추천)」 설정으로 시작해요. 「전체」 주입은 토큰이 많이 들어 비추천이에요. 업데이트한 분께는 옛 <status> 읽기 끄기 · 기본 설정으로 바꾸기를 한 번 물어봐요.'],
-        ['🐱 소리는 냥냥만', '마스코트 소리는 냥냥 하나(또는 끔)만 남겼어요. 설정 파일을 무겁게 하던 「내 소리 파일」은 지워져요.'],
-        ['🧩 만드는 방식: 기본 틀', '상태창 만들기 맨 위에서 고를 수 있어요. 「기본 틀만」은 AI 0회 · 토큰 0으로 바로 만들어지고, 「기본 틀 + AI」는 수치·주사위·달력·업적·운명 카드처럼 어디에나 맞는 칸은 검증된 모양으로 고정하고 세계관 칸만 AI가 채워요 (호출 7번 → 5번). 장르를 고르면 화폐·게이지·장소 이름이 장르에 맞춰져요.'],
-        ['🏎️ 렉 줄이기', '한 턴에 3~4번씩 하던 같은 계산을 한 번으로 줄이고, 바뀐 게 없으면 상태창을 다시 그리지 않아요. 가장 자주 불리던 설정 읽기와 실리 정보 읽기도 가볍게 바꿨어요.'],
-        ['⚡ 긴 채팅이 가벼워졌어요', '굳히지 않은 메시지가 400개를 넘으면 오래된 쪽을 자동으로 굳혀서, 매 턴 처음부터 다시 계산하지 않아요. 최근 120개 메시지의 스와이프·편집은 예전처럼 바로 반영돼요. 확장 설정에서 끌 수 있어요.'],
-        ['💡 이것도 아세요? · ⚠️ 알아 두세요', '칸에서 뭔가 하면 그 칸의 팁을 가끔 하나씩, 토큰이 많이 드는 설정을 켜면 그 자리에서 주의를 한 번 알려 줘요. 「알아요」를 누르면 그 문구는 다시 안 나와요.'],
-        ['🛡️ 숫자가 날아가지 않게', 'AI가 부호를 빼먹고 「cash: 120」처럼 쓰면 예전엔 돈이 120으로 바뀌었어요. 이제 지금 값과 가까우면 새 합계로, 아니면 빼먹은 +로 읽어요. 「days: 2」도 이틀 지남으로 읽고, 이어 쓰기에서 같은 변화를 다시 적어도 두 번 세지 않아요.'],
-        ['✨ 처음부터 쉽게', '새 채팅은 꼭 필요한 6개(프로필·수치·재산·관계·지도·달력)만 켜진 채로 시작해요. 만들기 방식 기본값은 「기본 틀 + AI」, 기능 고르기에 「추천만」 버튼이 생겼어요.'],
-        ['💗 관계 수치 = 애정 · 우정', '새 채팅의 관계는 호감·신뢰 대신 💗 애정(연애 감정만)과 🤝 우정(친함·믿음)으로 세요. 친구·단짝 단계는 우정만 있으면 오르고, 설렘·연인 단계만 애정이 필요해서 친한 친구가 숫자 때문에 연인 쪽으로 가지 않아요. 기본 단계: 낯선 사이 → 아는 사이 → 친구 → 단짝 → 설렘 → 연인. 쓰던 채팅은 호감·신뢰 그대로예요 (관계 탭 ✏️ 편집에서 수치 이름을 바꾸거나, 관계 칸 🔄 다시 생성하면 새 방식).'],
-        ['💔 애정 꺼 두기', '관계 탭에서 사람마다 ♥ 버튼으로 애정을 꺼 둘 수 있어요 (✏️ 편집에도 있음). 꺼 둔 사람은 애정이 오르지 않고, 질투 · 고백 확정 창도 없고, 단계는 우정 단계까지만 올라가요. AI에게도 「연애 감정 없음 · 우정만」으로 알려요. 가족 · 동료 · 친구로만 두고 싶은 캐릭터에게 쓰세요.'],
-        ['💡 기능 추천', '이야기에 문자·가게·의뢰 같은 말이 나오면 「이런 기능도 있어요 — 연락」처럼 한 번씩 알려 줘요. 「써 볼래요」를 누르면 그 채팅에서 켜지고 기본 틀로 바로 채워져요 (AI 0회). 기능마다 한 번만, 몇 턴에 한 번만 뜨고, 확장 설정에서 끌 수 있어요.'],
-        ['🔍 기능 전체 점검', '「AK-47」처럼 이름 끝 숫자를 수량으로 읽던 것 · 이름에 쉼표·빗금이 있는 소지품을 쓰거나 팔면 둘로 나뉘던 것 · AI가 이름 자리에 「+3」 같은 걸 써서 유령 인물이 생기던 것 · 같은 퀘스트 진행이 매 턴 쌓이던 것 · 처음부터 있던 저주의 기간이 안 흐르던 것 · 주사위 기록 저장이 실패하면 화면이 멈추던 것 · 남의 백업 파일이 깨져 있으면 계산이 멈추던 것을 고쳤어요.'],
-        ['🎭 사칭(impersonate)에 태그가 붙던 문제', '내 메시지를 AI가 대신 쓸 때 <meatball> 출력 규칙을 빼고 보내요.'],
-        ['🔀 별도 분석 중 스와이프', '분석하는 동안 스와이프·편집하면 다른 답에 변화가 붙던 것을 막았어요.'],
-        ['📚 로어북 켜기 선택', '상태 주입문 속 장소·인물 이름으로 로어북이 켜질지 고를 수 있어요 (끄면 장면 밖 항목이 덜 켜져 토큰 절약).'],
-        ['🗨️ OOC 답은 계산 안 함', '(( )) 같은 OOC로 물어본 답은 별도 분석을 하지 않아요. 그 답을 이어쓰기해도 마찬가지예요. OOC 답 속 숫자 때문에 돈·호감이 바뀌던 것을 막았어요.'],
-        ['📜 메시지가 많아도 가볍게', '변동 칩을 갱신마다 모든 답에 다시 그리던 것, 내용이 같은데 HUD·사이드 미니를 다시 그리던 것, 접혀 있어 안 보이는 사이드 패널까지 그리던 것을 고쳤어요. 폰에서 600개 메시지 채팅도 한 턴 처리가 약 0.03초예요.'],
-        ['📱 폰 화면 다듬기', '좁은 화면에서 상태창 제목이 한 글자로 잘리던 것 · 어두운 테마에서 작은 글씨가 안 보이던 것 · 화면 밖 패널 때문에 페이지가 옆으로 밀리던 것 · 사이드 미니의 흐림 효과 때문에 글이 올라올 때 버벅이던 것을 고쳤어요.'],
-        ['🔧 자잘한 것', '기본 틀 지도의 장소가 가장자리에 붙어 이름이 잘리던 것 · 주사위가 굴러가는 중 탭을 바꾸면 오류가 나던 것 · 기본 틀 프로필에 내 이름이 두 번 들어가던 것을 고쳤어요.'],
-        ['🧰 가볍게 · 안전하게', '갱신마다 화면 전체 스타일을 다시 계산하던 것을 줄였어요. 새로 설치하면 옛 <status> 읽기는 꺼진 채로 시작해요 (다른 프리셋의 <status>를 건드리지 않게).'],
-    ] },
-    { v: '2.6.1', title: '고친 것 모음', items: [
-        ['🔧 화면만 번역: AI에게 한국어가 새던 곳 막음', '본편 AI가 쓰는 값도 영어로 받고(출력 규칙), 날짜·계절·기념일·UI 기록도 영어로 보내요. 새로 생긴 영어 글은 화면에서 자동 번역돼요.'],
-        ['🔔 한국어로 저장된 칸 알림', '「화면만 번역」인데 한국어로 저장된 칸이 남아 있으면 채팅을 열 때 알려 줘요. 알림을 누르거나 「상태창 전체 번역」을 누르면 바로 영어 저장으로 바뀌어요.'],
-        ['💗 관계 사실: 앞 단계 행동이 섞이던 문제', '④가 이전 단계(예: 「차갑고 적대적」)의 행동까지 이어 붙여 보내던 것을 고쳤어요. 이제 지금 단계의 모습만 보내요.'],
-        ['💍 연인 확정이 풀리던 문제', '편집 창을 확정 전에 열어 두고 저장하면 확정이 풀리던 것을 고쳤어요. 확정은 관계 탭 버튼으로만 해요. 풀린 채팅은 「💍 연인 확정」을 한 번 다시 눌러 주세요.'],
-        ['💞 연인 표시가 분명해졌어요', '연인 단계는 💞로 표시돼요. 우정·신뢰 단계뿐인 세계관에선 고백 후 💍 확정하면 단계 옆에 「💞 연인」이 따로 붙고, AI에게도 연인이라고 알려 줘요. 편집 › 관계 단계에서 「💞 연인 단계」를 직접 고를 수도 있어요.'],
-        ['💞 연인 단계는 기본으로', '세계관에 맞게 단계를 지어도 연인 단계 하나는 꼭 넣어요. 이미 만든 채팅에 없으면 관계 탭 › 관계 단계 › 「💞 연인 단계 추가」 버튼 한 번이면 돼요.'],
-        ['🏷️ 태그 지우기를 더 안전하게', '<meatball>을 안 닫아도 이제 본문 끝까지 지우지 않아요 (빈 줄이나 다음 태그 전까지만). 옛 <status>를 미트볼 것으로 볼지 설정에서 고를 수 있어요.'],
-        ['💍 연인 확정 버튼은 필요할 때만', '고백이 감지됐거나 연인 단계 조건을 채운 사람에게만 떠요.'],
-        ['📣 업데이트 알림', '화면을 막는 창 대신 팝업 알림 한 장으로 떠요. 누르면 자세히 볼 수 있어요.'],
-        ['👥 로어북 인물이 관계에서 빠지던 문제', '로어북이 길면 뒤쪽 항목을 통째로 버리던 것을 고쳤어요 (모든 항목을 조금씩 줄이고, 항목 이름 목록은 늘 전부 보내요). 로어북·카드의 모든 인물을 관계에 넣으라고 알려 주고, 프로필에 있는데 관계에 없는 사람은 자동으로 채워요.'],
-        ['🧭 영어 저장 + 한국어 롤플', '이름이 영어로 저장돼 있어도 본편에서 한국어로 부르면(「엘리」) 그 사람이 장면에 있다고 알아봐요. 관계 사실·연인 정보가 빠지지 않아요.'],
-        ['🧰 호환성 · 속도', '구형 아이폰(사파리)에서 화면 번역이 오류 나던 것 · 알림에 태그 글자가 보이던 것 · AI가 답을 쓰는 중엔 자동 번역을 미루기 · 화면 번역 속도 · 번역 사전이 채팅 파일을 키우지 않게 상한 · 카드에 붙일 때 화면 번역 사전도 같이.'],
-    ] },
-    { v: '2.6.0', title: '로맨스 보정 · 화면만 번역 · 업데이트 알림', items: [
-        ['💗 로맨스 보정 (전부 선택 · 기본 꺼짐)', '확장 설정 › 로맨스 보정. 연인은 고백으로만(확정 창이 떠요) · 한 번에 확 못 오르게 · 연달아 꼬시면 덜 오르게 · 관계를 사실로 알려 주기 · 인물의 욕구 · 의도 먼저 · 내 추가 주입문. 「추천 세트 켜기」 버튼 하나로 시작할 수 있어요.'],
-        ['🌐 영어로 저장 · 화면만 번역', '상태창 생성 언어의 새 선택지. 상태창은 영어로 저장되어 AI에게도 영어로 가고, 화면에서만 번역돼 보여요.'],
-        ['🆓 실리 기본 번역', '번역 담당을 「실리 기본 번역」(Chat Translation의 Google·DeepL 등)으로 바꾸면 토큰 없이 번역해요.'],
-        ['📝 번역 지침', '「Leon Hart = 레온 하트」처럼 적으면 이름·용어가 늘 그렇게 번역돼요. 번역 모델(LLM)에는 문장 지침도 그대로 전달돼요.'],
-        ['🔧 화면만 번역 보완', '본편 AI가 쓰는 값도 영어로(출력 규칙) · 날짜·계절·UI 기록도 영어로 · 새로 생긴 영어 글은 화면에서 자동 번역 · 한국어로 저장된 칸이 있으면 채팅을 열 때 알려 주고 누르면 바로 바꿔요.'],
-        ['🔁 옛 채팅도 영어 저장으로', '「한국어로 저장된 칸을 영어 저장으로 바꾸기」 버튼 — 지금 보이는 한국어는 화면 번역으로 그대로 남아요.'],
-        ['🐱 미트볼 도우미', '상태창 머리의 ❓ 버튼이나 /ss-help 로 모르는 기능을 물어보세요. 답할 모델을 따로 고를 수 있어요.'],
-        ['🌱 인물의 욕구 · 먼저 움직이기', '관계 탭 「욕구 AI로 채우기」, 가끔 인물이 스스로 일을 벌이는 「먼저 움직이기」(로맨스 보정 ⑧).'],
-        ['📣 업데이트 알림', '지금 보시는 이 창이에요. 확장 설정 › 데이터 · 화면에서 끌 수 있어요.'],
-    ] },
-];
-const verNum = (v) => String(v ?? '').split('.').map(x => parseInt(x, 10) || 0);
-const verGt = (a, b) => { const x = verNum(a), y = verNum(b); for (let i = 0; i < 3; i++) { if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) > (y[i] ?? 0); } return false; };
-async function showWhatsNew(all = false, latestOnly = false) {
-    const seen = settings().lastSeenVersion || '';
-    const list = latestOnly ? CHANGELOG.slice(0, 1) : CHANGELOG.filter(c => all || !seen || verGt(c.v, seen));
-    if (!list.length) { if (all) toastr.info('기록된 업데이트 내역이 없어요.', TITLE); return; }
-    const el = document.createElement('div');
-    el.className = 'ss-root ss-scope ss-whatsnew';
-    el.innerHTML = `<div class="ss-wz-head">${mascot('happy', 'md')}<div><b>😼 미트볼 상태창이 업데이트됐어요</b><small>v${esc(VERSION)}</small></div></div>
-        ${(() => { // 최근 2개 버전만 펼치고, 그 전은 「이전 버전 더 보기」 안에 (오래 안 들어온 분께 전부 쏟아지지 않게)
-            const one = (c) => `<h4>v${esc(c.v)} — ${esc(c.title)}</h4><ul class="ss-newlist">${c.items.map(([h, d]) => `<li><b>${esc(h)}</b><br><small>${esc(d)}</small></li>`).join('')}</ul>`;
-            const head = list.slice(0, 2), rest = list.slice(2);
-            return head.map(one).join('') + (rest.length ? `<details class="ss-more ss-wn-old"><summary>이전 버전 더 보기 (${rest.length}개)</summary>${rest.map(one).join('')}</details>` : '');
-        })()}
-        <div class="ss-row-btns"><button class="ss-btn sm" data-wn-help><i class="fa-solid fa-circle-question"></i> 🐱 도우미로 더 자세히 (AI 0회)</button></div>
-        <p class="ss-hint">새 기능은 모두 선택 사항이라, 켜지 않으면 예전과 똑같이 동작해요. 다시 보려면 확장 설정 › 데이터 · 화면 › 「업데이트 내역」.</p>`;
-    el.addEventListener('click', (e) => {
-        if (!e.target.closest('[data-wn-help]')) return;
-        el.closest('dialog')?.querySelector('.popup-button-ok')?.click();
-        setTimeout(() => app.openHelp?.('이번 업데이트 뭐 바뀌었어요?'), 200);
-    });
-    await popup(el, { okButton: '확인' });
-}
-// 내역 지문: 같은 버전이라도 내역이 바뀌면 다시 알린다
-const noteKey = () => { const s = JSON.stringify(CHANGELOG[0] ?? ''); let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return `${VERSION}#${(h >>> 0).toString(36)}`; };
-function noticeRemoved() {
-    const s = settings();
-    if (s.removedNote2716 || !String(s.romInject ?? '').trim()) return;
-    s.removedNote2716 = true; saveSettings();
-    toastr.warning('미트볼은 이제 상태창 기능만 AI에게 보내요. 「⑦ 내 추가 주입문」에 적어 두신 글은 더는 안 가요 — 필요하면 실리태번 작가 노트(Author\'s Note)로 옮겨 주세요. (적어 둔 글은 확장 설정 백업에 그대로 남아 있어요)', TITLE, { timeOut: 0, extendedTimeOut: 0, closeButton: true });
-}
-function whatsNewOnLoad(fresh) {
-    try { noticeRemoved(); } catch (e) { ssNote('없어진 기능 알림 실패', e); }
-    const s = settings();
-    const key = noteKey();
-    // 버전이 바뀔 때만 한 번 (같은 버전에서 「바뀐 점」 글만 고쳐졌을 땐 다시 안 띄움 — 너무 자주 뜬다는 의견)
-    if (s.lastSeenNote === key || s.lastSeenVersion === VERSION) { if (s.lastSeenNote !== key) { s.lastSeenNote = key; saveSettings(); } return; }
-    const done = () => { s.lastSeenVersion = VERSION; s.lastSeenNote = key; saveSettings(); };
-    if (fresh || s.updateNotice === false) { done(); return; } // 처음 설치 · 알림 끔
-    if (getMeta()?.simple === true) return; // 🍙 심플 모드 채팅에서는 띄우지 않는다 — 본 걸로 치지 않아서, 다른 채팅을 열면 그때 한 번 뜬다
-    const sameVer = s.lastSeenVersion === VERSION; // 버전은 같은데 내역만 바뀜 → 맨 위 내역만
-    const list = sameVer ? CHANGELOG.slice(0, 1) : CHANGELOG.filter(c => !s.lastSeenVersion || verGt(c.v, s.lastSeenVersion));
-    const heads = list.slice(0, 1).flatMap(c => c.items.map(([h]) => h.replace(/^\S+\s/u, ''))).slice(0, 4).join(' · '); // 알림 한 줄엔 최신 버전 것만
-    setTimeout(() => {
-        try {
-            // 팝업 알림 한 장 (누르면 「바뀐 점」 자세히) — 화면을 막는 창은 띄우지 않는다
-            if (settings().toastMode === 'popup') notify({ kind: 'update', icon: '📣', title: `미트볼 상태창 v${VERSION} 업데이트`, text: `${heads} — 눌러서 자세히` }, { save: false });
-            else toastr.info(`📣 v${esc(VERSION)} 업데이트: ${esc(heads)}<br><small>눌러서 자세히</small>`, TITLE, { timeOut: 12000, escapeHtml: false, onclick: () => showWhatsNew(false, sameVer) });
-            done();
-            // 🎨 2.8로 올라온 뒤 한 번: 모양 고르기 창 (상태창이 있는 채팅에서만 · 이미 미니홈피를 켠 사람은 건너뜀)
-            if (settings().themeAsked !== true && settings().hompyFull !== true && getMeta()?.base) setTimeout(() => import('./src/themeask.js').then(m => m.askTheme('update')).catch(e => ssWarn(LOG, 'themeask', e)), 1500);
-        } catch (e) { ssErr(LOG, 'whatsnew', e); }
-    }, 2000);
-}
-app.notifyLatest = notifyLatest;
-app.decorate = decorateAll;
-
-// ───── v2.7 한 번만 묻기: 옛 <status> 읽기 끄기 · 기본(가벼운 모델) 설정으로 ─────
-async function askV27() {
-    const s = settings();
-    if (s.v27asked) return;
-    const legacy = s.legacyStatus !== false;
-    const heavy = s.injectMode === 'full';
-    if (!legacy && !heavy) { s.v27asked = true; saveSettings(); return; }
-    const el = document.createElement('div');
-    el.className = 'ss-root ss-scope ss-v27';
-    el.innerHTML = `<div class="ss-wz-head">${mascot('think', 'md')}<div><b>v2.7 — 두 가지만 골라 주세요</b><small>한 번만 물어봐요 · 나중에 확장 설정에서 언제든 바꿀 수 있어요</small></div></div>
-        ${legacy ? `<label class="ss-tog"><input type="checkbox" class="ss-switch" data-v27="legacy" checked><span><b>옛 &lt;status&gt; 태그 읽기 끄기 (추천)</b><br><small>지금은 미트볼이 모든 채팅에서 &lt;status&gt; 태그를 숨기고 프롬프트에서 지워요. 다른 봇·프리셋이 &lt;status&gt;를 쓰면 그것까지 사라져요. 끄면 미트볼은 &lt;meatball&gt;만 건드려요. 지금 열린 채팅에 남은 옛 태그는 끄기 전에 자동으로 보관해 둬요.</small></span></label>` : ''}
-        ${heavy ? `<label class="ss-tog"><input type="checkbox" class="ss-switch" data-v27="light" checked><span><b>「기본 (추천)」 설정으로 바꾸기</b><br><small>지금은 「전체」 주입이라 매 턴 토큰이 많이 들어요(비추천). 플래시·아르곤 같은 가벼운 모델에 맞춘 간결 주입 · 4턴마다 전체 · 태그 빠지면 따로 분석으로 바꿔요.</small></span></label>` : ''}`;
-    const ok = await confirmPopup(el, '적용', '그대로 둘래요');
-    const pick = (k) => !!el.querySelector(`[data-v27="${k}"]`)?.checked;
-    s.v27asked = true;
-    if (ok) {
-        if (legacy && pick('legacy')) {
-            if (isActive() && ready()) { let n = 0; for (const m of ctx().chat ?? []) n += stashAllSwipes(m); if (n) await ctx().saveChat?.(); } // 옛 태그를 먼저 보관 (끄면 더는 못 읽음)
-            s.legacyStatus = false;
-            installRegex(); // 정규식도 <meatball>만 (채팅 다시 그림)
-        }
-        if (heavy && pick('light')) Object.assign(s, structuredClone(PRESETS.light.set));
-        toastr.success('적용했어요.', TITLE);
-    }
-    saveSettings();
-    document.getElementById('ss-settings')?.remove(); renderSettings(); // 설정 화면도 새 값으로
-    refreshNow();
-}
-
-// v2.7.2: 번역 기본값 = 무료 「실리 기본 번역」. 업데이트한 분 중 번역 모델(AI)을 쓰는 분께 한 번 묻는다
-async function askTrFree() {
-    const s = settings();
-    if (s.trFreeAsked) return;
-    const done = () => { s.trFreeAsked = true; saveSettings(); };
-    if (s.trEngine !== 'llm') return done();
-    if (s.ssGenLang !== 'en' && s.ssGenLang !== 'enview') { s.trEngine = 'st'; return done(); } // 번역을 안 쓰는 중이면 조용히 무료로 맞춰 둠
-    const el = document.createElement('div');
-    el.className = 'ss-root ss-scope ss-v27';
-    el.innerHTML = `<div class="ss-wz-head">${mascot('think', 'md')}<div><b>상태창 번역을 무료로 바꿀까요?</b><small>한 번만 물어봐요 · 확장 설정 › 상태창 언어 · 번역에서 언제든 바꿀 수 있어요</small></div></div>
-        <p>지금은 상태창 번역을 <b>「번역 모델 (AI)」</b>이 맡고 있어서, <b>번역할 때마다 AI를 1번 더 불러 토큰이 들어요</b>.</p>
-        <p><b>「실리 기본 번역」</b>으로 바꾸면:</p>
-        <div class="ss-hk-li"><span>✅</span><div><b>무료 · 빠름</b> — 실리태번에 원래 있는 Chat Translation(기본 Google)을 써요.</div></div>
-        <div class="ss-hk-li"><span>✅</span><div>이야기 중에 새로 생긴 영어(새 장소 · 아이템 …)도 <b>저절로 한국어로</b> 보여요.</div></div>
-        <div class="ss-hk-li"><span>💡</span><div>대신 말투 지침은 못 따르고, 번역 지침의 「원문 = 번역」 줄(이름 고정)만 써요.</div></div>
-        <p class="ss-hint">번역기는 실리태번 확장 메뉴 › Chat Translation에서 골라요 (Google · DeepL …).</p>`;
-    const ok = await confirmPopup(el, '무료로 바꿀래요', '지금처럼 AI 번역');
-    if (ok) s.trEngine = 'st';
-    done();
-    if (ok) toastr.success('상태창 번역을 무료 「실리 기본 번역」으로 바꿨어요.', TITLE);
-    document.getElementById('ss-settings')?.remove(); renderSettings();
-}
-
-// ───── 정규식 ─────
-function regexScripts() {
-    // 닫힌 <meatball> · 안 닫혔으면 「키: 값」 줄이 이어지는 데까지만 (본문·다른 태그를 끝까지 지우지 않게) · 옛 <status>는 예전 규칙 그대로 (설정이 켜져 있을 때)
-    const MB = '<meatball>(?:(?!<\\/?meatball>)[\\s\\S])*?<\\/meatball>|<meatball>(?:\\s*(?:[-*•]\\s*|\\d+[.)]\\s*)?[^<:：\\n]{1,24}[:：](?!\\s*["“”\'‘’「『])[^\\n]*)*';
-    const ST = '<status>(?:(?!<\\/status>|<summary|<details|\\|\\s*Physical\\s*:|Relationship \\(mutual)[\\s\\S])*?(?:<\\/status>|$)';
-    const any = settings().legacyStatus !== false ? `${MB}|${ST}` : MB;
-    return [
-        { id: REGEX_IDS.show, scriptName: '미트볼 상태창 ① <meatball> 블록 → 변동 칩', findRegex: `/${any}/gi`, replaceString: '<div class="ss-slot"></div>', trimStrings: [], placement: [2], disabled: false, markdownOnly: true, promptOnly: false, runOnEdit: true, substituteRegex: 0, minDepth: null, maxDepth: null },
-        { id: REGEX_IDS.strip, scriptName: '미트볼 상태창 ② 오래된 <meatball> 프롬프트에서 제거', findRegex: `/\\s*(?:${any})/gi`, replaceString: '', trimStrings: [], placement: [2], disabled: false, markdownOnly: false, promptOnly: true, runOnEdit: false, substituteRegex: 0, minDepth: 3, maxDepth: null },
-    ];
-}
-app.installRegex = (reload) => installRegex(reload);
-app.removeRegex = () => removeRegex();
-function installRegex(reload = true) {
-    const es = ctx().extensionSettings;
-    if (!Array.isArray(es.regex)) es.regex = [];
-    let changed = false;
-    for (const sc of regexScripts()) {
-        const ex = es.regex.find(x => x.id === sc.id);
-        if (!ex) { es.regex.push(sc); changed = true; }
-        else if (ex.scriptName !== sc.scriptName || ex.findRegex !== sc.findRegex) { ex.scriptName = sc.scriptName; ex.findRegex = sc.findRegex; changed = true; } // 이름·찾는 글이 바뀐 경우 (업데이트)
-    }
-    if (changed) { saveSettings(); if (reload) ctx().reloadCurrentChat?.(); }
-    return changed;
-}
-function removeRegex() {
-    const es = ctx().extensionSettings;
-    if (!Array.isArray(es.regex)) return;
-    es.regex = es.regex.filter(x => !Object.values(REGEX_IDS).includes(x.id));
-    saveSettings();
-    ctx().reloadCurrentChat?.();
-}
-
-// ───── 갱신 ─────
-let refreshTimer = null;
-// soft = 이벤트로 온 갱신: 채팅·기록·설정이 그대로면 다시 계산하지 않고 화면도 다시 그리지 않는다 (한 턴에 3~4번 오던 중복 계산 줄이기)
-let refreshForce = false, lastFp = '';
-function refresh(force = false) { refreshForce ||= force; if (force) { app.redecorate(); lastDom = ''; } clearTimeout(refreshTimer); refreshTimer = setTimeout(() => { const f = refreshForce; refreshForce = false; refreshNow({ soft: !f }); }, 60); }
-function fingerprint() {
-    const c = ctx(), chat = c.chat ?? [], last = chat.at(-1), meta = getMeta();
-    return [c.getCurrentChatId?.(), chat.length, last?.swipe_id, last?.mes?.length, drawerOps(last ?? {})?.length, meta?.adjust?.length, meta?.adjust?.at(-1)?.t, meta?.startAt, rev.n].join('|');
-}
-let lastDom = '';
-function domSig() {
-    const el = document.getElementById('chat');
-    if (!el) return '';
-    return `${el.childElementCount}|${el.firstElementChild?.getAttribute('mesid')}|${el.lastElementChild?.getAttribute('mesid')}|${set0().msgCard}|${set0().albumOn}|${set0().chipOutside}`;
-}
-const set0 = () => settings();
-// 🛡 데이터 보호: 미트볼 밖에서 바뀐 기준 자료를 되돌렸을 때 — 몇 번 연달아 나도 알림은 15초에 한 번
-let guardTold = 0;
-function guardHit() {
-    app.guardHits = (app.guardHits ?? 0) + 1;
-    ssNote('데이터 보호', new Error('미트볼 밖에서 바뀐 상태창 자료를 되돌림'));
-    if (Date.now() - guardTold > 15000) { guardTold = Date.now(); toastr.info('🛡 다른 확장이 바꾼 상태창 자료를 원래대로 되돌렸어요. (확장 설정 › 다른 확장과 같이 쓰기 › 데이터 보호)', TITLE, { timeOut: 8000 }); }
-}
-// 🙈 숨긴 답 빼기 (hideSkip): 눈 단추를 **직접** 누른 AI 답에만 표식(extra.ss_skip)을 적는다 → engine.js isStoryAI가 그 답을 건너뛴다.
-//   요약 확장 · /hide 가 숨긴 답은 표식이 없어서 예전처럼 계속 더한다 (옛 답이 숨겨져도 돈 · 호감이 날아가지 않게). 숨김을 풀면 표식을 지운다.
-function markHidden(id, hide, tries = 0) {
-    const m = ctx().chat?.[id]; if (!m || m.is_user) return;
-    if (!!m.is_system !== hide) { if (tries < 8) setTimeout(() => markHidden(id, hide, tries + 1), 250); return; } // 실리태번이 아직 숨기는 중
-    if (hide) { if (m.extra?.type || m.extra?.ss_skip === true) return; (m.extra ??= {}).ss_skip = true; }
-    else if (m.extra?.ss_skip !== undefined) delete m.extra.ss_skip; else return;
-    rev.n++; ctx().saveChat?.(); refresh(true);
-    const meta = getMeta(); if (!meta?.base || meta.off) return;
-    if (hide && id < (meta.startAt ?? 0)) toastr.info('오래된 답이라 이미 합쳐 둔 기록이에요 — 숨겨도 숫자는 그대로예요.', TITLE, { timeOut: 6000 });
-    else toastr.info(hide ? '숨긴 답의 변화를 상태 계산에서 뺐어요. 다시 보이게 하면 돌아와요.' : '다시 보이게 한 답의 변화를 상태 계산에 넣었어요.', TITLE, { timeOut: 4000 });
-}
-function sweepHidden() { // 숨김이 다른 길(/unhide 등)로 풀린 답에 남은 표식 지우기 — 나중에 요약 확장이 숨겨도 빠지지 않게
-    let n = 0; for (const m of ctx().chat ?? []) if (m?.extra?.ss_skip !== undefined && !m.is_system) { delete m.extra.ss_skip; n++; }
-    if (n) { rev.n++; ctx().saveChat?.(); }
-}
-function watchHide() {
-    document.addEventListener('click', (e) => {
-        if (settings().hideSkip !== true) return;
-        const btn = e.target?.closest?.('#chat .mes_hide, #chat .mes_unhide'); if (!btn) return;
-        const id = Number(btn.closest('.mes')?.getAttribute('mesid')); if (!Number.isInteger(id)) return;
-        const hide = btn.classList.contains('mes_hide');
-        setTimeout(() => { try { markHidden(id, hide); } catch (err) { ssNote('숨긴 답 표식', err); } }, 300);
-    }, true);
-}
-app.sweepHidden = () => { if (settings().hideSkip === true) sweepHidden(); };
-function refreshNow({ soft = false } = {}) {
-    clearTimeout(refreshTimer);
-    let same = false;
-    try { if (set0().guardData === true && checkSeal()) { lastFp = ''; guardHit(); } } catch (e) { ssNote('데이터 보호 확인', e); }
-    try {
-        if (!isActive() || !ready()) { app.current = null; setInjection(null); lastFp = ''; }
-        else {
-            const fp = fingerprint();
-            same = soft && fp === lastFp && !!app.current;
-            if (!same) app.current = compute();
-            lastFp = fp;
-            try { setInjection(getMeta()?.paused ? null : buildInjection(app.current)); } catch (e) { ssErr(LOG, 'inject', e); }
-            // v2.7.7: 상태도 그대로 · 화면의 메시지도 그대로면 칩을 다시 훑지 않는다 (긴 채팅에서 갱신마다 모든 답을 돌던 것)
-            const ds = domSig();
-            if (!same || ds !== lastDom) { try { decorateAll(); } catch (e) { ssErr(LOG, 'decorate', e); } }
-            lastDom = ds;
-            try { fixDict(); scheduleFill(); checkKorean(); } catch (e) { ssWarn(LOG, 'viewtr', e); }
-        }
-    } catch (e) { ssErr(LOG, e); }
-    // 계산이 어디서 실패해도 상태창 화면은 그린다 (안 그리면 '창이 안 떠요'가 됨)
-    try { ensureUI(); if (!same) rerenderPanels(); } catch (e) { ssErr(LOG, 'ui', e); }
-    sealMeta(); // 🛡 꺼져 있으면 아무것도 안 함
-    loadWanted().catch(() => { /* feat.js가 적음 */ }); // ⚡ 방금 켠 기능이 있으면 불러오고, 다 되면 다시 그린다
-}
-app.refreshNow = () => refreshNow();
-// 🛡 간섭 차단 스위치를 바꿨을 때 (settings_ui.js가 부른다) · 시작할 때
-app.applyGuard = async () => {
-    if (settings().guardData === true) { await loadPure(); ctxReset(); }
-    try { applyGuardLook(); applyTheme(); } catch (e) { ssNote('화면 보호', e); }
-    refreshNow();
+    try { if (c.executeSlashCommandsWithOptions) { await c.executeSlashCommandsWithOptions(`/chat-jump ${i}`); } } catch { /* 없음 */ }
+    let el = document.querySelector(`#chat .mes[mesid="${i}"]`);
+    if (!el && typeof c.showMoreMessages === 'function') { await c.showMoreMessages(); el = document.querySelector(`#chat .mes[mesid="${i}"]`); }
+    if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.classList.add('ml-flash'); setTimeout(() => el.classList.remove('ml-flash'), 1600); }
 };
 
-// ───── 🏎 부하 재기 (v2.7.3): 한 턴에 미트볼이 쓰는 시간을 직접 재서 보여 준다 (AI 0회) ─────
-async function measureLoad() {
-    if (!isActive() || !ready()) { toastr.info('상태창이 있는 채팅에서 재 주세요.', TITLE); return; }
-    const t = (fn, n = 5) => { const a = performance.now(); for (let k = 0; k < n; k++) fn(); return (performance.now() - a) / n; };
-    const meta = getMeta(), chat = ctx().chat ?? [], set = settings();
-    const ms = {};
-    ms.compute = t(() => compute());
-    const r = compute();
-    ms.inject = t(() => buildInjection(r));
-    ms.decorate = t(() => { app.redecorate(); decorateAll(); }, 3);
-    ms.decorateSoft = t(() => decorateAll(), 5);
-    ms.panels = t(() => rerenderPanels(true), 3);
-    // 창마다 따로 (v2.8): 어느 창이 무거운지 보이게 — 전체화면 미니홈피 · 옆 창 미니 채팅 · 사이드 창
-    const perPanel = [...panels].filter(p => p.isConnected && p._ss?.mode === 'view' && !(p.classList.contains('ss-panel-side') && set.sideState !== 'full')).map(p => { const kind = p.classList.contains('ss-panel-float') ? '옆 창 미니 채팅' : p.classList.contains('ss-panel-side') ? '사이드 창' : p.querySelector('.ss-hompy') ? `전체화면 미니홈피${set.hpLite === true ? ' (가볍게)' : ''}` : '상태창'; const fl = p.classList.contains('ss-panel-float'); return [kind, t(() => app.renderPanel(p, fl), 3), `${fl ? '내용이 그대로면 다시 안 그려요' : `${p._ss?.tab ?? ''} 탭`} · 요소 ${p.querySelectorAll('*').length}개`]; });
-    ms.hud = t(() => renderHud(), 5);
-    // 번역: 한 턴에 실제로 드는 만큼 — 새로 그린 창(전체화면이면 가운데 창)의 글만. 화면 전체를 처음부터 다시 번역하는 건 사전이 바뀔 때뿐이라 따로 적는다
-    let trMs = 0, trAll = 0; try { const { translateView } = await import('./src/translate.js'); const roots = [...panels].filter(p => p.isConnected && p._ss?.mode === 'view' && !(p.classList.contains('ss-panel-side') && set.sideState !== 'full') && !p.classList.contains('ss-panel-float')).map(p => p.querySelector('.ss-hp-win.main') ?? p); trMs = roots.length ? t(() => { for (const r0 of roots) translateView(r0); }, 3) : 0; trAll = t(() => translateView(), 2); } catch { /* 번역 없음 */ }
-    ms.translate = trMs;
-    const turn = ms.compute + ms.inject + ms.decorateSoft + ms.hud + (panels.size ? ms.panels : 0) + trMs;
-    const metaKB = Math.round(JSON.stringify(meta).length / 1024);
-    const trN = Object.keys(meta.tr ?? {}).length;
-    const unbaked = chat.length - (meta.startAt ?? 0);
-    const rows = [
-        ['상태 다시 계산', ms.compute, `메시지 ${unbaked}개 · 편집 기록 ${meta.adjust?.length ?? 0}개`],
-        ['AI에게 보낼 글 만들기', ms.inject, set.injectMode],
-        ['변동 칩 붙이기 (바뀐 것만)', ms.decorateSoft, `화면의 답 ${document.querySelectorAll('#chat .mes').length}개`],
-        ['변동 칩 처음부터', ms.decorate, set.albumOn !== false ? '앨범 단추 포함' : '앨범 꺼짐'],
-        ['상태창 화면 다시 그리기', ms.panels, `그리는 창 ${perPanel.length}개${perPanel.length ? '' : ' (접어 둔 미니바는 안 그려요)'}`],
-        ...perPanel.map(([k, v, note]) => [`　└ ${k}`, v, note]),
-        ['채팅 위 띠(HUD)', ms.hud, ''],
-        ['화면 번역 (새로 그린 창)', trMs, trN ? `사전 ${trN}개 · 화면 전체를 다시 번역하면 ${trAll.toFixed(1)}ms (사전이 바뀔 때만)` : '안 씀'],
-    ];
-    const tips = [];
-    if (unbaked > 300) tips.push(`굳히지 않은 메시지가 ${unbaked}개예요 → 확장 설정 › 확장 AI › 「자동 정리를 시작할 메시지 수」를 낮추면 계산이 가벼워져요.`);
-    if (metaKB > 800) tips.push(`이 채팅의 상태창 데이터가 ${metaKB}KB예요 → 관리 탭 › 세이브 슬롯을 지우거나, 자동 정리를 켜 두세요.`);
-    if (trN > 1500 && trAll > 8) tips.push('화면 번역 사전이 커서 번역이 느려요 → 「번역 고치기」로 안 쓰는 것을 정리하거나, 상태창 언어를 한국어 저장으로.');
-    { const hp = perPanel.find(x => x[0].startsWith('전체화면 미니홈피') && x[1] > 20); if (hp && set.hpLite !== true) tips.push(`전체화면 미니홈피를 그리는 데 ${hp[1].toFixed(0)}ms가 들어요 → 꾸미기 › 창 › 「🪶 가볍게 (옆 창 없이)」를 켜면 가운데 창만 그려서 가벼워져요.`); const fl = perPanel.find(x => x[0] === '옆 창 미니 채팅' && x[1] > 10); if (fl) tips.push(`옆 창 미니 채팅이 ${fl[1].toFixed(0)}ms를 써요 → 연락 탭의 「옆 창 채팅 끄기」.`); }
-    if (set.injectMode === 'full') tips.push('규칙 주입이 「전체」예요 → 「간결」로 바꾸면 토큰과 계산이 줄어요.');
-    if (!tips.length) tips.push(turn < 30 ? '지금은 가벼워요. 렉이 느껴지면 미트볼보다 다른 확장 · 브라우저 쪽일 가능성이 커요 (F12 › Performance).' : '한 턴에 30ms를 넘어요. 위에서 큰 줄부터 줄여 보세요.');
-    const el = document.createElement('div');
-    el.className = 'ss-root ss-scope ss-perf';
-    el.innerHTML = `<div class="ss-wz-head"><i class="fa-solid fa-gauge-simple-high"></i><div><b>🏎 부하 재기</b><small>한 턴(AI 답 1개)마다 미트볼이 쓰는 시간 · 이 기기 기준 · AI 0회</small></div></div>
-        <table class="ss-perf-t"><tbody>${rows.map(([a, v, n]) => `<tr><td>${esc(a)}</td><td><b>${v.toFixed(1)}</b>ms</td><td><small>${esc(n)}</small></td></tr>`).join('')}
-        <tr><td><b>한 턴 합계 (대략)</b></td><td><b>${turn.toFixed(1)}</b>ms</td><td><small>60ms 아래면 느낄 수 없는 수준</small></td></tr></tbody></table>
-        <p class="ss-hint">상태창 데이터 ${metaKB}KB · 채팅 메시지 ${chat.length}개</p>
-        <ul>${tips.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
-        <p class="ss-hint">꺼 둔 기능(메모 · 앨범 · 속마음 · 칸)은 계산 · 화면 · AI에게 보내는 글에서 모두 빠져요. 「부가 기능 한 번에 끄기」 뒤에 다시 재면 차이를 볼 수 있어요.</p>`;
-    await popup(el);
+// ───── 답을 받았을 때: 태그 → 메시지 칸으로 옮겨 적기 (본문엔 이야기만) ─────
+const isOOC = () => { const c = ctx().chat ?? []; const u = [...c].reverse().find(m => m.is_user); try { return settings().ooc && u && new RegExp(settings().oocPattern, 'i').test(u.mes); } catch { return false; } };
+let skipThis = false, quietGen = false;
+async function onBeforeGen(type, opts, dry) {
+    if (dry) return;
+    const meta = getMeta();
+    quietGen = type === 'quiet' || type === 'impersonate';
+    skipThis = !!meta?.skipNext || isOOC();
+    if ((quietGen && settings().skipQuiet) || skipThis || meta?.paused) { setInj({}); return; }
+    inject();
 }
-app.measureLoad = measureLoad;
+async function onReceived(i, type) {
+    const meta = getMeta(); const m = ctx().chat?.[i];
+    if (!m || m.is_user || !ready(meta) || !settings().enabled) return;
+    if ((type === 'quiet' || quietGen) && settings().skipQuiet) { quietGen = false; return; }
+    const t0 = performance.now(), calls0 = aiStats.calls;
+    const sl = slot(m, true);
+    if (meta.paused || skipThis) {
+        sl.ops = []; sl.skip = true; m.mes = stripTags(m.mes);
+        if (skipThis && meta.skipNext) { meta.skipNext = false; saveMeta(); }
+        skipThis = false;
+    } else if (hasTag(m.mes)) {
+        sl.ops = readOps(m.mes); sl.fill = false; m.mes = stripTags(m.mes);
+    } else if (settings().fillMissing) {
+        // 빠졌을 때만 작게 보충 (AI 1회)
+        try { const raw = await supplement(m.mes, fold()); sl.ops = readOps(raw); sl.fill = true; } catch (e) { sl.ops = []; console.warn(`[${TITLE}] 보충 실패`, e); }
+    } else sl.ops = [];
+    sl.rev = (sl.rev ?? 0) + 1;
+    if (Array.isArray(m.swipes) && typeof m.swipe_id === 'number') m.swipes[m.swipe_id] = m.mes;
+    syncSwipe(m);
+    ctx().saveChatDebounced?.();
+    perf.turns.push({ ms: performance.now() - t0, calls: aiStats.calls - calls0, tok: injTokens(lastInj) }); if (perf.turns.length > 30) perf.turns.shift();
+    refresh();
+}
+function onEdited(i) {
+    const m = ctx().chat?.[i]; if (!m || m.is_user) return refresh();
+    if (hasTag(m.mes)) { const sl = slot(m, true); sl.ops = readOps(m.mes); sl.rev = (sl.rev ?? 0) + 1; m.mes = stripTags(m.mes); syncSwipe(m); ctx().saveChatDebounced?.(); }
+    refresh();
+}
 
-// ───── 이벤트 ─────
-function lastUserText() {
-    const chat = ctx().chat ?? [];
-    for (let i = chat.length - 1; i >= 0; i--) if (chat[i]?.is_user) return String(chat[i].mes ?? '');
-    return '';
+// ───── 상태창 만들기 ─────
+async function create(useAI) {
+    const meta = getMeta(true);
+    let b = null;
+    if (useAI) { toast('로어북 · 카드를 읽고 설정집을 채우는 중…'); try { const { book, src } = await fillBook(); if (book) { b = normBook(book); b.src = { from: 'ai', at: Date.now(), sig: src.sig }; } } catch (e) { console.warn(e); } if (!b) toast('AI로 못 채워서 기본 틀로 시작해요', 'bad'); }
+    b ??= templateBook();
+    if (!b.people.length) b.people = templateBook().people;
+    meta.book = b; meta.start ??= { cash: b.world.meal * 5, loc: b.world.places.find(p => p.kind === 'home')?.name ?? '' };
+    saveMeta(); refresh(true); openSheet('book');
 }
-async function onBeforeGenerate(type, _opts, dryRun) {
-    ctxReset();
-    if (dryRun || !isActive() || !ready()) return;
-    const set = settings(), meta = getMeta();
-    let skip = meta.paused ? 'pause' : '';
-    if (!skip && set.skipQuiet && type === 'quiet') skip = 'quiet';
-    // 조용한 생성(다른 확장의 요약 등)은 '다음 1번 건너뛰기'를 쓰지 않는다
-    if (!skip && meta.skipOnce && type !== 'quiet') { skip = 'skip'; meta.skipOnce = false; saveMeta(); renderHud(); }
-    // 건너뛴 답(OOC 등)을 이어쓰기하면 그 이어쓰기도 건너뛴다 (OOC 답이 이어쓰기로 분석되던 것)
-    if (!skip && type === 'continue' && app.lastGenSkipped) skip = 'cont';
-    if (!skip && set.oocDetect && type !== 'quiet' && type !== 'continue') {
-        try { if (new RegExp(set.oocPattern, 'i').test(lastUserText())) skip = 'ooc'; } catch { /* bad pattern */ }
-    }
-    // 이번 생성은 상태창 없이 (OOC · 일시정지 · 건너뛰기) → 그 답은 따로 분석하지도 않는다 (OOC 답에서 숫자가 바뀌지 않게)
-    if (type !== 'quiet') { app.lastGenSkipped = !!skip; app.lastSkipReason = skip; } // 이유는 🔍 칩 점검이 보여 줘요 (v2.7.3)
-    if (skip) { setInjection(null); return; }
-    const chat = ctx().chat ?? [];
-    let limit = chat.length;
-    const last = chat[chat.length - 1];
-    if ((type === 'swipe' || type === 'regenerate') && last && !last.is_user) limit = chat.length - 1;
-    // 사칭(impersonate)은 유저 글이라 <meatball> 출력 규칙을 빼고 보낸다 (안 빼면 내 메시지에 태그가 붙어 나옴)
-    // v2.7.7: 방금 계산한 상태가 그대로면 다시 계산하지 않는다 (한 턴에 3번씩 돌던 것 중 하나)
-    const reuse = limit === chat.length && app.current && lastFp && fingerprint() === lastFp;
-    try { setInjection(buildInjection(reuse ? app.current : compute(limit), { noOutput: type === 'impersonate' })); } catch (e) { ssErr(LOG, e); }
+
+// ───── 확장 설정 서랍 (남긴 설정만) ─────
+function settingsHTML() {
+    const s = settings();
+    const sw = (k, label) => `<label class="checkbox_label"><input type="checkbox" data-ml-s="${k}" ${s[k] ? 'checked' : ''}> ${label}</label>`;
+    const sel = (k, label, opts) => `<label>${label} <select class="text_pole" data-ml-s="${k}">${opts.map(([v, l]) => `<option value="${v}" ${String(s[k]) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`;
+    return `<div class="inline-drawer ml-set"><div class="inline-drawer-toggle inline-drawer-header"><b>😼 ${TITLE} <small>v${VERSION}</small></b><div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div><div class="inline-drawer-content">
+${sw('enabled', '켜기')}
+<div class="ml-set-btns"><button class="menu_button" data-ml="create-ai">📘 상태창 만들기 (AI 1회)</button><button class="menu_button" data-ml="create-tpl">⚡ 바로 시작 (AI 0회)</button><button class="menu_button" data-ml="open">펼치기</button></div>
+<h4>화면</h4>${sw('hud', 'HUD')}${sel('hudPos', 'HUD 자리', [['top', '위'], ['bottom', '아래']])}${sw('minibar', '미니바')}${sw('mascot', '마스코트')}${sw('mascotSound', '마스코트 소리')}
+<h4>꾸미기</h4><label>강조색 <input type="color" data-ml-look="accent" value="${s.look.accent}"></label> <label>글자 크기 <input type="range" min="0.85" max="1.3" step="0.05" data-ml-look="size" value="${s.look.size}"></label> <label>모서리 <input type="range" min="0" max="24" step="2" data-ml-look="radius" value="${s.look.radius}"></label> <label>테두리 <input type="range" min="0" max="3" step="1" data-ml-look="border" value="${s.look.border}"></label> <label>그림자 <input type="range" min="0" max="3" step="1" data-ml-look="shadow" value="${s.look.shadow}"></label> <label>글꼴 <input class="text_pole" data-ml-look="font" value="${esc(s.look.font)}" placeholder="비우면 실리태번 글꼴"></label>
+<h4>AI</h4>${sel('preset', '본편 지시', [['flash', '플래시용 (짧은 키 + 예시)'], ['general', '일반']])}${sw('fillMissing', '태그가 빠졌을 때만 보충 (AI 1회)')}${sw('skipQuiet', '퀵리플라이 · /gen 답엔 안 붙이기')}${sw('ooc', 'OOC 메시지는 건너뛰기')}
+<label>미트볼 AI 연결 프로필 <input class="text_pole" data-ml-s="profile" value="${esc(s.profile)}" placeholder="비우면 지금 연결"></label>
+${sel('pinBook', '장면 인물의 증상 한 줄 본편에', [['auto', '붙이기'], ['off', '안 붙이기']])}
+<h4>저장 · 옮기기</h4><div class="ml-set-btns"><button class="menu_button" data-ml="perf">🏎 부하 재기</button><button class="menu_button" data-ml="backup">💾 백업</button><button class="menu_button" data-ml="restore">📂 불러오기</button><button class="menu_button" data-ml="card">🃏 카드에 붙이기</button><button class="menu_button" data-ml="migrate">🍖 옛 미트볼 옮겨 오기</button></div>
+</div></div>`;
 }
-function onGenEnded() { refresh(); } // 바로 앞 렌더에서 이미 계산했으면 건너뜀
-// 서랍: AI 답이 끝나면 <meatball>을 본문에서 떼어 보관
-let stashSave = null;
-function stashAt(id, { replace = false, rerender = true, save = false } = {}) {
-    if (!settings().stashTags || !isActive() || !ready()) return; // 상태창을 안 만든 채팅의 <status>(다른 프리셋 것일 수도)는 건드리지 않는다
-    const chat = ctx().chat ?? [];
-    const i = Number(id ?? chat.length - 1);
-    const m = chat[i];
-    if (!stashStatus(m, { replace })) return;
-    if (rerender) { try { ctx().updateMessageBlock?.(i, m); } catch (e) { ssWarn(LOG, 'rerender', e); } }
-    if (save) { clearTimeout(stashSave); stashSave = setTimeout(() => ctx().saveChat?.(), 400); }
+function mountSettings() {
+    const host = document.getElementById('extensions_settings2') ?? document.getElementById('extensions_settings'); if (!host) return;
+    host.querySelector('.ml-set')?.remove();
+    host.insertAdjacentHTML('beforeend', settingsHTML());
+    const box = host.querySelector('.ml-set');
+    box.addEventListener('change', (e) => {
+        const t = e.target, k = t.dataset.mlS, lk = t.dataset.mlLook;
+        if (k) settings()[k] = t.type === 'checkbox' ? t.checked : t.value;
+        if (lk) settings().look[lk] = t.type === 'range' ? Number(t.value) : t.value;
+        saveSettings(); applyLook(); document.getElementById('ml-hud')?.remove(); refresh();
+    });
+    box.addEventListener('click', async (e) => {
+        const a = e.target.closest('[data-ml]')?.dataset.ml; if (!a) return;
+        if (a === 'create-ai') return create(true);
+        if (a === 'create-tpl') return create(false);
+        if (a === 'open') return ready() ? openSheet('now') : toast('먼저 상태창을 만들어 주세요');
+        if (a === 'perf') return showPerf();
+        if (a === 'backup') return backup();
+        if (a === 'restore') return restore().then(() => refresh(true));
+        if (a === 'card') return toCard();
+        if (a === 'migrate') { const n = migrateOld(); toast(n ? `답 ${n}개를 옮겨 왔어요` : '옮길 옛 기록이 없어요', n ? 'good' : 'mid'); refresh(true); }
+    });
 }
-function onReceived(id, type) {
-    if (type === 'impersonate') return;
-    // 🔍 이 답이 건너뛴 생성(OOC · 일시정지 …)이었는지 적어 둔다 — 「칩이 왜 없지?」에 답하려고 (v2.7.3)
-    try { if (isActive() && ready() && type !== 'quiet') { const chat = ctx().chat ?? []; const m = chat[Number(id ?? chat.length - 1)]; if (m && !m.is_user && (app.lastGenSkipped || m.extra?.[MODULE]?.skip)) markSkip(m, app.lastGenSkipped ? app.lastSkipReason || 'skip' : null); } } catch (e) { ssWarn(LOG, 'skipmark', e); }
-    stashAt(id, { replace: type !== 'continue' });
+// 꾸미기: 직접 고르기 하나
+function applyLook() {
+    const L = settings().look, d = document.documentElement.style;
+    d.setProperty('--ml-accent', L.accent); d.setProperty('--ml-size', L.size); d.setProperty('--ml-radius', `${L.radius}px`);
+    d.setProperty('--ml-border', `${L.border}px`); d.setProperty('--ml-shadow', ['none', '0 1px 3px rgb(0 0 0/.12)', '0 4px 14px rgb(0 0 0/.16)', '0 10px 30px rgb(0 0 0/.24)'][L.shadow] ?? 'none');
+    d.setProperty('--ml-font', L.font || 'inherit');
 }
-function onSwiped(id) { stashAt(id, { replace: true, save: true }); refresh(true); }
-function onSwipeDeleted(e) {
-    try {
-        const m = ctx().chat?.[Number(e?.messageId)];
-        if (shiftSwipeKeys(m, Number(e?.swipeId))) { clearTimeout(stashSave); stashSave = setTimeout(() => ctx().saveChat?.(), 400); }
-        const meta = getMeta();
-        if (meta?.base && shiftSwipeAnchors(meta, m, Number(e?.swipeId))) saveMeta(); // 그 답에 묶인 행동(구매 · 이동 …)도 새 번호로
-    } catch (err) { ssWarn(LOG, 'swipe delete', err); }
+// 🏎 부하 재기
+function showPerf() {
+    const t0 = performance.now(); resetCache(); fold(); const full = performance.now() - t0;
+    const t1 = performance.now(); fold(); const inc = performance.now() - t1;
+    const avg = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
+    const T = perf.turns;
+    sheet('🏎 부하 재기', card('지금 채팅', row({ icon: '🧮', title: '처음부터 다시 계산', value: `${full.toFixed(1)}ms` }) + row({ icon: '⚡', title: '바뀐 곳만 계산', value: `${inc.toFixed(2)}ms` }) + row({ icon: '🖼', title: '화면 다시 그리기 (평균)', value: `${avg(perf.refresh).toFixed(1)}ms` }) + row({ icon: '💬', title: '메시지', value: `${ctx().chat?.length ?? 0}개` }))
+        + card('최근 턴', row({ icon: '⏱', title: '한 턴 처리 (평균)', value: `${avg(T.map(t => t.ms)).toFixed(1)}ms` }) + row({ icon: '🤖', title: '미트볼 AI 호출', sub: '태그가 빠진 턴만', value: `${T.reduce((a, t) => a + t.calls, 0)}회 / ${T.length}턴` }) + row({ icon: '🔤', title: '이번 턴 주입', value: `≈${injTokens(lastInj)}토큰` })));
+}
+// ───── 시작 ─────
+async function boot() {
+    settings();
+    if (oldActive()) { resting = true; console.info(`[${TITLE}] 옛 미트볼이 켜져 있어서 쉽니다.`); return; }
+    applyLook(); mountSettings(); bindOuter(); mountApi();
+    const c = ctx(), E = c.event_types, on = (n, f) => n && c.eventSource.on(n, f);
+    on(E.GENERATION_AFTER_COMMANDS, onBeforeGen);
+    on(E.MESSAGE_RECEIVED, onReceived);
+    on(E.MESSAGE_EDITED, onEdited);
+    for (const n of [E.CHAT_CHANGED]) on(n, () => { closeSheet(); fromCard(); refresh(true); });
+    for (const n of [E.CHARACTER_MESSAGE_RENDERED, E.USER_MESSAGE_RENDERED, E.MESSAGE_SWIPED, E.MESSAGE_DELETED, E.MESSAGE_SWIPE_DELETED, E.MORE_MESSAGES_LOADED, E.MESSAGE_UPDATED]) on(n, () => refresh());
+    c.SlashCommandParser?.addCommandObject?.(c.SlashCommand.fromProps({ name: 'ml', callback: () => { openSheet('now'); return ''; }, helpString: '미트볼 라이트 열기' }));
     refresh(true);
 }
-function onEdited(id) { stashAt(id, { replace: true, rerender: false, save: true }); refresh(true); }
-const analyzed = new Set();
-let pingCounter = 0;
-// 다른 상태창 · 변수 확장이 같은 채팅에서 같이 돌고 있으면 한 번만 알려 준다 (v2.7.11)
-// — 둘 다 켜면 AI가 상태 태그를 두 번 써서 토큰이 늘고, 형식을 섞을 수 있다. 일부러 같이 쓰는 분도 있으니 끄라고 하진 않는다.
-function otherTrackers(m) {
-    const found = [];
-    const c = ctx();
-    const es = c.extensionSettings ?? {};
-    const off = new Set(es.disabledExtensions ?? []);
-    const rpg = 'third-party/rpg-companion-sillytavern';
-    if (es[rpg]?.enabled && !off.has(rpg)) found.push('RPG Companion');
-    const text = `${m?.mes ?? ''}`;
-    if (/<UpdateVariable>|_\.set\(\s*['"]/.test(text)) found.push('MVU(변수 업데이트)');
-    if (/<StatusPlaceHolderImpl\s*\/?>|<tracker>/i.test(text)) found.push('다른 상태창');
-    return found;
-}
-function checkOtherTrackers(m) {
-    try {
-        const meta = getMeta();
-        if (!meta || meta.otherWarned) return;
-        const found = otherTrackers(m);
-        if (!found.length) return;
-        meta.otherWarned = true; saveMeta();
-        if (settings().quiet === true) { notify({ kind: 'text', icon: '🤝', title: `${found.join(' · ')}도 같이 돌고 있어요`, text: '둘 다 켜 두면 토큰이 늘 수 있어요 — 확장 설정 › 다른 확장과 같이 쓰기' }); return; } // 🔕 조용히: 알림함에만
-        toastr.info(`이 채팅에서 ${esc(found.join(' · '))}도 같이 돌고 있는 것 같아요. 둘 다 켜 두면 AI가 상태를 두 번 적느라 토큰이 늘 수 있어요. 일부러 같이 쓰시는 거라면 그대로 두셔도 돼요.`, TITLE, { timeOut: 12000, escapeHtml: false });
-    } catch (e) { ssWarn(LOG, 'others', e); }
-}
-function onCharRendered(id, type) {
-    refreshNow({ soft: true });
-    notifyLatest();
-    if (!isActive() || !ready() || type === 'quiet' || getMeta()?.paused) return;
-    const chat = ctx().chat ?? [];
-    const i = Number(id ?? chat.length - 1);
-    const m = chat[i];
-    if (!m || m.is_user || i !== chat.length - 1) return;
-    const set = settings();
-    // 긴 채팅: 오래된 기록을 굳혀 매 턴 계산을 가볍게 (최근 120개는 그대로)
-    try { const meta = getMeta(); if (autoBake(meta)) { saveMeta(); refreshNow(); } } catch (e) { ssWarn(LOG, 'bake', e); }
-    // 💡 이야기에 맞는 순간 안 쓰는 기능 한 번 추천
-    maybeTip();
-    checkOtherTrackers(m);
-    maybeLaterWarn(); // 오래 쓰다 생기는 문제는 나중에 한 번
-    // 자동 선톡
-    if (set.autoPing && modOn('contact') && app.current?.state.data.contact?.contacts.length) {
-        pingCounter++;
-        if (pingCounter >= Math.max(2, set.autoPingEvery) && rand(100) <= 50) {
-            pingCounter = 0;
-            const cs = app.current.state.data.contact.contacts.filter(c => !c.blocked);
-            if (cs.length && F.contact) F.contact.receivePing(cs[rand(cs.length) - 1].name, true).catch(e => ssWarn(LOG, 'autoping', e)); // 연락을 켜면 불러와 있다
-        }
-    }
-    if (set.sync !== 'analyze' && set.sync !== 'tagPlus') return;
-    if (app.lastGenSkipped) return; // OOC·건너뛴 턴의 답은 분석하지 않음
-    // v2.7.5: 태그가 있어도 읽은 줄이 하나도 쓸모없으면(깨진 태그 · 모르는 키만) 따로 분석 — 예전엔 「태그 있음」이라 그냥 씹혔어요
-    const broken = !!(m.extra?.[MODULE]?.junk?.[m.swipe_id ?? 0] || blockJunk(m.mes)); // 「cash +5」처럼 깨진 블록은 빈 블록(바뀐 것 없음)과 달리 따로 분석 (검수)
-    const useful = (ops) => Array.isArray(ops) && (ops.length ? ops.some(([k]) => opInfo(app.current?.state, k).key) : !broken); // 빈 태그 = 「바뀐 것 없음」이라 괜찮아요
-    if (set.sync === 'tagPlus' && hasStatus(m.mes) && useful(extractOps(m.mes))) return;
-    const drawer = m.extra?.[MODULE]?.bySwipe?.[m.swipe_id ?? 0];
-    if (drawer && (useful(drawer) || drawer.analyzed)) return;
-    const key = `${ctx().getCurrentChatId?.()}:${i}:${m.swipe_id ?? 0}:${m.mes.length}`;
-    if (analyzed.has(key)) return;
-    analyzed.add(key);
-    analyzeMessage(i);
-}
-// 🧩 덧붙이는 기능 · 미니홈피 자료 (src/addons.js · src/minihome.js): 켠 기능이 있거나 이 채팅에 그 자료가 있을 때만 불러온다.
-// 아무것도 안 켰으면 파일을 읽지도 않는다 → 다른 파일에 건 `app.이름?.()` 은 전부 없는 것으로 넘어가 원래와 똑같이 동작한다
-const ADDON_KEYS = ['gearOn', 'ambientOn', 'giftTaste', 'promiseClock', 'mergeContact', 'guestbook', 'hpWave', 'socialAff'];
-let addonsLoading = null;
-function loadAddons(force = false) {
-    if (addonsLoading) return addonsLoading;
-    if (!force) { const set = settings(); let m = null; try { m = getMeta(); } catch { m = null; } if (!ADDON_KEYS.some(k => set[k] === true) && !(m && (m.gear || m.roomTell || m.ctLore || m.gbook))) return null; }
-    addonsLoading = Promise.all([import('./src/minihome.js'), import('./src/addons.js'), import('./src/minihome_ui.js')]).then(([a, b]) => { a.initMinihome(); b.initAddons(); try { refreshNow(); app.rerenderPanels?.(true); } catch (e) { ssWarn(LOG, 'addons refresh', e); } }).catch((e) => { addonsLoading = null; ssWarn(LOG, 'addons', e); });
-    return addonsLoading;
-}
-app.loadAddons = loadAddons;
-async function onChatChanged() {
-    try { loadAddons(); } catch (e) { ssWarn(LOG, 'addons', e); }
-    ctxReset(); lastFp = ''; lastDom = ''; app.lastGenSkipped = false;
-    try { await loadWanted(); } catch (e) { ssWarn(LOG, 'feat', e); } // ⚡ 이 채팅에서 켠 기능만 불러온다
-    try { app.sweepHidden(); } catch (e) { ssNote('숨긴 답 표식 정리', e); }
-    notified = new Set();
-    pingCounter = 0;
-    for (const el of panels) if (el._ss) { el._ss.mode = 'view'; el._ss.ui = {}; el._ss.tab = 'home'; el._ss.group = null; }
-    try { await followBranch(); } catch (e) { ssWarn(LOG, 'branch', e); }
-    try { const meta = getMeta(); if (meta?.base && meta.qAsk === undefined) { meta.qAsk = ctx().chat?.length ?? 0; saveMeta(); } } catch (e) { ssNote('퀘스트 확인 시작점 적기 실패', e); } // v2.9: 지난 답의 결과는 안 바꾼다
-    try { const meta = getMeta(); if (meta?.base && rebindToUser(meta)) saveMeta(); } catch (e) { ssNote('행동 묶음 옮기기 실패', e); } // 예전에 한 행동도 그 다음 내 메시지에 묶는다
-    try { if (isActive() && ready()) { const n = slimLegacy(); if (n) { saveMeta(); console.log(LOG, `옛 연락 · 피드 기록 ${n}개를 줄였어요`); } } } catch (e) { ssWarn(LOG, 'slim', e); }
-    refreshNow();
-    try { if (F.contact?.sweepSent()) { saveMeta(); refreshNow(); } } catch (e) { ssNote('지운 연락 기록 정리 실패', e); } // 연락 자료가 있는 채팅이면 위에서 불러와 있다 // 업데이트 전에 지운 말풍선의 기록
-    try { app.sideSweep(); } catch (e) { ssNote('따로 보관 옮기기 실패', e); } // 📦 예전 방식으로 쌓인 연락 · 피드 기록을 덩어리 하나로
-    // 카드에 상태창이 들어 있으면 (이 채팅에 아직 없을 때) 한 번 물어본다
-    setTimeout(() => { offerCard(setBase).catch(e => ssWarn(LOG, 'card', e)).then(() => import('./src/autostart.js')).then(m => m.autoStart()).catch(e => ssWarn(LOG, 'autostart', e)); }, 400); // 🧆 그다음: 상태창이 없으면 틀을 바로 (AI 0회)
-}
-
-// 📦 따로 보관 (v2.7.23): 쌓인 연락 · 피드 기록을 덩어리 하나로 → 바꿨으면 저장하고 다시 계산
-app.sideSweep = () => { const meta = getMeta(); if (!meta?.base || !app.current) return 0; const n = sideSweep(meta); if (n) { saveMeta(); refreshNow(); } return n; };
-// 마지막 편집 되돌리기 (관리 탭 버튼 · /ss-undo)
-app.undoLast = async () => {
-    const meta = getMeta();
-    const a = meta?.adjust?.findLast(e => !e.side && !e._off);
-    if (!a) { toastr.info('되돌릴 편집이 없어요.', TITLE); return; }
-    if (!(await ctx().Popup.show.confirm(TITLE, `「${esc(a.label || '이름 없는 편집')}」을(를) 되돌릴까요?`))) return;
-    await undoLast();
-    toastr.success('되돌렸어요.', TITLE);
-};
-// 매크로: {{ss::cash}} · {{ss::aff:레온}} — 카드·로어북·퀵리플라이 어디서든 상태값을 꺼낸다
-function registerMacros() {
-    const c = ctx();
-    const get = (k) => { try { return app.current ? ssValue(app.current.state, k) : ''; } catch { return ''; } };
-    try {
-        if (c.macros?.register) {
-            c.macros.register('ss', {
-                category: c.macros.category?.MISC ?? c.macros.category?.UTILITY ?? 'utility',
-                unnamedArgs: [{ name: 'key', type: c.macros.valueType?.STRING ?? 'string', description: 'cash, loc, date, time, weather, aff:이름 …' }],
-                description: '미트볼 상태창의 값 하나 (예: {{ss::cash}}, {{ss::aff:레온}})',
-                returns: '그 값',
-                exampleUsage: ['{{ss::cash}}', '{{ss::aff:레온}}', '{{ss::weather}}'],
-                handler: ({ unnamedArgs: [key] }) => get(key),
-            });
-            return;
-        }
-    } catch (e) { ssWarn(LOG, 'macro', e); }
-    // 옛 실리: 인자 없는 매크로로 자주 쓰는 것만
-    try { for (const k of ['cash', 'loc', 'date', 'time', 'weather', 'curse']) c.registerMacro?.(`ss_${k}`, () => get(k)); } catch (e) { ssWarn(LOG, 'macro', e); }
-}
-
-function init() {
-    const { eventSource, event_types: E } = ctx();
-    const fresh = !ctx().extensionSettings?.[MODULE]; // 처음 설치한 사람에겐 「바뀐 점」을 안 띄운다
-    settings();
-    loadWanted().catch(() => { /* feat.js가 적음 */ }); // ⚡ 켜 둔 기능만 미리 불러오기 시작 (기다리지 않음 · 다 되면 다시 그린다)
-    // v2.7: 처음 설치하면 「기본 (추천)」 = 가벼운 모델 맞춤으로 시작
-    // 🧆 바로 시작(autoStart)은 새로 설치한 사람만 켠다 — 업데이트로 받은 사람의 옛 채팅에 틀이 저절로 생겨 AI에게 가지 않게 (확장 설정에서 직접 켤 수 있다)
-    if (fresh) { Object.assign(settings(), structuredClone(PRESETS.light.set)); settings().v27asked = true; settings().autoStart = true; settings().stylePick = 'ask'; settings().tidyAsked = true; Object.assign(settings(), { quiet: true, featureTips: false, actionTips: false }); saveSettings(); } // 🔕 처음엔 조용히: 저절로 뜨는 알림 · 팁은 알림함에만
-    try { if (!fresh && migrateParts()) toastr.info('「보일 것」에서 로봇 표시 항목은 이제 끄면 AI에게도 안 보내요. 예전에 꺼 둔 것은 화면에서만 숨긴 채로 뒀어요 — 다시 눌러 켰다 끄면 AI에서도 빠져요.', TITLE, { timeOut: 15000 }); else migrateParts(); } catch (e) { ssWarn(LOG, 'parts mig', e); }
-    applyTheme();
-    applyTidyStyle(); // 🧹 기능 정리로 숨긴 부가 기능은 설정 칸에서도 안 보이게
-    try { if (settings().guardData === true) loadPure().then(() => { ctxReset(); refreshNow(); }).catch(e => ssNote('데이터 보호 준비', e)); applyGuardLook(); if (settings().guardLook === true) applyTheme(); } catch (e) { ssWarn(LOG, 'guard', e); } // 🛡 간섭 차단 (둘 다 기본 끔)
-    try { watchHide(); } catch (e) { ssWarn(LOG, 'hide', e); } // 🙈 숨긴 답 빼기 (기본 끔)
-    initMascot();
-    renderSettings();
-    registerCommands();
-    registerMacros();
-    // 📒 미니홈피: 켠 사람만 불러와서 그때 준비한다 (shell.js의 app.featLoaded)
-    // 🧭 이야기 장치 · 🗝 공략: 하나라도 켠 사람만 불러와서 그때 이벤트를 건다 (feat.js → shell.js featLoaded)
-    try { loadAddons(); } catch (e) { ssWarn(LOG, 'addons', e); } // 📝 방명록 자동 (설정 guestbook · guestbookAuto — 기본 끔이면 아무 일도 안 함)
-    if (settings().autoRegex) installRegex(false);
-    try { startViewTr(); } catch (e) { ssWarn(LOG, 'viewtr', e); }
-    try { watchChat(); } catch (e) { ssWarn(LOG, 'slots', e); }
-    const on = (name, fn) => { if (E[name]) eventSource.on(E[name], fn); };
-    on('CHAT_CHANGED', onChatChanged);
-    setTimeout(() => import('./src/autostart.js').then(m => m.autoStart()).catch(e => ssWarn(LOG, 'autostart', e)), 1500); // 🧆 채팅이 이미 열린 채로 확장이 켜졌을 때도 (CHAT_CHANGED가 다시 안 올 수 있다)
-    on('GENERATION_AFTER_COMMANDS', onBeforeGenerate);
-    on('MESSAGE_RECEIVED', onReceived);
-    on('CHARACTER_MESSAGE_RENDERED', onCharRendered);
-    on('MESSAGE_SWIPED', onSwiped);
-    on('MESSAGE_EDITED', onEdited);
-    on('MESSAGE_SWIPE_DELETED', onSwipeDeleted);
-    // ⏪ 내 메시지를 보내면 앞 답에 묶인 행동을 이 메시지로 옮겨 묶는다 (v2.7.23 · 그 턴을 지우면 썼던 물건 · 돈이 돌아오게)
-    const rebind = () => { try { const meta = getMeta(); if (meta?.base && rebindToUser(meta)) { saveMeta(); ctx().saveChat?.(); refresh(true); } } catch (e) { ssNote('행동 묶음 옮기기 실패', e); } };
-    for (const ev of ['MESSAGE_SENT', 'USER_MESSAGE_RENDERED']) on(ev, rebind);
-    for (const ev of ['USER_MESSAGE_RENDERED', 'MORE_MESSAGES_LOADED', 'GENERATION_STOPPED']) on(ev, () => refresh());
-    on('MESSAGE_UPDATED', () => refresh(true)); // 옛 메시지가 바뀌면 다시 계산
-    on('MESSAGE_DELETED', async () => { // v2.7.20: 지운 메시지 뒤에 묶인 편집은 남은 끝으로 당겨서 계속 계산되게
-        try { const meta = getMeta(); if (meta?.base && (shiftForDelete(meta) + clampAdjust(meta, ctx().chat?.length ?? 0))) await saveMeta(); } catch (e) { ssWarn(LOG, 'clamp', e); }
-        refresh(true);
-    });
-    on('GENERATION_STARTED', (type, opts, dry) => { if (!dry) { app.generatingAt = Date.now(); try { noteGeneration(type); } catch (e) { ssNote('생성 시작 기록 실패', e); } } });
-    on('GENERATION_ENDED', () => { app.generatingAt = 0; setTimeout(() => { try { decorateAll(); } catch (e) { ssNote('칩 붙이기 실패', e); } }, 50); });
-    on('GENERATION_STOPPED', () => { app.generatingAt = 0; setTimeout(() => { try { decorateAll(); } catch (e) { ssNote('칩 붙이기 실패', e); } }, 300); });
-    on('GENERATION_ENDED', onGenEnded);
-    refreshNow();
-    try { whatsNewOnLoad(fresh); } catch (e) { ssWarn(LOG, 'whatsnew', e); }
-    setTimeout(async () => { // 묻는 창은 하나씩 차례로
-        await askV27().catch(e => ssWarn(LOG, 'v27', e));
-        await askTrFree().catch(e => ssWarn(LOG, 'trfree', e));
-        // 🧹 업데이트로 받은 사람: 「기능 정리」를 한 번 (쓸 것만 남기고 나머지는 숨김 · 필수 아님 · 닫으면 그대로)
-        if (settings().tidyAsked !== true) { settings().tidyAsked = true; saveSettings(); await import('./src/stylepick.js').then(m => m.openTidy({ why: 'update' })).catch(e => ssWarn(LOG, 'tidy', e)); }
-    }, 3500);
-    console.log(LOG, 'loaded', VERSION);
-}
-
-{
-    const { eventSource: _es, event_types: _et } = SillyTavern.getContext();
-    _es.on(_et.APP_READY, init);
-}
-
-if (globalThis.__SS_TEST__) globalThis.__SS_TEST__.api = { refreshNow, decorateAll, onBeforeGenerate, init, onChatChanged, app };
+const c0 = ctx();
+c0.eventSource.on(c0.event_types.APP_READY, boot);
+globalThis.__ML__ = { app, fold, perf, inject, refresh, MODULE, OLD, DATA_V, MODS, tokens, short };

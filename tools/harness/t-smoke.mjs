@@ -1,37 +1,29 @@
-// 모든 칸을 켜고 탭마다 열어 보며 오류가 없는지 · 스와이프 · 설정 바꾸기
-import { open, makeStatus, sleep, check } from './lib.mjs';
+// 켜짐 → 바로 시작 → 사건 태그 한 턴 → 숫자 · 칩 · 주입 · 전체화면 탭 전부 · 오류 없음
+import { open, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open();
 try {
-    const all = await page.evaluate(async () => (await import('/ext/src/core.js')).MOD_IDS);
-    await makeStatus(page, all);
-    await page.evaluate(() => window.__addUser('hi'));
-    await page.evaluate(() => window.__addAI('Leon.\n<meatball>\ncash: -5\naff: Leon +2\nloc: 시장\ndate: +1\nnews: Big storm | A storm hits the city\nmemo: meet at noon\nquest: Help | new\n</meatball>'));
-    await sleep(200);
-    const tabs = ['home', ...all.filter(x => x !== 'home'), 'base', 'manage', 'album', 'record'];
-    await page.evaluate(() => { window.__SS_TEST__.api.app.openSheet('home'); });
+    await page.evaluate(() => document.querySelector('[data-ml="create-tpl"]').click());
     await sleep(300);
-    const bad = [];
-    for (const t of tabs) {
-        const r = await page.evaluate(async (t) => {
-            const el = document.querySelector('dialog .ss-panel'); if (!el) return 'no panel';
-            el._ss.tab = t; el._ss.ui = {}; el._ss.mode = 'view';
-            try { window.__SS_TEST__.api.app.renderPanel(el); } catch (e) { return String(e.stack || e); }
-            return el.querySelector('.ss-body') ? '' : 'no body';
-        }, t);
-        if (r) bad.push(`${t}: ${r.slice(0, 200)}`);
-    }
-    check(!bad.length, `all ${tabs.length} tabs render`, bad.join('\n'));
-    // 스와이프
-    await page.evaluate(async () => { const st = window.__st; const m = st.chat.at(-1); m.swipes.push('Leon v2.\n<meatball>\ncash: -50\n</meatball>'); m.swipe_id = 1; m.mes = m.swipes[1]; m.swipe_info.push({ extra: {} }); await SillyTavern.getContext().eventSource.emit('message_swiped', st.chat.length - 1); });
-    await sleep(300);
-    check(await page.evaluate(() => window.__SS_TEST__.api.app.current.state.data.wallet.cash) === 50, 'swipe recalculates (100 → 50)');
-    // 설정 칸 모든 스위치 바꿔 보기
-    await page.evaluate(() => document.body.classList.add('show-settings'));
-    const n = await page.evaluate(() => { let k = 0; for (const i of document.querySelectorAll('#ss-settings input[type=checkbox][data-s]')) { i.click(); i.click(); k++; } return k; });
-    await sleep(300);
-    check(n > 40, `toggled ${n} switches twice without errors`);
-    await page.click('#ss-settings [data-s-act="lightall"]'); await sleep(300);
-    check(await page.evaluate(() => window.__st.extensionSettings.statussim.albumOn === false && window.__st.extensionSettings.statussim.memoOn === false), '부가 기능 한 번에 끄기');
-    const errs = logs.filter(l => /error/i.test(l) && !/favicon|404|Failed to load resource/.test(l));
-    check(!errs.length, 'no console errors', errs.slice(0, 5).join('\n'));
+    await page.evaluate(() => window.__addUser('빵집 가자'));
+    await page.evaluate(() => window.__addAI('Leon이 웃었다.\n<meatball>\nloc: 시장\nbuy: 빵 | 3\nate: 빵\nact: Leon | 칭찬\ngift: Leon | 꽃\ntime: +3h\nstatus: 감기 | 1d\nbuy: 금괴 | 9999\nmind: Leon | 귀엽네\n</meatball>'));
+    await sleep(400);
+    const r = await page.evaluate(() => { const r = __ML__.fold(); const m = window.__st.chat.at(-1); return { cash: r.S.cash, loc: r.S.loc, hunger: r.S.needs.hunger, aff: r.S.rel.Leon?.aff, st: r.S.status.map(s => s.name), flags: r.flags.at(-1).length, mes: m.mes, chips: document.querySelectorAll('.ml-msg .ml-chip').length, inj: Object.keys(window.__prompts).filter(k => window.__prompts[k].value).length, hud: !!document.getElementById('ml-hud'), mini: !!document.getElementById('ml-mini') }; });
+    console.log(JSON.stringify(r));
+    check(r.cash === 47, '돈: 50 − 빵 3 = 47 (금괴는 막힘)');
+    check(r.flags === 1, '돈 부족 → 확인 필요 1개');
+    check(r.loc === '시장', '장소');
+    check(r.aff > 10, '애정 오름');
+    check(r.st.includes('감기'), '상태 딱지');
+    check(!r.mes.includes('<meatball>'), '본문에서 태그 떼어 냄');
+    check(r.chips > 0 && r.hud && r.mini, '칩 · HUD · 미니바');
+    check(r.inj >= 2, '주입 (규칙 + 사실)');
+    // 스와이프 되돌리기: 줄 하나 되돌리기
+    const tabs = await page.evaluate(async () => { __ML__.app.openSheet('now'); const out = []; for (const id of [...document.querySelectorAll('#ml-full .ml-nav button')].map(b => b.dataset.tab)) { const b = document.querySelector(`#ml-full .ml-nav [data-tab="${id}"]`); b.click(); await new Promise(r => setTimeout(r, 30)); out.push(b.dataset.tab + ':' + document.querySelector('.ml-body').textContent.length); } return out; });
+    console.log(tabs.join(' '));
+    check(tabs.length >= 9, '탭 전부 열림');
+    await page.screenshot({ path: '/tmp/ml-now.png' });
+    await page.evaluate(() => document.querySelector('#ml-full [data-tab="now"]').click());
+    await page.setViewportSize({ width: 390, height: 844 }); await sleep(100);
+    await page.screenshot({ path: '/tmp/ml-now-phone.png' });
+    check(!logs.length && !(await page.evaluate(() => window.__errors.length)), '콘솔 오류 없음', logs.join('\n') + await page.evaluate(() => window.__errors.join('\n')));
 } finally { await close(); }

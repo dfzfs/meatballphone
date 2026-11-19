@@ -1,13 +1,13 @@
 {
-    "display_name": "미트볼 상태창 (Meatball Stats)",
+    "display_name": "미트볼 라이트 (Meatball Lite)",
     "loading_order": 20,
     "requires": [],
     "optional": [],
     "dependencies": [],
     "js": "index.js",
     "css": "style.css",
-    "author": "Meatball Stats",
-    "version": "2.10.1",
-    "homePage": "https://github.com/dfzfs/meatballstats",
+    "author": "Meatball",
+    "version": "0.3.0",
+    "homePage": "https://github.com/dfzfs/meatball-lite",
     "auto_update": true
 }

@@ -1,4 +1,0 @@
-/* 🛡 화면 보호 (설정 guardLook · 기본 끔) — body.ss-guard-look 일 때만 걸린다. 하는 일은 src/guard.js 맨 위에.
-   남의 맞춤 시트를 끈 뒤에도 미트볼 화면 안에 남아 있는 「남이 끼운 요소」(탭 줄 · 단추 · 묶음)를 숨긴다.
-   우리 요소 이름은 전부 ss- 로 시작한다 → 미트볼 화면 안에서 이름에 -ext- · -mb- 가 든 요소는 다른 확장이 끼운 것이다. */
-body.ss-guard-look :is(#ss-settings, .ss-scope, dialog.ss-dlg) :is([class*="-ext-"], [class*="-mb-"]):not([class*="ss-"]) { display: none !important; }
