@@ -72,6 +72,8 @@ export function normPlace(p) {
         goods: arr(p.goods).map(g => ({ name: line(g?.name, 20), price: Math.max(0, num(g?.price, 0)), fx: fxOf(g?.fx) })).filter(g => g.name).slice(0, LIMIT.items),
         rest: fxOf(p.rest),
         note: line(p.note, 40),
+        x: Number.isFinite(Number(p.x)) && p.x !== '' && p.x != null ? clamp(num(p.x), 0, 100) : null,
+        y: Number.isFinite(Number(p.y)) && p.y !== '' && p.y != null ? clamp(num(p.y), 0, 100) : null,
     };
 }
 // 효과 { hunger: +30 } — 아는 욕구 키만

@@ -2,7 +2,8 @@
 import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, MODS, slot, syncSwipe, msgKey, userName } from '../base/st.js';
 import { esc, fmt, signed, short, dateText, DAY, slotName, clamp, num } from '../base/util.js';
 import { row, card, chip, seg, bar, empty, btn, sheet, toast, putInput } from './kit.js';
-import { fold, derived, needStage, relStage, nextStage, diceMod, worldEvent, priceMul } from '../rules/engine.js';
+import { fold, derived, needStage, relStage, nextStage, diceMod, worldEvent, priceMul, whereNow } from '../rules/engine.js';
+import { layout, lineEdges, lineNodes, route, floorsOf, elevSVG } from './metro.js';
 import { personOf, placeOf, bookTokens, personTokens, normBook, PLACE_KINDS, LIMIT } from '../rules/book.js';
 import { moodTags, pickQuote, pickMusic } from '../rules/mood.js';
 import { LEVELS, GAUGES, PRESETS, level, gaugeCfg, levelCost } from '../rules/inject.js';
@@ -125,25 +126,47 @@ export function personSheet(r, name) {
     L.push(`<div class="ml-acts">${btn('📅 약속 잡기', 'say', `${name}에게 약속을 잡자고 한다.`, 'xs')}${btn('✏️ 설정집에서 고치기', 'bk-person', name, 'xs')}${btn('🔗 합치기', 'merge', name, 'xs')}${btn('🕊 빠짐', 'gone', name, 'xs')}</div>`);
     sheet(`${p?.face || '🙂'} ${esc(name)}`, `<div class="ml-rcs">${relCard(r, name, true)}</div>${L.join('')}`);
 }
-// ───── 지도: 노선도 · 인물 핀 · 「지금 가면 누구를 만날지」 ─────
+// ───── 지도: dev 노선도 · 인물 핀 · 건물 정면도 + 「지금 가면 누구를 만날지」 · 장소마다 회복 · 물가 · 사건 ─────
+let mapSel = null;
+export const setMapSel = (v) => { mapSel = v; };
 function map(r) {
-    const { book, S } = r, slot0 = slotName(S.t);
-    const meet = (pl) => book.people.filter(p => !S.rel[p.name]?.gone && (p.routine.some(x => x.place === pl.name && slot0.includes(x.at.slice(0, 1))) || (!p.routine.length && p.haunt.includes(pl.name))));
-    const lines = {}; for (const pl of book.world.places) (lines[pl.line || '기본 노선'] ??= []).push(pl);
-    if (!book.world.places.length) return empty('설정집에 장소가 없어요.', '장소 넣기', 'tab-book');
-    let h = `<div class="ml-hint">지금은 ${slot0} · 장소를 누르면 가는 말이 입력창에 들어가요</div>`;
-    for (const [ln, pls] of Object.entries(lines)) {
-        h += card(esc(ln), `<div class="ml-line">${pls.map(pl => { const here = pl.name === S.loc, who = meet(pl); return `<div class="ml-stop${here ? ' here' : ''}" data-act="${here ? '' : 'say'}" data-v="${esc(pl.name)}(으)로 간다."><i>${PLACE_KINDS[pl.kind]}</i><b>${esc(pl.name)}</b>${who.length ? `<span class="ml-pins">${who.map(p => `<em title="${esc(p.name)}">${p.face}</em>`).join('')}</span>` : ''}${pl.floors.length ? `<small>${pl.floors.length}층</small>` : ''}</div>`; }).join('')}</div>`);
-    }
-    const here = placeOf(book, S.loc);
-    if (here) {
-        const acts = [];
-        if (Object.keys(here.rest).length || here.kind === 'home') acts.push(['쉬기', '잠깐 쉰다.']);
-        if (here.kind === 'bath' || here.kind === 'home') acts.push(['씻기', '씻는다.']);
-        if (here.kind === 'work') acts.push(['일하기', '일을 시작한다.']);
-        h += card(`📍 ${esc(here.name)}에서`, row({ icon: PLACE_KINDS[here.kind], title: esc(here.name), sub: esc(here.note || ''), value: choiceBtns(acts) }) + (here.floors.length ? row({ icon: '🏢', title: '건물 안', sub: here.floors.map(esc).join(' › ') }) : '') + here.goods.map(g => goodRow(r, g, priceMul(S))).join(''));
-    }
+    const { book, S } = r, places = book.world.places;
+    if (!places.length) return empty('설정집에 장소가 없어요.', '장소 넣기', 'tab-book');
+    const sl = slotName(S.t), ev = worldEvent(Math.floor(S.t / DAY)), mul = priceMul(S);
+    const at = new Map(); // 장소 → [{ e, name, why }]
+    for (const p of book.people) { const w = whereNow(book, S, p); if (w?.place) { const k = placeOf(book, w.place)?.name ?? w.place; (at.get(k) ?? at.set(k, []).get(k)).push({ e: p.face, name: p.name, why: w.why }); } }
+    const { pos, pairs, adj } = layout(places);
+    const sel = placeOf(book, mapSel) ?? placeOf(book, S.loc) ?? places[0];
+    const path = route(adj, placeOf(book, S.loc)?.name, sel.name), onPath = new Set(path.slice(1).map((n, i) => [path[i], n].sort().join('|')));
+    for (const e of pairs) e.route = onPath.has(e.key);
+    const net = lineEdges(pairs, pos);
+    const nodes = lineNodes(places, { pos, here: S.loc, sel: sel.name, net, pins: (p) => at.get(p.name) ?? [] });
+    const [x0, y0, x1, y1] = nodes.ext, pad = 4;
+    const svg = `<svg class="ml-map" viewBox="${x0 - pad} ${y0 - pad} ${x1 - x0 + pad * 2} ${y1 - y0 + pad * 2}" preserveAspectRatio="xMidYMid meet"><g class="edges">${net.svg}</g>${nodes.svg}</svg>`;
+    let h = `<div class="ml-maphead"><span>📍 지금 <b>${esc(S.loc || '어딘가')}</b> · ${sl}</span>${ev ? `<span class="ml-pill ${ev.kind === 'good' ? 'good' : ev.kind === 'bad' ? 'bad' : 'love'}">🎪 ${esc(ev.name)}</span>` : ''}</div><div class="ml-mapwrap">${svg}</div>`;
+    const who = [...at.entries()].flatMap(([pl, L]) => L.map(x => ({ ...x, pl })));
+    if (who.length) h += `<div class="ml-pinrow">${who.map(x => `<span class="ml-pin tap" data-act="mapsel" data-v="${esc(x.pl)}" title="${esc(x.why)}">${x.e} ${esc(x.name)} <small>${esc(x.pl)}</small></span>`).join('')}</div>`;
+    h += placeCard(r, sel, at.get(sel.name) ?? [], path, ev, mul);
     return h;
+}
+function placeCard(r, p, here2, path, ev, mul) {
+    const { book, S } = r, isHere = p.name === S.loc, L = [];
+    const nm = (k) => book.me.needs.find(n => n.key === k)?.name ?? k;
+    const fxTxt = (fx) => Object.entries(fx ?? {}).map(([k, v]) => `${nm(k)} ${signed(v)}`).join(' · ');
+    if (!isHere && path.length > 1) L.push(`<div class="ml-rl"><i>🚶</i>${path.map(esc).join(' → ')} <span>${path.length - 1}정거장</span></div>`);
+    L.push(`<div class="ml-rl"><i>👥</i>${here2.length ? here2.map(x => `${x.e} <b>${esc(x.name)}</b> <span>${esc(x.why)}</span>`).join(' · ') : '<span>지금은 아무도 없을 것 같아요</span>'}</div>`);
+    // 다른 시간대에 오는 사람 (루틴)
+    const later = book.people.filter(q => q.routine.some(t => t.place === p.name) && !here2.some(x => x.name === q.name)).map(q => `${q.face}${esc(q.name)} <span>${q.routine.filter(t => t.place === p.name).map(t => esc(t.at)).join('/')}</span>`);
+    if (later.length) L.push(`<div class="ml-rl"><i>🕰</i>${later.join(' · ')}</div>`);
+    if (Object.keys(p.rest).length || p.kind === 'home') L.push(`<div class="ml-rl"><i>🛏</i>쉬면 <b>${esc(fxTxt(p.rest) || '에너지 +10/시간')}</b></div>`);
+    if (p.kind === 'bath') L.push(`<div class="ml-rl"><i>🫧</i>씻으면 <b>위생 +60</b></div>`);
+    if (ev && (ev.price !== 1 && p.goods.length || (ev.name === '축제' && p.kind === 'street'))) L.push(`<div class="ml-rl"><i>🎪</i>${esc(ev.text)}</div>`);
+    if (p.note) L.push(`<div class="ml-rl"><i>📝</i>${esc(p.note)}</div>`);
+    const goods = p.goods.map(g => { const price = Math.round(g.price * mul), poor = S.cash < price; const liked = Object.values(S.rel).some(x => x.seen.likes.some(l => g.name.includes(l))); return `<div class="ml-good${poor ? ' poor' : ''}"><span>${liked ? '🎁 ' : ''}<b>${esc(g.name)}</b> <small>${esc(fxTxt(g.fx))}</small></span><em>${price}${mul !== 1 ? `<s>${g.price}</s>` : ''} ${esc(book.world.currency)}</em>${isHere && !poor ? btn('사기', 'say', `${g.name} 하나 주세요.`, 'xs') : poor && isHere ? '<small class="neg">돈 부족</small>' : ''}</div>`; }).join('');
+    const fl = floorsOf(p.floors);
+    const elev = fl.length ? `<div class="ml-elevwrap">${elevSVG(fl.map(f => ({ name: f.name, rooms: f.rooms })), { home: p.kind === 'home' })}</div>` : '';
+    const acts = isHere ? [Object.keys(p.rest).length || p.kind === 'home' ? btn(`🛏 쉬기 <small>${esc(fxTxt(p.rest) || '에너지+')}</small>`, 'say', '잠깐 쉰다.', 'xs') : '', p.kind === 'bath' || p.kind === 'home' ? btn('🫧 씻기 <small>위생+60</small>', 'say', '씻는다.', 'xs') : '', p.kind === 'work' ? btn('💼 일하기 <small>에너지−6/시간</small>', 'say', '일을 시작한다.', 'xs') : ''].join('') : btn(`🚶 ${esc(p.name)}(으)로 가기`, 'say', `${p.name}(으)로 간다.`, 'xs');
+    return `<div class="ml-rc ml-place"><div class="ml-rc-h"><span class="ml-face">${PLACE_KINDS[p.kind]}</span><b>${esc(p.name)}</b>${p.line ? `<span class="ml-pill">${esc(p.line)}</span>` : ''}${isHere ? '<span class="ml-pill good">지금 여기</span>' : ''}</div>${L.join('')}${goods ? `<h4 class="ml-h4">물가</h4><div class="ml-goods">${goods}</div>` : ''}${elev ? `<h4 class="ml-h4">건물 안</h4>${elev}` : ''}<div class="ml-acts">${acts}</div></div>`;
 }
 // ───── 달력 · 시간 · 날씨 ─────
 function upcoming(r) {
@@ -245,6 +268,7 @@ export async function onAct(act, v, el) {
         case 'music': window.open(settings().musicApp === 'spotify' ? `https://open.spotify.com/search/${encodeURIComponent(v)}` : `https://www.youtube.com/results?search_query=${encodeURIComponent(v)}`, '_blank'); return;
         case 'quote': { sheet('한 구절', `<p class="ml-quote">${esc(v).replace(/\n/g, '<br>')}</p>`); const t = el?.querySelector('b')?.textContent; if (t) { meta.recent.quote = [t, ...(meta.recent.quote ?? [])].slice(0, 8); saveMeta(); } return; }
         case 'person': personSheet(r, v); return;
+        case 'mapsel': setMapSel(v); app.refresh?.(); return;
         case 'jump': app.jump?.(Number(v)); return;
         case 'tab-book': app.openSheet?.('book'); return;
         case 'undo': { const [i, j] = v.split(':').map(Number); const m = ctx().chat[i], sl = slot(m, true); if (!sl.ops && j < 1000) sl.ops = (await import('../rules/tags.js')).readOps(m.mes); sl.undo = [...new Set([...(sl.undo ?? []), j])]; sl.rev = (sl.rev ?? 0) + 1; syncSwipe(m); ctx().saveChatDebounced?.(); app.refresh?.(); toast('되돌렸어요'); return; }

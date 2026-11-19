@@ -107,3 +107,42 @@ body.ml-open #ml-mini{display:none}
 /* 바텀시트는 패널 안에서 (패널 폭 · 패널 높이 안) */
 #ml-full .ml-bs{position:absolute;z-index:10;align-items:flex-end}
 #ml-full .ml-bs-box{max-width:none;max-height:88%;border-radius:var(--r) var(--r) 0 0}
+/* ───── 🚇 지도 (dev 노선도 기준) ───── */
+.ml-scope{--hi:var(--a)}
+.ml-maphead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;font-size:13px}
+.ml-mapwrap{border:var(--bd) solid var(--line);border-radius:var(--r);background:radial-gradient(color-mix(in srgb,var(--fg) 9%,transparent) .8px,transparent 1px) 0 0/14px 14px,color-mix(in srgb,var(--fg) 2%,transparent);padding:4px}
+.ml-map{display:block;width:100%;height:auto;max-height:46vh;user-select:none}
+.ml-map .edges .ln{fill:none;stroke:var(--c,var(--sub));stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.ml-map .edges .ln.unk{stroke-dasharray:.1 3.2;opacity:.75}
+.ml-map .edges .ln.route{stroke:#fff;stroke-width:.7;stroke-dasharray:1.6 1.8;animation:ml-run 1.2s linear infinite}
+@keyframes ml-run{to{stroke-dashoffset:-3.4}}
+.ml-map .node{cursor:pointer}.ml-map .node .hitbox{fill:transparent}
+.ml-map .node .stn{fill:var(--bg);stroke:var(--c,var(--sub));stroke-width:1.15}
+.ml-map .node.xfer .stn{stroke:var(--fg);stroke-width:.95}
+.ml-map .node .me{fill:var(--hi)}.ml-map .node.here .stn{stroke:var(--hi);stroke-width:1.3}
+.ml-map .node .ring{fill:color-mix(in srgb,var(--hi) 18%,transparent);animation:ml-pulse 2s ease-in-out infinite;transform-origin:center;transform-box:fill-box}
+@keyframes ml-pulse{50%{transform:scale(1.25);opacity:.5}}
+.ml-map .node .halo{fill:none;stroke:var(--hi);stroke-width:.5;stroke-dasharray:1.1 1.1}
+.ml-map .node:hover .stn{stroke-width:1.6}
+.ml-map .node text{fill:var(--fg);paint-order:stroke;stroke:var(--bg);stroke-width:1px;stroke-linejoin:round}
+.ml-map .node text.lb{font-size:3.1px;font-weight:700}.ml-map .node.here text.lb{fill:var(--hi)}.ml-map .node text.lb .pf{font-size:2.3px;fill:var(--sub);font-weight:600}
+.ml-map .pins{pointer-events:none;animation:ml-bob 1.6s ease-in-out infinite}.ml-map .pins rect{fill:var(--bg);stroke:var(--hi);stroke-width:.45}.ml-map .pins .tail{fill:var(--hi);stroke:none}
+.ml-map .node .pins text{stroke:none;paint-order:normal;text-anchor:middle}.ml-map .node .pins text.pe{font-size:3.5px}.ml-map .node .pins text.pm{font-size:2.4px;font-weight:800;fill:var(--hi)}
+@keyframes ml-bob{50%{transform:translateY(-1.1px)}}
+@media (prefers-reduced-motion:reduce){.ml-map .pins,.ml-map .edges .ln.route,.ml-map .node .ring{animation:none}}
+.ml-pinrow{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0}.ml-pin{font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid var(--line)}.ml-pin small{color:var(--sub)}
+.ml-place{margin-top:8px}
+.ml-goods{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.ml-good{display:flex;align-items:center;gap:8px;padding:4px 8px;min-height:36px;border-bottom:1px solid var(--line)}.ml-good:last-child{border-bottom:0}.ml-good>span{flex:1;min-width:0}.ml-good small{color:var(--sub);font-size:11px}
+.ml-good em{font-style:normal;font-weight:700;font-variant-numeric:tabular-nums}.ml-good em s{font-weight:400;color:var(--sub);margin-left:4px;font-size:11px}.ml-good.poor{opacity:.5}
+.neg{color:var(--bad)}.pos{color:var(--good)}
+.ml-btn small{opacity:.7;font-size:10px;margin-left:2px}
+/* 🏢 정면도 (dev elevSVG) */
+.ml-elevwrap{border:1px solid var(--line);border-radius:10px;padding:4px}
+.ss-elev{display:block;width:100%;height:auto;max-height:40vh}
+.ss-elev .rm rect{fill:color-mix(in srgb,var(--c,#f4eee2) 55%,var(--bg));stroke:var(--fg);stroke-width:.4}.ss-elev .rm.deck rect{fill:transparent;stroke:none}.ss-elev .rm.on rect{fill:color-mix(in srgb,var(--hi) 26%,var(--bg))}
+.ss-elev text{text-anchor:middle;pointer-events:none}.ss-elev .nm{font-size:4px;font-weight:700;fill:var(--fg)}.ss-elev .here{font-size:3px;font-weight:700;fill:var(--hi)}
+.ss-elev .outer{fill:none;stroke:var(--fg);stroke-width:1.5}.ss-elev .slab{stroke:var(--fg);stroke-width:1.1}.ss-elev .shaft{fill:color-mix(in srgb,var(--fg) 10%,var(--bg));stroke:var(--fg);stroke-width:.4}
+.ss-elev .st{fill:none;stroke:var(--fg);stroke-width:.9;stroke-dasharray:1.3 1;opacity:.55}.ss-elev .roof{fill:color-mix(in srgb,var(--fg) 78%,var(--bg));stroke:var(--fg);stroke-width:.5}
+.ss-elev .rail{fill:none;stroke:var(--fg);stroke-width:.7}.ss-elev .rail.p{stroke-width:.35;opacity:.6}.ss-elev .ground{stroke:#5c8f48;stroke-width:1.2}.ss-elev .earth{fill:color-mix(in srgb,#8a6f4d 22%,var(--bg))}
+.ss-elev .lv text{text-anchor:end;font-size:3.6px;font-weight:700;fill:var(--sub)}

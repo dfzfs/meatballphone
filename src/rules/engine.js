@@ -112,7 +112,7 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
         }
         case 'slept': { const m = spanOf(a) ?? 420; x.pass(m, '잠', i, { sleep: true }); x.setNeed('energy', DEF.sleepPerH * m / 60, why(`${Math.round(m / 60)}시간 잠`), src, !!spanOf(a), i); if (m >= 360) x.setNeed('mood', 5, '푹 잠', src, false, i); return; }
         case 'washed': x.setNeed('hygiene', DEF.wash, why(a || '씻음'), src, false, i); x.pass(20, '씻음', i); return;
-        case 'rest': { const m = spanOf(a) ?? 60; x.pass(m, '쉼', i); x.setNeed('energy', DEF.restPerH * m / 60, why(a || '쉼'), src, !!spanOf(a), i); return; }
+        case 'rest': { const m = spanOf(a) ?? 60; x.pass(m, '쉼', i); x.setNeed('energy', DEF.restPerH * m / 60, why(a || '쉼'), src, !!spanOf(a), i); const pl = placeOf(book, S.loc); for (const [nk, d] of Object.entries(pl?.rest ?? {})) x.setNeed(nk, d, `${pl.name}에서 쉼`, src, true, i); return; }
         case 'worked': {
             const m = spanOf(a) ?? 240; x.pass(m, '일', i); x.setNeed('energy', -DEF.workPerH * m / 60, why(a || '일'), src, !!spanOf(a), i);
             const pay = parseDelta(b); if (pay) x.setCash(Math.abs(pay.n), '일한 값', src, true, i); return;
@@ -288,3 +288,16 @@ export function startState(meta) {
 }
 export const resetCache = () => { cache.chatId = null; };
 export const stateAt = (i) => fold()?.states?.[i] ?? null;
+
+// 지금 이 시간에 인물이 있을 곳: 같이 있음 → 하루 루틴(시간대) → 자주 있는 곳 · 축제 날엔 거리 · 광장으로
+export function whereNow(book, S, p) {
+    const r = S.rel[p.name];
+    if (r?.gone) return null;
+    if (S.with.includes(p.name)) return { place: S.loc, why: '함께 있음' };
+    const sl = slotName(S.t), rt = p.routine.find(q => sl.includes(String(q.at).slice(0, 1)) || String(q.at).includes(sl));
+    const ev = worldEvent(Math.floor(S.t / DAY));
+    if (ev?.name === '축제') { const st = book.world.places.find(q => q.kind === 'street'); if (st && !rt) return { place: st.name, why: '축제 구경' }; }
+    if (rt) return { place: rt.place, why: `${rt.at} 루틴` };
+    if (p.haunt[0]) return { place: p.haunt[0], why: '자주 있는 곳' };
+    return null;
+}
