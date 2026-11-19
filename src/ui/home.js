@@ -1,6 +1,6 @@
 // 🏠 홈: 위에 위젯(지금 · 이 장면 · 운세 · 욕구 · 주사위 · 달력 · 소식 · 같이 있는 사람) + 아래에 받은 앱 아이콘
 // 🛍 마켓: 앱을 「받는」 느낌 — 실제로는 다 들어 있고 칸을 켜고 끈다 (지우면 홈 · 본편 주입에서 빠짐)
-import { ctx, getMeta, saveMeta, settings, modOn, saveSettings, DEFAULTS, app } from '../base/st.js';
+import { ctx, getMeta, saveMeta, settings, modOn, app } from '../base/st.js';
 import { esc, signed, dateText, dateOf, DAY, slotName, hhmm, fmt, num } from '../base/util.js';
 import { derived, needStage, relStage, worldEvent, priceMul, diceParts, whereNow, wantsOf } from '../rules/engine.js';
 import { personOf, placeOf, PLACE_KINDS } from '../rules/book.js';
@@ -9,7 +9,7 @@ import { luckOf } from '../rules/luck.js';
 import { level } from '../rules/inject.js';
 import { upcoming, lastAI, turnCard, getDice } from './tabs.js';
 import { btn } from './kit.js';
-import { mascot, MASCOTS, MEATCON, mascotUrl, playMascotSound, MASCOT_SOUNDS, PACK, packOn } from './mascot.js';
+import { mascot, MASCOTS, MEATCON, mascotUrl, MASCOT_SOUNDS, PACK, packOn } from './mascot.js';
 import { vis } from './tools.js';
 
 // 앱 목록 — mod가 있으면 받기 · 지우기 가능, sys는 늘 있음

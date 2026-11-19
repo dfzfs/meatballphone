@@ -1,8 +1,8 @@
 // 전체화면 안의 탭들 — 목록 행 + 묶음 카드. 설명은 한 줄까지.
-import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, MODS, slot, syncSwipe, msgKey, userName, bumpMeta } from '../base/st.js';
-import { esc, fmt, signed, short, dateText, dateOf, DAY, slotName, clamp, num, norm, tokens } from '../base/util.js';
+import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, slot, syncSwipe, msgKey, userName, bumpMeta } from '../base/st.js';
+import { esc, fmt, signed, short, dateText, dateOf, DAY, slotName, num, norm, tokens } from '../base/util.js';
 import { row, card, chip, seg, bar, empty, btn, sheet, toast, putInput, form } from './kit.js';
-import { fold, derived, needStage, relStage, nextStage, diceMod, diceParts, worldEvent, priceMul, whereNow, matchOf, myTraits } from '../rules/engine.js';
+import { fold, derived, needStage, relStage, nextStage, diceParts, worldEvent, priceMul, whereNow, matchOf, myTraits } from '../rules/engine.js';
 import { traitOf } from '../../data/traits.js';
 import { luckOf } from '../rules/luck.js';
 import { QUOTES } from '../../data/quotes.js';
@@ -16,15 +16,8 @@ import { LEVELS, GAUGES, PRESETS, level, gaugeCfg, levelCost } from '../rules/in
 import { fillBook } from '../rules/ai.js';
 
 const lastAI = () => { const c = ctx().chat ?? []; for (let i = c.length - 1; i >= 0; i--) if (!c[i].is_user && !c[i].is_system) return i; return -1; };
-const stageKind = (st) => (st === '위험' ? 'bad' : st === '주의' ? 'mid' : 'good');
 const money = (r, n) => `${fmt(n)} ${esc(r.book.world.currency)}`;
 
-export const TABS = [
-    { id: 'now', icon: '❤️', name: '수치' }, { id: 'dice', icon: '🎲', name: '주사위', mod: 'dice' }, { id: 'bag', icon: '👜', name: '소지품', mod: 'wallet' }, { id: 'rel', icon: '💞', name: '관계', mod: 'rel' },
-    { id: 'map', icon: '🗺️', name: '지도', mod: 'map' }, { id: 'cal', icon: '📅', name: '달력', mod: 'calendar' }, { id: 'news', icon: '📰', name: '소식', mod: 'news' },
-    { id: 'rec', icon: '📒', name: '기록', mod: 'record' }, { id: 'mind', icon: '💭', name: '속마음', mod: 'mind' }, { id: 'custom', icon: '🧩', name: '내 탭', mod: 'custom' },
-    { id: 'book', icon: '📘', name: '설정집' }, { id: 'gauge', icon: '🎚️', name: '영향력' },
-];
 
 // ───── 턴 요약 카드: 줄마다 이유 · 줄마다 되돌리기 ─────
 export function changeRow(c, i, undo = true) {
@@ -302,7 +295,7 @@ function rec(r) {
     const hi = [];
     for (const n of book.me.needs) {
         let lo = null, top = null, big = null;
-        r.states.forEach((s, i) => { const v = s?.needs?.[n.key]; if (v == null) return; if (!lo || v < lo.v) lo = { v, i }; if (!top || v > top.v) top = { v, i }; });
+        r.needsAt.forEach((s, i) => { const v = s?.[n.key]; if (v == null) return; if (!lo || v < lo.v) lo = { v, i }; if (!top || v > top.v) top = { v, i }; });
         (r.changes ?? []).forEach((ch, i) => { const d = (ch ?? []).filter(c => c.f === `need.${n.key}` && c.src !== 'time').reduce((a, c) => a + c.to - c.from, 0); if (d && (!big || Math.abs(d) > Math.abs(big.d))) big = { d, i }; });
         if (lo) hi.push(row({ icon: n.icon, title: esc(n.name), sub: `최저 ${Math.round(lo.v)} (#${lo.i}) · 최고 ${Math.round(top.v)} (#${top.i})${big ? ` · 가장 크게 ${signed(big.d)} (#${big.i})` : ''}`, value: graph(r, n.key) }));
     }
@@ -311,7 +304,7 @@ function rec(r) {
     return `<div class="ml-tools">${seg('recf', RF, recF)}${btn('⭐ 마지막 답 책갈피', 'mark')}${btn('🕰 그때 상태 보기', 'past')}</div>` + card('책갈피', marks.map(m => row({ icon: '⭐', title: esc(m.name), sub: `#${m.i}`, act: 'jump', data: m.i, more: true })).join('')) + card('하이라이트', hi.join('')) + card('타임라인', L.join('') || row({ title: '아직 기록이 없어요', faint: true }));
 }
 function graph(r, key) {
-    const pts = []; r.states.forEach((s, i) => { if (s?.needs?.[key] != null && (i === 0 || r.changes[i]?.length)) pts.push([i, s.needs[key]]); });
+    const pts = []; r.needsAt.forEach((s, i) => { if (s?.[key] != null && (i === 0 || r.changes[i]?.length)) pts.push([i, s[key]]); });
     if (pts.length < 2) return '';
     const P = pts.slice(-40), x0 = P[0][0], x1 = P[P.length - 1][0] || 1;
     const X = (i) => ((i - x0) / Math.max(1, x1 - x0) * 100).toFixed(1), Y = (v) => (30 - v * 0.3).toFixed(1);
@@ -473,7 +466,7 @@ export async function onAct(act, v, el) {
         case 'flagfix': hand(v, '어긋남 고침'); return;
         case 'flagok': { const [i] = v.split(':').map(Number); const m = ctx().chat[i], sl = slot(m, true); sl.flagOk = true; sl.rev = (sl.rev ?? 0) + 1; bumpMeta(); ctx().saveChatDebounced?.(); app.refresh?.(); return; }
         case 'mark': { const i = lastAI(); if (i < 0) return; const fv = await form('⭐ 책갈피', [{ k: 'name', label: '이름', v: '', ph: short(ctx().chat[i].mes, 20), chips: ['고백 직전', '첫 만남', '큰 싸움', '중요한 선택'] }]); const name = fv?.name?.trim() || (fv ? short(ctx().chat[i].mes, 20) : ''); if (!name) return; meta.marks = [...(meta.marks ?? []).filter(m => m.key !== msgKey(ctx().chat[i])), { key: msgKey(ctx().chat[i]), name: short(name, 30) }]; saveMeta(); app.refresh?.(); return; }
-        case 'past': { const ais = (ctx().chat ?? []).map((m, k) => [k, m]).filter(([, m]) => !m.is_user && !m.is_system).slice(-12).reverse(); const fv = await form('🕰 그때 상태 보기', [{ k: 'i', label: '어느 답의 시점?', type: 'pick', v: ais[0]?.[0], opts: ais.map(([k, m]) => [k, `#${k} ${esc(short(m.mes, 14))}`]) }], { ok: '보기' }); if (!fv) return; const i = Number(fv.i); const s = r.states[i]; if (!s) return; app.openPast?.(i); return; }
+        case 'past': { const ais = (ctx().chat ?? []).map((m, k) => [k, m]).filter(([, m]) => !m.is_user && !m.is_system).slice(-12).reverse(); const fv = await form('🕰 그때 상태 보기', [{ k: 'i', label: '어느 답의 시점?', type: 'pick', v: ais[0]?.[0], opts: ais.map(([k, m]) => [k, `#${k} ${esc(short(m.mes, 14))}`]) }], { ok: '보기' }); if (!fv) return; const i = Number(fv.i); if (!(i >= 0)) return; app.openPast?.(i); return; }
         case 'mindwho': { const w = new Set(meta.mindWho ?? ['cast']); w.has(v) ? w.delete(v) : w.add(v); meta.mindWho = [...w]; saveMeta(); app.refresh?.(); return; }
         case 'ctab-tpl': { const t = structuredClone(TEMPLATES[v]); meta.custom = [...(meta.custom ?? []), t]; saveMeta(); app.refresh?.(); return; }
         case 'ctab-new': { const fv = await form('🧩 새 탭', [{ k: 'name', label: '탭 이름', ph: '예: 마력 수련' }, { k: 'icon', label: '아이콘', v: '🧩', chips: ['🧩', '🌀', '⚔️', '📚', '💼', '🔮'] }, { k: 'f', label: '칸 (쉼표로)', v: '점수/100, 메모', hint: '숫자 칸은 이름 뒤에 /최대값' }]); if (!fv?.name) return; const name = fv.name, f = fv.f; meta.custom = [...(meta.custom ?? []), { name: short(name, 12), icon: '🧩', fields: String(f ?? '').split(',').map(x => x.trim()).filter(Boolean).map(x => { const [n, mx] = x.split('/'); return { name: short(n, 12), max: num(mx, 0), stages: [30, 70] }; }) }]; saveMeta(); app.refresh?.(); return; }

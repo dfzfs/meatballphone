@@ -1,6 +1,6 @@
 // 엔진: 채팅 메시지들 → 상태. 계산은 코드가, AI는 사건만.
 // 원본은 메시지(extra.meatlite.sw)에 있고, 여기서는 매번 처음부터 접어 만든다(바뀐 곳부터만 다시).
-import { clamp, num, arr, norm, short, safeKey, parseDelta, spanOf, clockOf, dayOfDate, DAY, hash, slotName } from '../base/util.js';
+import { clamp, num, norm, short, safeKey, parseDelta, spanOf, clockOf, dayOfDate, DAY, hash, slotName } from '../base/util.js';
 import { slot, getMeta, ctx, metaRev } from '../base/st.js';
 import { readOps, kindOf, parts, stripTags } from './tags.js';
 import { match } from './names.js';
@@ -230,7 +230,7 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             const up = p?.up.find(u => t.includes(norm(u.act)) || norm(u.act).includes(t)), down = p?.down.find(u => t.includes(norm(u.act)) || norm(u.act).includes(t));
             if (up) x.setRel(name, 'aff', up.d ?? DEF.up, up.act, src, up.d != null, i);
             else if (down) x.setRel(name, 'aff', down.d ?? DEF.down, down.act, src, down.d != null, i);
-            if (/(고백|키스|첫|약속|싸움|배신|구해|울)/.test(b)) memo(S, x.rel(name), b);
+            if (/(고백|키스|첫|약속|싸움|배신|구해|울)/.test(b)) remember(S, x.rel(name), b);
             return;
         }
         case 'need': {
@@ -252,10 +252,10 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
         }
         case 'roll': S.rolls.push({ t: S.t, what: short(v, 40), i }); return;
         case 'mind': case 'watch': case 'cell': { if (a && b) S[kind][x.who(a) ?? safeKey(a)] = short(parts(v).slice(1).join(' | '), 120); return; }
-        case 'jealous': { const name = x.who(a); if (!name) return; const r = x.rel(name); r.jealous = short(b || '질투', 40); memo(S, r, `질투: ${b}`); x.setRel(name, 'trust', x.T.some(t => t.jealousSelf) ? -2 : -1, '질투', src, false, i); news(S, '💢', `${name} — ${short(b || '질투가 남', 30)}`, 'jealous', name); return; }
+        case 'jealous': { const name = x.who(a); if (!name) return; const r = x.rel(name); r.jealous = short(b || '질투', 40); remember(S, r, `질투: ${b}`); x.setRel(name, 'trust', x.T.some(t => t.jealousSelf) ? -2 : -1, '질투', src, false, i); news(S, '💢', `${name} — ${short(b || '질투가 남', 30)}`, 'jealous', name); return; }
         case 'life': { const name = x.who(a) ?? safeKey(a); if (!name || !b) return; x.rel(name).life = short(b, 60); news(S, '🌙', `${name} — ${short(b, 40)}`, 'life', name); return; }
         case 'want': { const name = x.who(a); if (name && b) x.rel(name).want = short(b, 60); return; }
-        case 'memory': { const name = x.who(a); if (name && b) memo(S, x.rel(name), b); return; }
+        case 'memory': { const name = x.who(a); if (name && b) remember(S, x.rel(name), b); return; }
         case 'taste': { const name = x.who(a); if (!name) return; const r = x.rel(name); for (const t of parts(v).slice(1)) { const n = t.replace(/^[+\-−]\s*/, ''); if (!n) continue; const L = /^[-−]/.test(t) ? r.seen.hates : r.seen.likes; if (!L.includes(n)) L.push(short(n, 16)); } return; }
         case 'npc': { const name = x.who(a) ?? safeKey(a); if (!name || S.rel[name]) return; S.rel[name] = relOf(null); S.rel[name].line = short(b, 40); S.rel[name].face = short(c, 4); ch.push({ f: `npc.${name}`, label: name, icon: '👤', from: '', to: '새 인물', why: short(b, 20), src, sure: true, i, who: name }); return; }
         case 'gone': { const name = x.who(a); if (!name) return; x.rel(name).gone = short(b || '떠남', 30); ch.push({ f: `gone.${name}`, label: name, icon: '🕊️', from: '', to: '이야기에서 빠짐', why: short(b, 20), src, sure: true, i, who: name }); return; }
@@ -283,7 +283,7 @@ function addStatus(S, st, ch, i, why) {
     S.status.push({ ...st, at: S.t });
     ch.push({ f: `status.${st.name}`, label: st.name, icon: st.src === 'fate' ? '🔮' : '🏷️', from: '', to: st.until ? `${Math.round((st.until - S.t) / 60)}시간` : '붙음', why, src: st.src ?? 'tag', sure: true, i, kind: st.kind });
 }
-function memo(S, r, text) { r.mem = [{ t: S.t, text: short(text, 50) }, ...r.mem.filter(m => m.text !== short(text, 50))].slice(0, 5); }
+function remember(S, r, text) { r.mem = [{ t: S.t, text: short(text, 50) }, ...r.mem.filter(m => m.text !== short(text, 50))].slice(0, 5); }
 function news(S, icon, text, kind, who) { S.news.unshift({ t: S.t, icon, text, kind, who }); S.news.length = Math.min(S.news.length, 40); }
 
 // 위험 단계 → 상태 딱지(주사위 보정)는 계산해서 붙인다 (저장 안 함)
@@ -325,6 +325,8 @@ export function opsOf(m, book = null) {
     return ops.filter(o => !undo.has(o.j));
 }
 let quick = { key: '', r: null };
+// 상태 사진은 16개마다 하나만 (긴 채팅에서 다시 계산이 가볍게) · 수치는 메시지마다 작게 (그래프 · 하이라이트용)
+const SNAP = 16;
 export function fold(force = false) {
     const meta = getMeta(); if (!meta?.book) return null;
     const chat = ctx().chat ?? [], id = ctx().getCurrentChatId?.();
@@ -332,13 +334,19 @@ export function fold(force = false) {
     const last = chat[chat.length - 1], qk = `${id}|${chat.length}|${last ? sigOf(last) : ''}|${metaRev}|${meta.book === quick.book ? 1 : 0}`;
     if (!force && quick.r && quick.key === qk) return quick.r;
     const bsig = hash(JSON.stringify(meta.book) + JSON.stringify(meta.start ?? {}));
-    if (force || cache.chatId !== id || cache.bookSig !== bsig) cache = { chatId: id, bookSig: bsig, sig: [], states: [], changes: [], flags: [], base: null };
+    if (force || cache.chatId !== id || cache.bookSig !== bsig) cache = { chatId: id, bookSig: bsig, sig: [], snap: [], needs: [], changes: [], flags: [], base: null, last: null };
     if (!cache.base) cache.base = startState(meta);
     let from = 0;
     while (from < chat.length && from < cache.sig.length && cache.sig[from] === sigOf(chat[from])) from++;
-    cache.sig.length = cache.states.length = cache.changes.length = cache.flags.length = from;
-    let S = structuredClone(from ? cache.states[from - 1] : cache.base);
-    for (let i = from; i < chat.length; i++) {
+    // 바뀐 곳 바로 앞의 사진에서 다시 시작
+    let k = from - 1; while (k >= 0 && !cache.snap[k]) k--;
+    if (from === cache.sig.length && from > 0 && cache.last && cache.last.i === from - 1) k = -2; // 끝에 붙기만 했으면 마지막 상태에서 바로
+    const S0 = k === -2 ? cache.last.S : k >= 0 ? cache.snap[k] : cache.base;
+    const start = k === -2 ? from : k + 1;
+    for (const arr2 of [cache.sig, cache.needs, cache.changes, cache.flags]) arr2.length = start;
+    cache.snap.length = Math.min(cache.snap.length, start);
+    let S = structuredClone(S0);
+    for (let i = start; i < chat.length; i++) {
         const m = chat[i], ch = [], flags = [];
         if (!m.is_user && !m.is_system) {
             S.mind = {}; S.watch = {}; S.cell = {}; S.turn++;
@@ -348,12 +356,27 @@ export function fold(force = false) {
             afterTurn(meta.book, S, x, ch, W, i, P);
             if (!slot(m)?.skip && !slot(m)?.flagOk) drift(meta.book, S, m.mes, ch, flags, i);
         }
-        cache.sig[i] = sigOf(m); cache.changes[i] = ch; cache.flags[i] = flags;
-        cache.states[i] = structuredClone(S);
+        cache.sig[i] = sigOf(m); cache.changes[i] = ch; cache.flags[i] = flags; cache.needs[i] = { ...S.needs, ...Object.fromEntries(Object.entries(S.gauges ?? {}).map(([g, v]) => [`g:${g}`, v])) };
+        if (i % SNAP === 0) cache.snap[i] = structuredClone(S);
     }
-    const out = { S: chat.length ? cache.states[chat.length - 1] : cache.base, states: cache.states, changes: cache.changes, flags: cache.flags, book: meta.book, base: cache.base };
+    cache.last = { i: chat.length - 1, S };
+    const out = { S: chat.length ? S : cache.base, needsAt: cache.needs, changes: cache.changes, flags: cache.flags, book: meta.book, base: cache.base, stateAt };
     quick = { key: qk, r: out, book: meta.book };
     return out;
+}
+// 🕰 그때 상태: 가장 가까운 사진에서 그 메시지까지 다시 계산 (읽기 전용)
+export function stateAt(i) {
+    const meta = getMeta(), chat = ctx().chat ?? []; if (!meta?.book || i < 0) return null;
+    let k = i; while (k >= 0 && !cache.snap[k]) k--;
+    const S = structuredClone(k >= 0 ? cache.snap[k] : cache.base);
+    for (let j = k + 1; j <= i && j < chat.length; j++) {
+        const m = chat[j]; if (m.is_user || m.is_system) continue;
+        const ch = [], flags = []; S.mind = {}; S.watch = {}; S.cell = {}; S.turn++;
+        const x = makeCtx(meta.book, S, ch, flags), W = wantsOf(meta.book, S), P = { tasted: S.tasted?.length ?? 0, visited: S.visited?.length ?? 0, custom: JSON.stringify(S.custom) };
+        for (const o of opsOf(m, meta.book)) { try { applyOp(meta.book, S, x, o.k, o.v, o.j, o.src, ch); } catch { /* 건너뜀 */ } }
+        afterTurn(meta.book, S, x, ch, W, j, P);
+    }
+    return S;
 }
 export function startState(meta) {
     const S = initState(meta.book);
@@ -367,7 +390,6 @@ export function startState(meta) {
     return S;
 }
 export const resetCache = () => { cache.chatId = null; quick.key = ''; };
-export const stateAt = (i) => fold()?.states?.[i] ?? null;
 
 // 지금 이 시간에 인물이 있을 곳: 같이 있음 → 하루 루틴(시간대) → 자주 있는 곳 · 축제 날엔 거리 · 광장으로
 export function whereNow(book, S, p) {

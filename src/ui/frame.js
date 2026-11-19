@@ -3,8 +3,8 @@ import { app, ctx, settings, getMeta, saveMeta, modOn, ready, TITLE } from '../b
 import { esc, dateText, slotName, short, fmt } from '../base/util.js';
 import { fold, derived, needStage } from '../rules/engine.js';
 import { placeOf } from '../rules/book.js';
-import { TABS, RENDER, onAct, changeRow, setRecFilter } from './tabs.js';
-import { home, market, cat, look, APPS, appOf, installed, markSeen } from './home.js';
+import { RENDER, onAct, changeRow, setRecFilter } from './tabs.js';
+import { home, market, cat, look, appOf, installed, markSeen } from './home.js';
 import { toolbar, onTool, TOOL_ACTS, applyGloss } from './tools.js';
 import { applyTr, trOn, trBusy } from '../extra/translate.js';
 import { traitsView, traitAct, TRAIT_ACTS } from './traits.js';
@@ -69,7 +69,7 @@ export function drawSheet() {
     const r = fold(); if (!r) { closeSheet(); return; }
     const R2 = { ...RENDER, home, market, cat, look, traits: traitsView };
     if (!R2[cur] || (appOf(cur) && !installed(appOf(cur)))) cur = 'home';
-    const view = past != null ? { ...r, S: r.states[past] ?? r.S } : r;
+    const view = past != null ? { ...r, S: r.stateAt(past) ?? r.S } : r;
     const meta = getMeta(), a = appOf(cur);
     const keep = el.querySelector(':scope > .ml-bs'); // 열려 있는 시트는 다시 그려도 그대로
     const scroll = el.querySelector('.ml-body')?.scrollTop ?? 0, same = el.querySelector('.ml-body')?.dataset.tab === cur;

@@ -70,7 +70,7 @@ async function onBeforeGen(type, opts, dry) {
 async function onReceived(i, type) {
     const meta = getMeta(); const m = ctx().chat?.[i];
     if (!m || m.is_user || !ready(meta) || !settings().enabled) return;
-    if ((type === 'quiet' || quietGen) && settings().skipQuiet) { quietGen = false; return; }
+    if ((type === 'quiet' || quietGen) && settings().skipQuiet) { quietGen = false; const q = slot(m, true); q.ops = []; q.skip = true; q.rev = (q.rev ?? 0) + 1; bumpMeta(); syncSwipe(m); refresh(); return; } // 조용한 생성: 태그가 있어도 안 셈
     const t0 = performance.now(), calls0 = aiStats.calls;
     const sl = slot(m, true);
     if (meta.paused || skipThis) {

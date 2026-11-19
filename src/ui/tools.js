@@ -4,7 +4,7 @@ import { app, ctx, settings, saveSettings, getMeta, saveMeta, slot, syncSwipe, b
 import { esc, num, short, norm, safeKey, signed } from '../base/util.js';
 import { form, sheet, toast, btn } from './kit.js';
 import { fold } from '../rules/engine.js';
-import { normBook, personOf, placeOf, PLACE_KINDS, fxOf } from '../rules/book.js';
+import { normBook, placeOf, PLACE_KINDS, fxOf } from '../rules/book.js';
 import { ask, parseJSON } from '../rules/ai.js';
 import { readOps } from '../rules/tags.js';
 import { glossList, gloss } from '../base/gloss.js';

@@ -1,7 +1,7 @@
 // 본편 주입: 이야기 영향력 게이지(0~4)를 따라 켜고 끈다
 import { settings, getMeta, modOn, userName } from '../base/st.js';
 import { clamp, dateText, short, tokens, DAY } from '../base/util.js';
-import { derived, relStage, diceMod, worldEvent, matchOf } from './engine.js';
+import { derived, relStage, worldEvent } from './engine.js';
 import { moodTags, pickQuote } from './mood.js';
 import { personOf } from './book.js';
 
