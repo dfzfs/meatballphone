@@ -1,5 +1,5 @@
 // 미트볼 라이트 — 실리태번 이벤트 연결
-import { app, ctx, settings, saveSettings, getMeta, saveMeta, slot, syncSwipe, ready, MODULE, OLD, VERSION, TITLE, INJ, MODS, DATA_V } from './src/base/st.js';
+import { app, ctx, settings, saveSettings, getMeta, saveMeta, slot, syncSwipe, ready, MODULE, OLD, VERSION, TITLE, INJ, MODS, DATA_V, bumpMeta } from './src/base/st.js';
 import { esc, short, tokens } from './src/base/util.js';
 import { readOps, stripTags, hasTag } from './src/rules/tags.js';
 import { fold, resetCache } from './src/rules/engine.js';
@@ -9,6 +9,7 @@ import { fillBook, templateBook, supplement, stats as aiStats } from './src/rule
 import { drawFrame, drawChips, drawSheet, openSheet, closeSheet, openPast, bindOuter } from './src/ui/frame.js';
 import { sheet, toast, row, card } from './src/ui/kit.js';
 import { findAll } from './src/extra/find.js';
+import { initMascot, playMascotSound, MASCOT_SOUNDS } from './src/ui/mascot.js';
 import { mount as mountApi, announce } from './src/extra/api.js';
 import { backup, restore, toCard, fromCard, migrateOld, oldActive } from './src/extra/safe.js';
 
@@ -82,7 +83,7 @@ async function onReceived(i, type) {
         // 빠졌을 때만 작게 보충 (AI 1회)
         try { const raw = await supplement(m.mes, fold()); sl.ops = readOps(raw); sl.fill = true; } catch (e) { sl.ops = []; console.warn(`[${TITLE}] 보충 실패`, e); }
     } else sl.ops = [];
-    sl.rev = (sl.rev ?? 0) + 1;
+    sl.rev = (sl.rev ?? 0) + 1; bumpMeta();
     if (Array.isArray(m.swipes) && typeof m.swipe_id === 'number') m.swipes[m.swipe_id] = m.mes;
     syncSwipe(m);
     ctx().saveChatDebounced?.();
@@ -90,8 +91,9 @@ async function onReceived(i, type) {
     refresh();
 }
 function onEdited(i) {
+    bumpMeta(); // 앞쪽 메시지를 고쳐도 다시 계산되게
     const m = ctx().chat?.[i]; if (!m || m.is_user) return refresh();
-    if (hasTag(m.mes)) { const sl = slot(m, true); sl.ops = readOps(m.mes); sl.rev = (sl.rev ?? 0) + 1; m.mes = stripTags(m.mes); syncSwipe(m); ctx().saveChatDebounced?.(); }
+    if (hasTag(m.mes)) { const sl = slot(m, true); sl.ops = readOps(m.mes); sl.rev = (sl.rev ?? 0) + 1; bumpMeta(); m.mes = stripTags(m.mes); syncSwipe(m); ctx().saveChatDebounced?.(); }
     refresh();
 }
 
@@ -114,7 +116,7 @@ function settingsHTML() {
     return `<div class="inline-drawer ml-set"><div class="inline-drawer-toggle inline-drawer-header"><b>😼 ${TITLE} <small>v${VERSION}</small></b><div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div><div class="inline-drawer-content">
 ${sw('enabled', '켜기')}
 <div class="ml-set-btns"><button class="menu_button" data-ml="create-ai">📘 상태창 만들기 (AI 1회)</button><button class="menu_button" data-ml="create-tpl">⚡ 바로 시작 (AI 0회)</button><button class="menu_button" data-ml="open">펼치기</button></div>
-<h4>화면</h4>${sw('hud', 'HUD')}${sel('hudPos', 'HUD 자리', [['top', '위'], ['bottom', '아래']])}${sw('minibar', '미니바')}${sw('mascot', '마스코트')}${sw('mascotSound', '마스코트 소리')}
+<h4>화면</h4>${sw('hud', 'HUD')}${sel('hudPos', 'HUD 자리', [['top', '위'], ['bottom', '아래']])}${sw('minibar', '미니바')}${sw('mascot', '마스코트')}${sel('mascotSound', '마스코트 누르면 나는 소리', MASCOT_SOUNDS)}<label>효과음 크기 <input type="range" min="0" max="100" step="5" data-ml-s="mascotVolume" value="${s.mascotVolume}"></label><div class="ml-set-btns"><button class="menu_button" data-ml="cat">😺 마스코트 고르기</button></div>
 <h4>꾸미기</h4><label>강조색 <input type="color" data-ml-look="accent" value="${s.look.accent}"></label> <label>글자 크기 <input type="range" min="0.85" max="1.3" step="0.05" data-ml-look="size" value="${s.look.size}"></label> <label>모서리 <input type="range" min="0" max="24" step="2" data-ml-look="radius" value="${s.look.radius}"></label> <label>테두리 <input type="range" min="0" max="3" step="1" data-ml-look="border" value="${s.look.border}"></label> <label>그림자 <input type="range" min="0" max="3" step="1" data-ml-look="shadow" value="${s.look.shadow}"></label> <label>글꼴 <input class="text_pole" data-ml-look="font" value="${esc(s.look.font)}" placeholder="비우면 실리태번 글꼴"></label>
 <h4>AI</h4>${sel('preset', '본편 지시', [['flash', '플래시용 (짧은 키 + 예시)'], ['general', '일반']])}${sw('fillMissing', '태그가 빠졌을 때만 보충 (AI 1회)')}${sw('skipQuiet', '퀵리플라이 · /gen 답엔 안 붙이기')}${sw('ooc', 'OOC 메시지는 건너뛰기')}
 <label>미트볼 AI 연결 프로필 <input class="text_pole" data-ml-s="profile" value="${esc(s.profile)}" placeholder="비우면 지금 연결"></label>
@@ -129,7 +131,8 @@ function mountSettings() {
     const box = host.querySelector('.ml-set');
     box.addEventListener('change', (e) => {
         const t = e.target, k = t.dataset.mlS, lk = t.dataset.mlLook;
-        if (k) settings()[k] = t.type === 'checkbox' ? t.checked : t.value;
+        if (k) settings()[k] = t.type === 'checkbox' ? t.checked : t.type === 'range' ? Number(t.value) : t.value;
+        if (k === 'mascotSound' || k === 'mascotVolume') playMascotSound();
         if (lk) settings().look[lk] = t.type === 'range' ? Number(t.value) : t.value;
         saveSettings(); applyLook(); document.getElementById('ml-hud')?.remove(); refresh();
     });
@@ -139,6 +142,7 @@ function mountSettings() {
         if (a === 'create-tpl') return create(false);
         if (a === 'open') return ready() ? openSheet('now') : toast('먼저 상태창을 만들어 주세요');
         if (a === 'perf') return showPerf();
+        if (a === 'cat') return ready() ? openSheet('cat') : toast('먼저 상태창을 만들어 주세요');
         if (a === 'backup') return backup();
         if (a === 'restore') return restore().then(() => refresh(true));
         if (a === 'card') return toCard();
@@ -165,13 +169,13 @@ function showPerf() {
 async function boot() {
     settings();
     if (oldActive()) { resting = true; console.info(`[${TITLE}] 옛 미트볼이 켜져 있어서 쉽니다.`); return; }
-    applyLook(); mountSettings(); bindOuter(); mountApi();
+    applyLook(); mountSettings(); bindOuter(); mountApi(); initMascot();
     const c = ctx(), E = c.event_types, on = (n, f) => n && c.eventSource.on(n, f);
     on(E.GENERATION_AFTER_COMMANDS, onBeforeGen);
     on(E.MESSAGE_RECEIVED, onReceived);
     on(E.MESSAGE_EDITED, onEdited);
     for (const n of [E.CHAT_CHANGED]) on(n, () => { closeSheet(); fromCard(); refresh(true); });
-    for (const n of [E.CHARACTER_MESSAGE_RENDERED, E.USER_MESSAGE_RENDERED, E.MESSAGE_SWIPED, E.MESSAGE_DELETED, E.MESSAGE_SWIPE_DELETED, E.MORE_MESSAGES_LOADED, E.MESSAGE_UPDATED]) on(n, () => refresh());
+    for (const n of [E.CHARACTER_MESSAGE_RENDERED, E.USER_MESSAGE_RENDERED, E.MESSAGE_SWIPED, E.MESSAGE_DELETED, E.MESSAGE_SWIPE_DELETED, E.MORE_MESSAGES_LOADED, E.MESSAGE_UPDATED]) on(n, () => { bumpMeta(); refresh(); });
     c.SlashCommandParser?.addCommandObject?.(c.SlashCommand.fromProps({ name: 'ml', callback: () => { openSheet('now'); return ''; }, helpString: '미트볼 라이트 열기' }));
     refresh(true);
 }

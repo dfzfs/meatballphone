@@ -1,5 +1,6 @@
 // 화면 부품: 목록 행 · 묶음 카드 · 칩 · 세그먼트 · 바텀시트 (앱 화면처럼 — 줄글 금지)
 import { esc } from '../base/util.js';
+import { mascot } from './mascot.js';
 
 // [아이콘] 제목 / 작은 부제 ··· 오른쪽 값 또는 ›
 export const row = ({ icon = '', title, sub = '', value = '', act = '', data = '', faint = false, more = false }) =>
@@ -9,7 +10,7 @@ export const card = (head, body, tail = '') => (body ? `<section class="ml-sec">
 export const chip = (text, kind = 'mid', act = '', data = '') => `<span class="ml-chip ${kind}${act ? ' tap' : ''}"${act ? ` data-act="${act}"` : ''}${data ? ` data-v="${esc(data)}"` : ''}>${text}</span>`;
 export const seg = (name, opts, cur) => `<div class="ml-seg" data-seg="${name}">${opts.map(([v, l]) => `<button class="${String(v) === String(cur) ? 'on' : ''}" data-v="${esc(v)}">${l}</button>`).join('')}</div>`;
 export const bar = (v, kind = '') => `<span class="ml-bar ${kind}"><i style="width:${Math.max(0, Math.min(100, v))}%"></i></span>`;
-export const empty = (text, btn = '', act = '') => `<div class="ml-empty"><p>${text}</p>${btn ? `<button class="ml-btn" data-act="${act}">${btn}</button>` : ''}</div>`;
+export const empty = (text, btn = '', act = '') => `<div class="ml-empty">${mascot('lg', 'think', 'bob')}<p>${text}</p>${btn ? `<button class="ml-btn" data-act="${act}">${btn}</button>` : ''}</div>`;
 export const btn = (text, act, data = '', kind = '') => `<button class="ml-btn ${kind}" data-act="${act}"${data ? ` data-v="${esc(data)}"` : ''}>${text}</button>`;
 
 // 바텀시트: 보는 화면과 고치는 화면을 나눈다

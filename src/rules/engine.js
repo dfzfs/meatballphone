@@ -1,7 +1,7 @@
 // 엔진: 채팅 메시지들 → 상태. 계산은 코드가, AI는 사건만.
 // 원본은 메시지(extra.meatlite.sw)에 있고, 여기서는 매번 처음부터 접어 만든다(바뀐 곳부터만 다시).
 import { clamp, num, arr, norm, short, safeKey, parseDelta, spanOf, clockOf, dayOfDate, DAY, hash, slotName } from '../base/util.js';
-import { slot, getMeta, ctx } from '../base/st.js';
+import { slot, getMeta, ctx, metaRev } from '../base/st.js';
 import { readOps, kindOf, parts } from './tags.js';
 import { match } from './names.js';
 import { NEED_STAGES, NEED_SYMPTOM, personOf, placeOf } from './book.js';
@@ -276,9 +276,13 @@ export function opsOf(m) {
     const undo = new Set(sl?.undo ?? []);
     return ops.filter(o => !undo.has(o.j));
 }
+let quick = { key: '', r: null };
 export function fold(force = false) {
     const meta = getMeta(); if (!meta?.book) return null;
     const chat = ctx().chat ?? [], id = ctx().getCurrentChatId?.();
+    // 빠른 길: 채팅 · 마지막 메시지 · 스와이프 · 설정집 저장 번호가 그대로면 지난 결과 (선택지 미리 보기처럼 한 화면에 여러 번 부를 때)
+    const last = chat[chat.length - 1], qk = `${id}|${chat.length}|${last ? sigOf(last) : ''}|${metaRev}|${meta.book === quick.book ? 1 : 0}`;
+    if (!force && quick.r && quick.key === qk) return quick.r;
     const bsig = hash(JSON.stringify(meta.book) + JSON.stringify(meta.start ?? {}));
     if (force || cache.chatId !== id || cache.bookSig !== bsig) cache = { chatId: id, bookSig: bsig, sig: [], states: [], changes: [], flags: [], base: null };
     if (!cache.base) cache.base = startState(meta);
@@ -296,7 +300,9 @@ export function fold(force = false) {
         cache.sig[i] = sigOf(m); cache.changes[i] = ch; cache.flags[i] = flags;
         cache.states[i] = structuredClone(S);
     }
-    return { S: chat.length ? cache.states[chat.length - 1] : cache.base, states: cache.states, changes: cache.changes, flags: cache.flags, book: meta.book, base: cache.base };
+    const out = { S: chat.length ? cache.states[chat.length - 1] : cache.base, states: cache.states, changes: cache.changes, flags: cache.flags, book: meta.book, base: cache.base };
+    quick = { key: qk, r: out, book: meta.book };
+    return out;
 }
 export function startState(meta) {
     const S = initState(meta.book);
@@ -309,7 +315,7 @@ export function startState(meta) {
     if (st.rel) for (const [k, v] of Object.entries(st.rel)) if (S.rel[k]) Object.assign(S.rel[k], { aff: num(v.aff, S.rel[k].aff), trust: num(v.trust, S.rel[k].trust) });
     return S;
 }
-export const resetCache = () => { cache.chatId = null; };
+export const resetCache = () => { cache.chatId = null; quick.key = ''; };
 export const stateAt = (i) => fold()?.states?.[i] ?? null;
 
 // 지금 이 시간에 인물이 있을 곳: 같이 있음 → 하루 루틴(시간대) → 자주 있는 곳 · 축제 날엔 거리 · 광장으로

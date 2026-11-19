@@ -1,5 +1,5 @@
 // 전체화면 안의 탭들 — 목록 행 + 묶음 카드. 설명은 한 줄까지.
-import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, MODS, slot, syncSwipe, msgKey, userName } from '../base/st.js';
+import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, MODS, slot, syncSwipe, msgKey, userName, bumpMeta } from '../base/st.js';
 import { esc, fmt, signed, short, dateText, DAY, slotName, clamp, num, norm } from '../base/util.js';
 import { row, card, chip, seg, bar, empty, btn, sheet, toast, putInput, form } from './kit.js';
 import { fold, derived, needStage, relStage, nextStage, diceMod, diceParts, worldEvent, priceMul, whereNow } from '../rules/engine.js';
@@ -352,6 +352,14 @@ export async function onAct(act, v, el) {
         case 'person': personSheet(r, v); return;
         case 'mapsel': setMapSel(v); app.refresh?.(); return;
         case 'photo': { const url = await pickPhoto(); if (url == null) return; const pl = placeOf(meta.book, v); if (!pl) return; pl.photo = url; saveMeta(); app.refresh?.(true); toast(url ? '사진을 붙였어요' : '사진을 뺐어요'); return; }
+        case 'packget': {
+            const m = await import('./mascot.js'); el?.classList.add('loading'); if (el) el.textContent = '';
+            const ok = await m.packDownload((i, n) => { if (el) el.style.setProperty('--pct', `${Math.round(i / n * 360)}deg`); });
+            settings().conPack = ok > 0; saveSettings(); toast(ok ? `🐱 미트볼콘 ${ok}개 받았어요` : '받지 못했어요. 인터넷 연결을 확인해 주세요', ok ? 'good' : 'bad'); app.refresh?.(); return;
+        }
+        case 'packoff': settings().conPack = false; if (String(settings().mascotPick).startsWith('pack:')) settings().mascotPick = 'idle'; saveSettings(); app.refresh?.(); return;
+        case 'catpick': settings().mascotPick = v; saveSettings(); (await import('./mascot.js')).playMascotSound(); app.refresh?.(); return;
+        case 'catsound': settings().mascotSound = v; saveSettings(); (await import('./mascot.js')).playMascotSound(); app.refresh?.(); return;
         case 'musicapp': settings().musicApp = v; saveSettings(); app.refresh?.(); return;
         case 'install': case 'uninstall': {
             const a = (await import('./home.js')).appOf(v); if (!a?.mod) return;
@@ -384,8 +392,8 @@ export async function onAct(act, v, el) {
         case 'gstep': { const [g, d] = v.split(':'); hand(`${g}: ${Number(d) > 0 ? '+' : ''}${d}`, '직접'); return; }
         case 'jump': app.jump?.(Number(v)); return;
         case 'tab-book': app.openSheet?.('book'); return;
-        case 'undo': { const [i, j] = v.split(':').map(Number); const m = ctx().chat[i], sl = slot(m, true); if (!sl.ops && j < 1000) sl.ops = (await import('../rules/tags.js')).readOps(m.mes); sl.undo = [...new Set([...(sl.undo ?? []), j])]; sl.rev = (sl.rev ?? 0) + 1; syncSwipe(m); ctx().saveChatDebounced?.(); app.refresh?.(); toast('되돌렸어요'); return; }
-        case 'flagok': { const [i] = v.split(':').map(Number); const m = ctx().chat[i], sl = slot(m, true); sl.flagOk = true; sl.rev = (sl.rev ?? 0) + 1; ctx().saveChatDebounced?.(); app.refresh?.(); return; }
+        case 'undo': { const [i, j] = v.split(':').map(Number); const m = ctx().chat[i], sl = slot(m, true); if (!sl.ops && j < 1000) sl.ops = (await import('../rules/tags.js')).readOps(m.mes); sl.undo = [...new Set([...(sl.undo ?? []), j])]; sl.rev = (sl.rev ?? 0) + 1; bumpMeta(); syncSwipe(m); ctx().saveChatDebounced?.(); app.refresh?.(); toast('되돌렸어요'); return; }
+        case 'flagok': { const [i] = v.split(':').map(Number); const m = ctx().chat[i], sl = slot(m, true); sl.flagOk = true; sl.rev = (sl.rev ?? 0) + 1; bumpMeta(); ctx().saveChatDebounced?.(); app.refresh?.(); return; }
         case 'mark': { const i = lastAI(); if (i < 0) return; const fv = await form('⭐ 책갈피', [{ k: 'name', label: '이름', v: '', ph: short(ctx().chat[i].mes, 20), chips: ['고백 직전', '첫 만남', '큰 싸움', '중요한 선택'] }]); const name = fv?.name?.trim() || (fv ? short(ctx().chat[i].mes, 20) : ''); if (!name) return; meta.marks = [...(meta.marks ?? []).filter(m => m.key !== msgKey(ctx().chat[i])), { key: msgKey(ctx().chat[i]), name: short(name, 30) }]; saveMeta(); app.refresh?.(); return; }
         case 'past': { const ais = (ctx().chat ?? []).map((m, k) => [k, m]).filter(([, m]) => !m.is_user && !m.is_system).slice(-12).reverse(); const fv = await form('🕰 그때 상태 보기', [{ k: 'i', label: '어느 답의 시점?', type: 'pick', v: ais[0]?.[0], opts: ais.map(([k, m]) => [k, `#${k} ${esc(short(m.mes, 14))}`]) }], { ok: '보기' }); if (!fv) return; const i = Number(fv.i); const s = r.states[i]; if (!s) return; app.openPast?.(i); return; }
         case 'mindwho': { const w = new Set(meta.mindWho ?? ['cast']); w.has(v) ? w.delete(v) : w.add(v); meta.mindWho = [...w]; saveMeta(); app.refresh?.(); return; }
@@ -404,7 +412,7 @@ export async function onAct(act, v, el) {
 export function hand(line, why) {
     const i = lastAI(); if (i < 0) { toast('답이 하나라도 있어야 고칠 수 있어요', 'bad'); return; }
     const m = ctx().chat[i], sl = slot(m, true), k = line.slice(0, line.indexOf(':')), v = line.slice(line.indexOf(':') + 1).trim();
-    sl.hand = [...(sl.hand ?? []), { k, v, why }]; sl.rev = (sl.rev ?? 0) + 1; syncSwipe(m); ctx().saveChatDebounced?.(); app.refresh?.();
+    sl.hand = [...(sl.hand ?? []), { k, v, why }]; sl.rev = (sl.rev ?? 0) + 1; bumpMeta(); syncSwipe(m); ctx().saveChatDebounced?.(); app.refresh?.();
 }
 async function editBook(act, v) {
     const meta = getMeta(), b = meta.book;

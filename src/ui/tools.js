@@ -1,6 +1,6 @@
 // 🧰 앱마다 붙는 공통 도구줄: ✏️ 편집 · ✨ AI로 수정 · 🙈 AI에게 숨기기 · 👁 보일 것 · 🌐 용어집(번역 고정)
 //   편집은 바텀시트 입력 칸 → 상태 값은 마지막 답에 「손으로 고침 + 이유」로 적고(기록 · 되돌리기), 설정집은 설정집에 바로
-import { app, ctx, settings, saveSettings, getMeta, saveMeta, slot, syncSwipe } from '../base/st.js';
+import { app, ctx, settings, saveSettings, getMeta, saveMeta, slot, syncSwipe, bumpMeta } from '../base/st.js';
 import { esc, num, short, norm, safeKey, signed } from '../base/util.js';
 import { form, sheet, toast, btn } from './kit.js';
 import { fold } from '../rules/engine.js';
@@ -42,7 +42,7 @@ export function handLines(lines, why, src = 'hand') {
     const m = ctx().chat[i], sl = slot(m, true);
     if (!sl.ops) sl.ops = readOps(m.mes);
     for (const ln of lines) { const k = ln.slice(0, ln.indexOf(':')).trim(), v = ln.slice(ln.indexOf(':') + 1).trim(); if (k && v) (sl.hand ??= []).push({ k, v, why: short(why, 30), src }); }
-    sl.rev = (sl.rev ?? 0) + 1; syncSwipe(m); ctx().saveChatDebounced?.(); app.refresh?.();
+    sl.rev = (sl.rev ?? 0) + 1; bumpMeta(); syncSwipe(m); ctx().saveChatDebounced?.(); app.refresh?.();
     return true;
 }
 const saveBook = () => { getMeta().book.src.from = 'user'; saveMeta(); app.refresh?.(true); };

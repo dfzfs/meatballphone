@@ -1,7 +1,7 @@
 // 🔌 다른 미트볼 확장(미트볼 선택지 등)이 읽는 통로 — 읽기만. 바꾸는 건 늘 본편 답의 사건 태그로.
 import { getMeta, ready, VERSION } from '../base/st.js';
-import { norm, signed, slotName } from '../base/util.js';
-import { fold, priceMul, derived } from '../rules/engine.js';
+import { norm, signed, slotName, dateOf } from '../base/util.js';
+import { fold, priceMul, derived, diceParts } from '../rules/engine.js';
 import { placeOf } from '../rules/book.js';
 import { luckOf, luckFit } from '../rules/luck.js';
 import { ctx } from '../base/st.js';
@@ -36,7 +36,9 @@ export function mount() {
         version: VERSION,
         ready: () => ready(),
         // 지금 상태 요약 (복사본)
-        state: () => { const r = ready() ? fold() : null; if (!r) return null; return structuredClone({ t: r.S.t, loc: r.S.loc, with: r.S.with, cash: r.S.cash, needs: r.S.needs, status: r.S.status, danger: derived(r.book, r.S), currency: r.book.world.currency }); },
+        state: () => { const r = ready() ? fold() : null; if (!r) return null; const d = dateOf(r.book.world.start, r.S.t); return structuredClone({ t: r.S.t, date: `${d.m}월 ${d.d}일 ${slotName(r.S.t)}`, loc: r.S.loc, with: r.S.with, cash: r.S.cash, needs: r.S.needs, gauges: r.S.gauges, attrs: r.S.attrs, status: r.S.status, danger: derived(r.book, r.S), currency: r.book.world.currency }); },
+        // 🎲 주사위 보정 내역 [{ why, n }] — 능력치 · 욕구 위험 · 상태 딱지(운명 포함) · 착용 장비. 선택지는 여기에 자기 보정만 더한다
+        diceParts: (attr = '') => { const r = ready() ? fold() : null; return r ? structuredClone(diceParts(r.book, r.S, attr)) : []; },
         preview,
         // 🍀 오늘 운세 쪽지 + 이 글과 맞는지 (1 · 0 · −1)
         luck: (label = '') => { const r = ready() ? fold() : null; if (!r) return null; const l = luckOf(r.book, r.S, ctx().getCurrentChatId?.(), getMeta()?.luckRoll); if (!l.rolled) return { ...l, fit: 0 }; return { ...l, fit: label ? luckFit(l, label) : 0 }; },

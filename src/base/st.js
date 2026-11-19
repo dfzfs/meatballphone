@@ -3,7 +3,7 @@ import { clone, hash } from './util.js';
 
 export const MODULE = 'meatlite';
 export const OLD = 'statussim';
-export const VERSION = '0.6.0';
+export const VERSION = '0.7.0';
 export const DATA_V = 2;
 export const TITLE = '미트볼 라이트';
 export const INJ = { facts: 'meatlite_facts', hint: 'meatlite_hint', rule: 'meatlite_rule' };
@@ -19,7 +19,10 @@ export const DEFAULTS = Object.freeze({
     hudPos: 'top',          // top | bottom
     minibar: true,
     mascot: true,
-    mascotSound: true,
+    mascotSound: 'meow',     // meow | off
+    mascotVolume: 60,
+    mascotPick: 'idle',
+    conPack: false,          // 🐱 미트볼콘 팩 60개를 받았나 (마켓)      // 평소 모습: 표정 7개 · con:미트볼콘 14개
     look: { accent: '#e07a5f', font: '', size: 1, radius: 14, border: 1, shadow: 1, dark: 'auto' },
     influence: { all: 2, by: {} },  // 이야기 영향력 게이지 (전체 기본값 · 채팅마다 덮어쓸 수 있음)
     preset: 'flash',        // 본편 지시 프리셋: flash | general
@@ -41,9 +44,9 @@ export function settings() {
     const s = es[MODULE];
     for (const k of Object.keys(DEFAULTS)) if (!Object.hasOwn(s, k)) s[k] = clone(DEFAULTS[k]);
     for (const k of Object.keys(DEFAULTS.look)) if (!Object.hasOwn(s.look, k)) s.look[k] = DEFAULTS.look[k];
+    if (typeof s.mascotSound === 'boolean') s.mascotSound = s.mascotSound ? 'meow' : 'off';
     return s;
 }
-export const saveSettings = () => ctx().saveSettingsDebounced();
 
 // ───── 칸 (켜고 끄는 단위) ─────
 export const MODS = [
@@ -85,7 +88,10 @@ export function getMeta(create = false) {
     }
     return m ?? null;
 }
-export const saveMeta = () => ctx().saveMetadataDebounced?.() ?? ctx().saveMetadata?.();
+export let metaRev = 0;
+export const saveMeta = () => { metaRev++; return ctx().saveMetadataDebounced?.() ?? ctx().saveMetadata?.(); };
+export const bumpMeta = () => { metaRev++; };
+export const saveSettings = () => { metaRev++; ctx().saveSettingsDebounced(); };
 export const modOn = (id, meta = getMeta()) => !!meta?.mods?.[id];
 export const ready = (meta = getMeta()) => !!meta?.book;
 

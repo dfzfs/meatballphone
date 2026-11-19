@@ -4,11 +4,11 @@ import { esc, dateText, slotName, short, fmt } from '../base/util.js';
 import { fold, derived, needStage } from '../rules/engine.js';
 import { placeOf } from '../rules/book.js';
 import { TABS, RENDER, onAct, changeRow, setRecFilter } from './tabs.js';
-import { home, market, APPS, appOf, installed } from './home.js';
+import { home, market, cat, APPS, appOf, installed } from './home.js';
 import { toolbar, onTool, TOOL_ACTS, applyGloss } from './tools.js';
 import { chip, sheet, bar } from './kit.js';
 
-const MASCOT = (n) => new URL(`../../img/mascot_${n}.webp`, import.meta.url).href;
+import { mascot } from './mascot.js';
 let cur = 'home', past = null;
 
 // ───── HUD: 한 줄 (욕구 · 돈 · 시간 · 장소 · 가게 한 줄) ─────
@@ -25,7 +25,8 @@ function hudHTML(r) {
 function miniHTML(r) {
     const { S, book } = r;
     const needs = modOn('stats') ? book.me.needs.map(n => { const v = Math.round(S.needs[n.key] ?? 0); return `<div class="ml-mb-n" title="${esc(n.name)}">${n.icon}${bar(v, needStage(v) === '위험' ? 'bad' : '')}</div>`; }).join('') : '';
-    return `${settings().mascot ? `<img class="ml-mascot" src="${MASCOT(derived(book, S).some(d => d.stage === '위험') ? 'sad' : S.turn % 7 === 0 ? 'happy' : 'idle')}" alt="" data-act="meow">` : ''}${needs}<div class="ml-mb-t">${dateText(book.world.start, S.t, false)}</div><button class="ml-btn sm" data-act="open" data-v="now">펼치기</button>`;
+    const night = /심야|밤/.test(slotName(S.t)), face = derived(book, S).some(d => d.stage === '위험') ? 'sad' : night && settings().mascotPick === 'idle' ? 'sleep' : '';
+    return `${mascot('sm', face, 'ml-mascot')}${needs}<div class="ml-mb-t">${dateText(book.world.start, S.t, false)}</div><button class="ml-btn sm" data-act="open" data-v="now">펼치기</button>`;
 }
 export function drawFrame() {
     const on = settings().enabled && ready() && !getMeta()?.off;
@@ -60,13 +61,13 @@ export function closeSheet() { document.getElementById('ml-full')?.remove(); doc
 export function drawSheet() {
     const el = document.getElementById('ml-full'); if (!el) return;
     const r = fold(); if (!r) { closeSheet(); return; }
-    const R2 = { ...RENDER, home, market };
+    const R2 = { ...RENDER, home, market, cat };
     if (!R2[cur] || (appOf(cur) && !installed(appOf(cur)))) cur = 'home';
     const view = past != null ? { ...r, S: r.states[past] ?? r.S } : r;
     const meta = getMeta(), a = appOf(cur);
     const keep = el.querySelector(':scope > .ml-bs'); // 열려 있는 시트는 다시 그려도 그대로
     const scroll = el.querySelector('.ml-body')?.scrollTop ?? 0, same = el.querySelector('.ml-body')?.dataset.tab === cur;
-    el.innerHTML = `<header class="ml-top">${cur === 'home' ? `<b>${TITLE}</b>` : `<button class="ml-ib back" data-tab="home" title="홈">‹</button><b>${a ? `${a.icon} ${a.name}` : ''}</b>`}${past != null ? chip(`🕰 #${past} 시점 · 읽기 전용`, 'mid', 'past-off') : ''}<span class="ml-sp"></span><button class="ml-ib" data-act="pause" title="일시정지">${meta.paused ? '▶' : '⏸'}</button><button class="ml-ib" data-act="skip" title="다음 1번 건너뛰기">${meta.skipNext ? '⏭✓' : '⏭'}</button><button class="ml-ib" data-act="find" title="검색">🔍</button><button class="ml-ib" data-act="close">✕</button></header>`
+    el.innerHTML = `<header class="ml-top">${cur === 'home' ? `${mascot('head')}<b>${TITLE}</b>` : `<button class="ml-ib back" data-tab="home" title="홈">‹</button><b>${a ? `${a.icon} ${a.name}` : ''}</b>`}${past != null ? chip(`🕰 #${past} 시점 · 읽기 전용`, 'mid', 'past-off') : ''}<span class="ml-sp"></span><button class="ml-ib" data-act="pause" title="일시정지">${meta.paused ? '▶' : '⏸'}</button><button class="ml-ib" data-act="skip" title="다음 1번 건너뛰기">${meta.skipNext ? '⏭✓' : '⏭'}</button><button class="ml-ib" data-act="find" title="검색">🔍</button><button class="ml-ib" data-act="close">✕</button></header>`
         + `<main class="ml-body" data-tab="${cur}">${a && !a.sys ? toolbar(cur) : ''}${R2[cur](view)}</main>`;
     applyGloss(el.querySelector('.ml-body'));
     if (keep) el.appendChild(keep);
@@ -104,7 +105,6 @@ export function bindOuter() {
     document.addEventListener('click', (e) => {
         const a = e.target.closest('#ml-hud [data-act], #ml-mini [data-act]'); if (!a) return;
         if (a.dataset.act === 'open') openSheet(a.dataset.v);
-        if (a.dataset.act === 'meow' && settings().mascotSound) new Audio(new URL('../../snd/nyang_short.mp3', import.meta.url).href).play().catch(() => {});
     });
     document.addEventListener('click', async (e) => { const a = e.target.closest('.ml-bs [data-act], .ml-msg [data-act]'); if (!a || a.closest('#ml-full')) return; /* 패널 안 시트는 패널이 처리 */ if (a.dataset.act === 'turncard') return turnSheet(Number(a.dataset.v)); if (TOOL_ACTS.has(a.dataset.act)) { a.closest('.ml-bs')?.remove(); return onTool(a.dataset.act, a.dataset.v); } await onAct(a.dataset.act, a.dataset.v, a); });
 }

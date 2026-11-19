@@ -9,6 +9,7 @@ import { luckOf } from '../rules/luck.js';
 import { level } from '../rules/inject.js';
 import { upcoming, lastAI, turnCard, getDice } from './tabs.js';
 import { btn } from './kit.js';
+import { mascot, MASCOTS, MEATCON, mascotUrl, playMascotSound, MASCOT_SOUNDS, PACK, packOn } from './mascot.js';
 import { vis } from './tools.js';
 
 // 앱 목록 — mod가 있으면 받기 · 지우기 가능, sys는 늘 있음
@@ -27,6 +28,7 @@ export const APPS = [
     { id: 'custom', to: 'aux', main: '', icon: '🧩', name: '내 탭', mod: 'custom', desc: '직접 만드는 칸 · 최면 어플 템플릿', c: '#43aa8b' },
     { id: 'book', icon: '📘', name: '설정집', sys: true, c: '#4361ee' },
     { id: 'gauge', icon: '🎚️', name: '영향력', sys: true, c: '#8d99ae' },
+    { id: 'cat', icon: '😺', name: '마스코트', sys: true, c: '#f2a7b5' },
     { id: 'market', icon: '🛍️', name: '마켓', sys: true, c: '#ff9f1c' },
 ];
 export const appOf = (id) => APPS.find(a => a.id === id);
@@ -84,5 +86,19 @@ export function market() {
     const apps = APPS.filter(a => !a.sys);
     return `<div class="ml-hint">앱을 받으면 홈에 생겨요. 지우면 홈과 본편 주입에서 빠져요 (기록은 그대로).</div>
         <h4 class="ml-h4">📤 본편 반영 <span>결과값만 본편에 가요 · 숫자 · 보정 같은 중간값은 안 가요</span></h4><div class="ml-mks">${apps.filter(a => a.to === 'main').map(row).join('')}</div>
-        <h4 class="ml-h4">🔒 보조 <span>상태창 안에서만 · 본편 토큰 0</span></h4><div class="ml-mks">${apps.filter(a => a.to !== 'main').map(row).join('')}</div>`;
+        <h4 class="ml-h4">🔒 보조 <span>상태창 안에서만 · 본편 토큰 0</span></h4><div class="ml-mks">${apps.filter(a => a.to !== 'main').map(row).join('')}</div>
+        <h4 class="ml-h4">🎨 꾸미기</h4><div class="ml-mks"><div class="ml-mk"><i style="--c:#f2a7b5"><img src="${mascotUrl('con:heart')}" alt="" style="width:40px;height:40px"></i><span><b>미트볼콘 팩</b><small>마스코트 모습 ${PACK.length}개 더 · 약 4.6MB · 인터넷에서 받아요</small><small class="ml-to aux">🔒 상태창 안에서만</small></span>${packOn() ? `${btn('고르기', 'open', 'cat', 'xs')}<button class="ml-mini" data-act="packoff" title="지우기">🗑</button>` : '<button class="ml-btn xs main ml-get" data-act="packget">받기</button>'}</div></div>`;
+}
+
+// 😺 마스코트 고르기: 표정 7개 + 미트볼콘 14개 중 평소 모습 · 소리 · 크기
+const FACE_KO = { idle: '평소', happy: '웃음', think: '생각', surprise: '놀람', sad: '울먹', sleep: '잠', party: '파티', hi: '안녕', heart: '하트', proud: '뿌듯', focus: '집중', groom: '그루밍', tongue: '메롱', roll: '뒹굴', blanket: '담요', box: '상자', pray: '부탁', gasp: '헉', sulk: '삐침', blank: '멍' };
+export function cat() {
+    const s = settings(), cur = s.mascotPick || 'idle';
+    const cell = (id) => `<button class="ml-cat${cur === id ? ' on' : ''}" data-act="catpick" data-v="${id}"><img src="${mascotUrl(id)}" alt="" draggable="false"><small>${FACE_KO[id.replace('con:', '')] ?? id}</small></button>`;
+    return `<div class="ml-catbig">${mascot('lg')}<small>눌러 보세요 · 빠르게 다섯 번 누르면 파티 · 너무 누르면 울어요</small></div>
+        <h4 class="ml-h4">표정</h4><div class="ml-cats">${MASCOTS.map(cell).join('')}</div>
+        <h4 class="ml-h4">미트볼콘</h4><div class="ml-cats">${MEATCON.map(n => cell(`con:${n}`)).join('')}</div>
+        ${packOn() ? `<h4 class="ml-h4">미트볼콘 팩 <span>${PACK.length}개</span></h4><div class="ml-cats">${PACK.map(([id, n]) => `<button class="ml-cat${cur === `pack:${id}` ? ' on' : ''}" data-act="catpick" data-v="pack:${id}"><img src="${mascotUrl(`pack:${id}`)}" alt="" loading="lazy" draggable="false"><small>${esc(n)}</small></button>`).join('')}</div>` : `<div class="ml-scene tap" data-act="open" data-v="market"><i>🛍️</i><span><b>미트볼콘 팩 ${PACK.length}개 더 받기</b><small>마켓에서 받을 수 있어요</small></span><em>›</em></div>`}
+        <h4 class="ml-h4">소리</h4><div class="ml-picks">${MASCOT_SOUNDS.map(([v, n]) => `<button class="ml-btn xs${(s.mascotSound || 'meow') === v ? ' on' : ''}" data-act="catsound" data-v="${v}">${n}</button>`).join('')}</div>
+        <div class="ml-hint">위험할 땐 울먹, 밤엔 자는 얼굴로 저절로 바뀌어요 (평소 모습이 「평소」일 때).</div>`;
 }
