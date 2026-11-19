@@ -233,7 +233,7 @@ function gauge() {
     h += card('단계', LEVELS.map(l => row({ icon: `<b>${l.n}</b>`, title: l.name, sub: l.what })).join(''));
     return h;
 }
-const slider = (id, v, name = '전체') => { const c = levelCost(v); return `<div class="ml-row"><span class="ml-tx"><b>${esc(name)}</b><small>${LEVELS[v].name} · 주입 ≈${c.tok}토큰 · 추가 호출 ${c.calls}회</small></span><input type="range" class="ml-range" min="0" max="4" step="1" value="${v}" data-gauge="${id}"></div>`; };
+const slider = (id, v, name = '전체') => { const c = levelCost(v); return `<div class="ml-gauge"><div class="ml-gauge-h"><b>${esc(name)}</b><span class="ml-pill ${v >= 3 ? 'love' : ''}">${v} · ${LEVELS[v].name}</span><small>주입 ≈${c.tok}토큰 · 추가 호출 ${c.calls}회</small></div><input type="range" class="ml-range" min="0" max="4" step="1" value="${v}" data-gauge="${id}"><div class="ml-gauge-t">${LEVELS.map(l => `<span class="${l.n === v ? 'on' : ''}">${l.name}</span>`).join('')}</div></div>`; };
 
 export const RENDER = { now, bag, rel, map, cal, news, rec, mind, custom, book, gauge };
 

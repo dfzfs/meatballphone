@@ -99,3 +99,8 @@ body.ml-open #ml-mini{display:none}
 #ml-full .ml-nav button{min-width:52px;flex:1 0 52px}
 }
 @media (min-width:900px){#ml-full .ml-nav{flex-wrap:nowrap;overflow-x:auto;gap:0}#ml-full .ml-nav button{min-width:40px;flex:1 0 40px;font-size:10px;padding:0}}
+/* 영향력 게이지: 이름 줄 위 · 막대 아래 · 단계 이름 눈금 (실리태번 기본 슬라이더 규칙을 이김) */
+.ml-gauge{padding:8px 12px;border-bottom:1px solid var(--line)}.ml-gauge:last-child{border-bottom:0}
+.ml-gauge-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.ml-gauge-h b{font-weight:600}.ml-gauge-h small{margin-left:auto;font-size:11px;color:var(--sub)}
+#ml-full input[type="range"].ml-range{display:block;width:100%;min-width:0;margin:8px 0 2px;padding:0;accent-color:var(--a)}
+.ml-gauge-t{display:flex;justify-content:space-between;font-size:10px;color:var(--sub)}.ml-gauge-t span.on{color:var(--a);font-weight:700}
