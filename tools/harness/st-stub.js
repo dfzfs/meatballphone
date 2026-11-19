@@ -133,6 +133,22 @@
         await eventSource.emit(event_types.GENERATION_ENDED, i);
         return i;
     };
+    // 스트리밍 답: 시작 → 글이 조금씩 붙음(ms마다) → 받기 → 실리태번 자체 저장 → 끝
+    window.__stream = async (text, { parts = 5, ms = 300, during } = {}) => {
+        await eventSource.emit(event_types.GENERATION_AFTER_COMMANDS, 'normal', {}, false);
+        await eventSource.emit(event_types.GENERATION_STARTED, 'normal', {}, false);
+        window.__streaming = true;
+        state.chat.push(mk('Leon', false, '')); const i = state.chat.length - 1, m = state.chat[i]; renderMes(i);
+        const step = Math.ceil(text.length / parts);
+        for (let k = 0; k < parts; k++) { m.mes = text.slice(0, (k + 1) * step); m.swipes[0] = m.mes; if (k === 1) await during?.(); await new Promise(r => setTimeout(r, ms)); }
+        window.__streaming = false;
+        (window.__saves ??= []).push({ fn: 'st-own', at: performance.now(), gen: false });
+        await eventSource.emit(event_types.MESSAGE_RECEIVED, i, 'normal'); renderMes(i);
+        await eventSource.emit(event_types.CHARACTER_MESSAGE_RENDERED, i, 'normal');
+        window.__ended = performance.now();
+        await eventSource.emit(event_types.GENERATION_ENDED, i);
+        return i;
+    };
     // 새 스와이프(리롤): 마지막 답에 새 글을 만들어 넣음
     window.__swipe = async (text) => {
         const i = state.chat.length - 1, m = state.chat[i];
@@ -180,8 +196,11 @@
         Popup, POPUP_TYPE, POPUP_RESULT,
         SlashCommandParser, SlashCommand, SlashCommandArgument, SlashCommandNamedArgument, ARGUMENT_TYPE,
         getCurrentChatId: () => state.chatId,
-        saveChat: async () => {}, saveChatDebounced: () => {},
-        saveMetadata: async () => {}, saveMetadataDebounced: () => {},
+        // 저장 기록: 누가 · 언제 · 답을 받는 중이었나 (시험이 겹침을 셈)
+        saveChat: async () => { (window.__saves ??= []).push({ fn: 'saveChat', at: performance.now(), gen: !!window.__streaming }); },
+        saveChatDebounced: () => { (window.__saves ??= []).push({ fn: 'saveChatDebounced', at: performance.now(), gen: !!window.__streaming }); },
+        saveMetadata: async () => { (window.__saves ??= []).push({ fn: 'saveMetadata', at: performance.now(), gen: !!window.__streaming }); },
+        saveMetadataDebounced: () => { (window.__saves ??= []).push({ fn: 'saveMetadataDebounced', at: performance.now(), gen: !!window.__streaming }); },
         saveSettingsDebounced: () => {},
         reloadCurrentChat: async () => { window.__renderAll(); await eventSource.emit(event_types.CHAT_CHANGED); },
         updateMessageBlock: (i) => { renderMes(i); },

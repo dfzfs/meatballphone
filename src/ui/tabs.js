@@ -1,5 +1,5 @@
 // 전체화면 안의 탭들 — 목록 행 + 묶음 카드. 설명은 한 줄까지.
-import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, msgData, syncSwipe, msgKey, userName, bumpMeta } from '../base/st.js';
+import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, msgData, syncSwipe, msgKey, userName, bumpMeta, saveChatSoon } from '../base/st.js';
 import { esc, fmt, signed, short, dateText, dateOf, DAY, periodName, num, norm, tokens, dayIndexOf, monthDays, monthName, weekName } from '../base/util.js';
 import { row, card, chip, seg, bar, empty, btn, sheet, toast, putInput, form } from './kit.js';
 import { fold, derived, needStage, relStage, nextStage, stagesOf, pairKey, diceParts, worldEvent, priceMul, whereNow } from '../rules/engine.js';
@@ -923,7 +923,7 @@ export async function onAct(act, v, el) {
             sl.rev = (sl.rev ?? 0) + 1;
             bumpMeta();
             syncSwipe(m);
-            ctx().saveChatDebounced?.();
+            saveChatSoon();
             app.refresh?.();
             toast('되돌렸어요');
             return;
@@ -935,7 +935,7 @@ export async function onAct(act, v, el) {
             sl.flagOk = true;
             sl.rev = (sl.rev ?? 0) + 1;
             bumpMeta();
-            ctx().saveChatDebounced?.();
+            saveChatSoon();
             app.refresh?.();
             return;
         }
@@ -1176,7 +1176,7 @@ export async function onAct(act, v, el) {
 export function hand(line, why) {
     const i = lastAI(); if (i < 0) { toast('답이 하나라도 있어야 고칠 수 있어요', 'bad'); return; }
     const m = ctx().chat[i], sl = msgData(m, true), k = line.slice(0, line.indexOf(':')), v = line.slice(line.indexOf(':') + 1).trim();
-    sl.hand = [...(sl.hand ?? []), { k, v, why }]; sl.rev = (sl.rev ?? 0) + 1; bumpMeta(); syncSwipe(m); ctx().saveChatDebounced?.(); app.refresh?.();
+    sl.hand = [...(sl.hand ?? []), { k, v, why }]; sl.rev = (sl.rev ?? 0) + 1; bumpMeta(); syncSwipe(m); saveChatSoon(); app.refresh?.();
 }
 async function editBook(act, v) {
     const meta = getMeta(), b = meta.book;

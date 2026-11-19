@@ -1,5 +1,5 @@
 // 미트볼 라이트 — 실리태번 이벤트 연결
-import { app, ctx, settings, saveSettings, getMeta, saveMeta, msgData, syncSwipe, ready, MODULE, OLD, VERSION, TITLE, INJ, MODS, DATA_V, bumpMeta, modOn } from './src/base/st.js';
+import { app, ctx, settings, saveSettings, getMeta, saveMeta, msgData, syncSwipe, ready, MODULE, OLD, VERSION, TITLE, INJ, MODS, DATA_V, bumpMeta, modOn, saveChatSoon, genStarted, genEnded, isGenerating } from './src/base/st.js';
 import { esc, short, tokens, dateOf } from './src/base/util.js';
 import { readOps, stripTags, hasTag } from './src/rules/tags.js';
 import { fold, resetCache, noteRules } from './src/rules/engine.js';
@@ -77,28 +77,30 @@ async function onReceived(i, type) {
     const meta = getMeta(); const m = ctx().chat?.[i];
     if (!m || m.is_user || !ready(meta) || !settings().enabled || meta.setup) return;
     const sl = msgData(m, true);
+    // 메시지 글(mes)은 답이 다 온 뒤(MESSAGE_RECEIVED) 여기서 한 번만 고침 · 태그가 있을 때만
+    const strip = (t) => (hasTag(t) ? stripTags(t) : t);
     const skip = (type === 'quiet' || quietGen) && settings().skipQuiet;
     const t0 = performance.now();
     if (skip || meta.paused || skipThis) {
         // 조용한 생성 · 일시정지 · 다음 1번 건너뛰기 · OOC → 이 답은 셈하지 않음 (분류도 안 부름)
-        sl.ops = []; sl.skip = true; m.mes = stripTags(m.mes);
+        sl.ops = []; sl.skip = true; m.mes = strip(m.mes);
         if (skipThis && meta.skipNext) { meta.skipNext = false; saveMeta(); }
         skipThis = false; quietGen = false;
     } else if (mode() === 'B') {
         // B: 본편은 소설만 → 답은 바로 보여 주고, 분류 모델이 고른 결과가 오면 칩을 붙임
-        delete sl.skip; m.mes = stripTags(m.mes); sl.src = 'cls';
+        delete sl.skip; m.mes = strip(m.mes); sl.src = 'cls';
         if (sl.fp !== fingerprint(i)) { sl.ops = []; delete sl.fp; }
         enqueue(i);
     } else {
         // A: 본편이 적은 태그만 (추가 호출 0회)
         delete sl.skip; sl.src = 'tag'; delete sl.fp;
-        sl.ops = hasTag(m.mes) ? readOps(m.mes) : []; m.mes = stripTags(m.mes);
+        sl.ops = hasTag(m.mes) ? readOps(m.mes) : []; m.mes = strip(m.mes);
     }
     delete sl.fill;
     sl.rev = (sl.rev ?? 0) + 1; bumpMeta();
     if (Array.isArray(m.swipes) && typeof m.swipe_id === 'number') m.swipes[m.swipe_id] = m.mes;
     syncSwipe(m);
-    ctx().saveChatDebounced?.();
+    saveChatSoon();
     perf.turns.push({ ms: performance.now() - t0, mode: mode(), calls: 0, tok: injTokens(lastInj), inj: Object.values(lastInj).join('').length });
     if (perf.turns.length > 30) perf.turns.shift();
     refresh(); setTimeout(alerts, 300);
@@ -125,13 +127,14 @@ function onSwiped(i) {
 function onEdited(i) {
     bumpMeta(); // 앞쪽 메시지를 고쳐도 다시 계산되게
     const m = ctx().chat?.[i]; if (!m || m.is_user) return refresh();
+    if (isGenerating()) return refresh(); // 답을 받는 중엔 글을 안 건드림 (끝나면 받기에서 한 번)
     const sl = msgData(m);
     if (mode() === 'B') {
         // 글이 바뀌었을 때만 다시 고르기
-        if (hasTag(m.mes)) { m.mes = stripTags(m.mes); syncSwipe(m); ctx().saveChatDebounced?.(); }
+        if (hasTag(m.mes)) { m.mes = stripTags(m.mes); syncSwipe(m); saveChatSoon(); }
         if (!sl?.skip && sl?.fp !== fingerprint(i)) enqueue(i);
     } else if (hasTag(m.mes)) {
-        const s2 = msgData(m, true); s2.ops = readOps(m.mes); s2.src = 'tag'; s2.rev = (s2.rev ?? 0) + 1; bumpMeta(); m.mes = stripTags(m.mes); syncSwipe(m); ctx().saveChatDebounced?.();
+        const s2 = msgData(m, true); s2.ops = readOps(m.mes); s2.src = 'tag'; s2.rev = (s2.rev ?? 0) + 1; bumpMeta(); m.mes = stripTags(m.mes); syncSwipe(m); saveChatSoon();
     }
     refresh();
 }
@@ -321,7 +324,10 @@ async function boot() {
     mountSettings(); bindOuter(); mountApi(); initMascot();
     const c = ctx(), E = c.event_types, on = (n, f) => n && c.eventSource.on(n, f);
     on(E.GENERATION_AFTER_COMMANDS, onBeforeGen);
-    on(E.MESSAGE_RECEIVED, onReceived);
+    // 💾 저장 시점: 답을 받는 중엔 안 함 · 끝나고 1초 뒤 한 번 (윈도우 EPERM 겹침 막기)
+    on(E.GENERATION_STARTED, genStarted);
+    for (const n of [E.GENERATION_ENDED, E.GENERATION_STOPPED]) on(n, genEnded);
+    on(E.MESSAGE_RECEIVED, async (...a) => { await onReceived(...a); genEnded(); });
     on(E.MESSAGE_EDITED, onEdited);
     for (const n of [E.CHAT_CHANGED]) on(n, () => { closeSheet(); fromCard(); refresh(true); });
     on(E.MESSAGE_SWIPED, onSwiped);

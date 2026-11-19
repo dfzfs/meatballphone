@@ -1,7 +1,7 @@
 // 🧭 B 모드: 가벼운 모델(분류 모델)이 답을 읽고, 미트볼이 준 목록 안에서만 일어난 사건을 고른다.
 //   본편은 소설만 쓰고, 숫자는 지금처럼 설정집 규칙으로 계산한다.
 //   결과는 그 메시지 · 그 스와이프의 칸(msgData)에 src: 'cls'로 저장 → 다시 열기 · 다시 계산에는 다시 부르지 않음.
-import { ctx, settings, getMeta, saveMeta, msgData, syncSwipe, bumpMeta, msgKey, app, TITLE } from '../base/st.js';
+import { ctx, settings, getMeta, saveMeta, msgData, syncSwipe, bumpMeta, msgKey, app, TITLE, saveChatSoon } from '../base/st.js';
 import { short, hash, norm, tokens, safeKey } from '../base/util.js';
 import { readOps, kindOf, parts, stripTags, storyOnly } from './tags.js';
 import { sendClean, clsRoute, connStats, routeText, CLS_PRESET } from './clsconn.js';
@@ -182,7 +182,7 @@ async function run(i, force) {
     const s2 = msgData(m, true);
     if (ops) { s2.ops = ops; s2.src = 'cls'; s2.fp = fp; delete s2.clsFail; if (tok) s2.tok = tok; }
     else { s2.ops = s2.ops ?? []; s2.src = 'cls'; s2.clsFail = true; }
-    s2.rev = (s2.rev ?? 0) + 1; bumpMeta(); syncSwipe(m); saveMeta(); ctx().saveChatDebounced?.();
+    s2.rev = (s2.rev ?? 0) + 1; bumpMeta(); syncSwipe(m); saveMeta(); saveChatSoon();
     app.afterClassify?.(i);
 }
 

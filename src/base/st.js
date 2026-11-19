@@ -4,7 +4,7 @@ import { normBook } from '../rules/book.js';
 
 export const MODULE = 'meatlite';
 export const OLD = 'statussim';
-export const VERSION = '0.30.0';
+export const VERSION = '0.30.1';
 export const DATA_V = 2;
 export const TITLE = '미트볼 라이트';
 export const INJ = { facts: 'meatlite_facts', hint: 'meatlite_hint', rule: 'meatlite_rule' };
@@ -109,7 +109,40 @@ export function getMeta(create = false) {
     return m ?? null;
 }
 export let metaRev = 0;
-export const saveMeta = () => { metaRev++; return ctx().saveMetadataDebounced?.() ?? ctx().saveMetadata?.(); };
+export const saveMeta = () => { metaRev++; saveChatSoon(); };
+
+// ───── 💾 채팅 저장은 여기 한 곳에서만 ─────
+//   · 답을 받는 중(스트리밍)에는 절대 저장하지 않음 → 끝나면(GENERATION_ENDED · STOPPED · MESSAGE_RECEIVED) 1초 뒤 한 번
+//   · 실리태번 함수는 saveChatDebounced 하나만 (saveChat · saveMetadata를 직접 안 부름 · 채팅 저장에 메타데이터도 같이 감)
+//   · 여러 번 불러도 1초 안의 요청은 한 번으로 합침 (윈도우에서 .jsonl 이름 바꾸기가 겹치면 EPERM)
+export const AFTER_GEN_MS = 1000;
+const SAFETY_MS = 10 * 60 * 1000; // 끝 신호를 못 받았을 때 10분 뒤엔 풀어 줌
+export const saveState = { generating: false, want: false, timer: null, safety: null, calls: 0, during: 0 };
+function flushLater(ms) {
+    clearTimeout(saveState.timer);
+    saveState.timer = setTimeout(() => {
+        saveState.timer = null;
+        if (!saveState.want) return;
+        if (saveState.generating) return; // 끝나면 다시 잡힘
+        saveState.want = false; saveState.calls++;
+        ctx().saveChatDebounced?.();
+    }, ms);
+}
+export function saveChatSoon() {
+    saveState.want = true;
+    if (!saveState.generating) flushLater(AFTER_GEN_MS);
+}
+export function genStarted(type, opts, dry) {
+    if (dry || type === 'quiet') return; // 미리 재기 · 조용한 생성은 채팅에 답을 흘려 넣지 않음
+    saveState.generating = true; clearTimeout(saveState.timer); saveState.timer = null;
+    clearTimeout(saveState.safety); saveState.safety = setTimeout(genEnded, SAFETY_MS);
+}
+export function genEnded() {
+    if (!saveState.generating) { if (saveState.want) flushLater(AFTER_GEN_MS); return; }
+    saveState.generating = false; clearTimeout(saveState.safety);
+    if (saveState.want) flushLater(AFTER_GEN_MS); // 실리태번 자체 저장이 끝난 뒤 한 번
+}
+export const isGenerating = () => saveState.generating;
 export const bumpMeta = () => { metaRev++; };
 export const saveSettings = () => { metaRev++; ctx().saveSettingsDebounced(); };
 export const modOn = (id, meta = getMeta()) => !!meta?.mods?.[id];

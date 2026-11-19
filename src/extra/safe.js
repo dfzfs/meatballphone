@@ -1,5 +1,5 @@
 // 💾 백업 · 불러오기 · 카드에 붙이기 · 옛 미트볼 옮겨 오기
-import { ctx, getMeta, saveMeta, msgData, syncSwipe, MODULE, OLD, DATA_V, TITLE } from '../base/st.js';
+import { ctx, getMeta, saveMeta, msgData, syncSwipe, MODULE, OLD, DATA_V, TITLE, saveChatSoon } from '../base/st.js';
 import { normBook, emptyBook } from '../rules/book.js';
 import { clockOf } from '../base/util.js';
 import { toast } from '../ui/kit.js';
@@ -23,7 +23,7 @@ export function restore() {
                 const j = JSON.parse(await inp.files[0].text()); if (j.app !== MODULE) throw new Error('다른 파일');
                 ctx().chatMetadata[MODULE] = j.meta;
                 const chat = ctx().chat ?? []; for (const [i, x] of j.msgs ?? []) if (chat[i]) { chat[i].extra ??= {}; chat[i].extra[MODULE] = x; syncSwipe(chat[i]); }
-                saveMeta(); ctx().saveChatDebounced?.(); toast('불러왔어요', 'good');
+                saveMeta(); saveChatSoon(); toast('불러왔어요', 'good');
             } catch (e) { toast(`못 불러왔어요: ${e.message}`, 'bad'); }
             res();
         };
@@ -125,7 +125,7 @@ export function migrateOld() {
         const sl = msgData(m, true); sl.hand = [...(sl.hand ?? []), ...hand]; sl.rev = (sl.rev ?? 0) + 1; syncSwipe(m); rep.later++;
     }
     meta.migrated = { at: Date.now(), ...rep };
-    saveMeta(); ctx().saveChatDebounced?.();
+    saveMeta(); saveChatSoon();
     console.info(`[${TITLE}] 옛 미트볼 옮김`, rep);
     return rep;
 }
