@@ -1,9 +1,9 @@
 // 미트볼 라이트 — 실리태번 이벤트 연결
-import { app, ctx, settings, saveSettings, getMeta, saveMeta, slot, syncSwipe, ready, MODULE, OLD, VERSION, TITLE, INJ, MODS, DATA_V, bumpMeta } from './src/base/st.js';
+import { app, ctx, settings, saveSettings, getMeta, saveMeta, slot, syncSwipe, ready, MODULE, OLD, VERSION, TITLE, INJ, MODS, DATA_V, bumpMeta, modOn } from './src/base/st.js';
 import { esc, short, tokens, dateOf } from './src/base/util.js';
 import { readOps, stripTags, hasTag } from './src/rules/tags.js';
 import { fold, resetCache } from './src/rules/engine.js';
-import { normBook } from './src/rules/book.js';
+import { normBook, personOf } from './src/rules/book.js';
 import { ruleText, factText, injTokens } from './src/rules/inject.js';
 import { fillBook, templateBook, supplement, stats as aiStats } from './src/rules/ai.js';
 import { drawFrame, drawChips, drawSheet, openSheet, closeSheet, openPast, bindOuter } from './src/ui/frame.js';
@@ -105,7 +105,9 @@ function alerts() {
     for (const p of S.promises) if (!p.done && p.due != null && p.due >= S.t && p.due - S.t <= 1440) out.push([`p|${p.text}|${p.due}`, `📅 하루 안: ${p.text}`]);
     const day0 = Math.floor(S.t / 1440);
     for (const p of book.people) { const m = /(\d{1,2})\s*[월/.]\s*(\d{1,2})/.exec(p.day || ''); if (!m) continue; for (const k of [0, 1]) { const d = dateOf(book.world.start, (day0 + k) * 1440); if (d.m === Number(m[1]) && d.d === Number(m[2])) out.push([`b|${p.name}|${d.y}`, `🎂 ${k ? '내일' : '오늘'} ${p.name} ${p.day}`]); } }
-    let n = 0; for (const [k, t] of out) if (!sent.has(k)) { sent.add(k); toast(t); n++; }
+    // 💭 속마음이 뜨면 알림 (방금 답의 것만 · 같은 건 한 번)
+    if (modOn('mind') && meta.mindPop !== 'off') { const chat = ctx().chat ?? []; let li = chat.length - 1; while (li >= 0 && (chat[li].is_user || chat[li].is_system)) li--; const IC = { mind: '💭', watch: '👀', cell: '🧠' }; for (const e of (S.mindLog ?? []).filter(e => e.m === li)) out.push([`m|${li}|${chat[li]?.swipe_id ?? 0}|${e.who}|${e.text}`, `${personOf(book, e.who)?.face ?? IC[e.k]} ${e.who} · ${e.text}`, 'mind']); }
+    let n = 0; for (const [k, t, kind] of out) if (!sent.has(k)) { sent.add(k); toast(t, kind ?? 'mid'); n++; }
     if (n) { meta.alerted = [...sent].slice(-80); saveMeta(); }
 }
 // ───── 상태창 만들기 ─────

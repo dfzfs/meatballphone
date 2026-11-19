@@ -355,9 +355,15 @@ function graph(r, key) {
 function mind(r) {
     const { S } = r, meta = getMeta(), who = meta.mindWho ?? ['cast'];
     const tools = `<div class="ml-tools">${[['cast', '장면 속 인물'], ['watch', '관전자'], ['cell', '세포들']].map(([k, l]) => `<button class="ml-btn sm${who.includes(k) ? ' on' : ''}" data-act="mindwho" data-v="${k}">${l}</button>`).join('')}</div>`;
+    const mm = meta.mindMode ?? 'thought', IC = { mind: '💭', watch: '👀', cell: '🧠' };
+    const opts = card('속마음 모드', `<div class="ml-row"><span class="ml-sub">모양</span>${seg('mindmode', [['thought', '💭 한 줄'], ['emoji', '😳 이모티콘'], ['kaomoji', '(｡•̀ᴗ-)✧ 카모지'], ['mix', '한 줄+카모지']], mm)}</div>`
+        + row({ icon: '🗣', title: '말투', sub: esc(meta.mindTone || '정하지 않음 · 인물 성격대로'), act: 'mind-tone', more: true })
+        + row({ icon: '🔔', title: '뜰 때 알림', sub: meta.mindPop === 'off' ? '끔' : '방금 답의 속마음을 위에 잠깐 띄움', value: btn(meta.mindPop === 'off' ? '켜기' : '끄기', 'mind-pop', '', 'xs') }));
     const sec = (t, o, ic) => card(t, Object.entries(o).map(([n, v]) => row({ icon: S.rel[n] ? personOf(r.book, n)?.face || '🙂' : ic, title: esc(n), sub: esc(v) })).join(''));
-    const h = sec('속마음', S.mind, '💭') + sec('관전자', S.watch, '👀') + sec('세포들', S.cell, '🧠');
-    return tools + (h || empty('다음 답부터 같이 적혀요.'));
+    const h = sec('지금 속마음', S.mind, '💭') + sec('관전자', S.watch, '👀') + sec('세포들', S.cell, '🧠');
+    const log = (S.mindLog ?? []).slice(-14).reverse();
+    const hist = log.length ? card('지난 속마음', log.map(e => row({ icon: personOf(r.book, e.who)?.face ?? IC[e.k], title: esc(e.who), sub: `${esc(e.text)} · ${dateText(r.book.world.start, e.t)}`, act: 'jump', data: e.m, more: true })).join('')) : '';
+    return tools + opts + (h || empty('다음 답부터 같이 적혀요.')) + hist;
 }
 // ───── 내 탭 (+ 최면 어플 템플릿) ─────
 const TEMPLATES = { hypno: { name: '최면 어플', icon: '🌀', fields: [{ name: '최면 깊이', max: 100, stages: [30, 70] }, { name: '대상', max: 0 }, { name: '명령', max: 0 }] } };
@@ -566,6 +572,8 @@ export async function onAct(act, v, el) {
         case 'sv-del': meta.saves[Number(v)] = null; saveMeta(); app.refresh?.(); return;
         case 'mark': { const i = lastAI(); if (i < 0) return; const fv = await form('⭐ 책갈피', [{ k: 'name', label: '이름', v: '', ph: short(ctx().chat[i].mes, 20), chips: ['고백 직전', '첫 만남', '큰 싸움', '중요한 선택'] }]); const name = fv?.name?.trim() || (fv ? short(ctx().chat[i].mes, 20) : ''); if (!name) return; meta.marks = [...(meta.marks ?? []).filter(m => m.key !== msgKey(ctx().chat[i])), { key: msgKey(ctx().chat[i]), name: short(name, 30) }]; saveMeta(); app.refresh?.(); return; }
         case 'past': { const ais = (ctx().chat ?? []).map((m, k) => [k, m]).filter(([, m]) => !m.is_user && !m.is_system).slice(-12).reverse(); const fv = await form('🕰 그때 상태 보기', [{ k: 'i', label: '어느 답의 시점?', type: 'pick', v: ais[0]?.[0], opts: ais.map(([k, m]) => [k, `#${k} ${esc(short(m.mes, 14))}`]) }], { ok: '보기' }); if (!fv) return; const i = Number(fv.i); if (!(i >= 0)) return; app.openPast?.(i); return; }
+        case 'mind-tone': { const fv = await form('🗣 속마음 말투', [{ k: 't', label: '말투 (비우면 인물 성격대로)', v: meta.mindTone ?? '', chips: ['반말 · 툭툭', '존댓말 · 공손', '귀엽게 · 의성어 많이', '시니컬', '사투리', '오타쿠 말투'] }]); if (!fv) return; meta.mindTone = fv.t.trim().slice(0, 40); saveMeta(); app.refresh?.(); return; }
+        case 'mind-pop': meta.mindPop = meta.mindPop === 'off' ? 'on' : 'off'; saveMeta(); app.refresh?.(); return;
         case 'mindwho': { const w = new Set(meta.mindWho ?? ['cast']); w.has(v) ? w.delete(v) : w.add(v); meta.mindWho = [...w]; saveMeta(); app.refresh?.(); return; }
         case 'ctab-tpl': { const t = structuredClone(TEMPLATES[v]); meta.custom = [...(meta.custom ?? []), t]; saveMeta(); app.refresh?.(); return; }
         case 'ctab-new': { const fv = await form('🧩 새 탭', [{ k: 'name', label: '탭 이름', ph: '예: 마력 수련' }, { k: 'icon', label: '아이콘', v: '🧩', chips: ['🧩', '🌀', '⚔️', '📚', '💼', '🔮'] }, { k: 'f', label: '칸 (쉼표로)', v: '점수/100, 메모', hint: '숫자 칸은 이름 뒤에 /최대값' }]); if (!fv?.name) return; const name = fv.name, f = fv.f; meta.custom = [...(meta.custom ?? []), { name: short(name, 12), icon: '🧩', fields: String(f ?? '').split(',').map(x => x.trim()).filter(Boolean).map(x => { const [n, mx] = x.split('/'); return { name: short(n, 12), max: num(mx, 0), stages: [30, 70] }; }) }]; saveMeta(); app.refresh?.(); return; }

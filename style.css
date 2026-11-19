@@ -295,3 +295,5 @@ body.ml-open #ml-mini{display:none}
 #ml-full .ml-pbar > div { flex: 1; height: 100%; background: var(--line); border-radius: 4px; overflow: hidden; display: flex; }
 #ml-full .ml-pbar .l { justify-content: flex-end; } #ml-full .ml-pbar .l span { background: var(--bad); } #ml-full .ml-pbar .r span { background: var(--good); }
 #ml-full .ml-pbar i { width: 2px; height: 12px; background: var(--fg); opacity: .4; }
+/* 💭 속마음 알림: 말풍선 모양 */
+.ml-toast.mind { border-radius: 16px 16px 16px 4px; max-width: min(420px, 86vw); font-style: italic; background: color-mix(in srgb, var(--love, #e85d8a) 10%, var(--bg, #fff)); border-color: color-mix(in srgb, var(--love, #e85d8a) 40%, transparent); }

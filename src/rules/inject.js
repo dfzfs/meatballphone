@@ -1,5 +1,5 @@
 // 본편 주입: 이야기 영향력 게이지(0~4)를 따라 켜고 끈다
-import { settings, getMeta, modOn, userName } from '../base/st.js';
+import { settings, getMeta, modOn, userName, ctx } from '../base/st.js';
 import { clamp, dateText, short, tokens, DAY } from '../base/util.js';
 import { derived, relStage, worldEvent, haggleNow } from './engine.js';
 import { moodTags, pickQuote } from './mood.js';
@@ -32,6 +32,8 @@ export function level(id) {
 }
 
 // 본편 AI에게 줄 「적는 법」 — 모델별 프리셋. 숫자 대신 사건을 적게 한다.
+// 💭 카모지 견본 — 답마다 돌려 가며 몇 개만 보여 줌 (같은 것만 반복하지 않게)
+const KAO = ['(｡•̀ᴗ-)✧', '(￣ヘ￣)', '(｡>﹏<｡)', '(⁄ ⁄•⁄ω⁄•⁄ ⁄)', '( ˘•ω•˘ )', '(╬ Ò﹏Ó)', '(っ˘ω˘ς )', '(・_・;)', '(*´▽`*)', '(ㆆ_ㆆ)', '(´；ω；`)', '(ง •̀_•́)ง', '(¬‿¬)', '( ・ั﹏・ั)', '٩(◕‿◕｡)۶', '(；￣Д￣)', '(￣▽￣)ノ', '(｀・ω・´)', '(⊙_⊙)', '(｡•́︿•̀｡)'];
 export function ruleText(book) {
     const meta = getMeta(), flash = settings().preset !== 'general';
     const cs = book.world.start.cal ?? {}, tk = cs.style === '' ? '저녁 | +2h' : cs.style === '12' ? '오후 2:30 | +2h' : '14:30 | +2h';
@@ -49,9 +51,12 @@ export function ruleText(book) {
     if (modOn('traits') && (book?.me?.aspire || book?.people?.some(p => p.aspire))) K.push('aspire: 이름 | +1 | 이유 (only when someone clearly moves toward their lifetime wish: promotion, mastery, big milestone)');
     if (modOn('mind') && level('mind') > 0) {
         const who = meta?.mindWho ?? ['cast'];
-        if (who.includes('cast')) K.push('mind: 이름 | 짧은 속마음 (장면 속 인물마다 · 관계가 가까울수록 솔직하게, 낯설수록 경계하게)');
+        const mm = meta?.mindMode ?? 'thought', form = { thought: '짧은 속마음 한 줄', emoji: '이모티콘 2~3개만 (글자 없이)', kaomoji: '카모지 하나 + 아주 짧은 말', mix: '짧은 속마음 + 끝에 카모지' }[mm] ?? '짧은 속마음 한 줄';
+        if (who.includes('cast')) K.push(`mind: 이름 | ${form} (장면 속 인물마다 · 관계가 가까울수록 솔직하게, 낯설수록 경계하게)`);
         if (who.includes('watch')) K.push('watch: 관전자 | 한마디');
         if (who.includes('cell')) K.push(`cell: 세포 | ${userName()} 머릿속 반응`);
+        if (meta?.mindTone) K.push(`(속마음 말투: ${meta.mindTone})`);
+        if (mm === 'kaomoji' || mm === 'mix') { const turn = ctx().chat?.length ?? 0, P = KAO.slice((turn * 5) % KAO.length).concat(KAO).slice(0, 6); K.push(`(카모지는 매번 다르게 · 예: ${P.join(' ')})`); }
     }
     const head = `[STATUS LOG] After the reply, add a <meatball> block. Write EVENTS, not numbers — the extension computes the numbers. One "key: value" per line. Only lines for what happened this reply; skip the rest. Keys:\n${K.join('\n')}`;
     const ex = flash ? `\nExample:\n<meatball>\nloc: 빵집\nbuy: 크림빵 | 3\nate: 크림빵\nact: Leon | 칭찬\n</meatball>\nExample:\n<meatball>\ntime: +3h\nworked: 3h | +20\nmind: Leon | 또 늦네\n</meatball>` : '';

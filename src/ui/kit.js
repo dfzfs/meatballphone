@@ -32,7 +32,7 @@ export function sheet(title, html, { onOk = null, ok = '저장' } = {}) {
 export function toast(text, kind = 'mid') {
     const host = document.querySelector('.ml-toasts') ?? Object.assign(document.body.appendChild(document.createElement('div')), { className: 'ml-toasts ml-scope' });
     const t = document.createElement('div'); t.className = `ml-toast ${kind}`; t.textContent = text; host.appendChild(t);
-    setTimeout(() => t.remove(), 3200);
+    setTimeout(() => t.remove(), kind === 'mind' ? 5200 : 3200);
 }
 // 입력칸에 이야기 속 행동 문장 넣기 (저절로 보내지 않음)
 export function putInput(text) {

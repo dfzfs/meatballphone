@@ -90,6 +90,7 @@ async function clickHandler(e) {
         if (name === 'scope') { meta.influence = v === 'chat' ? structuredClone(settings().influence) : null; }
         if (name === 'recf') setRecFilter(v);
         if (name === 'relv') meta.relView = v;
+        if (name === 'mindmode') meta.mindMode = v;
         saveMeta(); drawSheet(); return; }
     const a = e.target.closest('[data-act]'); if (!a) return;
     const act = a.dataset.act, v = a.dataset.v;

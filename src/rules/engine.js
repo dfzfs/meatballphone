@@ -285,7 +285,7 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             return;
         }
         case 'roll': S.rolls.push({ t: S.t, what: short(v, 40), i }); return;
-        case 'mind': case 'watch': case 'cell': { if (a && b) S[kind][x.who(a) ?? safeKey(a)] = short(parts(v).slice(1).join(' | '), 120); return; }
+        case 'mind': case 'watch': case 'cell': { if (!a || !b) return; const who = x.who(a) ?? safeKey(a), text = short(parts(v).slice(1).join(' | '), 120); S[kind][who] = text; S.mindLog = [...(S.mindLog ?? []), { k: kind, who, text, t: S.t }].slice(-40); return; }
         case 'jealous': { const name = x.who(a); if (!name) return; const r = x.rel(name); r.jealous = short(b || '질투', 40); remember(S, r, `질투: ${b}`); x.setRel(name, 'trust', -Math.max(1, Math.round(tmul(x.T, 'jealousSelf') * tmul(x.T, 'jealousy') * 1.4)), '질투', src, false, i); news(S, '💢', `${name} — ${short(b || '질투가 남', 30)}`, 'jealous', name); return; }
         case 'aspire': {
             // ⭐ 야망 진척 (직업 · 기술처럼 셀 수 없는 것): 「aspire: +1 | 승진」 = 나 · 「aspire: Leon | +1 | 첫 무대」 = 인물
@@ -423,6 +423,7 @@ export function fold(force = false) {
             const x = makeCtx(meta.book, S, ch, flags);
             const W = wantsOf(meta.book, S), P = { tasted: S.tasted?.length ?? 0, visited: S.visited?.length ?? 0, rolls: S.rolls?.length ?? 0, kept: (S.promises ?? []).filter(q => q.done).length, custom: JSON.stringify(S.custom) }; // ⭐ 이 답 전에 원하던 것 · 그때 개수
             for (const o of opsOf(m, meta.book)) { const n0 = ch.length; try { applyOp(meta.book, S, x, o.k, o.v, o.j, o.src, ch); } catch (e) { console.warn('[미트볼 라이트] 줄 건너뜀', o, e); } if (o.why) for (let q = n0; q < ch.length; q++) if (ch[q].src === o.src) ch[q].why = o.why; }
+            for (const e of S.mindLog ?? []) e.m ??= i; // 💭 몇 번째 메시지에서 떴나
             afterTurn(meta.book, S, x, ch, W, i, P);
             if (!slot(m)?.skip && !slot(m)?.flagOk) drift(meta.book, S, m.mes, ch, flags, i);
         }
