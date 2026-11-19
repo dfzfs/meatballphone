@@ -6,6 +6,13 @@ export const num = (v, d = 0) => { const n = Number(v); return Number.isFinite(n
 export const arr = (v) => (Array.isArray(v) ? v : []);
 export const norm = (x) => String(x ?? '').replace(/\s+/g, '').toLowerCase();
 export const short = (t, n) => { t = String(t ?? '').replace(/\s+/g, ' ').trim(); return t.length > n ? t.slice(0, n - 1) + '…' : t; };
+// 얼굴 이모지: 글자 수로 자르면 「🙇‍♂️」처럼 여러 조각으로 된 이모지가 잘려 「🙇…」가 됨 → 첫 그림 하나만 통째로
+const SEG = typeof Intl !== 'undefined' && Intl.Segmenter ? new Intl.Segmenter('ko', { granularity: 'grapheme' }) : null;
+export const faceOf = (t, fb = '') => {
+    const s = String(t ?? '').replace(/[…\s]+/g, '').trim(); if (!s) return fb;
+    const g = SEG ? SEG.segment(s)[Symbol.iterator]().next().value?.segment : Array.from(s)[0];
+    const f = g?.replace(/\u200d+$/, ''); return f && f.length <= 16 ? f : fb;
+};
 export const fmt = (n) => new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1 }).format(Number(n) || 0);
 export const signed = (n) => (n > 0 ? `+${fmt(n)}` : n < 0 ? `−${fmt(Math.abs(n))}` : '±0');
 export const uid = () => Math.random().toString(36).slice(2, 9);

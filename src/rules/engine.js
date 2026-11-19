@@ -1,6 +1,6 @@
 // 엔진: 채팅 메시지들 → 상태. 계산은 코드가, AI는 사건만.
 // 원본은 메시지(extra.meatlite.sw)에 있고, 여기서는 매번 처음부터 접어 만든다(바뀐 곳부터만 다시).
-import { clamp, num, norm, short, safeKey, parseDelta, spanOf, clockOf, dayOfDate, DAY, hash, periodName } from '../base/util.js';
+import { clamp, num, norm, short, safeKey, parseDelta, spanOf, clockOf, dayOfDate, DAY, hash, periodName, faceOf } from '../base/util.js';
 import { msgData, getMeta, ctx, metaRev } from '../base/st.js';
 import { readOps, kindOf, parts } from './tags.js';
 import { match } from './names.js';
@@ -573,7 +573,7 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             if (!name || S.rel[name]) return;
             S.rel[name] = relOf(personOf(book, name)); // 규칙을 채운 새 인물이면 그 시작 값
             S.rel[name].line = short(b, 40);
-            S.rel[name].face = short(c, 4);
+            S.rel[name].face = faceOf(c);
             ch.push({ f: `npc.${name}`, label: name, icon: '👤', from: '', to: '새 인물', why: short(b, 20), src, sure: true, i, who: name });
             return;
         }

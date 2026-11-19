@@ -1,5 +1,5 @@
 // 📘 상태창 설정집 — 칸이 정해진 구조. 계산 코드가 그대로 읽는다. 본편에는 매 턴 넣지 않는다.
-import { arr, clamp, num, short, safeKey, tokens, norm } from '../base/util.js';
+import { arr, clamp, num, short, safeKey, tokens, norm, faceOf } from '../base/util.js';
 
 export const LIMIT = { people: 24, lines: 6, places: 30, items: 5, line: 80 };
 // 기본 욕구 4개 (위가 좋음 · 100 만점). rate = 한 시간에 줄어드는 양
@@ -60,7 +60,7 @@ export function normPerson(p) {
     return {
         name,
         aka: list(p.aka, 4),
-        face: line(p.face, 4) || '🙂',
+        face: faceOf(p.face, '🙂'),
         line: line(p.line ?? p.personality),
         start: { aff: clamp(num(p.start?.aff, 10), 0, 100), trust: clamp(num(p.start?.trust, 10), 0, 100) },
         up: acts(p.up), down: acts(p.down),

@@ -4,7 +4,7 @@ import { normBook } from '../rules/book.js';
 
 export const MODULE = 'meatlite';
 export const OLD = 'statussim';
-export const VERSION = '0.30.1';
+export const VERSION = '0.30.2';
 export const DATA_V = 2;
 export const TITLE = '미트볼 라이트';
 export const INJ = { facts: 'meatlite_facts', hint: 'meatlite_hint', rule: 'meatlite_rule' };
@@ -91,7 +91,7 @@ function tidyMeta(m) {
     }
     if (m.book?.world) m.book = normBook(m.book);
     if (m.mods) delete m.mods.traits;
-    m.tidied = 2;
+    m.tidied = 3;
 }
 export function getMeta(create = false) {
     const md = ctx().chatMetadata;
@@ -104,7 +104,7 @@ export function getMeta(create = false) {
         const d = newMeta(); for (const k of Object.keys(d)) if (!Object.hasOwn(m, k)) m[k] = d[k];
         // 새로 생긴 칸은 켠 채로 (목록에 없으면 꺼진 게 아니라 아직 몰랐던 것)
         for (const id of MOD_IDS) if (typeof m.mods[id] !== 'boolean') m.mods[id] = d.mods[id];
-        if ((m.tidied ?? 0) < 2) tidyMeta(m);
+        if ((m.tidied ?? 0) < 3) tidyMeta(m); // 3: 잘린 얼굴 이모지(「🙇…」) 고치기
     }
     return m ?? null;
 }
