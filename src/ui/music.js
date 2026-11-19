@@ -7,6 +7,7 @@ import { stripTags } from '../rules/tags.js';
 import { askLight, tasteOf, recentQuotes } from '../rules/classify.js';
 import { parseJSON } from '../rules/ai.js';
 import { sheet, form, toast, btn } from './kit.js';
+import { canPlay } from './player.js';
 
 // ▶ 누르면 열 곳 (dev MUSIC_APPS · songLink과 같음)
 export const MUSIC_APPS = {
@@ -16,7 +17,8 @@ export const MUSIC_APPS = {
     melon: { name: '멜론', url: (q) => `https://www.melon.com/search/total/index.htm?q=${encodeURIComponent(q)}` },
 };
 export const songLink = (x) => (MUSIC_APPS[settings().musicApp] ?? MUSIC_APPS.youtube).url(`${x.title} ${x.artist ?? ''}`.trim());
-const play = (x) => `<a class="ml-btn xs ml-play" href="${esc(songLink(x))}" target="_blank" rel="noopener" title="${esc((MUSIC_APPS[settings().musicApp] ?? MUSIC_APPS.youtube).name)}에서 열기">▶</a>`;
+const songData = (x) => esc(JSON.stringify({ title: x.title, artist: x.artist ?? '' }));
+const play = (x) => `<a class="ml-btn xs ml-play" href="${esc(songLink(x))}" target="_blank" rel="noopener" data-song="${songData(x)}" title="${canPlay() ? '폰에서 듣기' : `${esc((MUSIC_APPS[settings().musicApp] ?? MUSIC_APPS.youtube).name)}에서 열기`}">▶</a>`;
 const lastAIOf = () => { const c = ctx().chat ?? []; for (let i = c.length - 1; i >= 0; i--) if (!c[i].is_user && !c[i].is_system) return i; return -1; };
 const sceneText = () => { const i = lastAIOf(); return i >= 0 ? short(stripTags(ctx().chat[i].mes), 1500) : ''; };
 
@@ -24,7 +26,7 @@ const sceneText = () => { const i = lastAIOf(); return i >= 0 ? short(stripTags(
 export function songLine(S) {
     const b = S.bgm;
     if (!b) return '<div class="ml-scene tap" data-act="open" data-v="music"><i>🎵</i><span><b>아직 고른 곡이 없어요</b><small>장면 분위기가 바뀌면 AI가 골라요</small></span><em>›</em></div>';
-    return `<a class="ml-scene tap" href="${esc(songLink(b))}" target="_blank" rel="noopener"><i>🎵</i><span><b>${esc(b.title)}${b.artist ? ` <small>· ${esc(b.artist)}</small>` : ''}</b>`
+    return `<a class="ml-scene tap" href="${esc(songLink(b))}" target="_blank" rel="noopener" data-song="${songData(b)}"><i>🎵</i><span><b>${esc(b.title)}${b.artist ? ` <small>· ${esc(b.artist)}</small>` : ''}</b>`
         + `<small>${esc([b.mood, b.why].filter(Boolean).join(' · '))}</small></span><em>▶</em></a>`;
 }
 export function quoteLine(S) {
@@ -44,6 +46,13 @@ export function musicView(r) {
     h += `<h4 class="ml-h4">음악 취향 <span>이 채팅 · 비우면 기본값</span></h4>`
         + `<div class="ml-rl tap" data-act="taste-edit"><i>🎼</i>${esc(meta.musicTaste || '(기본값)')} <span>· 기본 ${esc(settings().musicTaste || '없음')}</span></div>`;
     h += `<h4 class="ml-h4">▶ 누르면 열 곳</h4><div class="ml-picks">${Object.entries(MUSIC_APPS).map(([k, a]) => `<button class="ml-btn xs${(settings().musicApp || 'youtube') === k ? ' on' : ''}" data-act="musicapp" data-v="${k}">${a.name}</button>`).join('')}</div>`;
+    const s = settings(), ytApp = ['youtube', 'ytmusic'].includes(s.musicApp || 'youtube');
+    h += `<h4 class="ml-h4">▶ 누르면</h4><div class="ml-picks">${[['phone', '폰에서 듣기'], ['tab', '새 탭으로']].map(([k, n]) => `<button class="ml-btn xs${(s.musicPlay || 'phone') === k ? ' on' : ''}" data-act="musicplay" data-v="${k}">${n}</button>`).join('')}</div>`
+        + `<div class="ml-rl tap" data-act="ytkey"><i>🔑</i>유튜브 API 키 <span>· ${s.ytKey ? '넣음' : '없음 (선택)'}</span></div>`
+        + `<div class="ml-hint">${!ytApp ? '스포티파이 · 멜론은 새 탭으로만 열어요.'
+            : s.musicPlay === 'tab' ? '▶를 누르면 새 탭으로 열어요.'
+            : s.ytKey ? '▶를 누르면 폰 구석의 작은 창에서 바로 들어요. 누를 때마다 유튜브 검색 1회(같은 곡은 다시 안 함). 폰 창을 닫아도 계속 나와요.'
+            : '유튜브는 제목만으로 바로 틀 수 없어요. 키를 넣으면 폰 안 작은 창에서 바로 들어요. 키가 없으면 새 탭으로 열어요.'}</div>`;
     h += `<h4 class="ml-h4">곡이 바뀌면 알림</h4><div class="ml-picks">${[['on', '켜기'], ['off', '끄기']].map(([k, n]) => `<button class="ml-btn xs${(settings().musicPop ?? 'on') === k ? ' on' : ''}" data-act="musicpop" data-v="${k}">${n}</button>`).join('')}</div>`;
     const log = (S.bgmLog ?? []).slice(0, -1).reverse().slice(0, 15);
     if (log.length) h += `<h4 class="ml-h4">지난 곡 <span>누르면 그 답으로</span></h4>${log.map(x => `<div class="ml-rl"><i>🎶</i><span class="tap" data-act="jump" data-v="${x.m ?? ''}"><b>${esc(x.title)}</b> ${esc(x.artist)} <span>#${x.m ?? '-'}</span></span>${play(x)}</div>`).join('')}`;
@@ -91,6 +100,14 @@ export async function musicAct(act, v, r, hand) {
         }
         case 'musicapp': settings().musicApp = v; saveSettings(); return 'refresh';
         case 'musicpop': settings().musicPop = v; saveSettings(); return 'refresh';
+        case 'musicplay': settings().musicPlay = v === 'tab' ? 'tab' : 'phone'; saveSettings(); return 'refresh';
+        case 'ytkey': {
+            const fv = await form('🔑 유튜브 API 키', [{ k: 'key', label: 'YouTube Data API v3 키 (비우면 새 탭으로 열어요)', v: settings().ytKey ?? '', ph: 'AIza…' }],
+                { extra: '<div class="ml-hint">Google Cloud 콘솔에서 「YouTube Data API v3」를 켜고 「API 키」를 만들어 붙여 넣어요. 무료 한도로 하루 100곡쯤 찾을 수 있어요. 키는 이 브라우저의 실리태번 설정에만 저장돼요.</div>' });
+            if (!fv) return true;
+            settings().ytKey = fv.key.trim().slice(0, 100); saveSettings();
+            return 'refresh';
+        }
         case 'taste-edit': {
             const fv = await form('🎼 음악 취향', [
                 { k: 'chat', label: '이 채팅 (비우면 기본값)', v: meta.musicTaste ?? '', ph: '예: 시티팝 · 재즈 · 일본 애니 OST' },

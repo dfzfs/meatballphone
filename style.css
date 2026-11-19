@@ -450,3 +450,20 @@ a.ml-play,a.ml-scene{text-decoration:none;color:inherit}
 /* sneak — ✍ 애인이 몰래 손대기 */
 .mls-tag{display:inline-block;padding:0 6px;margin-right:2px;border-radius:999px;background:color-mix(in srgb,var(--love) 14%,transparent);color:var(--love);font-weight:600;white-space:nowrap}
 .ml-tx small:has(.mls-tag){white-space:normal;overflow:visible;text-overflow:clip}
+/* 🎵 작은 창 (feat/music-player) — body에 하나 · 폰 창보다 아래, 미니바보다 위 */
+#mbp{position:fixed;z-index:3500;width:272px;display:grid;grid-template-columns:96px 1fr;gap:8px;align-items:center;padding:8px;background:var(--bg);border:var(--bd) solid var(--line);border-radius:var(--r);box-shadow:0 6px 20px rgb(0 0 0/.18);backdrop-filter:blur(8px);cursor:grab;touch-action:none;user-select:none}
+#mbp.drag{cursor:grabbing;opacity:.92}
+#mbp .mbp-v{width:96px;aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:color-mix(in srgb,var(--fg) 8%,transparent);display:flex;align-items:center;justify-content:center}
+#mbp .mbp-v iframe{width:100%;height:100%;border:0;display:block}
+#mbp .mbp-out{font-size:11px;color:var(--a);text-align:center;padding:4px}
+#mbp .mbp-m{min-width:0;display:flex;flex-direction:column;gap:4px}
+#mbp .mbp-t{display:flex;flex-direction:column;min-width:0}
+#mbp .mbp-t b{font-weight:600;overflow-wrap:anywhere;line-height:1.3}
+#mbp .mbp-t small{font-size:11px;color:var(--sub);overflow-wrap:anywhere}
+#mbp .mbp-c{display:flex;gap:4px}
+#mbp .mbp-b{width:32px;height:32px;padding:0;border:0;border-radius:50%;background:color-mix(in srgb,var(--fg) 7%,transparent);color:var(--fg);font-size:14px;cursor:pointer}
+#mbp .mbp-b:hover{background:color-mix(in srgb,var(--a) 20%,transparent)}
+#mbp .mbp-new{grid-column:1/-1;border:0;border-radius:999px;padding:6px 12px;background:var(--a);color:#fff;font:inherit;font-size:12px;font-weight:600;cursor:pointer;text-align:left;overflow-wrap:anywhere}
+#mbp .mbp-new[hidden]{display:none}
+#mbp.big{width:min(360px,calc(100vw - 16px));grid-template-columns:1fr}
+#mbp.big .mbp-v{width:100%}

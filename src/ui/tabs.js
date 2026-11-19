@@ -624,7 +624,7 @@ export async function onAct(act, v, el) {
             putInput(v);
             app.closeSheet?.();
             return;
-        case 'song-new': case 'quote-new': case 'musicapp': case 'musicpop': case 'taste-edit': {
+        case 'song-new': case 'quote-new': case 'musicapp': case 'musicpop': case 'musicplay': case 'ytkey': case 'taste-edit': {
             const done = await musicAct(act, v, r, hand); if (done === 'refresh') app.refresh?.(); return;
         }
         case 'star': {
