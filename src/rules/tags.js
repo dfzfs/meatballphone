@@ -50,6 +50,9 @@ export const KEYMAP = Object.fromEntries([
     ...K('custom', 'custom', 'tab', '내탭'),
     ...K('newsline', 'newsline', 'worldnews', '세계소식'),
     ...K('meddle', 'meddle', 'touch', '손댐', '낙서'),
+    // 옛 미트볼(dev)에서 쓰던 다른 이름들 — 옮긴 채팅 · 옛 프리셋도 그대로 읽힘
+    ...K('status', 'conditions'), ...K('item', 'inv', 'bag', '가방', '인벤토리'), ...K('loc', '발견장소', '새장소'), ...K('trust', '신뢰도', '우정도'),
+    ...K('pair', '인물관계', '인물호감'), ...K('date', 'days', '날짜이동'), ...K('time', 'period', 'slot'), ...K('roll', '판정요청'), ...K('custom', '탭'), ...K('watch', '구경꾼'),
     // 지운 칸 · 옛 미트볼 키 — 오류 없이 조용히 건너뛴다
     ...K('skip', 'quest', 'quests', 'mission', '퀘스트', '의뢰', 'news', '뉴스', '소식', 'rumor', 'gossip', '소문', 'post', '게시판', 'ach', '업적', 'msg', 'message', '연락', '문자', '편지', 'sns', 'feed', 'decor', '가구', 'room', '방', 'stock', '상품', 'memo', '메모', 'note', 'event', '일정', 'alert', '알림', 'rel', '관계', 'attr', '능력치', 'confess', 'concern', 'concern', 'confess'),
 ].map(([k, v]) => [norm(k), v]));

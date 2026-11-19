@@ -158,7 +158,7 @@ function mountSettings() {
         if (a === 'backup') return backup();
         if (a === 'restore') return restore().then(() => refresh(true));
         if (a === 'card') return toCard();
-        if (a === 'migrate') { const n = migrateOld(); toast(n ? `답 ${n}개를 옮겨 왔어요` : '옮길 옛 기록이 없어요', n ? 'good' : 'mid'); refresh(true); }
+        if (a === 'migrate') { const r = migrateOld(); toast(r ? `옮겼어요 · 시작값(#${r.start}부터) · 답 ${r.ops}개 · 인물 ${r.people}명 · 물건 ${r.items}개${r.later ? ` · 손 고침 ${r.later}개` : ''}${r.skipped ? ` · 못 옮긴 고침 ${r.skipped}개` : ''}` : '옮길 옛 기록이 없어요', r ? 'good' : 'mid'); refresh(true); }
     });
 }
 // 꾸미기: 직접 고르기 하나

@@ -420,6 +420,10 @@ export function startState(meta) {
     if (st.needs) for (const [k, v] of Object.entries(st.needs)) if (k in S.needs) S.needs[k] = clamp(num(v), 0, 100);
     if (st.gauges) for (const [k, v] of Object.entries(st.gauges)) if (k in S.gauges) S.gauges[k] = num(v);
     if (st.rel) for (const [k, v] of Object.entries(st.rel)) if (S.rel[k]) Object.assign(S.rel[k], { aff: num(v.aff, S.rel[k].aff), trust: num(v.trust, S.rel[k].trust) });
+    if (st.attrs) for (const [k, v] of Object.entries(st.attrs)) if (k in S.attrs) S.attrs[k] = num(v);
+    if (st.weather) S.weather = String(st.weather);
+    if (Array.isArray(st.status)) S.status = st.status.filter(x => x?.name).map(x => ({ name: short(x.name, 12), kind: 'mid', note: x.note ?? '', until: null, dice: num(x.dice), src: 'old', at: S.t }));
+    if (st.pairs) S.pairs = { ...S.pairs, ...structuredClone(st.pairs) };
     return S;
 }
 export const resetCache = () => { cache.chatId = null; quick.key = ''; };
