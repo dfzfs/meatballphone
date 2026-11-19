@@ -9,6 +9,7 @@ import { fold } from './engine.js';
 import { personOf, normBook, BASIC_ACTS } from './book.js';
 import { gloss } from '../base/gloss.js';
 import { clsKeys } from './newskinds.js';
+import { notedKey } from './calplus.js';
 
 // ───── 모드 ─────
 // B를 골라도 분류 연결이 없으면 A로 돌아간다 (설정 화면에 한 줄로 알림)
@@ -33,7 +34,7 @@ const MIND = [['mind', '이름 | 짧은 속마음', '장면 속 인물의 속마
 const BGM = [['bgm', '곡 제목 - 가수 | 분위기 한 단어 | 왜 어울리는지', '장면 분위기가 바뀌었을 때만 · 실제로 있는 곡 · [NOW]의 취향 참고 · 안 바뀌었으면 쓰지 않음']];
 const QUOTE = [['quote', '구절 원문 | 출처(작품 · 사람 · 나라) | 한국어 뜻(외국어일 때만) | 왜 어울리는지', '장면 분위기가 바뀌었을 때만 · 속담 · 영화/드라마 명대사 · 책/시 한 줄 · 유명인의 말 · 사자성어 · 노래 가사는 안 됨 · 한두 문장 · [NOW]의 최근 구절은 피함']];
 // aiNo: 몇 번째 AI 답을 고르는지 — 😌 그 답에 눈 감은 앱의 키는 뺀다
-const keyList = (aiNo) => { const M = getMeta()?.mods ?? {}; return [...KEYS, ...(M.mind ? MIND : []), ...(M.music ? BGM : []), ...(M.quote ? QUOTE : []), ...(M.news ? clsKeys() : [])].filter(([k]) => aiNo == null || !shutKey(k, aiNo)); };
+const keyList = (aiNo) => { const M = getMeta()?.mods ?? {}; return [...KEYS, ...(M.mind ? MIND : []), ...(M.music ? BGM : []), ...(M.quote ? QUOTE : []), ...(M.news ? clsKeys() : []), ...(M.calendar ? notedKey(fold()) : [])].filter(([k]) => aiNo == null || !shutKey(k, aiNo)); };
 export const ALLOW = (aiNo) => new Set(keyList(aiNo).map(([k]) => kindOf(k)));
 
 // 답 글에 이름(또는 별칭)이 나온 설정집 인물

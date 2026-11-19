@@ -627,6 +627,13 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             S.promises.push({ text: short(a, 120), due, at: S.t, done: null, i });
             return;
         }
+        case 'noted': { // 👀 인물이 달력 메모를 보고 꺼냄 → 그 메모는 다시 힌트로 안 냄 (calplus.js)
+            const who = x.who(a) ?? safeKey(a), md = /(\d{1,2})\s*[월/.]\s*(\d{1,2})/.exec(b);
+            if (!who) return;
+            S.noted = [...(S.noted ?? []), { who, md: md ? `${Number(md[1])}/${Number(md[2])}` : '', t: S.t }];
+            ch.push({ f: 'noted', label: '달력 메모를 봄', icon: '👀', from: '', to: who, why: short(b, 20), src, sure: true, i });
+            return;
+        }
         case 'anniv': {
             const name = x.who(a);
             if (name) x.rel(name).day = short(b, 16);

@@ -9,6 +9,7 @@ import { luckOf } from '../rules/luck.js';
 import { level } from '../rules/inject.js';
 import { upcoming, lastAI, turnCard, getDice } from './tabs.js';
 import { btn } from './kit.js';
+import { calPin } from './calplus.js';
 import { mascot, MASCOTS, MEATCON, mascotUrl, MASCOT_SOUNDS, PACK, packOn } from './mascot.js';
 import { extApps, extOf, catalog, loadCatalog, hasApp, waitsReload } from '../extra/apps.js';
 
@@ -108,7 +109,7 @@ export function home(r) {
         const day0 = Math.floor(S.t / DAY), up = upcoming(r);
         const marks = (k) => { const dt = dateOf(book.world.start, (day0 + k) * DAY); const md = `${dt.m}/${dt.d}`; return up.filter(u => (u.t != null && Math.floor(u.t / DAY) === day0 + k) || u.md === md).length + (worldEvent(day0 + k) ? 1 : 0); };
         const week = Array.from({ length: 7 }, (_, k) => { const dt = dateOf(book.world.start, (day0 + k) * DAY), n = marks(k); return `<div class="${k === 0 ? 'today' : ''}"><small>${dt.w}</small><b>${dt.d}</b>${n ? '<i></i>' : ''}</div>`; }).join('');
-        put('달력', `<div class="ml-week">${week}</div>${up.slice(0, 3).map(u => `<div class="ml-rl"><i>${u.icon}</i>${esc(u.text)} <span>${u.t != null ? (u.t - S.t <= DAY ? '하루 안' : dateText(book.world.start, u.t, false)) : esc(u.md)}</span></div>`).join('')}`, 'cal', '', 'cal');
+        put('달력', `${calPin(r)}<div class="ml-week">${week}</div>${up.slice(0, 3).map(u => `<div class="ml-rl"><i>${u.icon}</i>${esc(u.text)} <span>${u.t != null ? (u.t - S.t <= DAY ? '하루 안' : dateText(book.world.start, u.t, false)) : esc(u.md)}</span></div>`).join('')}`, 'cal', '', 'cal');
     }
     // 소식
     if (modOn('news')) { const N = [...(ev ? [{ icon: ev.icon ?? '🎌', text: ev.text }] : []), ...S.news.slice(0, 3)]; if (N.length) put('세계 소식', N.map(n => `<div class="ml-rl"><i>${n.icon}</i>${esc(n.text)}</div>`).join(''), 'news', '', 'news'); }

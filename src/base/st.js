@@ -150,7 +150,7 @@ export const modOn = (id, meta = getMeta()) => !!meta?.mods?.[id];
 // 😌 눈 감기: 깔린 앱마다 「다음 답 1번」(once) · 「계속」(on) — 그 답엔 그 앱의 사건을 만들지도(본편 · 분류 지시) 받지도 않는다.
 //   once는 「몇 번째 AI 답」에 묶여서, 그 답을 리롤해도 감긴 채 · 다음 답부터는 저절로 뜬다.
 export const KEY_MOD = {
-    loc: 'map', with: 'map', time: 'calendar', weather: 'calendar', date: 'calendar', promise: 'calendar', anniv: 'calendar',
+    loc: 'map', with: 'map', time: 'calendar', weather: 'calendar', date: 'calendar', promise: 'calendar', anniv: 'calendar', noted: 'calendar',
     ate: 'stats', slept: 'stats', washed: 'stats', rest: 'stats', status: 'stats', need: 'stats',
     worked: 'wallet', buy: 'wallet', sell: 'wallet', earn: 'wallet', cash: 'wallet', got: 'wallet', item: 'wallet', used: 'wallet', lost: 'wallet', wear: 'wallet', unwear: 'wallet',
     act: 'rel', gift: 'rel', memory: 'rel', jealous: 'rel', pair: 'rel', npc: 'rel', gone: 'rel', aff: 'rel', trust: 'rel', meddle: 'rel', taste: 'rel',
