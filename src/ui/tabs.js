@@ -3,6 +3,7 @@ import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, MODS, slot,
 import { esc, fmt, signed, short, dateText, DAY, slotName, clamp, num, norm } from '../base/util.js';
 import { row, card, chip, seg, bar, empty, btn, sheet, toast, putInput } from './kit.js';
 import { fold, derived, needStage, relStage, nextStage, diceMod, diceParts, worldEvent, priceMul, whereNow } from '../rules/engine.js';
+import { luckOf } from '../rules/luck.js';
 import { layout, lineEdges, lineNodes, route, floorsOf } from './metro.js';
 import { personOf, placeOf, bookTokens, personTokens, normBook, PLACE_KINDS, LIMIT } from '../rules/book.js';
 import { moodTags, pickQuote, pickMusic } from '../rules/mood.js';
@@ -71,6 +72,7 @@ function now(r) {
     const tg = moodTags(r, last), side = [];
     if (modOn('music')) { const m = S.bgm ? { label: S.bgm, query: S.bgm, why: '답에 나온 곡' } : pickMusic(tg, settings().musicTaste); side.push(`<div class="ml-scene tap" data-act="music" data-v="${esc(m.query)}"><i>🎵</i><span><b>${esc(m.label)}</b><small>${esc(tg.map(t => MOOD_KO[t] ?? t).slice(0, 3).join(' · '))}</small></span><em>▶</em></div>`); }
     if (modOn('quote')) { const q = pickQuote(tg, meta.recent?.quote ?? [], S.turn); if (q) side.push(`<div class="ml-scene tap" data-act="quote" data-v="${esc(`${q.text}\n\n${q.mean}\n— ${q.src}`)}"><i>📜</i><span><b>${esc(q.text)}</b><small>${esc(q.src)}</small></span><em>ⓘ</em></div>`); }
+    { const l = luckOf(book, S, ctx().getCurrentChatId?.()); side.push(`<div class="ml-scene luck"><i>🍀</i><span><b>${esc(l.text)}</b><small>오늘 운세 · 선택지에 🍀 · ⚠로 보여요</small></span></div>`); }
     if (side.length) h += `<h4 class="ml-h4">이 장면</h4><div class="ml-scenes">${side.join('')}</div>`;
     if (modOn('stats')) {
         h += `<h4 class="ml-h4">욕구 <span>달력 시간으로 줄어요</span></h4><div class="ml-gcs">${book.me.needs.map(n => needCard(r, n, last)).join('')}</div>`;
