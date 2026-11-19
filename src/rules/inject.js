@@ -65,7 +65,9 @@ export function ruleText(book) {
         if (mm === 'kaomoji' || mm === 'mix') { const turn = ctx().chat?.length ?? 0, P = KAO.slice((turn * 5) % KAO.length).concat(KAO).slice(0, 6); K.push(`(카모지는 매번 다르게 · 예: ${P.join(' ')})`); }
     }
     const head = `[STATUS LOG] After the reply, add a <meatball> block. Write EVENTS, not numbers — the extension computes the numbers. One "key: value" per line. Only lines for what happened this reply; skip the rest. Keys:\n${K.filter((k) => !/^[a-z]+:/i.test(k) || !shutKey(k.split(':')[0])).join('\n')}`;
-    const ex = flash ? `\nExample:\n<meatball>\nloc: 빵집\nbuy: 크림빵 | 3\nate: 크림빵\nact: Leon | 칭찬\n</meatball>\nExample:\n<meatball>\ntime: +3h\nworked: 3h | +20\nmind: Leon | 또 늦네\n</meatball>` : '';
+    // 예시도 깔린 앱 줄만 (지운 앱 키를 보여 주면 AI가 따라 씀)
+    const exOf = (lines) => { const L = lines.filter(l => !shutKey(l.split(':')[0])); return L.length ? `\nExample:\n<meatball>\n${L.join('\n')}\n</meatball>` : ''; };
+    const ex = flash ? exOf(['loc: 빵집', 'buy: 크림빵 | 3', 'ate: 크림빵', 'act: Leon | 칭찬']) + exOf(['time: +3h', 'worked: 3h | +20', 'mind: Leon | 또 늦네']) : '';
     return head + ex;
 }
 // 지금 사실 고정 · 경계 한 줄 · 연출 힌트 (게이지에 따라)

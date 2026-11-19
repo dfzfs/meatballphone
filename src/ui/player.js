@@ -86,6 +86,7 @@ export async function playSong(song, href = '') {
         toast(`폰에서 못 틀었어요 · ${e.message}`, 'bad');
     }
 }
+export const closePlayer = () => closeBox(); // 🗑 음악 앱을 지우거나 이 채팅에서 끌 때
 function closeBox() { document.getElementById(ID)?.remove(); cur = null; pending = null; playing = false; big = false; }
 function send(func) {
     const f = document.querySelector(`#${ID} iframe`);

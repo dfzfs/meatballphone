@@ -4,7 +4,7 @@ import { normBook } from '../rules/book.js';
 
 export const MODULE = 'meatlite';
 export const OLD = 'statussim';
-export const VERSION = '0.35.0';
+export const VERSION = '0.36.0';
 export const DATA_V = 2;
 export const TITLE = '미트볼폰';
 export const INJ = { facts: 'meatlite_facts', hint: 'meatlite_hint', rule: 'meatlite_rule' };
@@ -165,7 +165,7 @@ export function shut(mod, aiNo = nextAiNo()) {
     const e = getMeta()?.eyes?.[mod]; if (!e || !mod) return false;
     return e.mode === 'on' || (e.mode === 'once' && aiNo === e.at);
 }
-export const shutKey = (key, aiNo) => shut(KEY_MOD[String(key ?? '').trim().toLowerCase()], aiNo);
+export const shutKey = (key, aiNo) => { const mod = KEY_MOD[String(key ?? '').trim().toLowerCase()]; return (!!mod && !modOn(mod)) || shut(mod, aiNo); }; // 🗑 지운 앱의 키도 버림
 export function setEyes(mod, mode) {
     const m = getMeta(); if (!m) return;
     m.eyes ??= {};

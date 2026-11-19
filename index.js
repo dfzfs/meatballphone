@@ -247,7 +247,7 @@ ${sel('pinBook', '장면 인물의 증상 한 줄 본편에', [['auto', '붙이�
 export function setChatOff(v) {
     const meta = getMeta(); if (!meta) return;
     if (v) meta.off = true; else delete meta.off;
-    saveMeta(); closeSheet(); document.getElementById('ml-hud')?.remove(); document.getElementById('ml-mini')?.remove(); document.querySelectorAll('.ml-msg').forEach(x => x.remove());
+    saveMeta(); closeSheet(); if (v) import('./src/ui/player.js').then(m => m.closePlayer()); document.getElementById('ml-hud')?.remove(); document.getElementById('ml-mini')?.remove(); document.querySelectorAll('.ml-msg').forEach(x => x.remove());
     const cb = document.querySelector('[data-ml-chatoff]'); if (cb) cb.checked = !!v;
     refresh(true);
     toast(v ? '이 채팅에서 미트볼폰을 껐어요 · 다시 켜기: 확장 설정 › 미트볼폰 › 「이 채팅에서만 끄기」 해제' : '이 채팅에서 다시 켰어요', v ? 'mid' : 'good');

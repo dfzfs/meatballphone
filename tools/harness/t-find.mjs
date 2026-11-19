@@ -8,6 +8,7 @@ try {
     await page.exposeFunction('__p', (p) => { prompt = p; });
     await page.evaluate(() => { window.__ai = (p) => { window.__p(p); return JSON.stringify({ 'Rusty Sword': '녹슨 검' }); }; });
     await page.evaluate(() => window.__addUser('창고에서 녹슨 칼을 찾았다'));
+    await page.evaluate(async () => { const st = await import('/ext/src/base/st.js'); st.getMeta().mods.mind = true; }); // 속마음 앱을 깔아 둠 (지운 앱 줄은 버려짐)
     await page.evaluate(() => window.__addAI('Leon이 어깨를 으쓱했다.\n<meatball>\nmind: Leon | 또 무모한 짓을\ngot: Rusty Sword\nstatus: 감기 | 2d\n</meatball>')); await sleep(300);
     const R = (q, g) => page.evaluate(async ([q, g]) => { const f = await import('/ext/src/extra/find.js'); return f.results(q, g); }, [q, g]);
     let h = await R('Leon이', 'all');

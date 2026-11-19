@@ -728,6 +728,7 @@ export async function onAct(act, v, el) {
             }
             meta.mods[a.mod] = act === 'install';
             saveMeta();
+            if (act === 'uninstall' && a.mod === 'music') (await import('./player.js')).closePlayer();
             app.refresh?.();
             toast(act === 'install' ? `${a.icon} ${a.name} 받았어요` : `${a.name} 지웠어요`);
             return;
