@@ -1,13 +1,14 @@
 // 화면은 셋뿐: HUD · 미니바 · 전체화면
 import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, ready, msgData, TITLE, MODS, setEyes, shut } from '../base/st.js';
-import { esc, dateText, periodName, short, fmt } from '../base/util.js';
+import { esc, dateText, periodName, short, fmt, clockText } from '../base/util.js';
 import { fold, derived, needStage } from '../rules/engine.js';
 import { placeOf } from '../rules/book.js';
 import { RENDER, onAct, changeRow, setRecFilter } from './tabs.js';
-import { home, market, cat, look, appOf, installed, markSeen, firstView, setupView } from './home.js';
+import { home, market, cat, look, appOf, installed, markSeen, firstView, setupView, homeCfg, homeEditing, setHomeEdit, wallCss } from './home.js';
+import { bindHomeEdit } from './homeedit.js';
 import { toolbar, onTool, TOOL_ACTS, applyGloss } from './tools.js';
 import { applyTr, trOn, trBusy } from '../extra/translate.js';
-import { chip, sheet, bar } from './kit.js';
+import { chip, sheet, bar, toast } from './kit.js';
 
 import { mascot } from './mascot.js';
 import { isWaiting } from '../rules/classify.js';
@@ -78,6 +79,7 @@ export function openSheet(tab = 'home') {
         document.body.appendChild(el);
         el.addEventListener('click', clickHandler);
         el.addEventListener('change', changeHandler);
+        bindHomeEdit(el); // ✏️ 꾹 누르기 · 끌어서 순서
     }
     drawSheet();
     document.body.classList.add('ml-open');
@@ -99,7 +101,20 @@ export function drawSheet() {
     const meta = getMeta(), a = appOf(cur);
     const keep = el.querySelector(':scope > .ml-bs'); // 열려 있는 시트는 다시 그려도 그대로
     const scroll = el.querySelector('.ml-body')?.scrollTop ?? 0, same = el.querySelector('.ml-body')?.dataset.tab === cur;
-    el.innerHTML = `<header class="ml-top">${cur === 'home' ? `${mascot('head')}<b>${TITLE}</b>` : `<button class="ml-ib back" data-tab="home" title="홈">‹</button><b>${a ? `${a.icon} ${a.name}` : ''}</b>`}`
+    if (cur !== 'home' && homeEditing()) setHomeEdit(false);
+    const L = settings().look, wall = wallCss(L);
+    el.classList.toggle('home', cur === 'home'); el.classList.toggle('has-wall', !!wall); el.classList.toggle('editing', cur === 'home' && homeEditing());
+    el.classList.toggle('tone', (L.icons ?? 'color') === 'tone');
+    el.classList.toggle('dark-wall', !!wall && (L.wall === 'night' || (L.wallDim ?? 0) >= 35));
+    el.style.setProperty('--ml-wall', wall || 'none'); el.style.setProperty('--ml-wdim', `${(L.wallDim ?? 0) / 100}`);
+    if (cur === 'home') {
+        el.innerHTML = statusBar(view, meta) + `<main class="ml-body" data-tab="home">${home(view)}</main>`;
+        applyGloss(el.querySelector('.ml-body')); applyTr(el.querySelector('.ml-body'));
+        if (keep) el.appendChild(keep);
+        if (same) el.querySelector('.ml-body').scrollTop = scroll;
+        return;
+    }
+    el.innerHTML = `<header class="ml-top"><button class="ml-ib back" data-tab="home" title="홈">‹</button><b>${a ? `${a.icon} ${a.name}` : ''}</b>`
         + `${past != null ? chip(`🕰 #${past} 시점 · 읽기 전용`, 'mid', 'past-off') : ''}<span class="ml-sp"></span><button class="ml-ib${meta.paused || meta.skipNext || eyesShut().length ? ' on' : ''}" data-act="pause" `
         + `title="멈춤 · 건너뛰기 · 😌 눈 감기">${pauseLabel(meta)}</button><button class="ml-ib" data-act="find" title="검색">🔍</button><button class="ml-ib" data-act="report" title="📋 전체 복사">📋</button><button class="ml-ib" data-act="close">✕</button></header>`
         + `<main class="ml-body" data-tab="${cur}">${a && !a.sys ? toolbar(cur) : ''}${R2[cur](view)}</main>`;
@@ -125,6 +140,12 @@ async function clickHandler(e) {
     const meta = getMeta();
     if (act === 'close') return closeSheet();
     if (act === 'pause') return pauseMenu();
+    if (act === 'cc') return controlCenter();
+    if (act === 'cc-open') { document.querySelector('.ml-bs')?.remove(); cur = v; drawSheet(); return; }
+    if (act === 'home-edit') { document.querySelector('.ml-bs')?.remove(); cur = 'home'; setHomeEdit(true); drawSheet(); return; }
+    if (act === 'home-done') { setHomeEdit(false); drawSheet(); return; }
+    if (act === 'w-toggle') { const H = homeCfg(); H.hidden = H.hidden.includes(v) ? H.hidden.filter(x => x !== v) : [...H.hidden, v]; saveSettings(); drawSheet(); return; }
+    if (homeEditing() && a.closest('.ml-app')) return; // 편집 중엔 앱을 열지 않음
     if (act === 'p-all') { meta.paused = !meta.paused; saveMeta(); app.refresh(); return pauseMenu(); }
     if (act === 'skip' || act === 'p-skip') { meta.skipNext = !meta.skipNext; saveMeta(); drawSheet(); return pauseMenu(); }
     if (act === 'eye') { const [mod, mode] = String(v).split('|'); setEyes(mod, mode); app.refresh(); return pauseMenu(); }
@@ -133,6 +154,7 @@ async function clickHandler(e) {
     await onAct(act, v, a);
 }
 function changeHandler(e) {
+    const wf = e.target.closest?.('[data-wallfile]'); if (wf) { wallUpload(wf.files?.[0]); return; }
     const lk = e.target.closest('[data-look]'); if (lk) { const L = settings().look, k = lk.dataset.look; L[k] = lk.type === 'range' ? Number(lk.value) : lk.value; saveSettings(); app.applyLook?.(); drawSheet(); return; }
     const g = e.target.closest('[data-gauge]'); if (!g) return;
     const meta = getMeta(), tgt = meta.influence ?? settings().influence, id = g.dataset.gauge, v = Number(g.value);
@@ -206,3 +228,37 @@ function pauseMenu() {
         + '<div class="ml-hint">「다음 1번」은 다음 답 하나에만 감기고(그 답을 리롤해도 감긴 채), 그다음 답부터 저절로 떠요. 「계속」은 다시 「뜸」을 누를 때까지 감겨요.</div>';
     sheet('⏸ 멈춤 · 눈 감기', html);
 }
+
+// ───── 📱 상태바: 이야기 속 시각 · 다이내믹 아일랜드(미트볼이 숨어 있음 · 누르면 제어 센터) · 통신사 「미트볼」 · 배터리 = 기력 ─────
+function statusBar(r, meta) {
+    const { book, S } = r;
+    const clk = book.world.start.cal?.style === '' ? periodName(S.t) : clockText(book.world.start, S.t);
+    const en = book.me.needs.find(n => n.key === 'energy'), bat = Math.max(0, Math.min(100, Math.round(en ? S.needs.energy ?? 0 : S.gauges?.hp ?? 100)));
+    const n = eyesShut().length, state = meta.paused ? '⏸ 멈춤' : meta.skipNext ? '⏭ 건너뜀' : n ? `😌 ${n}` : '';
+    return `<header class="ml-top ml-status"><span class="ml-sb-time">${esc(clk)}</span>`
+        + `<button class="ml-island${state ? ' busy' : ''}" data-act="cc" title="제어 센터">${state ? `<span>${state}</span>` : ''}<span class="ml-peek">${mascot('xs', '', 'peek')}</span></button>`
+        + `<span class="ml-sb-r"><b>미트볼</b><i class="ml-sig"><u></u><u></u><u></u><u></u></i><span class="ml-bat${bat < 20 ? ' low' : ''}" title="배터리 = ${en ? '기력' : '체력'} ${bat}%"><i style="width:${bat}%"></i></span>`
+        + `<button class="ml-ib" data-act="close" title="닫기">✕</button></span></header>`;
+}
+// 🎛 제어 센터
+function controlCenter() {
+    const meta = getMeta(); if (!meta) return;
+    const t = (act, icon, name, on = false, v = '') => `<button class="ml-cc-b${on ? ' on' : ''}" data-act="${act}" data-v="${v}"><i>${icon}</i><span>${name}</span></button>`;
+    sheet('🎛 제어 센터', `<div class="ml-cc">${t('p-all', '⏸', meta.paused ? '멈춤 중' : '전체 멈춤', meta.paused)}${t('p-skip', '⏭', '다음 1번 건너뛰기', meta.skipNext)}`
+        + `${t('pause', '😌', `눈 감기${eyesShut().length ? ` · ${eyesShut().length}` : ''}`, eyesShut().length > 0)}${t('find', '🔍', '검색')}${t('report', '📋', '전체 복사')}`
+        + `${t('cc-open', '🎨', '꾸미기 · 배경화면', false, 'look')}${t('home-edit', '✏️', '홈 편집')}${t('cc-open', '🎚️', '영향력', false, 'gauge')}</div>`
+        + '<div class="ml-hint">미트볼은 위의 섬 안에 숨어 있어요. 누르면 이 화면이 열려요.</div>');
+}
+// 🖼 내 사진 → 1280px · JPEG로 줄여서 설정에 (확장 파일에는 안 들어감)
+async function wallUpload(file) {
+    if (!file || !/^image\//.test(file.type)) return;
+    try {
+        const url = await new Promise((ok, no) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = no; fr.readAsDataURL(file); });
+        const img = await new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = url; });
+        const k = Math.min(1, 1280 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        let out = c.toDataURL('image/jpeg', 0.82); if (out.length > 900000) out = c.toDataURL('image/jpeg', 0.6);
+        const L = settings().look; L.wallImg = out; L.wall = 'img'; saveSettings(); drawSheet();
+    } catch { toast('사진을 못 읽었어요', 'bad'); }
+}
+export const redraw = () => drawSheet();

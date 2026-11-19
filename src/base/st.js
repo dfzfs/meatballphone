@@ -4,7 +4,7 @@ import { normBook } from '../rules/book.js';
 
 export const MODULE = 'meatlite';
 export const OLD = 'statussim';
-export const VERSION = '0.31.0';
+export const VERSION = '0.32.0';
 export const DATA_V = 2;
 export const TITLE = '미트볼 라이트';
 export const INJ = { facts: 'meatlite_facts', hint: 'meatlite_hint', rule: 'meatlite_rule' };
@@ -24,7 +24,8 @@ export const DEFAULTS = Object.freeze({
     mascotVolume: 60,
     mascotPick: 'idle',
     conPack: false,          // 🐱 미트볼콘 팩 60개를 받았나 (마켓)      // 평소 모습: 표정 7개 · con:미트볼콘 14개
-    look: { accent: '#e07a5f', font: '', size: 1, radius: 14, border: 1, shadow: 1, dark: 'auto' },
+    look: { accent: '#e07a5f', font: '', size: 1, radius: 14, border: 1, shadow: 1, dark: 'auto', wall: 'cream', wallImg: '', wallDim: 0, icons: 'color' },
+    home: null, // 홈 위젯 순서 · 숨기기 · 앱 순서 · 독 (home.js homeCfg)
     influence: { all: 2, by: {} },  // 이야기 영향력 게이지 (전체 기본값 · 채팅마다 덮어쓸 수 있음)
     preset: 'flash',        // 본편 지시 프리셋: flash | general
     mode: 'B',              // 사건 고르기: A 본편 태그 · B 분류 모델(가벼운 모델이 답마다 목록에서 고름)

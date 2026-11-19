@@ -7,14 +7,18 @@ try {
     await page.evaluate(() => window.__addUser('가자')); await page.evaluate(() => window.__addAI('…\n<meatball>\nloc: 시장\n</meatball>')); await sleep(300);
     // 메뉴
     await page.evaluate(() => __ML__.app.openSheet('home')); await sleep(150);
-    await page.evaluate(() => document.querySelector('[data-act="pause"]').click()); await sleep(200);
+    // 홈: 상태바의 섬 → 제어 센터 → 😌 눈 감기
+    await page.evaluate(() => document.querySelector('.ml-island').click()); await sleep(200);
+    check(await page.evaluate(() => /제어 센터/.test(document.querySelector('.ml-bs')?.textContent ?? '') && !!document.querySelector('.ml-bs [data-act="report"]')), '섬을 누르면 제어 센터');
+    await page.evaluate(() => document.querySelector('.ml-bs [data-act="pause"]').click()); await sleep(200);
     const menu = await page.evaluate(() => ({ t: document.querySelector('.ml-bs')?.textContent ?? '', eyes: document.querySelectorAll('.ml-bs [data-act="eye"]').length }));
     check(/전체 멈춤/.test(menu.t) && /건너뛰기/.test(menu.t) && /눈 감기/.test(menu.t) && menu.eyes >= 3 * 5, '⏸ 메뉴: 전체 멈춤 · 건너뛰기 · 깔린 앱마다 눈 감기', JSON.stringify(menu.eyes));
     // 음악 다음 1번 감기
     await page.evaluate(() => document.querySelector('.ml-bs [data-act="eye"][data-v="music|once"]').click()); await sleep(200);
     const rule1 = await page.evaluate(async () => { const { ruleText } = await import('/ext/src/rules/inject.js'); return ruleText(__ML__.fold().book); });
     check(!/bgm:/.test(rule1) && /quote:/.test(rule1), '감은 앱(음악)만 본편 「적는 법」에서 빠짐');
-    check(await page.evaluate(() => /😌1/.test(document.querySelector('[data-act="pause"]').textContent)), '버튼에 😌1 표시');
+    await page.evaluate(() => { document.querySelector('.ml-bs')?.remove(); }); await sleep(100);
+    check(await page.evaluate(() => /😌 1/.test(document.querySelector('.ml-island').textContent)), '섬에 😌 1 표시');
     // 다음 답에 bgm을 적어도 버림
     await page.evaluate(() => window.__addUser('음악')); await page.evaluate(() => window.__addAI('…\n<meatball>\nbgm: 봄날 - BTS | 그리움 | -\nloc: 카페\n</meatball>')); await sleep(400);
     const r = await page.evaluate(() => ({ bgm: __ML__.fold().S.bgm?.title ?? null, loc: __ML__.fold().S.loc }));

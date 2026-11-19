@@ -45,13 +45,16 @@ try {
         const set = !!document.querySelector('[data-ml="report"]');
         __ML__.app.openSheet('home');
         await new Promise((r) => setTimeout(r, 200));
-        const top = !!document.querySelector('#ml-full .ml-top [data-act="report"]');
+        // 홈은 상태바 → 섬(제어 센터) 안에, 앱 화면은 위쪽 줄에
+        document.querySelector('#ml-full .ml-island')?.click();
+        const top = !!document.querySelector('.ml-bs .ml-cc [data-act="report"]');
+        document.querySelector('.ml-bs')?.remove();
         document.querySelector('[data-ml="doctor"]').click();
         await new Promise((r) => setTimeout(r, 300));
         const doc = !![...document.querySelectorAll('.ml-bs')].pop()?.querySelector('[data-act="report"]');
         return { set, top, doc };
     });
-    check(b.set && b.top && b.doc, '「📋 전체 복사」 버튼: 설정 · 자가 진단 · 전체화면 위쪽', JSON.stringify(b));
+    check(b.set && b.top && b.doc, '「📋 전체 복사」 버튼: 설정 · 자가 진단 · 홈 제어 센터', JSON.stringify(b));
     await page.evaluate(() => [...document.querySelectorAll('.ml-bs')].pop().querySelector('[data-act="report"]').click()); await sleep(300);
     check(await page.evaluate(() => !!document.querySelector('.ml-rp-n') && !!document.querySelector('[data-rp="copy"]') && !!document.querySelector('[data-rp="file"]')), '고르는 시트: 메시지 수 · 복사 · 파일');
     const errs = logs.filter(l => !/시험용 경고/.test(l));

@@ -1,16 +1,15 @@
 // 🏠 홈: 위에 위젯(지금 · 이 장면 · 운세 · 욕구 · 주사위 · 달력 · 소식 · 같이 있는 사람) + 아래에 받은 앱 아이콘
 // 🛍 마켓: 앱을 「받는」 느낌 — 실제로는 다 들어 있고 칸을 켜고 끈다 (지우면 홈 · 본편 주입에서 빠짐)
 import { ctx, getMeta, saveMeta, settings, modOn } from '../base/st.js';
-import { esc, signed, dateText, dateOf, DAY, periodName, clockText, fmt, num } from '../base/util.js';
-import { derived, needStage, relStage, worldEvent, priceMul, diceParts, whereNow, wantsOf } from '../rules/engine.js';
+import { esc, signed, dateText, dateOf, DAY, periodName, clockText, fmt, num, faceOf } from '../base/util.js';
+import { derived, needStage, relStage, worldEvent, priceMul, diceParts, whereNow } from '../rules/engine.js';
 import { personOf, placeOf, PLACE_KINDS } from '../rules/book.js';
-import { songLine, quoteLine } from './music.js';
+import { quoteLine, songLink } from './music.js';
 import { luckOf } from '../rules/luck.js';
 import { level } from '../rules/inject.js';
 import { upcoming, lastAI, turnCard, getDice } from './tabs.js';
 import { btn } from './kit.js';
 import { mascot, MASCOTS, MEATCON, mascotUrl, MASCOT_SOUNDS, PACK, packOn } from './mascot.js';
-import { vis } from './tools.js';
 
 // 앱 목록 — mod가 있으면 받기 · 지우기 가능, sys는 늘 있음
 export const APPS = [
@@ -34,7 +33,6 @@ export const APPS = [
 ];
 export const appOf = (id) => APPS.find(a => a.id === id);
 export const installed = (a) => a.sys || modOn(a.mod);
-const W = (title, body, open = '', extra = '', part = '') => (part && !vis('home', part) ? '' : Wx(title, body, open, extra));
 const Wx = (title, body, open = '', extra = '') => `<section class="ml-w"${open ? ` data-act="open" data-v="${open}"` : ''}><h4>${title}${open ? '<i>›</i>' : ''}${extra}</h4>${body}</section>`;
 
 // 🎲 d20 그림 (위젯 · 주사위 앱 공용)
@@ -46,32 +44,29 @@ export const d20 = (n = 20, cls = '') => `<svg class="ml-d20 ${cls}" viewBox="0 
 export function home(r) {
     const { book, S } = r, meta = getMeta(), li = lastAI();
     const ev = worldEvent(Math.floor(S.t / DAY)), dz = derived(book, S);
-    let h = `<div class="ml-hero"><div class="ml-hero-d"><small>${esc(dateOf(book.world.start, S.t).mn)}</small><b>${dateOf(book.world.start, S.t).d}</b>`
-        + `<small>${dateOf(book.world.start, S.t).w}요일</small></div>
-        <div class="ml-hero-b"><b>${periodName(S.t)}${book.world.start.cal?.style === '' ? '' : ` ${clockText(book.world.start, S.t)}`}`
-        + `${S.weather ? ` · ${esc(S.weather)}` : ''}</b><span>📍 ${esc(S.loc || '어딘가')}`
-        + `${S.with.length ? ` · ${S.with.map(n => personOf(book, n)?.face || '🙂').join('')}` : ''}`
-        + `</span>${modOn('wallet') ? `<span>💰 ${fmt(S.cash)} ${esc(book.world.currency)}</span>` : ''}</div>
-        ${ev ? `<span class="ml-pill ${ev.kind === 'good' ? 'good' : ev.kind === 'bad' ? 'bad' : 'love'}">${ev.icon ?? '🎌'} ${esc(ev.name)}</span>` : ''}</div>`;
+    const P = {}; // 위젯 id → html (순서 · 숨기기는 holder가 정함)
+    const put = (title, body, open = '', extra = '', part = '') => { P[part] = Wx(title, body, open, extra); return ''; };
+    const dt0 = dateOf(book.world.start, S.t), clk = book.world.start.cal?.style === '' ? periodName(S.t) : clockText(book.world.start, S.t);
+    P.hero = `<div class="ml-hero ml-clock"><b class="ml-clock-t">${esc(clk)}</b><span class="ml-clock-d">${esc(dt0.mn)} ${dt0.d}일 ${dt0.w}요일 · ${esc(periodName(S.t))}`
+        + `${S.weather ? ` · ${esc(S.weather)}` : ''}</span><span class="ml-clock-s">📍 ${esc(S.loc || '어딘가')}`
+        + `${S.with.length ? ` · ${S.with.map(n => faceOf(personOf(book, n)?.face, '🙂')).join('')}` : ''}`
+        + `${modOn('wallet') ? ` · 💰 ${fmt(S.cash)} ${esc(book.world.currency)}` : ''}</span>`
+        + `${ev ? `<span class="ml-pill ${ev.kind === 'good' ? 'good' : ev.kind === 'bad' ? 'bad' : 'love'}">${ev.icon ?? '🎌'} ${esc(ev.name)}</span>` : ''}</div>`;
     const tags = [...S.status.map(s => `<span class="ml-chip ${s.kind === 'good' ? 'good' : s.kind === 'bad' ? 'bad' : ''}">${s.src === 'fate' ? '🔮 ' : ''}${esc(s.name)}`
         + `${s.until ? ` · ${Math.max(1, Math.round((s.until - S.t) / 60))}h` : ''}</span>`), ...dz.filter(d => d.stage === '위험').map(d => `<span class="ml-chip bad">${d.icon} ${esc(d.name)} 위험</span>`)];
-    if (!vis('home', 'hero')) h = '';
-    if (tags.length && vis('home', 'tags')) h += `<div class="ml-chips">${tags.join('')}</div>`;
+    if (tags.length) P.tags = `<div class="ml-chips">${tags.join('')}</div>`;
     // 이 장면: 음악 · 구절 · 운세
     const L = [];
-    if (modOn('music')) L.push(songLine(S));
     if (modOn('quote')) L.push(quoteLine(S));
     const lk = luckOf(book, S, ctx().getCurrentChatId?.(), meta.luckRoll);
     L.push(lk.rolled ? `<div class="ml-scene luck"><i>🍀</i><span><b>${esc(lk.text)}</b><small>오늘 운세 · 🎲 ${lk.d}</small></span></div>` : `<div class="ml-scene luck tap" data-act="luckroll"><i>🎲</i><span><b>오늘 운세 굴리기</b><small>이야기 속 하루에 한 번 · 선택지에 🍀 · ⚠</small></span><em>굴리기</em></div>`);
-    h += W('이 장면', `<div class="ml-scenes">${L.join('')}</div>`, '', '', 'scene');
-    // ✋ 지금 할 수 있는 일 · ⏳ 곧 일어날 일
-    { const L = doable(r); if (L.length) h += W('지금 할 수 있는 일', `<div class="ml-doable">${L.map(x => `<button class="ml-do${x.poor ? ' poor' : ''}" data-act="say" data-v="${esc(x.say)}"${x.poor ? ' disabled' : ''}><i>${x.icon}</i><span>`
-        + `<b>${esc(x.title)}</b><small>${esc(x.cost)}</small></span></button>`).join('')}</div>`, '', '', 'doable'); }
-    if (modOn('stats')) { const Wt = wantsOf(book, S); if (Wt.length) h += W('⭐ 원하는 것', `<div class="ml-doable">${Wt.map(w => `<button class="ml-do" data-act="say" data-v="${esc(w.say)}"><i>${w.icon}</i><span><b>${esc(w.text)}</b><small>${esc(w.srcName)} · 이루면 기분 +8</small>`
-        + `</span></button>`).join('')}</div>`, 'now', '', 'wants'); }
-    { const L = soon(r); if (L.length) h += W('곧 일어날 일', L.map(x => `<div class="ml-rl"><i>${x.icon}</i>${esc(x.text)} <span>${esc(x.when)}</span></div>`).join(''), '', '', 'soon'); }
+    put('이 장면', `<div class="ml-scenes">${L.join('')}</div>`, '', '', 'scene');
+    // ⏳ 곧 일어날 일
+    { const L = soon(r); if (L.length) put('곧 일어날 일', L.map(x => `<div class="ml-rl"><i>${x.icon}</i>${esc(x.text)} <span>${esc(x.when)}</span></div>`).join(''), '', '', 'soon'); }
+    // 🎵 지금 곡 (플레이어 모양)
+    if (modOn('music')) P.music = musicWidget(S);
     // 욕구 미니
-    if (modOn('stats')) h += W('수치', `<div class="ml-wneeds">${book.me.needs.map(n => { const v = Math.round(S.needs[n.key] ?? 0), st = needStage(v); return `<div class="${st === '위험' ? 'bad' : st === '주의' ? 'mid' : ''}"><span>${n.icon} ${esc(n.name)}</span><span `
+    if (modOn('stats')) put('수치', `<div class="ml-wneeds">${book.me.needs.map(n => { const v = Math.round(S.needs[n.key] ?? 0), st = needStage(v); return `<div class="${st === '위험' ? 'bad' : st === '주의' ? 'mid' : ''}"><span>${n.icon} ${esc(n.name)}</span><span `
         + `class="ml-bar ${st === '위험' ? 'bad' : st === '주의' ? 'mid' : ''}"><i style="width:${v}%"></i></span><b>${v}</b></div>`; }).join('')}`
         + `${book.me.gauges.map(g => { const v = Math.round(S.gauges[g.key] ?? g.start); return `<div><span>${esc(g.name)}</span><span class="ml-bar"><i style="width:${v / g.max * 100}%;background:${g.color}"></i></span><b>${v}</b></div>`; }).join('')}`
         + `</div>`, 'now', '', 'stats');
@@ -79,14 +74,14 @@ export function home(r) {
     if (modOn('dice')) {
         const ds = getDice(), attr = ds.attr || book.me.attrs[0]?.name || '', P = diceParts(book, S, attr, luckOf(book, S, ctx().getCurrentChatId?.(), meta.luckRoll)), on = level('dice') >= 3 || level('stats') >= 3;
         const mod = P.filter(x => on || x.why === attr || x.why.endsWith('착용')).reduce((a, x) => a + x.n, 0), hist = meta.recent?.rolls?.[0];
-        h += W('주사위', `<div class="ml-wdice"><button class="ml-dbtn" data-act="roll" data-v="${mod}`
+        put('주사위', `<div class="ml-wdice"><button class="ml-dbtn" data-act="roll" data-v="${mod}`
             + `" title="굴리기">${d20(hist?.d ?? 20, hist ? `${hist.res.includes('성공') ? 'ok' : 'no'}${hist.d === 20 ? ' crit' : hist.d === 1 ? ' fumble' : ''}` : '')}`
             + `</button><div><b>${esc(attr || '판정')} ${signed(mod)} · 목표 ${ds.dc}</b><small>${hist ? esc(hist.text) : '주사위를 눌러 굴려요'}</small></div>`
             + `</div>`, 'dice', '', 'dice');
     }
     // 같이 있는 사람
     if (modOn('rel') && S.with.length)
-        h += W(
+        put(
             '같이 있는 사람',
             S.with
                 .map((n) => {
@@ -106,20 +101,61 @@ export function home(r) {
             'with',
         );
     // 이번 답
-    const tc = turnCard(r, li); if (tc && vis('home', 'turn')) h += tc;
+    const tc = turnCard(r, li); if (tc) P.turn = tc;
     // 달력: 이번 주 + 다가오는 것
     if (modOn('calendar')) {
         const day0 = Math.floor(S.t / DAY), up = upcoming(r);
         const marks = (k) => { const dt = dateOf(book.world.start, (day0 + k) * DAY); const md = `${dt.m}/${dt.d}`; return up.filter(u => (u.t != null && Math.floor(u.t / DAY) === day0 + k) || u.md === md).length + (worldEvent(day0 + k) ? 1 : 0); };
         const week = Array.from({ length: 7 }, (_, k) => { const dt = dateOf(book.world.start, (day0 + k) * DAY), n = marks(k); return `<div class="${k === 0 ? 'today' : ''}"><small>${dt.w}</small><b>${dt.d}</b>${n ? '<i></i>' : ''}</div>`; }).join('');
-        h += W('달력', `<div class="ml-week">${week}</div>${up.slice(0, 3).map(u => `<div class="ml-rl"><i>${u.icon}</i>${esc(u.text)} <span>${u.t != null ? (u.t - S.t <= DAY ? '하루 안' : dateText(book.world.start, u.t, false)) : esc(u.md)}</span></div>`).join('')}`, 'cal', '', 'cal');
+        put('달력', `<div class="ml-week">${week}</div>${up.slice(0, 3).map(u => `<div class="ml-rl"><i>${u.icon}</i>${esc(u.text)} <span>${u.t != null ? (u.t - S.t <= DAY ? '하루 안' : dateText(book.world.start, u.t, false)) : esc(u.md)}</span></div>`).join('')}`, 'cal', '', 'cal');
     }
     // 소식
-    if (modOn('news')) { const N = [...(ev ? [{ icon: ev.icon ?? '🎌', text: ev.text }] : []), ...S.news.slice(0, 3)]; if (N.length) h += W('세계 소식', N.map(n => `<div class="ml-rl"><i>${n.icon}</i>${esc(n.text)}</div>`).join(''), 'news', '', 'news'); }
-    // 앱
-    const bd = badges(r);
-    h += `<div class="ml-apps">${APPS.filter(installed).map(a => `<button class="ml-app" data-act="open" data-v="${a.id}"><i style="--c:${a.c}">${a.icon}${bd[a.id] ? `<em class="ml-badge${bd[a.id] === '!' ? ' warn' : ''}">${bd[a.id]}</em>` : ''}</i><span>${a.name}</span></button>`).join('')}</div>`;
+    if (modOn('news')) { const N = [...(ev ? [{ icon: ev.icon ?? '🎌', text: ev.text }] : []), ...S.news.slice(0, 3)]; if (N.length) put('세계 소식', N.map(n => `<div class="ml-rl"><i>${n.icon}</i>${esc(n.text)}</div>`).join(''), 'news', '', 'news'); }
+    return holder(r, P);
+}
+
+
+// ───── 🏠 홈 꾸리기: 위젯 순서 · 숨기기 · 앱 순서 · 독 (✏️ 편집 모드 · 꾹 누르기) ─────
+export const W_NAMES = { hero: '🕰 시계 · 오늘', tags: '🏷 상태 딱지', music: '🎵 지금 곡', scene: '📜 이 장면 · 운세', soon: '⏳ 곧 일어날 일', stats: '❤️ 수치',
+    dice: '🎲 주사위', with: '👥 같이 있는 사람', turn: '🔁 이번 답', cal: '📅 달력', news: '📰 세계 소식' };
+const DEF_W = Object.keys(W_NAMES), DEF_DOCK = ['now', 'rel', 'map', 'cal'];
+export function homeCfg() {
+    const s = settings(); s.home ??= {}; const H = s.home;
+    if (!Array.isArray(H.order)) H.order = [...DEF_W];
+    for (const id of DEF_W) if (!H.order.includes(id)) H.order.push(id);
+    if (!Array.isArray(H.hidden)) H.hidden = [...(s.partsOff?.home ?? [])].filter(id => W_NAMES[id]); // 예전 「보일 것」을 옮겨 옴
+    if (!Array.isArray(H.apps)) H.apps = [];
+    if (!Array.isArray(H.dock)) H.dock = [...DEF_DOCK];
+    return H;
+}
+let editing = false;
+export const homeEditing = () => editing;
+export const setHomeEdit = (v) => { editing = !!v; };
+const appIcon = (a, bd) => `<button class="ml-app" data-act="open" data-v="${a.id}" data-app="${a.id}"><i style="--c:${a.c}">${a.icon}`
+    + `${bd[a.id] ? `<em class="ml-badge${bd[a.id] === '!' ? ' warn' : ''}">${bd[a.id]}</em>` : ''}</i><span>${a.name}</span></button>`;
+function holder(r, P) {
+    const H = homeCfg(), bd = badges(r);
+    let h = editing ? '<div class="ml-editbar"><span><b>✏️ 홈 편집</b><small>끌어서 순서 · 아래 독으로 옮기기 · ✕ 숨기기 · ＋ 다시 보이기</small></span>'
+        + '<button class="ml-btn xs main" data-act="home-done">완료</button></div>' : '';
+    for (const id of H.order) {
+        if (!W_NAMES[id]) continue;
+        const off = H.hidden.includes(id), body = P[id];
+        if (!editing && (off || !body)) continue;
+        h += `<div class="ml-wslot${off ? ' off' : ''}" data-w="${id}">${editing ? `<button class="ml-wx" data-act="w-toggle" data-v="${id}" title="${off ? '다시 보이기' : '숨기기'}">${off ? '＋' : '✕'}</button>` : ''}`
+            + `${body || `<section class="ml-w ghost"><h4>${W_NAMES[id]}</h4><small>지금은 보일 내용이 없어요</small></section>`}</div>`;
+    }
+    const all = APPS.filter(installed), rank = (a) => { const k = H.apps.indexOf(a.id); return k < 0 ? 999 + APPS.indexOf(a) : k; };
+    const dock = H.dock.map(appOf).filter(a => a && installed(a)).slice(0, 4), inDock = new Set(dock.map(a => a.id));
+    h += `<div class="ml-apps" data-zone="apps">${all.filter(a => !inDock.has(a.id)).sort((a, b) => rank(a) - rank(b)).map(a => appIcon(a, bd)).join('')}</div>`;
+    if (dock.length || editing) h += `<div class="ml-dock" data-zone="dock">${dock.map(a => appIcon(a, bd)).join('') || '<small>앱을 여기로 끌어 오세요 (4개까지)</small>'}</div>`;
     return h;
+}
+// 🎵 지금 곡 위젯 (플레이어 모양)
+function musicWidget(S) {
+    const b = S.bgm;
+    if (!b) return `<section class="ml-w ml-player" data-act="open" data-v="music"><div class="ml-pl-h"><i>🎵</i><span><b>아직 고른 곡이 없어요</b><small>장면 분위기가 바뀌면 골라요</small></span></div></section>`;
+    return `<section class="ml-w ml-player"><div class="ml-pl-h tap" data-act="open" data-v="music"><i>🎵</i><span><b>${esc(b.title)}</b><small>${esc(b.artist || '')}${b.mood ? ` · ${esc(b.mood)}` : ''}</small></span></div>`
+        + `<div class="ml-pl-bar"><i></i></div><div class="ml-pl-c"><span>⏮</span><a class="ml-pl-play" href="${esc(songLink(b))}" target="_blank" rel="noopener" title="듣기">▶</a><span>⏭</span></div></section>`;
 }
 // 🛍 마켓
 // ───── 첫 화면: 설정집이 없는 채팅 → 설정집 카드 하나만 ─────
@@ -180,38 +216,6 @@ export function cat() {
         <div class="ml-hint">위험할 땐 울먹, 밤엔 자는 얼굴로 저절로 바뀌어요 (평소 모습이 「평소」일 때).</div>`;
 }
 
-// ✋ 지금 할 수 있는 일 (미니 선택지 · 대가 미리 보기 · 영향력 0인 기능은 안 띄움)
-function doable(r) {
-    const { book, S } = r, out = [], here = placeOf(book, S.loc), mul = priceMul(S), nm = (k) => book.me.needs.find(n => n.key === k)?.name ?? k;
-    const fxT = (fx) => Object.entries(fx ?? {}).map(([k, v]) => `${nm(k)} ${signed(v)}`).join(' · ');
-    const low = [...book.me.needs].sort((a, b) => (S.needs[a.key] ?? 0) - (S.needs[b.key] ?? 0))[0];
-    if (modOn('wallet') && level('wallet') > 0 && here?.goods.length) {
-        const g = [...here.goods].sort((a, b) => num(b.fx?.[low?.key]) - num(a.fx?.[low?.key]) || a.price - b.price)[0], price = Math.round(g.price * mul);
-        out.push({ icon: '🛒', title: `${g.name} 사기`, cost: `−${price}${book.world.currency}${Object.keys(g.fx).length ? ` · ${fxT(g.fx)}` : ''}`, say: `${g.name} 하나 주세요.`, poor: S.cash < price });
-    }
-    if (modOn('stats') && level('stats') > 0 && here) {
-        if (Object.keys(here.rest).length || here.kind === 'home') out.push({ icon: '🛏', title: '쉬기', cost: fxT(here.rest) || '에너지 +10/시간', say: '잠깐 쉰다.' });
-        if (here.kind === 'bath') out.push({ icon: '🫧', title: '씻기', cost: '위생 +60', say: '씻는다.' });
-        if (here.kind === 'work') out.push({ icon: '💼', title: '일하기', cost: '에너지 −6/시간 · 돈 +', say: '일을 시작한다.' });
-    }
-    for (const it of S.items) if (modOn('stats') && Object.keys(it.fx).some(k => k === low?.key) && (S.needs[low.key] ?? 100) < 60) { out.push({ icon: '🍞', title: `${it.name} 먹기`, cost: fxT(it.fx), say: `${it.name}을(를) 먹는다.` }); break; }
-    if (modOn('rel') && level('rel') > 0) for (const n of S.with) { const x = S.rel[n]; const it = S.items.find(i => x?.seen.likes.some(l => i.name.includes(l))); if (it) { out.push({ icon: '🎁', title: `${n}에게 ${it.name}`, cost: '취향 저격 · 애정 +', say: `${n}에게 ${it.name}을(를) 건넨다.` }); break; } }
-    if (modOn('map') && level('map') > 0)
-        for (const p of book.people) {
-            const w = whereNow(book, S, p);
-            if (w?.place && w.place !== S.loc && !S.with.includes(p.name)) {
-                const pl = placeOf(book, w.place);
-                out.push({
-                    icon: PLACE_KINDS[pl?.kind] ?? '📍',
-                    title: `${w.place} 가기`,
-                    cost: `${p.face} ${p.name} 있음`,
-                    say: `${w.place}(으)로 간다.`,
-                });
-                break;
-            }
-        }
-    return out.slice(0, 4);
-}
 // ⏳ 곧 일어날 일 (미리 보기 · 시간순)
 function soon(r) {
     const { book, S } = r, out = [], H = (m) => (m < 60 ? `${Math.max(1, Math.round(m))}분 뒤` : m < 1440 ? `${Math.round(m / 60)}시간 뒤` : `${Math.round(m / 1440)}일 뒤`);
@@ -269,11 +273,27 @@ export function markSeen(appId, r) {
 // 🎨 꾸미기 — 직접 고르기 하나 (색 · 글꼴 · 글자 크기 · 모서리 · 테두리 · 그림자) · 바로 보임
 const SWATCH = ['#e07a5f', '#e0567f', '#7c5cff', '#3a8ee6', '#2f9e7a', '#f4a261', '#6c7a89', '#222222'];
 const FONTS = [['', '실리태번 글꼴'], ['Galmuri11', '갈무리 (도트)'], ['system-ui', '시스템'], ['serif', '명조']];
+// 🖼 배경화면 (CSS로만 만든 그라데이션 · 확장에 그림 파일 없음) + 내 사진
+export const WALLS = [
+    ['', '없음', 'var(--bg)'],
+    ['cream', '크림', 'linear-gradient(165deg,#fff6ea 0%,#fde4dc 55%,#eef0e4 100%)'],
+    ['peach', '복숭아', 'linear-gradient(170deg,#ffe0cc 0%,#ffbfa8 45%,#f2a6a6 100%)'],
+    ['lilac', '라벤더 노을', 'linear-gradient(180deg,#d8c4e6 0%,#f6c6d9 55%,#c9dcf5 100%)'],
+    ['sky', '하늘', 'linear-gradient(180deg,#b9dcff 0%,#d9eef7 50%,#fff8ec 100%)'],
+    ['mint', '민트', 'linear-gradient(160deg,#e3f5e6 0%,#c4e8cf 50%,#fbf8e8 100%)'],
+    ['night', '밤', 'linear-gradient(180deg,#25253f 0%,#4b4e6d 55%,#9a8c98 100%)'],
+];
+export const wallCss = (L) => (L.wall === 'img' && L.wallImg ? `url("${L.wallImg}") center/cover no-repeat` : WALLS.find(w => w[0] === L.wall)?.[2] ?? '');
 export function look() {
     const L = settings().look;
     const sl = (k, n, min, max, step) => `<div class="ml-gauge"><div class="ml-gauge-h"><b>${n}</b><span class="ml-pill">${L[k]}</span></div><input type="range" class="ml-range" min="${min}" max="${max}" step="${step}" value="${L[k]}" data-look="${k}"></div>`;
     return `<h4 class="ml-h4">강조색</h4><div class="ml-swatch">${SWATCH.map(c => `<button style="--c:${c}" class="${L.accent === c ? 'on' : ''}" data-act="look-set" data-v="accent|${c}"></button>`).join('')}<input type="color" data-look="accent" value="${L.accent}"></div>
         <h4 class="ml-h4">글꼴</h4><div class="ml-picks">${FONTS.map(([v, n]) => `<button class="ml-btn xs${L.font === v ? ' on' : ''}" data-act="look-set" data-v="font|${v}" style="font-family:${v || 'inherit'}">${n}</button>`).join('')}</div>
         <div class="ml-card">${sl('size', '글자 크기', 0.85, 1.3, 0.05)}${sl('radius', '모서리', 0, 24, 2)}${sl('border', '테두리 두께', 0, 3, 1)}${sl('shadow', '그림자', 0, 3, 1)}</div>
-        <div class="ml-acts">${btn('기본으로', 'look-reset', '', 'xs')}</div>`;
+        <h4 class="ml-h4">🖼 배경화면 <span>홈 화면 · 위젯은 유리처럼 비쳐요</span></h4>
+        <div class="ml-walls">${WALLS.map(([id, n, bg]) => `<button class="ml-wall${(L.wall ?? '') === id ? ' on' : ''}" data-act="look-set" data-v="wall|${id}" style="background:${bg}"><span>${n}</span></button>`).join('')}`
+        + `<label class="ml-wall up${L.wall === 'img' ? ' on' : ''}"${L.wallImg ? ` style="background:url('${L.wallImg}') center/cover"` : ''}><span>🖼 내 사진</span><input type="file" accept="image/*" data-wallfile hidden></label></div>
+        <div class="ml-card"><div class="ml-gauge"><div class="ml-gauge-h"><b>배경 어둡게</b><span class="ml-pill">${L.wallDim ?? 0}%</span></div><input type="range" class="ml-range" min="0" max="60" step="5" value="${L.wallDim ?? 0}" data-look="wallDim"></div></div>
+        <h4 class="ml-h4">앱 아이콘</h4><div class="ml-picks">${[['color', '컬러'], ['tone', '배경 톤에 맞춤']].map(([v, n]) => `<button class="ml-btn xs${(L.icons ?? 'color') === v ? ' on' : ''}" data-act="look-set" data-v="icons|${v}">${n}</button>`).join('')}</div>
+        <div class="ml-acts">${btn('기본으로', 'look-reset', '', 'xs')}${btn('✏️ 홈 편집', 'home-edit', '', 'xs')}</div>`;
 }

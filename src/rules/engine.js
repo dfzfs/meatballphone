@@ -781,7 +781,7 @@ export function fold(force = false) {
         if (!m.is_user && !m.is_system && i >= (meta.startAt ?? 0)) {
             S.mind = {}; S.watch = {}; S.cell = {}; S.turn++;
             const bk = bookFor(meta, i), x = makeCtx(bk, S, ch, flags);
-            const W = wantsOf(bk, S), P = { tasted: S.tasted?.length ?? 0, visited: S.visited?.length ?? 0, rolls: S.rolls?.length ?? 0, kept: (S.promises ?? []).filter(q => q.done).length, custom: JSON.stringify(S.custom) }; // ⭐ 이 답 전에 원하던 것 · 그때 개수
+            const W = null, P = { tasted: S.tasted?.length ?? 0, visited: S.visited?.length ?? 0, rolls: S.rolls?.length ?? 0, kept: (S.promises ?? []).filter(q => q.done).length, custom: JSON.stringify(S.custom) }; // ⭐ 이 답 전에 원하던 것 · 그때 개수
             for (const o of opsOf(m, bk)) { const n0 = ch.length; try { applyOp(bk, S, x, o.k, o.v, o.j, o.src, ch); } catch (e) { console.warn('[미트볼 라이트] 줄 건너뜀', o, e); } if (o.why) for (let q = n0; q < ch.length; q++) if (ch[q].src === o.src) ch[q].why = o.why; }
             for (const e of [...(S.mindLog ?? []), ...(S.bgmLog ?? []), ...(S.quoteLog ?? []), S.bgm, S.quote]) if (e) e.m ??= i; // 💭🎵📜 몇 번째 메시지에서 떴나
             afterTurn(bk, S, x, ch, W, i, P);
@@ -802,7 +802,7 @@ export function stateAt(i) {
     for (let j = k + 1; j <= i && j < chat.length; j++) {
         const m = chat[j]; if (m.is_user || m.is_system || j < (meta.startAt ?? 0)) continue;
         const ch = [], flags = []; S.mind = {}; S.watch = {}; S.cell = {}; S.turn++;
-        const bk = bookFor(meta, j), x = makeCtx(bk, S, ch, flags), W = wantsOf(bk, S), P = { tasted: S.tasted?.length ?? 0, visited: S.visited?.length ?? 0, custom: JSON.stringify(S.custom) };
+        const bk = bookFor(meta, j), x = makeCtx(bk, S, ch, flags), W = null, P = { tasted: S.tasted?.length ?? 0, visited: S.visited?.length ?? 0, custom: JSON.stringify(S.custom) };
         for (const o of opsOf(m, bk)) { try { applyOp(bk, S, x, o.k, o.v, o.j, o.src, ch); } catch { /* 건너뜀 */ } }
         afterTurn(bk, S, x, ch, W, j, P);
     }
@@ -836,85 +836,6 @@ export function whereNow(book, S, p) {
     return null;
 }
 
-// ⭐ 지금 원하는 것 — 늘 3개 · 상황 · 관계 · 지금 스탯에서 골고루 · 이야기 속 4시간 또는 5턴마다 바뀜 · 이루면 기분 +8
-//   후보마다 { src(어디서 왔나), w(뽑힐 무게) } · 급한 욕구(주의 이하)는 늘 먼저
-const WANT_SAY = { hunger: ['뭔가 먹기', '뭐 좀 먹을까.'], energy: ['좀 쉬기', '잠깐 쉬자.'], hygiene: ['씻기', '씻고 싶다.'], mood: ['기분 전환하기', '바람 좀 쐬자.'] };
-export const WANT_SRC = { need: '스탯', rel: '관계', sit: '상황', stat: '스탯' };
-const affUp = (ch) => ch.some(c => c.f.startsWith('rel.') && c.f.endsWith('.aff') && c.to > c.from), trustUp = (ch) => ch.some(c => c.f.startsWith('rel.') && c.f.endsWith('.trust') && c.to > c.from);
-const needUp = (k, n = 1) => (ch) => ch.some(c => c.f === `need.${k}` && c.to - c.from >= n && c.src !== 'time');
-const moved = (ch) => ch.some(c => c.f === 'loc'), bought = (ch) => ch.some(c => c.f === 'cash' && c.to < c.from);
-const rolled = (ch, S, P) => (S.rolls?.length ?? 0) > (P.rolls ?? 0), relDown = (ch) => ch.some(c => c.f.startsWith('rel.') && c.to < c.from);
-// 어디서든 할 수 있는 작은 바람 (후보가 모자랄 때 채움)
-const FILL = [
-    ['🚶', '산책하기', '잠깐 걸으러 나간다.', moved], ['☕', '따뜻한 거 마시기', '따뜻한 걸 한 잔 마신다.', needUp('mood')], ['💬', '누군가와 수다 떨기', '말을 걸어 본다.', (ch) => ch.some(c => c.f.startsWith('rel.') && c.to > c.from)],
-    ['🍪', '간식 먹기', '간식을 꺼낸다.', needUp('hunger')], ['🧹', '주변 정리하기', '주변을 정리한다.', needUp('hygiene')], ['📝', '오늘 일 돌아보기', '오늘 있었던 일을 떠올린다.', needUp('mood')],
-];
-const pick = (seed, w) => (parseInt(hash(seed), 36) % 1000) / 1000 * w;
-export function wantsOf(book, S) {
-    const C = [], add = (src, w, id, [icon, text, say, ok]) => C.push({ src, w, id, icon, text, say, ok });
-    const day = Math.floor(S.t / DAY), per = `${Math.floor(S.t / 240)}|${Math.floor((S.turn ?? 0) / 5)}`, done = new Set(S.wantsDone ?? []);
-    const h = Math.floor((((S.t % DAY) + DAY) % DAY) / 60), meal = book.world.meal || 10, pl = placeOf(book, S.loc), urgent = [];
-    // 스탯: 낮은 욕구 (주의 이하는 급함) · 돈 · 나쁜 딱지
-    for (const n of book.me.needs) {
-        const v = S.needs[n.key] ?? 100;
-        if (v >= 55) continue;
-        const [t, say] = WANT_SAY[n.key] ?? [`${n.name} 채우기`, `${n.name}부터 챙기자.`];
-        const wn = {
-            src: 'need',
-            w: 3 + (55 - v) / 10,
-            id: `need-${n.key}`,
-            icon: n.icon,
-            text: t,
-            say,
-            ok: (ch) => ch.some((c) => c.f === `need.${n.key}` && c.to > c.from && c.src !== 'time'),
-        };
-        (v < 40 ? urgent : C).push(wn);
-    }
-    if (S.cash < meal * 2) add('stat', 2.5, 'cash-low', ['🪙', '돈 좀 벌기', '일거리를 찾아본다.', (ch) => ch.some(c => c.f === 'cash' && c.to > c.from)]);
-    else if (S.cash > meal * 20) add('stat', 1.2, 'cash-high', ['🛍️', '나를 위해 하나 사기', '나를 위한 선물을 고른다.', bought]);
-    const bad = S.status.find(st => st.kind === 'bad'); if (bad) add('stat', 2, `st-${bad.name}`, ['🩹', `${bad.name} 털어내기`, `${bad.name}부터 어떻게 해 보자.`, (ch) => ch.some(c => c.f === `status.${bad.name}` && c.to === '풀림') || needUp('mood', 3)(ch)]);
-    // 관계: 같이 있는 사람 먼저, 없으면 가까운 사람
-    const live = Object.entries(S.rel).filter(([, r]) => !r.gone), near = S.with.filter(n => S.rel[n] && !S.rel[n].gone);
-    for (const n of (near.length ? near : live.sort((x, y) => (y[1].aff + y[1].trust) - (x[1].aff + x[1].trust)).slice(0, 2).map(([k]) => k)).slice(0, 3)) {
-        const r = S.rel[n], here = near.includes(n), nx = nextStage(book, r.aff, n);
-        const it = here && S.items.find(i => r.seen.likes.some(l => i.name.includes(l)));
-        if (it) add('rel', 3, `gift-${n}`, ['🎁', `${n}에게 ${it.name} 주기`, `${n}에게 ${it.name}을(를) 건넨다.`, (ch) => ch.some(c => c.f === `rel.${n}.aff` && /🎁/.test(c.why ?? ''))]);
-        else if (r.seen.likes[0] && !here) add('rel', 1.5, `like-${n}`, ['🛒', `${n}가 좋아하는 ${r.seen.likes[0]} 구하기`, `${r.seen.likes[0]}을(를) 구하러 간다.`, (ch) => ch.some(c => c.f === 'item' && c.from === 0 && c.label.includes(r.seen.likes[0]))]);
-        if (r.jealous) add('rel', 3, `soothe-${n}`, ['🫂', `${n} 달래 주기`, `${n}의 기분을 풀어 준다.`, relUpOf(n, 'trust')]);
-        else if (r.trust <= 5 || r.trust < (personOf(book, n)?.start?.trust ?? 10) - 3) add('rel', 2, `mend-${n}`, ['🕊️', `${n}와(과) 화해하기`, `${n}에게 먼저 사과한다.`, relUpOf(n, 'trust')]);
-        if (here && nx && nx.at - r.aff <= 8) add('rel', 2.5, `step-${n}`, ['💞', `${n}와(과) 한 걸음 더 (${nx.name})`, `${n}에게 한 걸음 다가간다.`, relUpOf(n, 'aff')]);
-        if (r.want) add('rel', 2, `their-${n}`, ['🙏', `${n}의 바람 들어주기: ${short(r.want, 14)}`, `${n}이(가) 원하던 걸 해 준다.`, (ch) => ch.some(c => c.f.startsWith(`rel.${n}.`) && c.to > c.from)]);
-        if (here && !r.seen.likes.length) add('rel', 1.2, `taste-${n}`, ['🔍', `${n} 취향 알아내기`, `${n}에게 좋아하는 걸 묻는다.`, (ch) => ch.some(c => c.f.startsWith(`rel.${n}.`) && /취향/.test(c.why ?? ''))]);
-    }
-    if (!near.length && live.length) add('sit', 1.5, 'meet', ['👋', '누군가 만나러 가기', '누굴 만나러 갈까.', (ch, S2) => S2.with.length > 0]);
-    // 상황: 시간 · 날씨 · 장소 · 세계 사건
-    if ((h >= 22 || h < 5) && (S.needs.energy ?? 100) < 80) add('sit', 2.5, 'sleep', ['🌙', '푹 자기', '잘 준비를 한다.', needUp('energy', 10)]);
-    if (h >= 6 && h < 10) add('sit', 1.5, 'breakfast', ['🥐', '아침 챙겨 먹기', '아침을 먹는다.', needUp('hunger')]);
-    if (h >= 18 && h < 21) add('sit', 1.2, 'dinner', ['🍲', '저녁 맛있게 먹기', '저녁을 먹으러 간다.', needUp('hunger')]);
-    if (/비|눈|폭우|폭설|rain|snow/i.test(S.weather)) add('sit', 1.8, 'wet', [/눈|snow/i.test(S.weather) ? '⛄' : '☔', '따뜻한 곳에서 쉬기', '비를 피해 따뜻한 곳으로 간다.', (ch) => needUp('energy')(ch) || needUp('mood')(ch) || moved(ch)]);
-    else if (/맑|화창|clear|sun/i.test(S.weather) && !isHome(book, S)) add('sit', 1.2, 'sunny', ['🌤️', '햇볕 쬐며 걷기', '햇볕 아래를 걷는다.', moved]);
-    const ev = worldEvent(day); if (ev) add('sit', 1.6, `ev-${ev.name}`, ['🎌', `${ev.name} 보내기`, `${ev.name}을 어떻게 보낼지 정한다.`, (ch) => bought(ch) || moved(ch)]);
-    if (/shop|food/.test(pl?.kind ?? '') && pl.goods?.length) {
-        const g = pl.goods[parseInt(hash(per + pl.name), 36) % pl.goods.length];
-        add('sit', 2, `here-${g.name}`, [
-            pl.kind === 'food' ? '🍽️' : '🛒',
-            `여기서 ${g.name} ${pl.kind === 'food' ? '먹어 보기' : '사 보기'}`,
-            `${g.name}을(를) 고른다.`,
-            (ch) => ch.some((c) => c.label === g.name || (c.why ?? '').includes(g.name)),
-        ]);
-    }
-    const unseen = book.world.places.filter(p => !(S.visited ?? []).includes(p.name) && p.name !== S.loc);
-    if (unseen.length) { const p = unseen[parseInt(hash(per + 'p'), 36) % unseen.length]; add('sit', 1.3, `go-${p.name}`, ['📍', `${p.name}에 가 보기`, `${p.name}(으)로 가 본다.`, (ch) => ch.some(c => c.f === 'loc' && c.to === p.name)]); }
-    // 뽑기: 급한 욕구 → 나머지는 무게 × 시드 (같은 출처는 한 번 · 모자라면 같은 출처도)
-    const ok = (w) => !done.has(`${day}|${w.id}`);
-    const out = urgent.filter(ok).sort((a, b) => b.w - a.w).slice(0, 2);
-    const rest = C.filter(w => ok(w) && !out.some(o => o.id === w.id)).map(w => ({ ...w, r: pick(`${per}|${w.id}`, w.w) })).sort((a, b) => b.r - a.r);
-    for (const w of rest) if (out.length < 3 && !out.some(o => o.src === w.src)) out.push(w);
-    for (const w of rest) if (out.length < 3 && !out.includes(w)) out.push(w);
-    for (const [j, f] of FILL.map((f, j) => [j, f]).sort((a, b) => pick(`${per}|f${a[0]}`, 1) - pick(`${per}|f${b[0]}`, 1))) { if (out.length >= 3) break; const w = { src: 'sit', id: `fill-${j}`, icon: f[0], text: f[1], say: f[2], ok: f[3] }; if (ok(w)) out.push(w); }
-    return out.slice(0, 3).map(w => ({ ...w, srcName: WANT_SRC[w.src] ?? '', key: `${day}|${w.id}` }));
-}
-const relUpOf = (n, ax) => (ch) => ch.some(c => c.f === `rel.${n}.${ax}` && c.to > c.from);
 function afterTurn(book, S, x, ch, W, i, P) {
     // 🧩 내 탭: 「높음」 경계를 넘는 순간 → 경계 문구 (본편 힌트) + 다른 칸과 연결 (예: 「기분 -5」)
     const before = JSON.parse(P.custom || '{}');
@@ -924,11 +845,6 @@ function afterTurn(book, S, x, ch, W, i, P) {
             ch.push({ f: `custom.${t.name}.${f.name}`, label: `${t.name} · ${f.name} 높음`, icon: t.icon || '🧩', from: a, to: b, why: f.say || '경계를 넘음', src: 'auto', sure: true, i, cross: true, say: f.say });
             const m = /^(.+?)\s*([+\-−]\s*\d+)/.exec(f.link ?? ''); if (m) { const nd = x.need(m[1].trim()); const d = Number(m[2].replace(/\s/g, '').replace('−', '-')); if (nd) x.setNeed(nd.key, d, `🧩 ${f.name} 높음`, 'auto', true, i); }
         }
-    }
-    for (const w of W) if (w.ok(ch, S, P)) {
-        S.wantsDone = [...(S.wantsDone ?? []), w.key].slice(-30);
-        ch.push({ f: `want.${w.id}`, label: '원하던 것', icon: '⭐', from: '', to: '이룸', why: w.text, src: 'auto', sure: true, i, kind: 'good' });
-        x.setNeed('mood', 8, `⭐ ${w.text}`, 'auto', true, i);
     }
 }
 
