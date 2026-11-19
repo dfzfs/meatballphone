@@ -3,7 +3,7 @@ import { app, ctx, settings, getMeta, saveMeta, modOn, ready, TITLE } from '../b
 import { esc, dateText, slotName, short, fmt } from '../base/util.js';
 import { fold, derived, needStage } from '../rules/engine.js';
 import { placeOf } from '../rules/book.js';
-import { RENDER, onAct, changeRow, setRecFilter } from './tabs.js';
+import { RENDER, onAct, changeRow, setRecFilter, bindMapDrag } from './tabs.js';
 import { home, market, cat, look, appOf, installed, markSeen } from './home.js';
 import { toolbar, onTool, TOOL_ACTS, applyGloss } from './tools.js';
 import { applyTr, trOn, trBusy } from '../extra/translate.js';
@@ -59,6 +59,7 @@ export function openSheet(tab = 'home') {
         document.body.appendChild(el);
         el.addEventListener('click', clickHandler);
         el.addEventListener('change', changeHandler);
+        bindMapDrag(el);
     }
     drawSheet();
     document.body.classList.add('ml-open');

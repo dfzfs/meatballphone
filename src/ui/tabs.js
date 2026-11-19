@@ -187,24 +187,27 @@ export function personSheet(r, name) {
     sheet(`${p?.face || '🙂'} ${esc(name)}`, `<div class="ml-rcs">${relCard(r, name, true)}</div>${L.join('')}`);
 }
 // ───── 지도: dev 노선도 · 인물 핀 · 건물 정면도 + 「지금 가면 누구를 만날지」 · 장소마다 회복 · 물가 · 사건 ─────
-let mapSel = null;
+let mapSel = null, mapEdit = false;
 export const setMapSel = (v) => { mapSel = v; };
+export const mapEditing = () => mapEdit;
 function map(r) {
-    const { book, S } = r, places = book.world.places;
-    if (!places.length) return empty('설정집에 장소가 없어요.', '장소 넣기', 'tab-book');
+    const { book, S } = r, meta = getMeta(), st = meta.mapStyle ?? {}, hide = new Set(meta.mapHide ?? []);
+    const places = book.world.places.filter(p => !hide.has(p.name) || p.name === S.loc);
+    if (!book.world.places.length) return empty('설정집에 장소가 없어요.', '장소 넣기', 'tab-book');
     const sl = slotName(S.t), ev = worldEvent(Math.floor(S.t / DAY)), mul = priceMul(S);
     const at = new Map(); // 장소 → [{ e, name, why }]
-    for (const p of book.people) { const w = whereNow(book, S, p); if (w?.place) { const k = placeOf(book, w.place)?.name ?? w.place; (at.get(k) ?? at.set(k, []).get(k)).push({ e: p.face, name: p.name, why: w.why }); } }
-    const { pos, pairs, adj } = layout(places);
+    const pinOK = (n) => !meta.mapPins || meta.mapPins.includes(n);
+    for (const p of book.people) { if (!pinOK(p.name)) continue; const w = whereNow(book, S, p); if (w?.place) { const k = placeOf(book, w.place)?.name ?? w.place; (at.get(k) ?? at.set(k, []).get(k)).push({ e: p.face, name: p.name, why: w.why }); } }
+    const { pos, pairs, adj } = layout(places, st.pos ?? {});
     const sel = placeOf(book, mapSel) ?? placeOf(book, S.loc) ?? places[0];
     const path = route(adj, placeOf(book, S.loc)?.name, sel.name), onPath = new Set(path.slice(1).map((n, i) => [path[i], n].sort().join('|')));
     for (const e of pairs) e.route = onPath.has(e.key);
-    const net = lineEdges(pairs, pos);
-    const nodes = lineNodes(places, { pos, here: S.loc, sel: sel.name, net, pins: (p) => at.get(p.name) ?? [] });
+    const net = lineEdges(pairs, pos, st, { edit: mapEdit });
+    const nodes = lineNodes(places, { pos, here: S.loc, sel: sel.name, net, st, edit: mapEdit, pins: (p) => at.get(p.name) ?? [] });
     const [x0, y0, x1, y1] = nodes.ext, pad = 4;
     const svg = `<svg class="ml-map" viewBox="${x0 - pad} ${y0 - pad} ${x1 - x0 + pad * 2} ${y1 - y0 + pad * 2}" preserveAspectRatio="xMidYMid meet"><g class="edges">${net.svg}</g>${nodes.svg}</svg>`;
     const V = (k) => vis('map', k);
-    let h = `<div class="ml-maphead"><span>📍 지금 <b>${esc(S.loc || '어딘가')}</b> · ${sl}</span>${ev ? `<span class="ml-pill ${ev.kind === 'good' ? 'good' : ev.kind === 'bad' ? 'bad' : 'love'}">🎪 ${esc(ev.name)}</span>` : ''}</div>${V('map') ? `<div class="ml-mapwrap">${svg}</div>` : ''}`;
+    let h = `<div class="ml-maphead"><span>📍 지금 <b>${esc(S.loc || '어딘가')}</b> · ${sl}</span>${btn(mapEdit ? '✅ 꾸미기 끝' : '🎨 노선 꾸미기', 'map-edit', '', `xs${mapEdit ? ' on' : ''}`)}${ev ? `<span class="ml-pill ${ev.kind === 'good' ? 'good' : ev.kind === 'bad' ? 'bad' : 'love'}">🎪 ${esc(ev.name)}</span>` : ''}</div>${V('map') ? `<div class="ml-mapwrap${mapEdit ? ' editing' : ''}">${svg}</div>` : ''}${mapEdit ? `<div class="ml-hint">역을 끌어서 옮기고, 역 · 노선을 누르면 색 · 모양을 바꿔요.</div><div class="ml-acts">${btn('📍 핀 인물 고르기', 'map-pins', '', 'xs')}${btn('↺ 자리 처음대로', 'map-reset', '', 'xs')}${hide.size ? btn(`👁 숨긴 장소 ${hide.size}곳`, 'map-unhide', '', 'xs') : ''}</div>` : ''}`;
     const who = [...at.entries()].flatMap(([pl, L]) => L.map(x => ({ ...x, pl })));
     if (who.length && V('pins')) h += `<div class="ml-pinrow">${who.map(x => `<span class="ml-pin tap" data-act="mapsel" data-v="${esc(x.pl)}" title="${esc(x.why)}">${x.e} ${esc(x.name)} <small>${esc(x.pl)}</small></span>`).join('')}</div>`;
     h += placeCard(r, sel, at.get(sel.name) ?? [], path, ev, mul);
@@ -394,6 +397,27 @@ export async function onAct(act, v, el) {
         case 'quote': { sheet('한 구절', `<p class="ml-quote">${esc(v).replace(/\n/g, '<br>')}</p>`); const t = el?.querySelector('b')?.textContent; if (t) { meta.recent.quote = [t, ...(meta.recent.quote ?? [])].slice(0, 8); saveMeta(); } return; }
         case 'person': personSheet(r, v); return;
         case 'mapsel': setMapSel(v); app.refresh?.(); return;
+        case 'map-edit': mapEdit = !mapEdit; app.refresh?.(); return;
+        case 'map-edge': {
+            const st = (meta.mapStyle ??= {}), e = (st.e ??= {}), cur = e[v] ?? {};
+            const { LINE_COLORS, BENDS, EDGE_W } = await import('./metro.js');
+            const fv = await form(`🚇 ${esc(v.replace('|', ' ↔ '))}`, [{ k: 'c', label: '색', type: 'pick', v: cur.c ?? '', opts: [['', '자동'], ...LINE_COLORS.map(c => [c, `<i class="ml-dot" style="background:${c}"></i>`])] }, { k: 'w', label: '굵기', type: 'pick', v: cur.w ?? 'n', opts: [['thin', '얇게'], ['n', '보통'], ['thick', '굵게']] }, { k: 'bend', label: '꺾임', type: 'pick', v: cur.bend ?? 'auto', opts: Object.entries(BENDS) }]);
+            if (!fv) return; e[v] = { c: fv.c, w: fv.w, bend: fv.bend }; saveMeta(); app.refresh?.(); return;
+        }
+        case 'map-node': {
+            if (dragMoved) return; const st = (meta.mapStyle ??= {}), sS = (st.s ??= {}), cur = sS[v] ?? {};
+            const { LINE_COLORS, STN_SHAPES } = await import('./metro.js');
+            const fv = await form(`📍 ${esc(v)}`, [{ k: 'shape', label: '모양', type: 'pick', v: cur.shape ?? 'circle', opts: Object.entries(STN_SHAPES) }, { k: 'c', label: '색', type: 'pick', v: cur.c ?? '', opts: [['', '노선 색'], ...LINE_COLORS.map(c => [c, `<i class="ml-dot" style="background:${c}"></i>`])] }, { k: 'hide', label: '지도에서', type: 'pick', v: '', opts: [['', '보이기'], ['hide', '숨기기']] }]);
+            if (!fv) return; sS[v] = { shape: fv.shape, c: fv.c }; if (fv.hide) meta.mapHide = [...new Set([...(meta.mapHide ?? []), v])]; saveMeta(); app.refresh?.(); return;
+        }
+        case 'map-pins': {
+            const ppl = meta.book.people.map(p => p.name), on = new Set(meta.mapPins ?? ppl);
+            sheet('📍 핀으로 띄울 인물', `<div class="ml-card">${ppl.map(n => `<label class="ml-row"><span class="ml-tx"><b>${personOf(meta.book, n)?.face} ${esc(n)}</b></span><input type="checkbox" class="ml-sw" data-pin="${esc(n)}" ${on.has(n) ? 'checked' : ''}></label>`).join('')}</div>`);
+            document.querySelector('.ml-bs').addEventListener('change', (e2) => { const n = e2.target.dataset.pin; if (!n) return; e2.target.checked ? on.add(n) : on.delete(n); meta.mapPins = on.size === ppl.length ? null : [...on]; saveMeta(); app.refresh?.(); });
+            return;
+        }
+        case 'map-reset': if (meta.mapStyle) meta.mapStyle.pos = {}; saveMeta(); app.refresh?.(); return;
+        case 'map-unhide': meta.mapHide = []; saveMeta(); app.refresh?.(); return;
         case 'photo': { const url = await pickPhoto(); if (url == null) return; const pl = placeOf(meta.book, v); if (!pl) return; pl.photo = url; saveMeta(); app.refresh?.(true); toast(url ? '사진을 붙였어요' : '사진을 뺐어요'); return; }
         case 'packget': {
             const m = await import('./mascot.js'); el?.classList.add('loading'); if (el) el.textContent = '';
@@ -567,4 +591,27 @@ async function pickPhoto() {
         };
         inp.click();
     });
+}
+
+// 🖐 꾸미기 중 역 끌어서 옮기기 (격자에 맞춤 · 놓으면 저장)
+let drag = null, dragMoved = false;
+export function bindMapDrag(root) {
+    root.addEventListener('pointerdown', (e) => {
+        const g = e.target.closest('.ml-mapwrap.editing .node'); if (!g) return;
+        const svg = g.ownerSVGElement, pt = svg.createSVGPoint(), ctm = svg.getScreenCTM().inverse();
+        drag = { g, name: g.dataset.v, x0: Number(g.dataset.x), y0: Number(g.dataset.y), sx: e.clientX, sy: e.clientY, svg, pt, ctm, nx: null, ny: null }; dragMoved = false;
+        g.setPointerCapture?.(e.pointerId);
+    });
+    root.addEventListener('pointermove', (e) => {
+        if (!drag) return; const { pt, ctm } = drag; pt.x = e.clientX; pt.y = e.clientY; const p = pt.matrixTransform(ctm);
+        const p0 = (() => { pt.x = drag.sx; pt.y = drag.sy; return pt.matrixTransform(ctm); })();
+        const nx = Math.round((drag.x0 + p.x - p0.x) / 6) * 6, ny = Math.round((drag.y0 + p.y - p0.y) / 6) * 6;
+        if (Math.abs(e.clientX - drag.sx) + Math.abs(e.clientY - drag.sy) > 4) dragMoved = true;
+        drag.nx = nx; drag.ny = ny; drag.g.setAttribute('transform', `translate(${nx - drag.x0} ${ny - drag.y0})`);
+    });
+    const end = () => {
+        if (!drag) return; const d = drag; drag = null;
+        if (dragMoved && d.nx != null) { const meta = getMeta(); const st = (meta.mapStyle ??= {}); (st.pos ??= {})[d.name] = { x: d.nx, y: d.ny }; saveMeta(); app.refresh?.(); setTimeout(() => { dragMoved = false; }, 50); }
+    };
+    root.addEventListener('pointerup', end); root.addEventListener('pointercancel', end);
 }

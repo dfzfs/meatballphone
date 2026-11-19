@@ -79,8 +79,8 @@ export function normPlace(p) {
         rest: fxOf(p.rest),
         note: line(p.note, 40),
         photo: typeof p.photo === 'string' && /^(data:image\/(jpeg|png|webp);base64,|https?:\/\/)/.test(p.photo) && p.photo.length < 400000 ? p.photo : '',
-        x: Number.isFinite(Number(p.x)) && p.x !== '' && p.x != null ? clamp(num(p.x), 0, 100) : null,
-        y: Number.isFinite(Number(p.y)) && p.y !== '' && p.y != null ? clamp(num(p.y), 0, 100) : null,
+        x: Number.isFinite(Number(p.x)) && p.x !== '' && p.x != null ? clamp(num(p.x), 0, 600) : null,
+        y: Number.isFinite(Number(p.y)) && p.y !== '' && p.y != null ? clamp(num(p.y), 0, 600) : null,
     };
 }
 // 효과 { hunger: +30 } — 아는 욕구 키만

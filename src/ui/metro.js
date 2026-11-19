@@ -83,7 +83,7 @@ export function lineEdges(pairs, pos, st = {}, o = {}) {
         note(dirs, e.a, s.da); note(dirs, e.b, s.db); note(lines, e.a, n); note(lines, e.b, n);
         base += `<path class="ln ${e.unk ? 'unk' : ''} ${o.sel === e.key ? 'sel' : ''}" data-k="${esc(e.key)}" style="--c:${c};--w:${w}" d="${s.d}"/>`;
         if (e.route) top += `<path class="ln route" d="${s.d}"/>`;
-        if (o.edit) hits += `<path class="ln hit" data-act="mapedsel" data-arg="e:${esc(e.key)}" d="${s.d}"><title>${esc(e.a)} ↔ ${esc(e.b)}</title></path>`;
+        if (o.edit) hits += `<path class="ln hit" data-act="map-edge" data-v="${esc(e.key)}" d="${s.d}"><title>${esc(e.a)} ↔ ${esc(e.b)}</title></path>`;
     }
     return { svg: base + top + hits, dirs, lines, lineOf, colorOf };
 }
@@ -99,7 +99,14 @@ export function pinBubble(cx, tipY, list) {
 
 
 // ───── 역 (장소) — dev lineNodes를 줄여 옮김: 이름표는 길 · 다른 이름표와 안 겹치는 쪽으로 ─────
-function stn(cx, cy, r) { return `<circle class="stn" cx="${cx}" cy="${cy}" r="${r}"/>`; }
+// 역 모양 (dev와 같음)
+export const STN_SHAPES = { circle: '동그라미', square: '네모', diamond: '마름모', tri: '세모' };
+function stn(cx, cy, r, shape = 'circle') {
+    if (shape === 'square') return `<rect class="stn" x="${R(cx - r * 0.92)}" y="${R(cy - r * 0.92)}" width="${R(r * 1.84)}" height="${R(r * 1.84)}" rx=".7"/>`;
+    if (shape === 'diamond') return `<polygon class="stn" points="${R(cx)},${R(cy - r * 1.2)} ${R(cx + r * 1.2)},${R(cy)} ${R(cx)},${R(cy + r * 1.2)} ${R(cx - r * 1.2)},${R(cy)}"/>`;
+    if (shape === 'tri') return `<polygon class="stn" points="${R(cx)},${R(cy - r * 1.25)} ${R(cx + r * 1.2)},${R(cy + r * 0.85)} ${R(cx - r * 1.2)},${R(cy + r * 0.85)}"/>`;
+    return `<circle class="stn" cx="${cx}" cy="${cy}" r="${r}"/>`;
+}
 const textW = (t) => { let w = 0; for (const ch of String(t)) w += ch.codePointAt(0) > 0x2000 ? 3.4 : 2; return w; };
 const hit = (a, b) => a[0] < b[0] + b[2] && b[0] < a[0] + a[2] && a[1] < b[1] + b[3] && b[1] < a[1] + a[3];
 export function lineNodes(places, o) {
@@ -121,17 +128,17 @@ export function lineNodes(places, o) {
             });
         const lb = cands.reduce((m, c) => (c.score > m.score ? c : m), cands[0]);
         taken.push(lb.box); grow(lb.box); grow([cx - 6, cy - (pins.length ? 12 : 6), 12, pins.length ? 18 : 12]);
-        const c = ls.length ? LINE_COLORS[ls[0] % LINE_COLORS.length] : 'var(--sub)';
-        return `<g class="node ${here ? 'here' : ''} ${isSel ? 'sel' : ''} ${xfer ? 'xfer' : ''}" style="--c:${c}" data-act="mapsel" data-v="${esc(p.name)}">
+        const ss = o.st?.s?.[p.name] ?? {}, c = /^#[0-9a-f]{6}$/i.test(ss.c ?? '') ? ss.c : ls.length ? (o.net.colorOf?.get([...o.net.lineOf.entries()].find(([, n]) => n === ls[0])?.[0]) ?? LINE_COLORS[ls[0] % LINE_COLORS.length]) : 'var(--sub)';
+        return `<g class="node ${here ? 'here' : ''} ${isSel ? 'sel' : ''} ${xfer && !ss.c ? 'xfer' : ''}" style="--c:${c}" data-act="${o.edit ? 'map-node' : 'mapsel'}" data-v="${esc(p.name)}" data-x="${cx}" data-y="${cy}">
             <circle class="hitbox" cx="${cx}" cy="${cy}" r="5"/>${here ? `<circle class="ring" cx="${cx}" cy="${cy}" r="5.2"/>` : ''}${isSel ? `<circle class="halo" cx="${cx}" cy="${cy}" r="${xfer ? 4.3 : 3.8}"/>` : ''}
-            ${stn(cx, cy, xfer ? 2.9 : 2.3)}${here ? `<circle class="me" cx="${cx}" cy="${cy}" r="1.25"/>` : ''}
+            ${stn(cx, cy, xfer ? 2.9 : 2.3, STN_SHAPES[ss.shape] ? ss.shape : 'circle')}${here ? `<circle class="me" cx="${cx}" cy="${cy}" r="1.25"/>` : ''}
             <text class="lb" x="${R(cx + lb.dx)}" y="${R(cy + lb.dy)}" style="text-anchor:${lb.anchor}"><tspan class="pi">${esc(ico)} </tspan><tspan class="pn">${esc(nm)}</tspan>${p.floors?.length ? `<tspan class="pf"> ${p.floors.length}층</tspan>` : ''}</text>
             ${pinBubble(cx, cy - 3.2, pins)}</g>`;
     }).join('');
     return { svg, ext };
 }
 // ───── 자리 잡기: x · y가 있으면 그대로, 없으면 이어진 곳을 따라 격자에 (오른쪽 → 아래 → 위 → 왼쪽 → 대각선) ─────
-export function layout(places) {
+export function layout(places, over = {}) {
     const flat = new Map(), names = places.map(p => p.name), byN = new Map(places.map(p => [norm(p.name), p]));
     const adj = new Map(names.map(n => [n, new Set()]));
     for (const p of places) for (const q of p.near ?? []) { const t = byN.get(norm(q)); if (t && t.name !== p.name) { adj.get(p.name).add(t.name); adj.get(t.name).add(p.name); } }
@@ -153,7 +160,7 @@ export function layout(places) {
         }
         col = Math.max(...[...flat.values()].map(v => v.x / STEP)) + 3;
     }
-    const pos = linePos([...flat]);
+    const pos = linePos([...flat], over);
     // 이어진 곳이 하나도 없으면 설정집 순서대로 한 노선으로 잇는다
     let pairs = [];
     const seen = new Set();
