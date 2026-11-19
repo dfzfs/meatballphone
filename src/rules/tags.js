@@ -54,6 +54,7 @@ export const KEYMAP = Object.fromEntries(
         ...K('newsline', 'newsline', 'worldnews', '세계소식'),
         ...K('feed', 'feed', 'sns', '피드'),
         ...K('meddle', 'meddle', 'touch', '손댐', '낙서'),
+        ...K('noted', 'noted', 'noticed', '메모봄'),
         // 옛 미트볼(dev)에서 쓰던 다른 이름들 — 옮긴 채팅 · 옛 프리셋도 그대로 읽힘
         ...K('status', 'conditions'),
         ...K('item', 'inv', 'bag', '가방', '인벤토리'),

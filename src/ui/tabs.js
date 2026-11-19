@@ -14,6 +14,8 @@ import { musicView, quoteView, songLine, quoteLine, musicAct } from './music.js'
 import { LEVELS, GAUGES, PRESETS, level, gaugeCfg, levelCost } from '../rules/inject.js';
 import { fillBook } from '../rules/ai.js';
 import { newsView, newsAct } from './newskinds.js';
+import { calBar, calTabView, calCell, calDayExtra, calSettings, calAct } from './calplus.js';
+import { ddaysOn } from '../rules/calplus.js';
 
 const lastAI = () => { const c = ctx().chat ?? []; for (let i = c.length - 1; i >= 0; i--) if (!c[i].is_user && !c[i].is_system) return i; return -1; };
 const money = (r, n) => `${fmt(n)} ${esc(r.book.world.currency)}`;
@@ -412,19 +414,21 @@ function eventsOnDay(r, y, m, d) {
     for (const p of book.people) { const md = /(\d{1,2})\s*[월/.]\s*(\d{1,2})/.exec(p.day || S.rel[p.name]?.day || ''); if (md && Number(md[1]) === m && Number(md[2]) === d) out.push({ icon: '🎂', text: `${p.name} · ${p.day}` }); }
     const me = /(\d{1,2})\s*[월/.]\s*(\d{1,2})/.exec(book.me.day || ''); if (me && Number(me[1]) === m && Number(me[2]) === d) out.push({ icon: '🎉', text: '내 생일' });
     if (day >= 0) { const ev = worldEvent(day); if (ev) out.push({ icon: ev.icon ?? '🎌', text: ev.text }); }
+    out.push(...ddaysOn(day));
     return { out, day };
 }
 function cal(r) {
+    const cpv = calTabView(r); if (cpv) return cpv; // 📌 D-day · ✅ 할 일 탭
     const { book, S } = r, now = dateOf(book.world.start, S.t), today = Math.floor(S.t / DAY);
     calView ??= { y: now.y, m: now.m };
     const st0 = book.world.start, WK = st0.cal?.week?.length ? st0.cal.week : '일월화수목금토'.split(''), { y, m } = calView, days = monthDays(st0, y, m), first = Math.max(0, WK.indexOf(weekName(st0, dayIndexOf(st0, y, m, 1))));
-    let h = `<div class="ml-today"><div class="ml-hero-d"><small>${esc(now.mn)}</small><b>${now.d}</b><small>${now.w}요일</small></div><div class="ml-hero-b">`
+    let h = calBar() + `<div class="ml-today"><div class="ml-hero-d"><small>${esc(now.mn)}</small><b>${now.d}</b><small>${now.w}요일</small></div><div class="ml-hero-b">`
         + `<small>오늘${st0.cal?.months ? '' : ` · ${SEASON(now.m)}`}</small><b>${dateText(book.world.start, S.t)}</b><span>🌦 ${esc(S.weather || '-')}`
         + ` ${btn('날씨', 'c-wx', '', 'xs')}</span></div></div>`;
     h += `<div class="ml-timebar">${btn(`⏭ ${periodName(S.t + 180) !== periodName(S.t) ? periodName(S.t + 180) : '다음 시간대'}`, 'c-time', 'next', 'xs')}${btn('+1시간', 'c-time', '+1h', 'xs')}${btn('☀️ 다음 날 아침', 'c-time', '+1d', 'xs')}${btn('🕰 시각 맞추기', 'c-time', 'set', 'xs')}</div>`;
     const cells = []; for (let k = 0; k < first; k++) cells.push('<div class="ml-cc x"></div>');
-    for (let d = 1; d <= days; d++) { const { out, day } = eventsOnDay(r, y, m, d); cells.push(`<button class="ml-cc${day === today ? ' today' : ''}${calDay === d ? ' sel' : ''}${day < today ? ' past' : ''}" data-act="c-day" data-v="${d}">`
-        + `<span>${d}</span>${out.length ? `<i>${out.slice(0, 3).map(() => '<b></b>').join('')}</i>` : ''}</button>`); }
+    for (let d = 1; d <= days; d++) { const { out, day } = eventsOnDay(r, y, m, d), cc = calCell(r, day); cells.push(`<button class="ml-cc${day === today ? ' today' : ''}${calDay === d ? ' sel' : ''}${day < today ? ' past' : ''}${cc.cls}" data-act="c-day" data-v="${d}">`
+        + `<span>${d}</span>${out.length ? `<i>${out.slice(0, 3).map(() => '<b></b>').join('')}</i>` : ''}${cc.mark}</button>`); }
     h += `<div class="ml-calh">${btn('‹', 'c-nav', '-1', 'xs')}<b>${st0.cal?.era ? `${esc(st0.cal.era)} ` : ''}${y}년 ${esc(monthName(st0, m))}`
         + `</b>${btn('›', 'c-nav', '1', 'xs')}${y !== now.y || m !== now.m ? btn('오늘', 'c-today', '', 'xs') : ''}</div><div `
         + `class="ml-calg">${WK.map(w => `<div class="ml-cw">${esc(w)}</div>`).join('')}${cells.join('')}</div>`;
@@ -433,9 +437,11 @@ function cal(r) {
         h += `<div class="ml-rc ml-calday"><div class="ml-rc-h"><b>${esc(monthName(st0, m))} ${calDay}일</b><span class="ml-sp">`
             + `</span>${btn('✕', 'c-day', '', 'xs')}`
             + `</div>${out.map(e => `<div class="ml-rl${e.i != null ? ' tap' : ''}"${e.i != null ? ` data-act="jump" data-v="${e.i}"` : ''}><i>${e.icon}</i>${esc(e.text)}</div>`).join('') || '<div class="ml-rl dim"><i>·</i>일정 없음</div>'}`
+            + calDayExtra(r, day)
             + `<div class="ml-acts">${btn('＋ 이 날 일정', 'c-add', `${m}/${calDay}`, 'xs')}`
             + `${day > today ? btn('⏩ 이 날로 시간 이동', 'c-go', `${m}/${calDay}`, 'xs') : ''}</div></div>`;
     } else h += '<div class="ml-hint">날짜를 누르면 그날 일정을 보고 추가할 수 있어요.</div>';
+    h += calSettings(r); // 🩸 생리 주기 · 👀 메모 보기
     const month = []; for (let d = 1; d <= days; d++) for (const e of eventsOnDay(r, y, m, d).out) month.push([d, e]);
     h += `<h4 class="ml-h4">이달 일정 <span>${month.length}</span></h4>${month.map(([d, e]) => `<div class="ml-rl tap" data-act="c-day" data-v="${d}"><i>${e.icon}</i><b>${d}일</b> ${esc(e.text)}</div>`).join('') || '<div class="ml-rl dim"><i>·</i>이 달엔 일정이 없어요</div>'}`;
     const up = []; for (let k = 0; k <= 30; k++) { const dt = dateOf(book.world.start, (today + k) * DAY); for (const e of eventsOnDay(r, dt.y, dt.m, dt.d).out) up.push([k, e]); }
@@ -602,6 +608,7 @@ export const RENDER = { music, quote, now, dice, bag, rel, map, cal, news, rec, 
 // ───── 누르기 ─────
 export async function onAct(act, v, el) {
     const meta = getMeta(), r = fold();
+    if (String(act).startsWith('cp-')) return calAct(act, v, el); // 📅 달력 더하기
     switch (act) {
         case 'nk-tab': case 'nk-on':
             if (newsAct(act, v)) app.refresh?.();

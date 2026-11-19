@@ -7,6 +7,8 @@ import { derived, relStage, worldEvent, fold } from './engine.js';
 import { tasteOf, recentQuotes } from './classify.js';
 import { personOf } from './book.js';
 import { ruleKeys as newsRuleKeys } from './newskinds.js';
+import { calLines } from './calplus.js';
+import { mode } from './classify.js';
 
 export const LEVELS = [
     { n: 0, name: '기록만', what: '상태창에만 적어요. 본편에는 한 글자도 안 넣어요.' },
@@ -121,6 +123,8 @@ export function factText(r, lastChanges = []) {
     if (lv('news') >= 4 && S.turn % 6 === 1) { const p = book.people.find(q => !S.with.includes(q.name) && !S.rel[q.name]?.gone && (S.rel[q.name]?.want || q.want)); if (p) H.push(`off-screen, ${p.name} acts on what they want (${S.rel[p.name]?.want || p.want}); record it as life: ${p.name} | …`); }
     // ✍ 손댄다 (관계 4 · 애정 60↑ 또는 질투 · 여덟 턴에 한 번)
     if (lv('rel') >= 4 && S.turn % 8 === 5) { const n = Object.keys(S.rel).find(k => !S.rel[k].gone && (S.rel[k].aff >= 60 || S.rel[k].jealous)); if (n) H.push(`${n} secretly meddles with ${userName()}'s status window this turn: add meddle: ${n} | 기분 | +5 | 낙서 (or another small prank)`); }
+    // 📅 달력 더하기: D-day · 생리 주기 · 👀 메모 (결과 한 줄씩)
+    { const cp = calLines(r, lv('calendar'), userName(), mode()); L.push(...cp.facts); H.push(...cp.hint); }
     // 약속 하루 전
     for (const p of S.promises) if (!p.done && p.due != null && p.due - S.t <= DAY && p.due >= S.t && lv('calendar') >= 1) H.push(`promise due soon: ${p.text}`);
     return { facts: L.length ? `[NOW — keep the story consistent with this]\n${L.join('\n')}` : '', hint: H.length ? `[HINT — show it naturally, don't state numbers]\n${H.join('\n')}` : '' };
