@@ -95,6 +95,7 @@ export function calLines(r, lv, user = '{{user}}', mode = 'A') {
     // 🩸 기간 중 + 「본편에 알리기」를 켰을 때만 · 숫자는 며칠째만
     const ci = cal.cycle.tell ? cycleInfo(cal, today) : null;
     if (ci?.dayN) out.facts.push(`${user} is on her period (day ${ci.dayN}).`);
+    if (ci?.dayN && ci.dayN <= 3) out.hint.push(`(${user} is on her period — people close to her (especially a partner) know or notice it and act on it naturally: care, warmth, food, rest.)`);
     // 👀 8번째 답마다 한 번 · 보여 주기를 켠 가장 최근 메모 1개
     if (cal.peek && (r.S.turn + 1) % PEEK_EVERY === 0) {
         const p = peekNote(r, cal), who = p && peekWho(r);
