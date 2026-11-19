@@ -108,7 +108,7 @@ export function buildPrompt(i) {
     ].filter(Boolean).join('\n\n');
     return { system, user, tok: tokens(system) + tokens(user) };
 }
-// 분류 지시 (라이트의 분류 지시만 · 사용자 프리셋 · 탈옥 없음)
+// 분류 지시 (미트볼폰의 분류 지시만 · 사용자 프리셋 · 탈옥 없음)
 const SYSTEM = 'You label what happened in ONE roleplay reply for a status tracker. Use ONLY the keys and actions listed. '
         + 'If the wording differs, map it to the closest listed action (e.g. "spoke sweetly" → the listed "칭찬"). '
         + 'Never write an event that did not happen in the reply. No numbers except the formats shown. '

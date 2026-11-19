@@ -47,7 +47,7 @@ export async function flush() {
             + `${JSON.stringify(list)}`, 'You translate UI terms. JSON only.');
         const j = parseJSON(raw);
         if (j && typeof j === 'object') { const meta = getMeta(); meta.tr ??= {}; for (const [k, v] of Object.entries(j)) if (typeof v === 'string' && v.trim() && list.includes(k)) meta.tr[k] = v.trim().slice(0, 80); saveMeta(); }
-    } catch (e) { console.warn('[미트볼 라이트] 번역 실패', e); }
+    } catch (e) { console.warn('[미트볼폰] 번역 실패', e); }
     busy = false; app.refresh?.();
 }
 export const trList = () => Object.entries(getMeta()?.tr ?? {});

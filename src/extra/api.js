@@ -81,7 +81,7 @@ function pendingChoice(i, data) {
     return structuredClone(m.extra?.mbc ?? meta.choices?.[msgKey(m)] ?? null);
 }
 export function mount() {
-    globalThis.MeatballLite = Object.freeze({
+    globalThis.MeatballPhone = globalThis.MeatballLite = Object.freeze({ // 예전 이름(MeatballLite)도 그대로
         version: VERSION,
         ready: () => ready(),
         state,

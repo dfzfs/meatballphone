@@ -35,7 +35,7 @@ try {
         HTMLAnchorElement.prototype.click = o;
         return got;
     });
-    check(/^meatball-lite-report-\d{8}-\d{4}\.txt$/.test(f?.name ?? '') && /^blob:/.test(f?.href ?? ''), '파일이 만들어짐', JSON.stringify(f));
+    check(/^meatballphone-report-\d{8}-\d{4}\.txt$/.test(f?.name ?? '') && /^blob:/.test(f?.href ?? ''), '파일이 만들어짐', JSON.stringify(f));
     // 선택지가 있으면 dump
     await page.evaluate(() => { globalThis.MeatballChoices = Object.freeze({ version: '0.6.0', dump: () => ({ settings: { on: true, apiKey: 'sk-SHOULDHIDE123456789' }, recent: [] }) }); });
     const c = await page.evaluate(async () => (await import('/ext/src/extra/report.js')).buildReport({ n: 1 }));

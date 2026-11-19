@@ -782,7 +782,7 @@ export function fold(force = false) {
             S.mind = {}; S.watch = {}; S.cell = {}; S.turn++;
             const bk = bookFor(meta, i), x = makeCtx(bk, S, ch, flags);
             const W = null, P = { tasted: S.tasted?.length ?? 0, visited: S.visited?.length ?? 0, rolls: S.rolls?.length ?? 0, kept: (S.promises ?? []).filter(q => q.done).length, custom: JSON.stringify(S.custom) }; // ⭐ 이 답 전에 원하던 것 · 그때 개수
-            for (const o of opsOf(m, bk)) { const n0 = ch.length; try { applyOp(bk, S, x, o.k, o.v, o.j, o.src, ch); } catch (e) { console.warn('[미트볼 라이트] 줄 건너뜀', o, e); } if (o.why) for (let q = n0; q < ch.length; q++) if (ch[q].src === o.src) ch[q].why = o.why; }
+            for (const o of opsOf(m, bk)) { const n0 = ch.length; try { applyOp(bk, S, x, o.k, o.v, o.j, o.src, ch); } catch (e) { console.warn('[미트볼폰] 줄 건너뜀', o, e); } if (o.why) for (let q = n0; q < ch.length; q++) if (ch[q].src === o.src) ch[q].why = o.why; }
             for (const e of [...(S.mindLog ?? []), ...(S.bgmLog ?? []), ...(S.quoteLog ?? []), S.bgm, S.quote]) if (e) e.m ??= i; // 💭🎵📜 몇 번째 메시지에서 떴나
             afterTurn(bk, S, x, ch, W, i, P);
         }

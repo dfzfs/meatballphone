@@ -4,9 +4,9 @@ import { normBook } from '../rules/book.js';
 
 export const MODULE = 'meatlite';
 export const OLD = 'statussim';
-export const VERSION = '0.32.1';
+export const VERSION = '0.33.0';
 export const DATA_V = 2;
-export const TITLE = '미트볼 라이트';
+export const TITLE = '미트볼폰';
 export const INJ = { facts: 'meatlite_facts', hint: 'meatlite_hint', rule: 'meatlite_rule' };
 
 export const ctx = () => SillyTavern.getContext();
@@ -99,7 +99,7 @@ export function getMeta(create = false) {
     if (!md) return null;
     if (!md[MODULE] && create) md[MODULE] = newMeta();
     let m = md[MODULE];
-    // 예전 라이트(v0.2.x)가 같은 열쇠에 남긴 기록은 모양이 달라서 새로 시작한다 (설정집 · 칸 목록이 없음)
+    // 예전 미트볼 라이트(v0.2.x)가 같은 열쇠에 남긴 기록은 모양이 달라서 새로 시작한다 (설정집 · 칸 목록이 없음)
     if (m && m.app !== 'lite3') { const keep = { book: m.book ?? null, start: m.start ?? null }; md[MODULE] = m = Object.assign(newMeta(), m.book?.world ? keep : {}); }
     if (m) {
         const d = newMeta(); for (const k of Object.keys(d)) if (!Object.hasOwn(m, k)) m[k] = d[k];

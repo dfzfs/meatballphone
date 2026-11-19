@@ -23,7 +23,7 @@ export function initLog() {
             orig(...a);
         };
     }
-    window.addEventListener('error', (e) => { if (/meatball-lite|meatlite/.test(e.filename ?? '')) { LOG.push(`${new Date().toISOString().slice(11, 19)} error ${short(e.message, 300)}`); if (LOG.length > 50) LOG.shift(); } });
+    window.addEventListener('error', (e) => { if (/meatball-lite|meatball-?phone|meatlite/.test(e.filename ?? '')) { LOG.push(`${new Date().toISOString().slice(11, 19)} error ${short(e.message, 300)}`); if (LOG.length > 50) LOG.shift(); } });
 }
 export const logLines = () => [...LOG];
 
@@ -90,7 +90,7 @@ export function buildReport({ n = 10, noText = false } = {}) {
     // 사람이 읽는 글
     const L = [];
     L.push(`# ${TITLE} 전체 복사 · ${safe.when}`);
-    L.push(`판: 라이트 ${safe.versions.lite} · 선택지 ${safe.versions.choices} · 실리태번 ${safe.versions.sillytavern}`);
+    L.push(`판: 미트볼폰 ${safe.versions.lite} · 선택지 ${safe.versions.choices} · 실리태번 ${safe.versions.sillytavern}`);
     L.push(`브라우저: ${safe.browser} · 화면 ${safe.screen}`);
     L.push(`모드: ${safe.mode} · 분류 연결: ${safe.clsConnection} · 만들기 연결: ${safe.makeConnection}`);
     L.push(`켜진 앱: ${Object.entries(safe.apps).filter(([, v]) => v).map(([k]) => k).join(', ') || '-'}`);
@@ -129,7 +129,7 @@ export async function copyReport(opts) {
 }
 export function fileName(d = new Date()) {
     const p = (x) => String(x).padStart(2, '0');
-    return `meatball-lite-report-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.txt`;
+    return `meatballphone-report-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.txt`;
 }
 export function saveReport(opts) {
     const { text } = buildReport(opts), name = fileName();

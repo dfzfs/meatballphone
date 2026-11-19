@@ -4,7 +4,7 @@ import { normBook, emptyBook } from '../rules/book.js';
 import { clockOf } from '../base/util.js';
 import { toast } from '../ui/kit.js';
 
-// 옛 미트볼(폴더 이름 · manifest 이름)이 같이 켜져 있으면 라이트는 쉰다
+// 옛 미트볼(폴더 이름 · manifest 이름)이 같이 켜져 있으면 미트볼폰은 쉰다
 export function oldActive() {
     const loaded = [...document.querySelectorAll('script[src], link[href]')].some(e => /third-party\/(meatballstats|meatball-stats)\//i.test(e.src || e.href));
     return loaded && ctx().extensionSettings?.[OLD]?.enabled !== false;

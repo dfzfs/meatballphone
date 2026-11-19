@@ -1,4 +1,4 @@
-// 미트볼 라이트 — 실리태번 이벤트 연결
+// 미트볼폰 — 실리태번 이벤트 연결
 import { app, ctx, settings, saveSettings, getMeta, saveMeta, msgData, syncSwipe, ready, MODULE, OLD, VERSION, TITLE, INJ, MODS, DATA_V, bumpMeta, modOn, saveChatSoon, genStarted, genEnded, isGenerating, shutKey, aiNoOf, tidyEyes } from './src/base/st.js';
 import { esc, short, tokens, dateOf } from './src/base/util.js';
 import { readOps, stripTags, hasTag } from './src/rules/tags.js';
@@ -321,7 +321,7 @@ function showPerf() {
 }
 // ───── 시작 ─────
 async function boot() {
-    initLog(); settings(); applyLook(); // 테마 변수는 늘 열어 둔다 (선택지 확장이 라이트 디자인을 따름)
+    initLog(); settings(); applyLook(); // 테마 변수는 늘 열어 둔다 (선택지 확장이 미트볼폰 디자인을 따름)
     if (oldActive()) { resting = true; console.info(`[${TITLE}] 옛 미트볼이 켜져 있어서 쉽니다.`); return; }
     mountSettings(); bindOuter(); mountApi(); initMascot();
     const c = ctx(), E = c.event_types, on = (n, f) => n && c.eventSource.on(n, f);
@@ -334,7 +334,7 @@ async function boot() {
     for (const n of [E.CHAT_CHANGED]) on(n, () => { closeSheet(); fromCard(); refresh(true); });
     on(E.MESSAGE_SWIPED, onSwiped);
     for (const n of [E.CHARACTER_MESSAGE_RENDERED, E.USER_MESSAGE_RENDERED, E.MESSAGE_DELETED, E.MESSAGE_SWIPE_DELETED, E.MORE_MESSAGES_LOADED, E.MESSAGE_UPDATED]) on(n, () => { bumpMeta(); refresh(); });
-    c.SlashCommandParser?.addCommandObject?.(c.SlashCommand.fromProps({ name: 'ml', callback: () => { openSheet('now'); return ''; }, helpString: '미트볼 라이트 열기' }));
+    c.SlashCommandParser?.addCommandObject?.(c.SlashCommand.fromProps({ name: 'ml', callback: () => { openSheet('now'); return ''; }, helpString: '미트볼폰 열기' }));
     refresh(true);
 }
 const c0 = ctx();

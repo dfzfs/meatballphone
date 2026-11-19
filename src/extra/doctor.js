@@ -36,8 +36,8 @@ export function chipCheck(i) {
 export function doctorRows(app, perf) {
     const set = settings(), meta = getMeta(), chat = ctx().chat ?? [], r = meta?.book ? fold() : null, L = [];
     const add = (lv, title, sub, fix = '') => L.push({ lv, title, sub, fix });
-    add(set.enabled ? 'good' : 'bad', '켜짐', set.enabled ? '미트볼 라이트가 켜져 있어요' : '확장 설정에서 켜 주세요');
-    if (oldActive()) add('bad', '옛 미트볼과 같이 켜짐', '둘이 같이 켜져 있으면 라이트는 쉬어요 · 옛 미트볼을 끄거나 「옮겨 오기」');
+    add(set.enabled ? 'good' : 'bad', '켜짐', set.enabled ? '미트볼폰이 켜져 있어요' : '확장 설정에서 켜 주세요');
+    if (oldActive()) add('bad', '옛 미트볼과 같이 켜짐', '둘이 같이 켜져 있으면 미트볼폰은 쉬어요 · 옛 미트볼을 끄거나 「옮겨 오기」');
     add(meta?.book ? 'good' : 'bad', '이 채팅 상태창', meta?.book ? `설정집 있음 · 인물 ${meta.book.people.length} · 장소 ${meta.book.world.places.length}` : '아직 없어요 · 홈에서 「만들기」');
     if (meta?.paused) add('mid', '멈춤', '지금 멈춤이에요 · 답이 와도 계산하지 않아요', btn('풀기', 'doc-unpause', '', 'xs'));
     // 태그 비율 (최근 AI 답 12개)

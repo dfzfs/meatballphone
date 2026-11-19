@@ -1,5 +1,5 @@
 @font-face{font-family:'Galmuri11';src:url('font/Galmuri11.woff2') format('woff2');font-display:swap}
-/* 미트볼 라이트 — 한 파일. 여백은 4·8·12·16·24만, 글자는 4단계(큰 제목 · 제목 · 본문 · 작은 글) */
+/* 미트볼폰 — 한 파일. 여백은 4·8·12·16·24만, 글자는 4단계(큰 제목 · 제목 · 본문 · 작은 글) */
 .ml-scope{
     --a:var(--ml-accent,#e07a5f);
     --r:var(--ml-radius,14px);
