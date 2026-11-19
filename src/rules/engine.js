@@ -7,6 +7,7 @@ import { match } from './names.js';
 import { NEED_STAGES, NEED_SYMPTOM, personOf, placeOf, BASIC_ACTS } from './book.js';
 import { glossList } from '../base/gloss.js';
 import { readNewsline, kindInfo } from './newskinds.js';
+import { applySneak } from './sneak.js';
 const isHome = (book, S) => /home/.test(placeOf(book, S.loc)?.kind ?? '');
 
 // ───── 처음 상태 (설정집에서) ─────
@@ -681,6 +682,7 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
         }
         case 'meddle': {
             // ✍ 인물이 내 상태창에 손댄다 — 「meddle: Leon | 기분 | +20 | 낙서」 → 그 인물 이름으로 기록 (되돌리기 가능)
+            if (applySneak(book, S, x, v, i, ch)) return; // 🎁 소지품 · 💸 돈 · 📅 달력 · 되돌림 (sneak.js)
             const name = x.who(a) ?? safeKey(a);
             const nd = x.need(b);
             const dd = parseDelta(c);

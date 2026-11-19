@@ -446,3 +446,7 @@ a.ml-play,a.ml-scene{text-decoration:none;color:inherit}
 .ml-cptodo.done>span{text-decoration:line-through;opacity:.55}.ml-cpchk{flex:none;width:22px;height:22px;border:1.5px solid var(--a);border-radius:6px;background:none;color:#fff;font-size:13px;line-height:1;cursor:pointer;padding:0}.ml-cptodo.done .ml-cpchk{background:var(--a)}
 .ml-cppin{font-weight:700}.ml-cppin span{color:var(--a)}
 .ml-cpday .ml-acts{margin:0}.ml-cpday+.ml-acts{margin-top:6px}
+
+/* sneak — ✍ 애인이 몰래 손대기 */
+.mls-tag{display:inline-block;padding:0 6px;margin-right:2px;border-radius:999px;background:color-mix(in srgb,var(--love) 14%,transparent);color:var(--love);font-weight:600;white-space:nowrap}
+.ml-tx small:has(.mls-tag){white-space:normal;overflow:visible;text-overflow:clip}
