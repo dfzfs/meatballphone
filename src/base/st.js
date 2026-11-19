@@ -41,6 +41,9 @@ export const DEFAULTS = Object.freeze({
     musicApp: 'youtube',
     musicTaste: '',         // 음악 취향 기본값 (채팅마다 덮어쓰기 가능)
     musicPop: 'on',         // 곡이 바뀌면 작은 알림
+    musicPlay: 'phone',     // ▶ 누르면: phone(폰 안 작은 창 · 유튜브 키가 있을 때만) | tab(새 탭)
+    ytKey: '',              // 유튜브 API 키 (선택 · 있으면 ▶ 1번에 검색 1회로 영상 id)
+    musicPos: null,         // 🎵 작은 창 자리 { d: 노트북 {x,y}, m: 휴대폰 {x,y} }
     pinBook: 'auto',        // 설정집 한두 줄을 본편에 붙일지: auto | off
 });
 const SETTING_EXTRA = new Set(['glossary', 'trRules', 'partsOff', 'tidied']);
