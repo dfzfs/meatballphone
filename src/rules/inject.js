@@ -1,7 +1,7 @@
 // 본편 주입: 이야기 영향력 게이지(0~4)를 따라 켜고 끈다
 import { settings, getMeta, modOn, userName } from '../base/st.js';
 import { clamp, dateText, short, tokens, DAY } from '../base/util.js';
-import { derived, relStage, worldEvent } from './engine.js';
+import { derived, relStage, worldEvent, haggleNow } from './engine.js';
 import { moodTags, pickQuote } from './mood.js';
 import { personOf } from './book.js';
 
@@ -37,6 +37,7 @@ export function ruleText(book) {
     const K = ['loc: 장소', `time: ${tk}`, 'with: 이름, 이름'];
     if (cs.months?.length) K.push(`date: ${cs.months[0].name} 3일 (달: ${cs.months.map(x => x.name).join('·')})`);
     if (modOn('stats')) K.push('ate: 음식', 'slept: 6h', 'washed: -', 'rest: 1h', 'worked: 4h | +30');
+    if (modOn('wallet') && book.world.coins?.length) K.push(`cash: +3 ${book.world.coins[0].name}`);
     if (modOn('wallet')) K.push('buy: 물건 | 가격', 'earn: 30 | 이유', 'got: 물건', 'used: 물건', 'wear: 옷');
     if (modOn('rel')) K.push('act: 이름 | 한 일', 'gift: 이름 | 물건', 'memory: 이름 | 큰 사건', 'jealous: 이름 | 이유', ...(level('rel') >= 3 ? ['pair: 이름 | 이름 | +3 | 이유'] : []), 'promise: 내용 | 3/14');
     if (modOn('calendar')) K.push('weather: 비');
@@ -71,7 +72,7 @@ export function factText(r, lastChanges = []) {
     // 내 상태가 나쁘면 장면 속 인물이 알아챔 (결과: 「알아채고 반응」 · 숫자 없음)
     if (lv('stats') >= 2 && S.with.length) { const bad = dz.filter(d => d.stage === '위험'); if (bad.length) L.push(`${S.with[0]} notices ${userName()}: ${bad.map(d => d.text).join(', ')} — reacts in character (worry or tease)`); }
     // 돈
-    if (lv('wallet') >= 2) L.push(`${userName()} money: ${S.cash} ${book.world.currency}${S.items.length ? ` · has: ${S.items.slice(0, 8).map(i => `${i.name}${i.n > 1 ? `×${i.n}` : ''}${i.worn ? '(worn)' : ''}`).join(', ')}` : ''}`);
+    if (lv('wallet') >= 2) L.push(`${userName()} money: ${S.cash} ${book.world.currency}${Object.entries(S.coins ?? {}).filter(([, n]) => n).map(([k, n]) => ` · ${n} ${k}`).join('')}${haggleNow(S) ? ` · haggled here today: ${haggleNow(S).pct > 0 ? '+' : ''}${haggleNow(S).pct}% (${haggleNow(S).why})` : ''}${S.items.length ? ` · has: ${S.items.slice(0, 8).map(i => `${i.name}${i.n > 1 ? `×${i.n}` : ''}${i.worn ? '(worn)' : ''}`).join(', ')}` : ''}`);
     if (lv('wallet') >= 3) L.push('cannot spend more money than this; items not listed are not owned');
     // 장소 · 시간
     if (lv('map') >= 2 && S.loc) L.push(`place: ${S.loc}${S.with.length ? ` · with: ${S.with.join(', ')}` : ''}`);

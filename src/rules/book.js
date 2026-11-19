@@ -96,6 +96,8 @@ export function normBook(b) {
     const w = b.world ?? {};
     e.world.genre = line(w.genre, 30);
     e.world.currency = line(w.currency, 10) || '골드';
+    // 🪙 다른 화폐: 1개 = 기본 화폐 rate (예: 은화 1 = 골드 0.1)
+    e.world.coins = arr(w.coins).map(c => ({ name: line(c?.name, 8), rate: Math.max(0.0001, num(c?.rate, 1)) })).filter(c => c.name && c.name !== e.world.currency).slice(0, 4);
     e.world.meal = Math.max(1, num(w.meal, 10));
     e.world.weather = list(w.weather, 6).length ? list(w.weather, 6) : e.world.weather;
     const c = w.start?.cal ?? {};

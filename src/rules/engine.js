@@ -43,7 +43,7 @@ export function initState(book) {
         needs: Object.fromEntries(book.me.needs.map(n => [n.key, n.start])),
         gauges: Object.fromEntries(book.me.gauges.map(g => [g.key, g.start])), attrs: Object.fromEntries(book.me.attrs.map(a => [a.name, a.v])),
         cash: 0, items: [], status: [], promises: [], news: [], rel: {},
-        mind: {}, watch: {}, cell: {}, bgm: '', custom: {}, turn: 0, rolls: [], pairs: {},
+        mind: {}, watch: {}, cell: {}, bgm: '', custom: {}, turn: 0, rolls: [], pairs: {}, coins: {}, haggle: null,
     };
     for (const p of book.people) S.rel[p.name] = relOf(p);
     for (const p of book.people) for (const s of p.syn ?? []) if (personOf(book, s.to)) { const k = pairKey(p.name, personOf(book, s.to).name); S.pairs[k] ??= { v: 0, label: s.text, why: '' }; }
@@ -67,7 +67,11 @@ const WORLD_EV = [
     { name: '공사', kind: 'bad', price: 1, text: '길 공사 — 돌아가야 해서 이동이 늦음' },
 ];
 export function worldEvent(day) { const h = parseInt(hash(`w${day}`), 36); return h % 9 === 0 ? WORLD_EV[h % WORLD_EV.length] : null; }
-export const priceMul = (S) => worldEvent(Math.floor(S.t / DAY))?.price ?? 1;
+// 오늘 값: 세계 사건 × 🤝 흥정(오늘 · 지금 이 가게에서만)
+export const haggleNow = (S) => (S.haggle && S.haggle.place === S.loc && S.haggle.day === Math.floor(S.t / DAY) ? S.haggle : null);
+export const priceMul = (S) => Math.round((worldEvent(Math.floor(S.t / DAY))?.price ?? 1) * (1 + (haggleNow(S)?.pct ?? 0) / 100) * 100) / 100;
+// 🪙 금액 글에서 화폐 찾기: 「+10 은화」 「은화 -3」
+export function coinOf(book, t) { const s = String(t ?? ''); return (book.world.coins ?? []).find(c => s.includes(c.name)) ?? null; }
 
 // ───── 한 메시지 적용 ─────
 // ch: 이 메시지에서 바뀐 것 [{ f, label, from, to, why, src, sure, i(줄 번호) }]
@@ -187,8 +191,14 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             const m = spanOf(a) ?? 240; x.pass(m, '일', i); x.setNeed('energy', -DEF.workPerH * m / 60 * tmul(x.T, 'workCost'), why(a || '일'), src, !!spanOf(a), i);
             const pay = parseDelta(b); if (pay) x.setCash(Math.round(Math.abs(pay.n) * tmul(x.T, 'workPay')), '일한 값', src, true, i); return;
         }
-        case 'cash': { const d = parseDelta(a); if (!d) return; if (!d.rel) { x.setCash(d.n - S.cash, why(b || '돈'), src, true, i); return; } if (d.n < 0 && S.cash + d.n < 0) { x.flag(`돈이 모자라요 (${S.cash} < ${-d.n})`, i); return; } x.setCash(d.n, why(b || (d.n < 0 ? '씀' : '받음')), src, true, i); return; }
-        case 'earn': { const d = parseDelta(a) ?? parseDelta(b); if (d) x.setCash(Math.abs(d.n), why(a.match(/\D+/)?.[0] || b || '받음'), src, true, i); return; }
+        case 'cash': case 'earn': if (coinOf(book, v)) { // 🪙 다른 화폐
+            const cn = coinOf(book, v), d = parseDelta(String(a).replace(cn.name, '').trim()) ?? parseDelta(b); if (!d) return; S.coins ??= {};
+            const from = num(S.coins[cn.name]), to = kind === 'cash' && !d.rel ? d.n : from + (kind === 'earn' ? Math.abs(d.n) : d.n);
+            if (to < 0) { x.flag(`${cn.name}이(가) 모자라요 (${from})`, i); return; }
+            S.coins[cn.name] = to; ch.push({ f: `coin.${cn.name}`, label: cn.name, icon: '🪙', from, to, why: why(b && !parseDelta(b) ? b : c || cn.name), src, sure: true, i }); return;
+        }
+        if (kind === 'earn') { const d = parseDelta(a) ?? parseDelta(b); if (d) x.setCash(Math.abs(d.n), why(a.match(/\D+/)?.[0] || b || '받음'), src, true, i); return; }
+        { const d = parseDelta(a); if (!d) return; if (!d.rel) { x.setCash(d.n - S.cash, why(b || '돈'), src, true, i); return; } if (d.n < 0 && S.cash + d.n < 0) { x.flag(`돈이 모자라요 (${S.cash} < ${-d.n})`, i); return; } x.setCash(d.n, why(b || (d.n < 0 ? '씀' : '받음')), src, true, i); return; }
         case 'buy': {
             const name = a, place = placeOf(book, S.loc), good = place?.goods.find(g => norm(g.name) === norm(name));
             const given = parseDelta(b);
@@ -278,6 +288,20 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
         case 'mind': case 'watch': case 'cell': { if (a && b) S[kind][x.who(a) ?? safeKey(a)] = short(parts(v).slice(1).join(' | '), 120); return; }
         case 'jealous': { const name = x.who(a); if (!name) return; const r = x.rel(name); r.jealous = short(b || '질투', 40); remember(S, r, `질투: ${b}`); x.setRel(name, 'trust', -Math.max(1, Math.round(tmul(x.T, 'jealousSelf') * tmul(x.T, 'jealousy') * 1.4)), '질투', src, false, i); news(S, '💢', `${name} — ${short(b || '질투가 남', 30)}`, 'jealous', name); return; }
         case 'life': { const name = x.who(a) ?? safeKey(a); if (!name || !b) return; x.rel(name).life = short(b, 60); news(S, '🌙', `${name} — ${short(b, 40)}`, 'life', name); return; }
+        case 'exchange': { // 🪙 환전: exchange: 은화 | +10 (기본 화폐로 은화 10개 사기) · -10 (팔기) · 수수료 5%
+            const cn = coinOf(book, a); const d = parseDelta(b); if (!cn || !d || !d.n) return; S.coins ??= {};
+            const have = num(S.coins[cn.name]), cost = Math.round(Math.abs(d.n) * cn.rate * (d.n > 0 ? 1.05 : 0.95) * 100) / 100;
+            if (d.n > 0 && S.cash < cost) { x.flag(`환전할 돈이 모자라요 (${cost} > ${S.cash})`, i); return; }
+            if (d.n < 0 && have < -d.n) { x.flag(`${cn.name}이(가) 모자라요 (${have})`, i); return; }
+            x.setCash(d.n > 0 ? -cost : cost, `🪙 환전 ${cn.name} ${d.n > 0 ? '삼' : '팜'}`, src, true, i);
+            S.coins[cn.name] = have + d.n; ch.push({ f: `coin.${cn.name}`, label: cn.name, icon: '🪙', from: have, to: have + d.n, why: '환전', src, sure: true, i }); return;
+        }
+        case 'haggle': { // 🤝 흥정: haggle: 가게 | -20 (오늘 그 가게 값 %)
+            const pl = placeOf(book, a)?.name ?? (safeKey(a) || S.loc), d = parseDelta(b); if (!d) return;
+            const day = Math.floor(S.t / DAY), was = S.haggle?.place === pl && S.haggle.day === day ? S.haggle.pct : 0;
+            S.haggle = { place: pl, day, pct: clamp(d.n, -40, 30), why: short(c || '흥정', 24) };
+            ch.push({ f: 'haggle', label: `${pl} 흥정`, icon: '🤝', from: `${was}%`, to: `${S.haggle.pct > 0 ? '+' : ''}${S.haggle.pct}%`, why: S.haggle.why, src, sure: true, i }); return;
+        }
         case 'pair': { // 🔗 인물끼리: pair: A | B | +5 | 이유  ·  pair: A | B | 라이벌
             const A = x.who(a) ?? safeKey(a), B = x.who(b) ?? safeKey(b); if (!A || !B || A === B) return;
             const key = pairKey(A, B); S.pairs ??= {}; const pr = (S.pairs[key] ??= { v: 0, label: '', why: '' }), dd = parseDelta(c), d4 = parts(v)[3] ?? '';

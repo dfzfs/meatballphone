@@ -17,7 +17,7 @@ let cur = 'home', past = null;
 function hudHTML(r) {
     const { S, book } = r, L = [];
     if (modOn('stats')) for (const n of book.me.needs) { const v = Math.round(S.needs[n.key] ?? 0), st = needStage(v); L.push(`<span class="ml-h ${st === '위험' ? 'bad' : st === '주의' ? 'mid' : ''}" title="${esc(n.name)} ${v}">${n.icon}${v}</span>`); }
-    if (modOn('wallet')) L.push(`<span class="ml-h">💰${fmt(S.cash)}</span>`);
+    if (modOn('wallet')) L.push(`<span class="ml-h">💰${fmt(S.cash)}${Object.entries(S.coins ?? {}).filter(([, n]) => n).slice(0, 2).map(([k, n]) => ` · ${fmt(n)}${esc(k)}`).join('')}</span>`);
     if (modOn('calendar')) L.push(`<span class="ml-h">🕰${slotName(S.t)}${S.weather ? ` · ${esc(S.weather)}` : ''}</span>`);
     if (modOn('map') && S.loc) { const pl = placeOf(book, S.loc); L.push(`<span class="ml-h tap" data-act="open" data-v="${pl?.goods.length ? 'bag' : 'map'}">📍${esc(S.loc)}${pl?.goods.length ? ' · 🛒' : ''}</span>`); }
     // 🛒 가게에 있으면 HUD에 물건 한 줄 (누르면 사는 말이 입력창에)

@@ -37,6 +37,8 @@ export const KEYMAP = Object.fromEntries([
     ...K('watch', 'watch', 'spectator', 'viewer', '관전', '관전자'),
     ...K('cell', 'cell', 'cells', '세포'),
     ...K('jealous', 'jealous', 'jealousy', '질투'),
+    ...K('exchange', 'exchange', 'fx', '환전'),
+    ...K('haggle', 'haggle', 'bargain', '흥정', '에누리'),
     ...K('pair', 'pair', 'between', '인물끼리', '사이', 'pairaff'),
     ...K('life', 'life', 'offscreen', '근황', '화면밖'),
     ...K('promise', 'promise', 'deadline', 'hook', '약속', '마감', '떡밥'),

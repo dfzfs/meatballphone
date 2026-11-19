@@ -2,7 +2,7 @@
 import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, slot, syncSwipe, msgKey, userName, bumpMeta } from '../base/st.js';
 import { esc, fmt, signed, short, dateText, dateOf, DAY, slotName, num, norm, tokens, dayIndexOf, monthDays, monthName, weekName } from '../base/util.js';
 import { row, card, chip, seg, bar, empty, btn, sheet, toast, putInput, form } from './kit.js';
-import { fold, derived, needStage, relStage, nextStage, stagesOf, pairKey, diceParts, worldEvent, priceMul, whereNow, matchOf, myTraits } from '../rules/engine.js';
+import { fold, derived, needStage, relStage, nextStage, stagesOf, pairKey, diceParts, worldEvent, priceMul, haggleNow, whereNow, matchOf, myTraits } from '../rules/engine.js';
 import { traitOf } from '../../data/traits.js';
 import { luckOf } from '../rules/luck.js';
 import { QUOTES } from '../../data/quotes.js';
@@ -112,11 +112,19 @@ function dice(r) {
 function bag(r) {
     const { S, book } = r, place = placeOf(book, S.loc), mul = priceMul(S);
     const V = (k) => vis('bag', k);
-    let h = !V('cash') ? '' : card('재산', row({ icon: '💰', title: '가진 돈', sub: `식사 한 끼 ≈ ${money(r, book.world.meal)}`, value: `<b class="ml-num">${money(r, S.cash)}</b>`, act: 'edit-cash', more: true }) + row({ icon: '💬', title: '물가 물어보기', sub: '이 세계에서 얼마쯤 할까? (AI 0회 · 설정집 물가 기준)', act: 'askprice', more: true }));
+    let h = !V('cash') ? '' : card('재산', row({ icon: '💰', title: '가진 돈', sub: `식사 한 끼 ≈ ${money(r, book.world.meal)}`, value: `<b class="ml-num">${money(r, S.cash)}</b>`, act: 'edit-cash', more: true }) + (book.world.coins ?? []).map(c => row({ icon: '🪙', title: esc(c.name), sub: `1${esc(c.name)} = ${fmt(c.rate)}${esc(book.world.currency)} · 환전 수수료 5%`, value: `<b class="ml-num">${fmt(num(S.coins?.[c.name]))}</b>${btn('환전', 'coin-x', c.name, 'xs')}` })).join('') + row({ icon: '💬', title: '물가 물어보기', sub: '이 세계에서 얼마쯤 할까? (AI 0회 · 설정집 물가 기준)', act: 'askprice', more: true }) + row({ icon: '🪙', title: '화폐 더하기', sub: '은화 · 동전 · 포인트처럼 두 번째 돈', act: 'coin-add', more: true }));
     if (V('items')) h += card('소지품', S.items.length ? S.items.map(it => row({ icon: it.worn ? '👕' : '📦', title: `${esc(it.name)}${it.n > 1 ? ` ×${it.n}` : ''}`, sub: it.worn ? '착용 중' : Object.entries(it.fx).map(([k, v]) => `${book.me.needs.find(n => n.key === k)?.name ?? k} ${signed(v)}`).join(' · '), value: choiceBtns([[Object.keys(it.fx).length ? `먹기` : '쓰기', `${it.name}을(를) 먹는다`], [it.worn ? '벗기' : '입기', `${it.name}을(를) ${it.worn ? '벗는다' : '입는다'}`]]) })).join('') : row({ icon: '📦', title: '비어 있어요', faint: true }));
-    if (place?.goods.length && V('shop')) h += card(`${PLACE_KINDS[place.kind]} ${esc(place.name)} 가게`, place.goods.map(g => goodRow(r, g, mul)).join(''), mul !== 1 ? `오늘 값 ×${mul}` : '');
+    if (place?.goods.length && V('shop')) { const hg = haggleNow(S); h += card(`${PLACE_KINDS[place.kind]} ${esc(place.name)} 가게`, haggleRow(r, hg) + place.goods.map(g => goodRow(r, g, mul)).join(''), mul !== 1 ? `오늘 값 ×${mul}` : ''); }
     return h;
 }
+// 🤝 흥정: 가게마다 하루 한 번 · d20 + 매력(능력치 · 특성 · 운세) → 깎거나(최대 -30%) 오히려 비싸짐(대실패 +10%)
+const HAGGLE = (d, tot) => (d === 20 ? [-30, '대성공 — 반쯤 웃으며 확 깎아 줌'] : d === 1 ? [10, '대실패 — 기분 상해서 더 받음'] : tot >= 18 ? [-20, '성공 — 단골 대접'] : tot >= 12 ? [-10, '조금 깎음'] : [0, '안 깎아 줌']);
+function haggleRow(r, hg) {
+    if (hg) return row({ icon: '🤝', title: `오늘 흥정 ${hg.pct > 0 ? '+' : ''}${hg.pct}%`, sub: esc(hg.why), value: `<span class="ml-pill ${hg.pct < 0 ? 'good' : hg.pct > 0 ? 'bad' : 'mid'}">${hg.pct < 0 ? '할인 중' : hg.pct > 0 ? '바가지' : '정가'}</span>` });
+    const at = haggleAttr(r), mod = diceParts(r.book, r.S, at).reduce((a, q) => a + q.n, 0);
+    return row({ icon: '🤝', title: '흥정하기', sub: `d20 ${at ? `+ ${esc(at)} ` : ''}${mod ? signed(mod) : ''} · 12↑ -10% · 18↑ -20% · 20 -30% · 1 +10% · 하루 한 번`, value: btn('🎲 흥정', 'haggle', '', 'sm') });
+}
+const haggleAttr = (r) => Object.keys(r.S.attrs).find(k => /매력|말빨|화술|cha/i.test(k)) ?? Object.keys(r.S.attrs)[0] ?? '';
 function goodRow(r, g, mul) {
     const price = Math.round(g.price * mul), poor = r.S.cash < price;
     const liked = Object.values(r.S.rel).some(x => x.seen.likes.some(l => g.name.includes(l)));
@@ -502,6 +510,22 @@ export async function onAct(act, v, el) {
         case 'look-reset': settings().look = { ...(await import('../base/st.js')).DEFAULTS.look }; saveSettings(); app.applyLook?.(); app.refresh?.(); return;
         case 'dset': { const [k, x] = v.split(':'); setDice(k, k === 'dc' ? Number(x) : x); app.refresh?.(); return; }
         case 'rollattr': setDice('attr', v); app.openSheet?.('dice'); return;
+        case 'haggle': {
+            if (!r) return; const at = haggleAttr(r), mod = diceParts(meta.book, r.S, at).reduce((a, q) => a + q.n, 0), d = 1 + Math.floor(Math.random() * 20), tot = d + mod, [pct, why] = HAGGLE(d, tot);
+            document.querySelectorAll('.ml-d20').forEach(x => x.classList.add('spin')); await new Promise(res => setTimeout(res, 500));
+            hand(`haggle: ${r.S.loc} | ${pct} | 🎲${d}${mod ? signed(mod) : ''} ${why}`, `🤝 흥정 ${d}${mod ? signed(mod) : ''}`);
+            meta.recent.rolls = [{ text: `🤝 흥정 d20 ${d}${mod ? ` ${signed(mod)}` : ''} = ${tot} → ${pct}%`, res: pct < 0 ? '성공' : pct > 0 ? '대실패' : '실패', d, tot, at: Date.now() }, ...(meta.recent.rolls ?? [])].slice(0, 5); saveMeta();
+            toast(`🤝 ${why} (${pct > 0 ? '+' : ''}${pct}%)`, pct < 0 ? 'good' : pct > 0 ? 'bad' : 'mid'); return;
+        }
+        case 'coin-x': {
+            const c = meta.book.world.coins.find(x => x.name === v); if (!c || !r) return;
+            const fv = await form(`🪙 ${esc(v)} 환전`, [{ k: 'n', label: `개수 (+ 사기 · − 팔기) · 1${esc(v)} = ${c.rate}${esc(meta.book.world.currency)} · 수수료 5%`, type: 'number', v: '10', chips: ['10', '50', '-10', `-${num(r.S.coins?.[v])}`] }]);
+            const n = Math.round(num(fv?.n)); if (!n) return; hand(`exchange: ${v} | ${n > 0 ? '+' : ''}${n}`, '🪙 환전'); return;
+        }
+        case 'coin-add': {
+            const fv = await form('🪙 화폐 더하기', [{ k: 'name', label: '이름', v: '', chips: ['은화', '동화', '포인트', '달러'] }, { k: 'rate', label: `1개 = ${esc(meta.book.world.currency)} 몇?`, type: 'number', v: '0.1' }]);
+            if (!fv?.name.trim()) return; meta.book = normBook({ ...meta.book, world: { ...meta.book.world, coins: [...(meta.book.world.coins ?? []).filter(x => x.name !== fv.name.trim()), { name: fv.name.trim(), rate: num(fv.rate, 1) }] } }); saveMeta(); app.refresh?.(true); return;
+        }
         case 'roll': {
             const mod = Number(v), d = 1 + Math.floor(Math.random() * 20), tot = d + mod;
             const T = myTraits(meta.book, r?.S), fum = Math.max(1, ...T.map(t => t.fumble ?? 1)), calm = T.some(t => t.noFumble);
@@ -580,14 +604,14 @@ async function editBook(act, v) {
     if (act === 'bk-places') return (await import('./tools.js')).editApp('map');
     const L = (a) => (a ?? []).join(', '), P = (t) => String(t ?? '').split(/[,、]/).map(x => x.trim()).filter(Boolean);
     if (act === 'bk-world') {
-        const w = b.world, cal = w.start.cal ?? {}, fv = await form('🌍 세계', [{ k: 'genre', label: '장르', v: w.genre, chips: ['현대', '판타지', '학원', '무협', 'SF', '아포칼립스'] }, { k: 'cur', label: '화폐 단위', v: w.currency, chips: ['원', '골드', '달러', '엔', '냥'] }, { k: 'meal', label: '식사 한 끼 값 (물가 기준)', type: 'number', v: w.meal }, { k: 'wx', label: '날씨 (쉼표로)', v: L(w.weather) }, { k: 'start', label: '이야기 시작 날짜 (년-월-일)', v: `${w.start.y}-${w.start.m}-${w.start.d}`, ph: '2026-3-1' },
+        const w = b.world, cal = w.start.cal ?? {}, fv = await form('🌍 세계', [{ k: 'genre', label: '장르', v: w.genre, chips: ['현대', '판타지', '학원', '무협', 'SF', '아포칼립스'] }, { k: 'cur', label: '화폐 단위', v: w.currency, chips: ['원', '골드', '달러', '엔', '냥'] }, { k: 'meal', label: '식사 한 끼 값 (물가 기준)', type: 'number', v: w.meal }, { k: 'coins', label: '다른 화폐 (「이름 환율」 쉼표로 · 1개 = 기본 화폐 몇)', v: (w.coins ?? []).map(c => `${c.name} ${c.rate}`).join(', '), ph: '은화 0.1, 동화 0.01' }, { k: 'wx', label: '날씨 (쉼표로)', v: L(w.weather) }, { k: 'start', label: '이야기 시작 날짜 (년-월-일)', v: `${w.start.y}-${w.start.m}-${w.start.d}`, ph: '2026-3-1' },
             { k: 'kind', label: '달력', type: 'pick', v: cal.months ? 'custom' : 'greg', opts: [['greg', '양력'], ['custom', '직접 (판타지 · 다른 세계)']] },
             { k: 'months', label: '달 (「이름 날수」 쉼표로 · 직접일 때)', v: (cal.months ?? []).map(x => `${x.name} ${x.days}`).join(', '), ph: '서리달 30, 불꽃달 30, 바람달 31' },
             { k: 'week', label: '요일 이름 (쉼표로 · 비우면 일~토)', v: L(cal.week), ph: '해, 달, 불, 물, 나무' }, { k: 'era', label: '연호', v: cal.era ?? '', ph: '왕국력' },
             { k: 'style', label: '시간 적는 법 (AI도 이 모양으로 씀)', type: 'pick', v: cal.style ?? '24', opts: [['', '시간대만 (아침 · 낮 · 밤)'], ['24', '24시 (14:30)'], ['12', '오전 · 오후 (오후 2:30)']] }]);
         if (!fv) return;
         const [y, m, d] = String(fv.start).split(/[-./]/).map(Number);
-        meta.book = normBook({ ...b, world: { ...w, genre: fv.genre, currency: fv.cur, meal: num(fv.meal, w.meal), weather: P(fv.wx), start: { ...w.start, y: y || w.start.y, m: m || w.start.m, d: d || w.start.d, cal: { months: fv.kind === 'custom' ? P(fv.months).map(x => { const mm = /^(.+?)\s+(\d+)$/.exec(x); return mm ? { name: mm[1], days: Number(mm[2]) } : { name: x, days: 30 }; }) : null, week: P(fv.week), era: fv.era, style: fv.style } } } });
+        meta.book = normBook({ ...b, world: { ...w, genre: fv.genre, currency: fv.cur, meal: num(fv.meal, w.meal), coins: P(fv.coins).map(x => { const mm = /^(.+?)\s+([\d.]+)$/.exec(x); return mm ? { name: mm[1], rate: Number(mm[2]) } : { name: x, rate: 1 }; }), weather: P(fv.wx), start: { ...w.start, y: y || w.start.y, m: m || w.start.m, d: d || w.start.d, cal: { months: fv.kind === 'custom' ? P(fv.months).map(x => { const mm = /^(.+?)\s+(\d+)$/.exec(x); return mm ? { name: mm[1], days: Number(mm[2]) } : { name: x, days: 30 }; }) : null, week: P(fv.week), era: fv.era, style: fv.style } } } });
         meta.book.src.from = 'user'; saveMeta(); app.refresh?.(true); return;
     }
     // 👤 인물 — 설정집 칸 그대로 (성격 · 시작값 · 오르는/내리는 행동 · 증상 · 시너지 · 장소 · 루틴 · 취향 · 기념일 · 속셈)

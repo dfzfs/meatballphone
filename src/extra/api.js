@@ -36,7 +36,7 @@ export function mount() {
         version: VERSION,
         ready: () => ready(),
         // 지금 상태 요약 (복사본)
-        state: () => { const r = ready() ? fold() : null; if (!r) return null; const d = dateOf(r.book.world.start, r.S.t); return structuredClone({ t: r.S.t, date: `${d.m}월 ${d.d}일 ${slotName(r.S.t)}`, loc: r.S.loc, with: r.S.with, cash: r.S.cash, needs: r.S.needs, gauges: r.S.gauges, attrs: r.S.attrs, status: r.S.status, danger: derived(r.book, r.S), currency: r.book.world.currency }); },
+        state: () => { const r = ready() ? fold() : null; if (!r) return null; const d = dateOf(r.book.world.start, r.S.t); return structuredClone({ t: r.S.t, date: `${d.m}월 ${d.d}일 ${slotName(r.S.t)}`, loc: r.S.loc, coins: r.S.coins ?? {}, haggle: r.S.haggle ?? null, with: r.S.with, cash: r.S.cash, needs: r.S.needs, gauges: r.S.gauges, attrs: r.S.attrs, status: r.S.status, danger: derived(r.book, r.S), currency: r.book.world.currency }); },
         // 🎲 주사위 보정 내역 [{ why, n }] — 능력치 · 욕구 위험 · 상태 딱지(운명 포함) · 착용 장비. 선택지는 여기에 자기 보정만 더한다
         diceParts: (attr = '') => { const r = ready() ? fold() : null; return r ? structuredClone(diceParts(r.book, r.S, attr)) : []; },
         preview,
