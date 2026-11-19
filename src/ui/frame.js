@@ -1,5 +1,5 @@
 // 화면은 셋뿐: HUD · 미니바 · 전체화면
-import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, ready, msgData, TITLE } from '../base/st.js';
+import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, ready, msgData, TITLE, MODS, setEyes, shut } from '../base/st.js';
 import { esc, dateText, periodName, short, fmt } from '../base/util.js';
 import { fold, derived, needStage } from '../rules/engine.js';
 import { placeOf } from '../rules/book.js';
@@ -100,9 +100,8 @@ export function drawSheet() {
     const keep = el.querySelector(':scope > .ml-bs'); // 열려 있는 시트는 다시 그려도 그대로
     const scroll = el.querySelector('.ml-body')?.scrollTop ?? 0, same = el.querySelector('.ml-body')?.dataset.tab === cur;
     el.innerHTML = `<header class="ml-top">${cur === 'home' ? `${mascot('head')}<b>${TITLE}</b>` : `<button class="ml-ib back" data-tab="home" title="홈">‹</button><b>${a ? `${a.icon} ${a.name}` : ''}</b>`}`
-        + `${past != null ? chip(`🕰 #${past} 시점 · 읽기 전용`, 'mid', 'past-off') : ''}<span class="ml-sp"></span><button class="ml-ib" data-act="pause" `
-        + `title="일시정지">${meta.paused ? '▶' : '⏸'}</button><button class="ml-ib" data-act="skip" title="다음 1번 건너뛰기">${meta.skipNext ? '⏭✓' : '⏭'}`
-        + `</button><button class="ml-ib" data-act="find" title="검색">🔍</button><button class="ml-ib" data-act="report" title="📋 전체 복사">📋</button><button class="ml-ib" data-act="close">✕</button></header>`
+        + `${past != null ? chip(`🕰 #${past} 시점 · 읽기 전용`, 'mid', 'past-off') : ''}<span class="ml-sp"></span><button class="ml-ib${meta.paused || meta.skipNext || eyesShut().length ? ' on' : ''}" data-act="pause" `
+        + `title="멈춤 · 건너뛰기 · 😌 눈 감기">${pauseLabel(meta)}</button><button class="ml-ib" data-act="find" title="검색">🔍</button><button class="ml-ib" data-act="report" title="📋 전체 복사">📋</button><button class="ml-ib" data-act="close">✕</button></header>`
         + `<main class="ml-body" data-tab="${cur}">${a && !a.sys ? toolbar(cur) : ''}${R2[cur](view)}</main>`;
     applyGloss(el.querySelector('.ml-body')); applyTr(el.querySelector('.ml-body'));
     if (trOn() && trBusy()) el.querySelector('.ml-sp')?.insertAdjacentHTML('beforebegin', '<span class="ml-pill">🌐 번역 중…</span>');
@@ -125,8 +124,10 @@ async function clickHandler(e) {
     if (TOOL_ACTS.has(act)) return onTool(act, v);
     const meta = getMeta();
     if (act === 'close') return closeSheet();
-    if (act === 'pause') { meta.paused = !meta.paused; saveMeta(); app.refresh(); return; }
-    if (act === 'skip') { meta.skipNext = !meta.skipNext; saveMeta(); drawSheet(); return; }
+    if (act === 'pause') return pauseMenu();
+    if (act === 'p-all') { meta.paused = !meta.paused; saveMeta(); app.refresh(); return pauseMenu(); }
+    if (act === 'skip' || act === 'p-skip') { meta.skipNext = !meta.skipNext; saveMeta(); drawSheet(); return pauseMenu(); }
+    if (act === 'eye') { const [mod, mode] = String(v).split('|'); setEyes(mod, mode); app.refresh(); return pauseMenu(); }
     if (act === 'past-off') { past = null; drawSheet(); return; }
     if (act === 'find') return app.find?.();
     await onAct(act, v, a);
@@ -180,3 +181,28 @@ export function drawChips() {
 const signed2 = (n) => (n > 0 ? `+${Math.round(n)}` : `−${Math.abs(Math.round(n))}`);
 export function turnSheet(i) { const r = fold(); sheet(`#${i} 이번 답에서 바뀐 것`, `<div class="ml-card">${(r.changes[i] ?? []).filter(c => c.src !== 'time').map(c => changeRow(c, i)).join('')}</div><details class="ml-det"><summary>🔍 칩 점검 · 줄마다 어떻게 읽혔나</summary>${chipCheck(i)}</details>`); }
 const el0 = () => document.getElementById('ml-full');
+
+// ───── ⏸ 멈춤 메뉴: 전체 멈춤 · 다음 1번 건너뛰기 · 😌 앱마다 눈 감기 (깔린 앱만) ─────
+const EYE_MODS = ['stats', 'wallet', 'rel', 'map', 'calendar', 'dice', 'music', 'quote', 'mind', 'news', 'custom'];
+const EYE_WHAT = { stats: '욕구 · 상태 딱지', wallet: '돈 · 물건 · 옷', rel: '애정 · 기억 · 새 인물', map: '장소 · 같이 있는 사람', calendar: '시간 · 날씨 · 약속', dice: '판정',
+    music: '추천 곡', quote: '한 구절', mind: '속마음', news: '화면 밖 소식', custom: '내 탭' };
+function eyesShut() { const m = getMeta(); return EYE_MODS.filter(id => modOn(id) && m?.eyes?.[id]); }
+function pauseLabel(meta) {
+    if (meta.paused) return '⏸ 멈춤';
+    const n = eyesShut().length;
+    return `${meta.skipNext ? '⏭ ' : ''}${n ? `😌${n}` : '⏸'}`;
+}
+function pauseMenu() {
+    const meta = getMeta(); if (!meta) return;
+    const row = (act, v, icon, title, sub, on) => `<div class="ml-row tap" data-act="${act}" data-v="${v}"><span class="ml-ic">${icon}</span><span class="ml-tx"><b>${title}</b><small>${sub}</small></span>`
+        + `<span class="ml-val">${on ? '<b class="ml-pill bad">켜짐</b>' : '<small>꺼짐</small>'}</span></div>`;
+    const seg = (id) => { const e = meta.eyes?.[id]?.mode ?? ''; return [['', '뜸'], ['once', '다음 1번'], ['on', '계속']].map(([k, n]) => `<button class="ml-btn xs${e === k ? ' on' : ''}" data-act="eye" data-v="${id}|${k}">${n}</button>`).join(''); };
+    const apps = MODS.filter(m => EYE_MODS.includes(m.id) && modOn(m.id));
+    const html = `<div class="ml-card">${row('p-all', '', '⏸', '전체 멈춤', '미트볼이 쉬어요: 본편에 아무것도 안 넣고 · 분류 모델도 안 부르고 · 칩도 안 붙여요', meta.paused)}`
+        + `${row('p-skip', '', '⏭', '다음 답 1번 건너뛰기', '다음 답 하나만 셈하지 않아요 (끝나면 저절로 꺼짐)', meta.skipNext)}</div>`
+        + `<h4 class="ml-h4">😌 눈 감기 <span>앱마다 · 그 답엔 이 앱 일을 만들지도 받지도 않아요 · 다른 앱은 그대로</span></h4>`
+        + `<div class="ml-card">${apps.map(m => `<div class="ml-row"><span class="ml-ic">${m.icon}</span><span class="ml-tx"><b>${esc(m.name)}</b><small>${EYE_WHAT[m.id] ?? ''}${shut(m.id) ? ' · 다음 답에 감김' : ''}</small></span>`
+            + `<span class="ml-val"><span class="ml-picks">${seg(m.id)}</span></span></div>`).join('') || '<div class="ml-row"><span class="ml-tx"><small>깔린 앱이 없어요</small></span></div>'}</div>`
+        + '<div class="ml-hint">「다음 1번」은 다음 답 하나에만 감기고(그 답을 리롤해도 감긴 채), 그다음 답부터 저절로 떠요. 「계속」은 다시 「뜸」을 누를 때까지 감겨요.</div>';
+    sheet('⏸ 멈춤 · 눈 감기', html);
+}

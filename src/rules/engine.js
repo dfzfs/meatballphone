@@ -33,15 +33,31 @@ export function nextStage(book, v, name) { return stagesOf(book, name).find(s =>
 // 🔗 인물끼리: 이름 둘을 정렬한 열쇠
 export const pairKey = (a, b) => [a, b].sort().join('|');
 
-// ───── 하루의 작은 세계 사건 (AI 0회 · 날짜로 정해짐 · 가끔) ─────
-const WORLD_EV = [
-    { name: '장날', kind: 'good', price: 0.9, text: '시장에 장이 섰다 — 물건값 10% 내림' },
-    { name: '축제', kind: 'neutral', price: 1.2, text: '축제 — 광장이 붐비고 물건값이 오름' },
-    { name: '공사', kind: 'bad', price: 1, text: '길 공사 — 돌아가야 해서 이동이 늦음' },
-];
-export function worldEvent(day) { const h = parseInt(hash(`w${day}`), 36); return h % 9 === 0 ? WORLD_EV[h % WORLD_EV.length] : null; }
-// 오늘 값: 세계 사건(축제면 비쌈)
-export const priceMul = (S) => worldEvent(Math.floor(S.t / DAY))?.price ?? 1;
+// ───── 🎌 공휴일 (AI 0회 · 날짜로 정해짐) — 양력 달력일 때만 · 판타지 달력엔 없음 ─────
+//   양력 고정 + 음력(설날 · 부처님오신날 · 추석)은 브라우저의 한국 음력(dangi) 계산으로
+const SOLAR_HOL = { '1/1': '신정', '3/1': '삼일절', '5/5': '어린이날', '6/6': '현충일', '8/15': '광복절', '10/3': '개천절', '10/9': '한글날', '12/25': '크리스마스' };
+const LUNAR_HOL = { '1/1': '설날', '4/8': '부처님오신날', '8/15': '추석' };
+let LUNAR = null;
+try { LUNAR = new Intl.DateTimeFormat('en-u-ca-dangi', { month: 'numeric', day: 'numeric', timeZone: 'UTC' }); } catch { LUNAR = null; }
+const lunarMD = (y, m, d) => {
+    if (!LUNAR) return '';
+    const P = LUNAR.formatToParts(new Date(Date.UTC(y, m - 1, d)));
+    const mo = P.find(x => x.type === 'month')?.value ?? '', da = P.find(x => x.type === 'day')?.value ?? '';
+    return /^\d+$/.test(mo) ? `${Number(mo)}/${Number(da)}` : ''; // 윤달(6bis 등)은 건너뜀
+};
+const holCache = new Map();
+export function worldEvent(day) {
+    const st = getMeta()?.book?.world?.start; if (!st || st.cal?.months) return null;
+    const key = `${st.y}-${st.m}-${st.d}|${day}`; if (holCache.has(key)) return holCache.get(key);
+    const dt = new Date(Date.UTC(st.y ?? 2026, (st.m ?? 1) - 1, (st.d ?? 1) + day));
+    const y = dt.getUTCFullYear(), m = dt.getUTCMonth() + 1, d = dt.getUTCDate();
+    const name = SOLAR_HOL[`${m}/${d}`] ?? LUNAR_HOL[lunarMD(y, m, d)] ?? null;
+    const ev = name ? { name, kind: 'good', price: 1, icon: '🎌', text: `${name} — 공휴일` } : null;
+    if (holCache.size > 500) holCache.clear(); holCache.set(key, ev);
+    return ev;
+}
+// 공휴일은 물건값을 바꾸지 않는다
+export const priceMul = () => 1;
 
 // ───── 한 메시지 적용 ─────
 // ch: 이 메시지에서 바뀐 것 [{ f, label, from, to, why, src, sure, i(줄 번호) }]
@@ -809,14 +825,12 @@ export function startState(meta) {
 }
 export const resetCache = () => { cache.chatId = null; quick.key = ''; };
 
-// 지금 이 시간에 인물이 있을 곳: 같이 있음 → 하루 루틴(시간대) → 자주 있는 곳 · 축제 날엔 거리 · 광장으로
+// 지금 이 시간에 인물이 있을 곳: 같이 있음 → 하루 루틴(시간대) → 자주 있는 곳으로
 export function whereNow(book, S, p) {
     const r = S.rel[p.name];
     if (r?.gone) return null;
     if (S.with.includes(p.name)) return { place: S.loc, why: '함께 있음' };
     const sl = periodName(S.t), rt = p.routine.find(q => sl.includes(String(q.at).slice(0, 1)) || String(q.at).includes(sl));
-    const ev = worldEvent(Math.floor(S.t / DAY));
-    if (ev?.name === '축제') { const st = book.world.places.find(q => q.kind === 'street'); if (st && !rt) return { place: st.name, why: '축제 구경' }; }
     if (rt) return { place: rt.place, why: `${rt.at} 루틴` };
     if (p.haunt[0]) return { place: p.haunt[0], why: '자주 있는 곳' };
     return null;
@@ -879,7 +893,7 @@ export function wantsOf(book, S) {
     if (h >= 18 && h < 21) add('sit', 1.2, 'dinner', ['🍲', '저녁 맛있게 먹기', '저녁을 먹으러 간다.', needUp('hunger')]);
     if (/비|눈|폭우|폭설|rain|snow/i.test(S.weather)) add('sit', 1.8, 'wet', [/눈|snow/i.test(S.weather) ? '⛄' : '☔', '따뜻한 곳에서 쉬기', '비를 피해 따뜻한 곳으로 간다.', (ch) => needUp('energy')(ch) || needUp('mood')(ch) || moved(ch)]);
     else if (/맑|화창|clear|sun/i.test(S.weather) && !isHome(book, S)) add('sit', 1.2, 'sunny', ['🌤️', '햇볕 쬐며 걷기', '햇볕 아래를 걷는다.', moved]);
-    const ev = worldEvent(day); if (ev) add('sit', 2.2, `ev-${ev.name}`, ['🎪', `${ev.name} 구경하기`, `${ev.name} 구경을 간다.`, (ch) => bought(ch) || moved(ch)]);
+    const ev = worldEvent(day); if (ev) add('sit', 1.6, `ev-${ev.name}`, ['🎌', `${ev.name} 보내기`, `${ev.name}을 어떻게 보낼지 정한다.`, (ch) => bought(ch) || moved(ch)]);
     if (/shop|food/.test(pl?.kind ?? '') && pl.goods?.length) {
         const g = pl.goods[parseInt(hash(per + pl.name), 36) % pl.goods.length];
         add('sit', 2, `here-${g.name}`, [

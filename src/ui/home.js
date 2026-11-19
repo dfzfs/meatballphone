@@ -52,7 +52,7 @@ export function home(r) {
         + `${S.weather ? ` · ${esc(S.weather)}` : ''}</b><span>📍 ${esc(S.loc || '어딘가')}`
         + `${S.with.length ? ` · ${S.with.map(n => personOf(book, n)?.face || '🙂').join('')}` : ''}`
         + `</span>${modOn('wallet') ? `<span>💰 ${fmt(S.cash)} ${esc(book.world.currency)}</span>` : ''}</div>
-        ${ev ? `<span class="ml-pill ${ev.kind === 'good' ? 'good' : ev.kind === 'bad' ? 'bad' : 'love'}">🎪 ${esc(ev.name)}</span>` : ''}</div>`;
+        ${ev ? `<span class="ml-pill ${ev.kind === 'good' ? 'good' : ev.kind === 'bad' ? 'bad' : 'love'}">${ev.icon ?? '🎌'} ${esc(ev.name)}</span>` : ''}</div>`;
     const tags = [...S.status.map(s => `<span class="ml-chip ${s.kind === 'good' ? 'good' : s.kind === 'bad' ? 'bad' : ''}">${s.src === 'fate' ? '🔮 ' : ''}${esc(s.name)}`
         + `${s.until ? ` · ${Math.max(1, Math.round((s.until - S.t) / 60))}h` : ''}</span>`), ...dz.filter(d => d.stage === '위험').map(d => `<span class="ml-chip bad">${d.icon} ${esc(d.name)} 위험</span>`)];
     if (!vis('home', 'hero')) h = '';
@@ -115,7 +115,7 @@ export function home(r) {
         h += W('달력', `<div class="ml-week">${week}</div>${up.slice(0, 3).map(u => `<div class="ml-rl"><i>${u.icon}</i>${esc(u.text)} <span>${u.t != null ? (u.t - S.t <= DAY ? '하루 안' : dateText(book.world.start, u.t, false)) : esc(u.md)}</span></div>`).join('')}`, 'cal', '', 'cal');
     }
     // 소식
-    if (modOn('news')) { const N = [...(ev ? [{ icon: '🎪', text: ev.text }] : []), ...S.news.slice(0, 3)]; if (N.length) h += W('세계 소식', N.map(n => `<div class="ml-rl"><i>${n.icon}</i>${esc(n.text)}</div>`).join(''), 'news', '', 'news'); }
+    if (modOn('news')) { const N = [...(ev ? [{ icon: ev.icon ?? '🎌', text: ev.text }] : []), ...S.news.slice(0, 3)]; if (N.length) h += W('세계 소식', N.map(n => `<div class="ml-rl"><i>${n.icon}</i>${esc(n.text)}</div>`).join(''), 'news', '', 'news'); }
     // 앱
     const bd = badges(r);
     h += `<div class="ml-apps">${APPS.filter(installed).map(a => `<button class="ml-app" data-act="open" data-v="${a.id}"><i style="--c:${a.c}">${a.icon}${bd[a.id] ? `<em class="ml-badge${bd[a.id] === '!' ? ' warn' : ''}">${bd[a.id]}</em>` : ''}</i><span>${a.name}</span></button>`).join('')}</div>`;
@@ -238,7 +238,7 @@ function soon(r) {
                     out.push({ m: k * DAY, icon: '🎂', text: `${p.name} ${p.day}`, when: k ? `${k}일 뒤` : '오늘' });
             }
         }
-        const ev = worldEvent(day0 + 1); if (ev) out.push({ m: DAY - (S.t % DAY), icon: '🎪', text: `내일 ${ev.name}`, when: '내일' });
+        const ev = worldEvent(day0 + 1); if (ev) out.push({ m: DAY - (S.t % DAY), icon: ev.icon ?? '🎌', text: `내일 ${ev.name}`, when: '내일' });
     }
     if (modOn('map')) {
         const nextPeriod = periodName(S.t + 180);

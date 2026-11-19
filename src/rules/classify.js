@@ -1,7 +1,7 @@
 // 🧭 B 모드: 가벼운 모델(분류 모델)이 답을 읽고, 미트볼이 준 목록 안에서만 일어난 사건을 고른다.
 //   본편은 소설만 쓰고, 숫자는 지금처럼 설정집 규칙으로 계산한다.
 //   결과는 그 메시지 · 그 스와이프의 칸(msgData)에 src: 'cls'로 저장 → 다시 열기 · 다시 계산에는 다시 부르지 않음.
-import { ctx, settings, getMeta, saveMeta, msgData, syncSwipe, bumpMeta, msgKey, app, TITLE, saveChatSoon } from '../base/st.js';
+import { ctx, settings, getMeta, saveMeta, msgData, syncSwipe, bumpMeta, msgKey, app, TITLE, saveChatSoon, shut, shutKey, aiNoOf } from '../base/st.js';
 import { short, hash, norm, tokens, safeKey } from '../base/util.js';
 import { readOps, kindOf, parts, stripTags, storyOnly } from './tags.js';
 import { sendClean, clsRoute, connStats, routeText, CLS_PRESET } from './clsconn.js';
@@ -31,8 +31,9 @@ const KEYS = [
 const MIND = [['mind', '이름 | 짧은 속마음', '장면 속 인물의 속마음']];
 const BGM = [['bgm', '곡 제목 - 가수 | 분위기 한 단어 | 왜 어울리는지', '장면 분위기가 바뀌었을 때만 · 실제로 있는 곡 · [NOW]의 취향 참고 · 안 바뀌었으면 쓰지 않음']];
 const QUOTE = [['quote', '구절 원문 | 출처(작품 · 사람 · 나라) | 한국어 뜻(외국어일 때만) | 왜 어울리는지', '장면 분위기가 바뀌었을 때만 · 속담 · 영화/드라마 명대사 · 책/시 한 줄 · 유명인의 말 · 사자성어 · 노래 가사는 안 됨 · 한두 문장 · [NOW]의 최근 구절은 피함']];
-const keyList = () => { const M = getMeta()?.mods ?? {}; return [...KEYS, ...(M.mind ? MIND : []), ...(M.music ? BGM : []), ...(M.quote ? QUOTE : [])]; };
-export const ALLOW = () => new Set(keyList().map(([k]) => kindOf(k)));
+// aiNo: 몇 번째 AI 답을 고르는지 — 😌 그 답에 눈 감은 앱의 키는 뺀다
+const keyList = (aiNo) => { const M = getMeta()?.mods ?? {}; return [...KEYS, ...(M.mind ? MIND : []), ...(M.music ? BGM : []), ...(M.quote ? QUOTE : [])].filter(([k]) => aiNo == null || !shutKey(k, aiNo)); };
+export const ALLOW = (aiNo) => new Set(keyList(aiNo).map(([k]) => kindOf(k)));
 
 // 답 글에 이름(또는 별칭)이 나온 설정집 인물
 export function namedIn(book, text) {
@@ -91,7 +92,7 @@ export function buildPrompt(i) {
     const items = S.items.map(it => it.name).slice(0, 20).join(', ') || '-';
     const acts = actionsOf(book, S, story).map(a => `${a.name} — up: ${a.up.join(', ') || '-'} / down: ${a.down.join(', ') || '-'}`);
     const places = book.world.places.map(p => `${p.name}${p.goods.length ? `(${p.goods.map(g => g.name).join('·')})` : ''}`).join(', ');
-    const keys = keyList().map(([k, v, when]) => `${k}: ${v}  — ${when}`).join('\n');
+    const keys = keyList(aiNoOf(i)).map(([k, v, when]) => `${k}: ${v}  — ${when}`).join('\n');
     const ch = choiceText(choiceOf(u));
     const system = SYSTEM;
     const user = [
@@ -127,14 +128,15 @@ export async function askLight(system, user) {
     return (await import('./ai.js')).ask(user, system);
 }
 // 받은 줄 거르기: 목록 밖의 키 · 행동은 조용히 버림 · 비슷한 말은 목록 행동으로 맞춤
-export function filterOps(raw, book, S) {
+export function filterOps(raw, book, S, aiNo) {
     if (!/<meatball>/i.test(String(raw))) throw new Error('형식 오류');
-    const allow = ALLOW(), out = [];
+    const allow = ALLOW(aiNo), out = [];
     for (const [k, v] of readOps(raw)) {
         const kind = kindOf(k); if (!allow.has(kind)) continue;
         if (kind === 'act') {
-            const [a = '', b = ''] = parts(v), p = personOf(book, a); if (!p) continue;
-            const list = [...p.up, ...p.down].map(x => x.act), t = norm(b);
+            // 설정집에 없는 인물(이야기 중 새로 나와 아직 규칙이 없는 사람)도 기본 행동은 받는다
+            const [a = '', b = ''] = parts(v), p = personOf(book, a) ?? (S?.rel?.[a] ? { name: a, up: [], down: [] } : null); if (!p) continue;
+            const list = [...p.up, ...p.down].map(x => x.act).concat(BASIC_ACTS.up.act, BASIC_ACTS.down.act), t = norm(b);
             const hit = list.find(x => norm(x) === t) ?? list.find(x => t.includes(norm(x)) || norm(x).includes(t));
             if (!hit || !t) continue;
             out.push(['act', `${p.name} | ${hit}`]); continue;
@@ -176,9 +178,11 @@ async function run(i, force) {
         tok = P.tok; clsStats.lastTok = tok; clsStats.tok += tok;
         const r = fold(), S = r.stateAt?.(i - 1) ?? r.S;
         for (let n = 0; n < 2 && !ops; n++) {
-            try { ops = filterOps(await send(P.system, P.user), r.book, S); } catch (e) { if (n) { clsStats.fails++; console.info(`[${TITLE}] 분류 실패 (칩의 「다시」) · ${e.message}`); } }
+            try { ops = filterOps(await send(P.system, P.user), r.book, S, aiNoOf(i)); } catch (e) { if (n) { clsStats.fails++; console.info(`[${TITLE}] 분류 실패 (칩의 「다시」) · ${e.message}`); } }
         }
     }
+    // 😌 그 답에 눈 감은 앱의 줄은 버림 (저장된 결과를 다시 쓸 때도)
+    if (ops) ops = ops.filter(([k]) => !shutKey(k, aiNoOf(i)));
     // 그새 다른 스와이프로 넘어갔거나 글이 바뀌었으면 이 칸엔 안 씀 (결과는 지문으로 남겨 둠)
     if (ops) { meta.clsCache ??= {}; meta.clsCache[fp] = ops; const keys = Object.keys(meta.clsCache); if (keys.length > 300) delete meta.clsCache[keys[0]]; }
     if ((m.swipe_id ?? 0) !== sid || fingerprint(i) !== fp) { saveMeta(); return; }

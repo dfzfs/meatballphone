@@ -320,7 +320,7 @@ function map(r) {
     const svg = `<svg class="ml-map" viewBox="${x0 - pad} ${y0 - pad} ${x1 - x0 + pad * 2} ${y1 - y0 + pad * 2}" preserveAspectRatio="xMidYMid meet"><g class="edges">${net.svg}</g>${nodes.svg}</svg>`;
     const V = (k) => vis('map', k);
     const tools = `${btn('📍 핀 인물', 'map-pins', '', 'xs')}${hide.size ? btn(`👁 숨긴 장소 ${hide.size}곳`, 'map-unhide', '', 'xs') : ''}`;
-    const evPill = ev ? `<span class="ml-pill ${ev.kind === 'good' ? 'good' : ev.kind === 'bad' ? 'bad' : 'love'}">🎪 ${esc(ev.name)}</span>` : '';
+    const evPill = ev ? `<span class="ml-pill ${ev.kind === 'good' ? 'good' : ev.kind === 'bad' ? 'bad' : 'love'}">${ev.icon ?? '🎌'} ${esc(ev.name)}</span>` : '';
     let h = `<div class="ml-maphead"><span>📍 지금 <b>${esc(S.loc || '어딘가')}</b> · ${sl}</span>${evPill}${tools}</div>`;
     if (V('map')) h += `<div class="ml-mapwrap">${svg}</div>`;
     const who = [...at.entries()].flatMap(([pl, L]) => L.map(x => ({ ...x, pl })));
@@ -339,7 +339,6 @@ function placeCard(r, p, here2, path, ev, mul) {
     if (later.length) L.push(`<div class="ml-rl"><i>🕰</i>${later.join(' · ')}</div>`);
     if (Object.keys(p.rest).length || p.kind === 'home') L.push(`<div class="ml-rl"><i>🛏</i>쉬면 <b>${esc(fxTxt(p.rest) || '에너지 +10/시간')}</b></div>`);
     if (p.kind === 'bath') L.push(`<div class="ml-rl"><i>🫧</i>씻으면 <b>위생 +60</b></div>`);
-    if (ev && (ev.price !== 1 && p.goods.length || (ev.name === '축제' && p.kind === 'street'))) L.push(`<div class="ml-rl"><i>🎪</i>${esc(ev.text)}</div>`);
     if (p.note) L.push(`<div class="ml-rl"><i>📝</i>${esc(p.note)}</div>`);
     const goods = p.goods
         .map((g) => {
@@ -404,7 +403,7 @@ function eventsOnDay(r, y, m, d) {
     for (const p of S.promises) if (p.due != null && Math.floor(p.due / DAY) === day) out.push({ icon: p.done ? '✅' : '🤝', text: p.text, i: p.i });
     for (const p of book.people) { const md = /(\d{1,2})\s*[월/.]\s*(\d{1,2})/.exec(p.day || S.rel[p.name]?.day || ''); if (md && Number(md[1]) === m && Number(md[2]) === d) out.push({ icon: '🎂', text: `${p.name} · ${p.day}` }); }
     const me = /(\d{1,2})\s*[월/.]\s*(\d{1,2})/.exec(book.me.day || ''); if (me && Number(me[1]) === m && Number(me[2]) === d) out.push({ icon: '🎉', text: '내 생일' });
-    if (day >= 0) { const ev = worldEvent(day); if (ev) out.push({ icon: '🎪', text: ev.text }); }
+    if (day >= 0) { const ev = worldEvent(day); if (ev) out.push({ icon: ev.icon ?? '🎌', text: ev.text }); }
     return { out, day };
 }
 function cal(r) {
@@ -438,7 +437,7 @@ function cal(r) {
 // ───── 세계 소식: 화면 밖 생활 · 속셈 · 기념일 · 하루 사건 (AI 0회) ─────
 function news(r) {
     const { book, S } = r, L = [];
-    const ev = worldEvent(Math.floor(S.t / DAY)); if (ev) L.push(row({ icon: '🎪', title: esc(ev.name), sub: esc(ev.text) }));
+    const ev = worldEvent(Math.floor(S.t / DAY)); if (ev) L.push(row({ icon: ev.icon ?? '🎌', title: esc(ev.name), sub: '공휴일' }));
     for (const n of S.news.slice(0, 20)) L.push(row({ icon: n.icon, title: esc(n.text), sub: dateText(book.world.start, n.t, false) }));
     for (const [n, x] of Object.entries(S.rel)) if (x.want && !x.gone) L.push(row({ icon: '🎯', title: `${esc(n)}의 속셈`, sub: esc(x.want), faint: true }));
     return L.length ? card('세계 소식', L.join('')) : empty('조용한 하루예요.');

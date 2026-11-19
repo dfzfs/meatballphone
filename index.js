@@ -1,5 +1,5 @@
 // 미트볼 라이트 — 실리태번 이벤트 연결
-import { app, ctx, settings, saveSettings, getMeta, saveMeta, msgData, syncSwipe, ready, MODULE, OLD, VERSION, TITLE, INJ, MODS, DATA_V, bumpMeta, modOn, saveChatSoon, genStarted, genEnded, isGenerating } from './src/base/st.js';
+import { app, ctx, settings, saveSettings, getMeta, saveMeta, msgData, syncSwipe, ready, MODULE, OLD, VERSION, TITLE, INJ, MODS, DATA_V, bumpMeta, modOn, saveChatSoon, genStarted, genEnded, isGenerating, shutKey, aiNoOf, tidyEyes } from './src/base/st.js';
 import { esc, short, tokens, dateOf } from './src/base/util.js';
 import { readOps, stripTags, hasTag } from './src/rules/tags.js';
 import { fold, resetCache, noteRules } from './src/rules/engine.js';
@@ -94,8 +94,9 @@ async function onReceived(i, type) {
     } else {
         // A: 본편이 적은 태그만 (추가 호출 0회)
         delete sl.skip; sl.src = 'tag'; delete sl.fp;
-        sl.ops = hasTag(m.mes) ? readOps(m.mes) : []; m.mes = strip(m.mes);
+        sl.ops = (hasTag(m.mes) ? readOps(m.mes) : []).filter(([k]) => !shutKey(k, aiNoOf(i))); m.mes = strip(m.mes); // 😌 눈 감은 앱 줄은 버림
     }
+    tidyEyes();
     delete sl.fill;
     sl.rev = (sl.rev ?? 0) + 1; bumpMeta();
     if (Array.isArray(m.swipes) && typeof m.swipe_id === 'number') m.swipes[m.swipe_id] = m.mes;

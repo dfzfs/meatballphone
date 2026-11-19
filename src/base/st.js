@@ -4,7 +4,7 @@ import { normBook } from '../rules/book.js';
 
 export const MODULE = 'meatlite';
 export const OLD = 'statussim';
-export const VERSION = '0.30.3';
+export const VERSION = '0.31.0';
 export const DATA_V = 2;
 export const TITLE = '미트볼 라이트';
 export const INJ = { facts: 'meatlite_facts', hint: 'meatlite_hint', rule: 'meatlite_rule' };
@@ -146,6 +146,30 @@ export const isGenerating = () => saveState.generating;
 export const bumpMeta = () => { metaRev++; };
 export const saveSettings = () => { metaRev++; ctx().saveSettingsDebounced(); };
 export const modOn = (id, meta = getMeta()) => !!meta?.mods?.[id];
+// 😌 눈 감기: 깔린 앱마다 「다음 답 1번」(once) · 「계속」(on) — 그 답엔 그 앱의 사건을 만들지도(본편 · 분류 지시) 받지도 않는다.
+//   once는 「몇 번째 AI 답」에 묶여서, 그 답을 리롤해도 감긴 채 · 다음 답부터는 저절로 뜬다.
+export const KEY_MOD = {
+    loc: 'map', with: 'map', time: 'calendar', weather: 'calendar', date: 'calendar', promise: 'calendar', anniv: 'calendar',
+    ate: 'stats', slept: 'stats', washed: 'stats', rest: 'stats', status: 'stats', need: 'stats',
+    worked: 'wallet', buy: 'wallet', sell: 'wallet', earn: 'wallet', cash: 'wallet', got: 'wallet', item: 'wallet', used: 'wallet', lost: 'wallet', wear: 'wallet', unwear: 'wallet',
+    act: 'rel', gift: 'rel', memory: 'rel', jealous: 'rel', pair: 'rel', npc: 'rel', gone: 'rel', aff: 'rel', trust: 'rel', meddle: 'rel', taste: 'rel',
+    roll: 'dice', bgm: 'music', quote: 'quote', mind: 'mind', watch: 'mind', cell: 'mind', life: 'news', newsline: 'news', custom: 'custom',
+};
+export function aiNoOf(i) { const c = ctx().chat ?? []; let n = 0; for (let k = 0; k <= i && k < c.length; k++) if (!c[k].is_user && !c[k].is_system) n++; return n; }
+export const nextAiNo = () => aiNoOf((ctx().chat?.length ?? 0) - 1) + 1;
+export function shut(mod, aiNo = nextAiNo()) {
+    const e = getMeta()?.eyes?.[mod]; if (!e || !mod) return false;
+    return e.mode === 'on' || (e.mode === 'once' && aiNo === e.at);
+}
+export const shutKey = (key, aiNo) => shut(KEY_MOD[String(key ?? '').trim().toLowerCase()], aiNo);
+export function setEyes(mod, mode) {
+    const m = getMeta(); if (!m) return;
+    m.eyes ??= {};
+    if (!mode) delete m.eyes[mod]; else m.eyes[mod] = mode === 'once' ? { mode, at: nextAiNo() } : { mode };
+    saveMeta();
+}
+// 지난 「다음 1번」은 정리
+export function tidyEyes() { const m = getMeta(); if (!m?.eyes) return; const n = nextAiNo(); for (const [k, e] of Object.entries(m.eyes)) if (e.mode === 'once' && e.at < n - 1) delete m.eyes[k]; }
 export const ready = (meta = getMeta()) => !!meta?.book;
 
 // ───── 메시지마다 적는 칸: extra.meatlite.sw[스와이프 번호] = { ops, hand, undo, fill } ─────

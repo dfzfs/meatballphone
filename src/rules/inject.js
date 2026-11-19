@@ -1,5 +1,7 @@
 // 본편 주입: 이야기 영향력 게이지(0~4)를 따라 켜고 끈다
-import { settings, getMeta, modOn, userName, ctx } from '../base/st.js';
+import { settings, getMeta, modOn, userName, ctx, shut, shutKey } from '../base/st.js';
+// 😌 눈 감은 앱은 다음 답에 없는 셈 (켜져 있어도)
+const onNow = (id) => modOn(id) && !shut(id);
 import { clamp, dateText, short, tokens, DAY } from '../base/util.js';
 import { derived, relStage, worldEvent, fold } from './engine.js';
 import { tasteOf, recentQuotes } from './classify.js';
@@ -38,18 +40,18 @@ export function ruleText(book) {
     const cs = book.world.start.cal ?? {}, tk = cs.style === '' ? '저녁 | +2h' : cs.style === '12' ? '오후 2:30 | +2h' : '14:30 | +2h';
     const K = ['loc: 장소', `time: ${tk}`, 'with: 이름, 이름'];
     if (cs.months?.length) K.push(`date: ${cs.months[0].name} 3일 (달: ${cs.months.map(x => x.name).join('·')})`);
-    if (modOn('stats')) K.push('ate: 음식', 'slept: 6h', 'washed: -', 'rest: 1h', 'worked: 4h | +30');
-    if (modOn('wallet')) K.push('buy: 물건 | 가격', 'earn: 30 | 이유', 'got: 물건', 'used: 물건', 'wear: 옷');
-    if (modOn('rel')) K.push('act: 이름 | 한 일 (맞는 게 없으면 「기쁘게 함」 · 「상처 줌」)', 'gift: 이름 | 물건', 'memory: 이름 | 큰 사건', 'jealous: 이름 | 이유', ...(level('rel') >= 3 ? ['pair: 이름 | 이름 | +3 | 이유'] : []), 'promise: 내용 | 3/14');
-    if (modOn('calendar')) K.push('weather: 비');
+    if (onNow('stats')) K.push('ate: 음식', 'slept: 6h', 'washed: -', 'rest: 1h', 'worked: 4h | +30');
+    if (onNow('wallet')) K.push('buy: 물건 | 가격', 'earn: 30 | 이유', 'got: 물건', 'used: 물건', 'wear: 옷');
+    if (onNow('rel')) K.push('act: 이름 | 한 일 (맞는 게 없으면 「기쁘게 함」 · 「상처 줌」)', 'gift: 이름 | 물건', 'memory: 이름 | 큰 사건', 'jealous: 이름 | 이유', ...(level('rel') >= 3 ? ['pair: 이름 | 이름 | +3 | 이유'] : []), 'promise: 내용 | 3/14');
+    if (onNow('calendar')) K.push('weather: 비');
     K.push('status: 감기 | 3d', 'npc: 이름 | 성격 한 줄', 'gone: 이름 | 사유');
-    if (modOn('news') && level('news') >= 3) K.push('life: 이름 | 화면 밖에서 한 일 (가끔)');
-    if (modOn('rel') && level('rel') >= 4) K.push('meddle: 이름 | 칸 | +5 | 장난');
-    if (modOn('dice')) K.push('roll: 판정할 일');
+    if (onNow('news') && level('news') >= 3) K.push('life: 이름 | 화면 밖에서 한 일 (가끔)');
+    if (onNow('rel') && level('rel') >= 4) K.push('meddle: 이름 | 칸 | +5 | 장난');
+    if (onNow('dice')) K.push('roll: 판정할 일');
     // 🎵 📜 장면 분위기가 바뀌었을 때만 (dev처럼 본편이 고름)
-    if (modOn('music')) K.push(`bgm: 곡 제목 - 가수 | 분위기 한 단어 | 왜 (장면 분위기가 바뀌었을 때만 · 실제로 있는 곡${tasteOf() ? ` · 취향: ${tasteOf()}` : ''})`);
-    if (modOn('quote')) { const rq = recentQuotes(fold()?.S ?? {}); K.push(`quote: 구절 원문 | 출처 | 한국어 뜻(외국어일 때) | 왜 (분위기가 바뀌었을 때만 · 속담 · 명대사 · 책 · 시 · 유명인의 말 · 사자성어 · 노래 가사 금지 · 한두 문장${rq.length ? ` · 피할 것: ${rq.join(' / ')}` : ''})`); }
-    if (modOn('mind') && level('mind') > 0) {
+    if (onNow('music')) K.push(`bgm: 곡 제목 - 가수 | 분위기 한 단어 | 왜 (장면 분위기가 바뀌었을 때만 · 실제로 있는 곡${tasteOf() ? ` · 취향: ${tasteOf()}` : ''})`);
+    if (onNow('quote')) { const rq = recentQuotes(fold()?.S ?? {}); K.push(`quote: 구절 원문 | 출처 | 한국어 뜻(외국어일 때) | 왜 (분위기가 바뀌었을 때만 · 속담 · 명대사 · 책 · 시 · 유명인의 말 · 사자성어 · 노래 가사 금지 · 한두 문장${rq.length ? ` · 피할 것: ${rq.join(' / ')}` : ''})`); }
+    if (onNow('mind') && level('mind') > 0) {
         const who = meta?.mindWho ?? ['cast'];
         const mm = meta?.mindMode ?? 'thought', form = { thought: '짧은 속마음 한 줄', emoji: '이모티콘 2~3개만 (글자 없이)', kaomoji: '카모지 하나 + 아주 짧은 말', mix: '짧은 속마음 + 끝에 카모지' }[mm] ?? '짧은 속마음 한 줄';
         if (who.includes('cast')) K.push(`mind: 이름 | ${form} (장면 속 인물마다 · 관계가 가까울수록 솔직하게, 낯설수록 경계하게)`);
@@ -58,7 +60,7 @@ export function ruleText(book) {
         if (meta?.mindTone) K.push(`(속마음 말투: ${meta.mindTone})`);
         if (mm === 'kaomoji' || mm === 'mix') { const turn = ctx().chat?.length ?? 0, P = KAO.slice((turn * 5) % KAO.length).concat(KAO).slice(0, 6); K.push(`(카모지는 매번 다르게 · 예: ${P.join(' ')})`); }
     }
-    const head = `[STATUS LOG] After the reply, add a <meatball> block. Write EVENTS, not numbers — the extension computes the numbers. One "key: value" per line. Only lines for what happened this reply; skip the rest. Keys:\n${K.join('\n')}`;
+    const head = `[STATUS LOG] After the reply, add a <meatball> block. Write EVENTS, not numbers — the extension computes the numbers. One "key: value" per line. Only lines for what happened this reply; skip the rest. Keys:\n${K.filter((k) => !/^[a-z]+:/i.test(k) || !shutKey(k.split(':')[0])).join('\n')}`;
     const ex = flash ? `\nExample:\n<meatball>\nloc: 빵집\nbuy: 크림빵 | 3\nate: 크림빵\nact: Leon | 칭찬\n</meatball>\nExample:\n<meatball>\ntime: +3h\nworked: 3h | +20\nmind: Leon | 또 늦네\n</meatball>` : '';
     return head + ex;
 }
@@ -67,7 +69,7 @@ export function ruleText(book) {
 // 중간값(숫자 · 보정 · 배수 · 운세 · 능력치)은 상태창 안에서만 쓴다
 export function factText(r, lastChanges = []) {
     const { S, book } = r, L = [], H = [];
-    const lv = (id) => (modOn(id) && !getMeta()?.hideAI?.[id] ? level(id) : 0); // 🙈 AI에게 숨긴 앱은 0
+    const lv = (id) => (onNow(id) && !getMeta()?.hideAI?.[id] ? level(id) : 0); // 🙈 AI에게 숨긴 앱은 0
     const crossNeed = new Set(lastChanges.filter(c => c.f.startsWith('need.')).map(c => c.f.slice(5)));
     // 수치 · 욕구
     const dz = derived(book, S);
