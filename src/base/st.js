@@ -3,7 +3,7 @@ import { clone, hash } from './util.js';
 
 export const MODULE = 'meatlite';
 export const OLD = 'statussim';
-export const VERSION = '0.4.1';
+export const VERSION = '0.5.0';
 export const DATA_V = 2;
 export const TITLE = '미트볼 라이트';
 export const INJ = { facts: 'meatlite_facts', hint: 'meatlite_hint', rule: 'meatlite_rule' };
@@ -66,7 +66,7 @@ export const modName = (id) => MODS.find(m => m.id === id)?.name ?? id;
 // ───── 채팅 메타 ─────
 export function newMeta() {
     return {
-        v: DATA_V, book: null, start: null,
+        app: 'lite3', v: DATA_V, book: null, start: null,
         mods: Object.fromEntries(MOD_IDS.map(id => [id, id !== 'mind'])),
         paused: false, skipNext: false, influence: null, marks: [], hideNums: false, custom: [], recent: { quote: [], music: [] }, mindWho: ['cast'],
     };
@@ -75,8 +75,14 @@ export function getMeta(create = false) {
     const md = ctx().chatMetadata;
     if (!md) return null;
     if (!md[MODULE] && create) md[MODULE] = newMeta();
-    const m = md[MODULE];
-    if (m) { const d = newMeta(); for (const k of Object.keys(d)) if (!Object.hasOwn(m, k)) m[k] = d[k]; }
+    let m = md[MODULE];
+    // 예전 라이트(v0.2.x)가 같은 열쇠에 남긴 기록은 모양이 달라서 새로 시작한다 (설정집 · 칸 목록이 없음)
+    if (m && m.app !== 'lite3') { const keep = { book: m.book ?? null, start: m.start ?? null }; md[MODULE] = m = Object.assign(newMeta(), m.book?.world ? keep : {}); }
+    if (m) {
+        const d = newMeta(); for (const k of Object.keys(d)) if (!Object.hasOwn(m, k)) m[k] = d[k];
+        // 새로 생긴 칸은 켠 채로 (목록에 없으면 꺼진 게 아니라 아직 몰랐던 것)
+        for (const id of MOD_IDS) if (typeof m.mods[id] !== 'boolean') m.mods[id] = d.mods[id];
+    }
     return m ?? null;
 }
 export const saveMeta = () => ctx().saveMetadataDebounced?.() ?? ctx().saveMetadata?.();

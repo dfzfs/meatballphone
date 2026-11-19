@@ -1,9 +1,12 @@
 // 전체화면 안의 탭들 — 목록 행 + 묶음 카드. 설명은 한 줄까지.
 import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, MODS, slot, syncSwipe, msgKey, userName } from '../base/st.js';
 import { esc, fmt, signed, short, dateText, DAY, slotName, clamp, num, norm } from '../base/util.js';
-import { row, card, chip, seg, bar, empty, btn, sheet, toast, putInput } from './kit.js';
+import { row, card, chip, seg, bar, empty, btn, sheet, toast, putInput, form } from './kit.js';
 import { fold, derived, needStage, relStage, nextStage, diceMod, diceParts, worldEvent, priceMul, whereNow } from '../rules/engine.js';
 import { luckOf } from '../rules/luck.js';
+import { QUOTES } from '../../data/quotes.js';
+const QN = QUOTES.length;
+const d20Svg = (n, c) => `<svg class="ml-d20 big ${c}" viewBox="0 0 100 100"><polygon class="f0" points="50,4 92,28 92,72 50,96 8,72 8,28"/><polygon class="f1" points="50,22 78,66 22,66"/><polyline class="ed" points="50,4 50,22 92,28 78,66 92,72 50,96 78,66 22,66 8,72 22,66 8,28 50,22 22,66"/><text x="50" y="56">${n}</text></svg>`;
 import { layout, lineEdges, lineNodes, route, floorsOf } from './metro.js';
 import { personOf, placeOf, bookTokens, personTokens, normBook, PLACE_KINDS, LIMIT } from '../rules/book.js';
 import { moodTags, pickQuote, pickMusic } from '../rules/mood.js';
@@ -52,14 +55,14 @@ function needCard(r, n, last) {
     const nextAt = st === '정상' ? 40 : st === '주의' ? 15 : 0, hrs = n.rate > 0 && v > nextAt ? (v - nextAt) / n.rate : null;
     const sym = derived(r.book, S).find(d => d.key === n.key);
     const rec = st !== '정상' || v < 60 ? recoverOf(r, n.key) : [];
-    return `<div class="ml-gc ${STAGE_COLOR[st]}"><div class="ml-gc-h"><span>${n.icon}</span><b>${esc(n.name)}</b><span class="ml-pill ${STAGE_COLOR[st] === 'good' ? 'good' : STAGE_COLOR[st] === 'bad' ? 'bad' : ''}">${st}</span>${c ? `<span class="ml-why ${c.to < c.from ? 'neg' : 'pos'}">${signed(c.to - c.from)} · ${esc(c.why)}</span>` : ''}<em>${v}<small>/100</small></em></div>
+    return `<div class="ml-gc ${STAGE_COLOR[st]}"><div class="ml-gc-h"><span>${n.icon}</span><b>${esc(n.name)}</b><span class="ml-pill ${STAGE_COLOR[st] === 'good' ? 'good' : STAGE_COLOR[st] === 'bad' ? 'bad' : ''}">${st}</span>${c ? `<span class="ml-why ${c.to < c.from ? 'neg' : 'pos'}">${signed(c.to - c.from)} · ${esc(c.why)}</span>` : ''}<em class="tap" data-act="edit-val" data-v="need|${n.key}" title="고치기">${v}<small>/100</small></em></div>
         <div class="ml-gbar"><b style="width:${v}%"></b><i style="left:40%"></i><i style="left:15%"></i></div>
         <div class="ml-gc-f">${sym ? `<span>⚠ ${esc(sym.text)}${sym.stage === '위험' ? ` · 🎲${sym.dice}` : ''}</span>` : ''}${hrs != null && hrs < 48 ? `<span class="dim">${st === '위험' ? '' : `${st === '정상' ? '주의' : '위험'}까지 약 ${hrs < 1 ? `${Math.round(hrs * 60)}분` : `${Math.round(hrs)}시간`}`}</span>` : ''}<span class="dim">−${n.rate}/시간</span></div>
         ${rec.length ? `<div class="ml-gc-r">${rec.map(x => btn(esc(x.t), 'say', x.say, `xs${x.poor ? ' poor' : ''}`)).join('')}</div>` : ''}</div>`;
 }
 function gaugeCard(r, g, last) {
     const { S } = r, v = Math.round(S.gauges[g.key] ?? g.start), pct = Math.round(v / g.max * 100), c = last.find(x => x.f === `gauge.${g.key}`);
-    return `<div class="ml-gc"><div class="ml-gc-h"><b>${esc(g.name)}</b>${c ? `<span class="ml-why ${c.to < c.from ? 'neg' : 'pos'}">${signed(c.to - c.from)} · ${esc(c.why)}</span>` : ''}<em>${v}<small>/${g.max}</small></em></div>
+    return `<div class="ml-gc"><div class="ml-gc-h"><b>${esc(g.name)}</b>${c ? `<span class="ml-why ${c.to < c.from ? 'neg' : 'pos'}">${signed(c.to - c.from)} · ${esc(c.why)}</span>` : ''}<em class="tap" data-act="edit-val" data-v="gauge|${g.key}" title="고치기">${v}<small>/${g.max}</small></em></div>
         <div class="ml-gbar" style="--gc:${g.color}"><b style="width:${pct}%;background:var(--gc)"></b></div>
         <div class="ml-gc-f"><span class="ml-steps2">${[-10, -1, 1, 10].map(d => `<button class="ml-mini2" data-act="gstep" data-v="${esc(g.name)}:${d}">${d > 0 ? '+' : '−'}${Math.abs(d)}</button>`).join('')}</span><span class="dim">${esc(g.desc)}</span></div></div>`;
 }
@@ -87,11 +90,13 @@ const MOOD_KO = { love: '설렘', sad: '울적', tired: '나른함', hungry: '�
 // ───── 🎲 주사위: 능력치 + 보정 내역 → d20 · 결과는 입력창에 (이야기에 남게) ─────
 const DCS = [['쉬움', 8], ['보통', 12], ['어려움', 15], ['매우 어려움', 18], ['극한', 22]];
 let diceSel = { attr: '', dc: 12 };
+export const getDice = () => diceSel;
 export const setDice = (k, v) => { diceSel[k] = v; };
 function dice(r) {
     const { book, S } = r, attrs = book.me.attrs.map(a => a.name);
     if (!diceSel.attr && attrs.length) diceSel.attr = attrs[0];
     const P = diceParts(book, S, diceSel.attr), on = level('dice') >= 3 || level('stats') >= 3;
+    const lk = luckOf(book, S, ctx().getCurrentChatId?.(), getMeta().luckRoll);
     const mod = P.filter(x => on || x.why === diceSel.attr || x.why.endsWith('착용')).reduce((a, x) => a + x.n, 0);
     let ok = 1; for (let k = 2; k <= 19; k++) if (k + mod >= diceSel.dc) ok++;
     const req = S.rolls.slice(-3).reverse();
@@ -99,9 +104,11 @@ function dice(r) {
     h += `<h4 class="ml-h4">능력치</h4><div class="ml-chips">${attrs.map(a => `<button class="ml-btn xs${diceSel.attr === a ? ' on' : ''}" data-act="dset" data-v="attr:${esc(a)}">${esc(a)} ${signed(S.attrs[a] ?? 0)}</button>`).join('')}</div>`;
     h += `<h4 class="ml-h4">난이도</h4><div class="ml-chips">${DCS.map(([n, v]) => `<button class="ml-btn xs${diceSel.dc === v ? ' on' : ''}" data-act="dset" data-v="dc:${v}">${n} ${v}</button>`).join('')}</div>`;
     h += `<h4 class="ml-h4">보정 내역 ${on ? '' : '<span>상태 보정은 영향력 3부터 적용</span>'}</h4><div class="ml-rc">${P.length ? P.map(x => `<div class="ml-rl${on || x.why === diceSel.attr || x.why.endsWith('착용') ? '' : ' dim'}"><i>${x.fate ? '🔮' : x.n < 0 ? '⬇️' : '⬆️'}</i>${esc(x.why)} <b class="${x.n < 0 ? 'neg' : 'pos'}">${signed(x.n)}</b></div>`).join('') : '<div class="ml-rl dim"><i>·</i>보정 없음</div>'}<div class="ml-rl"><i>🎯</i>d20 ${signed(mod)} ≥ ${diceSel.dc} <span>성공 확률 ${Math.round(ok / 20 * 100)}%</span></div></div>`;
-    h += `<div class="ml-acts">${btn(`🎲 굴리기 (${esc(diceSel.attr || '판정')})`, 'roll', String(mod), 'main')}</div>`;
+    const last = getMeta().recent?.rolls?.[0];
+    h = `<div class="ml-dhero"><button class="ml-dbtn big" data-act="roll" data-v="${mod}">${d20Svg(last?.d ?? 20, last ? (last.res.includes('성공') ? 'ok' : 'no') : '')}</button><div class="ml-dres">${last ? `<b class="${last.res.includes('성공') ? 'pos' : 'neg'}">${esc(last.res)}</b><span>${last.d}${signed(last.tot - last.d)} = ${last.tot}</span>` : '<b>굴려 볼까요?</b><span>주사위를 눌러요</span>'}</div><div class="ml-dodds"><span style="--p:${Math.round(ok / 20 * 100)}%"></span><b>${Math.round(ok / 20 * 100)}%</b><small>성공</small></div></div>` + h;
+    h += `<h4 class="ml-h4">오늘 운세 주사위</h4>${lk.rolled ? `<div class="ml-scene luck"><i>🍀</i><span><b>${esc(lk.text)}</b><small>🎲 ${lk.d} · 이야기 속 하루에 한 번</small></span></div>` : `<div class="ml-scene luck tap" data-act="luckroll"><i>🎲</i><span><b>오늘 운세 굴리기</b><small>선택지에 🍀 · ⚠로 반영돼요</small></span><em>굴리기</em></div>`}`;
     const hist = getMeta().recent?.rolls ?? [];
-    if (hist.length) h += `<h4 class="ml-h4">최근 굴림</h4>${hist.map(x => `<div class="ml-rl"><i>${x.res === '대성공' || x.res === '성공' ? '✅' : '❌'}</i>${esc(x.text)}</div>`).join('')}`;
+    if (hist.length) h += `<h4 class="ml-h4">최근 굴림</h4><div class="ml-dhist">${hist.map(x => `<span class="${x.res.includes('성공') ? 'ok' : 'no'}" title="${esc(x.text)}">${x.d ?? '?'}</span>`).join('')}</div>`;
     return h;
 }
 // ───── 소지품 · 재산 (+ 상점 미니 선택지) ─────
@@ -133,8 +140,8 @@ function lastRel(r, name) {
     for (let i = r.changes.length - 1, k = 0; i >= 0 && k < 300; i--, k++) { const c = (r.changes[i] ?? []).find(x => x.who === name && /^rel\./.test(x.f)); if (c) return { c, i }; }
     return null;
 }
-function meter(kind, label, v, ticks, hide) {
-    return `<div class="ml-meter ${kind}"><span>${label}</span><span class="ml-track"><b style="width:${v}%"></b>${ticks.map(t => `<i style="left:${t}%"></i>`).join('')}</span><em>${hide ? '' : v}</em></div>`;
+function meter(kind, label, v, ticks, hide, who = '') {
+    return `<div class="ml-meter ${kind}${who ? ' tap' : ''}"${who ? ` data-act="edit-val" data-v="${kind === 'love' ? 'aff' : 'trust'}|${esc(who)}" title="고치기"` : ''}><span>${label}</span><span class="ml-track"><b style="width:${v}%"></b>${ticks.map(t => `<i style="left:${t}%"></i>`).join('')}</span><em>${hide ? '' : v}</em></div>`;
 }
 function relCard(r, name, inSheet = false) {
     const { book, S } = r, x = S.rel[name]; if (!x) return '';
@@ -149,8 +156,8 @@ function relCard(r, name, inSheet = false) {
         p?.noLove && '<span class="ml-pill mid">애정 꺼 둠</span>'].filter(Boolean).join('');
     const L = [];
     if (!x.gone) {
-        if (!p?.noLove) L.push(meter('love', '애정', x.aff, ticks, hide));
-        L.push(meter('trust', '우정', x.trust, [], hide));
+        if (!p?.noLove) L.push(meter('love', '애정', x.aff, ticks, hide, name));
+        L.push(meter('trust', '우정', x.trust, [], hide, name));
         if (hide) L.push(`<div class="ml-rl"><i>👀</i>${esc(sign || '아직 속을 모르겠다')}</div>`);
         L.push(`<div class="ml-rl"><i>🗣</i><b>${esc(st.call)}</b><span>· ${esc(st.act)}</span></div>`);
         if (nx && !p?.noLove) L.push(`<div class="ml-rl"><i>🔓</i>다음 「${esc(nx.name)}」까지 ${hide ? '조금 더' : `애정 ${nx.at - x.aff}`} <span>→ ${esc(nx.call)} · ${esc(nx.act)}</span></div>`);
@@ -315,7 +322,21 @@ function gauge() {
 }
 const slider = (id, v, name = '전체') => { const c = levelCost(v); return `<div class="ml-gauge"><div class="ml-gauge-h"><b>${esc(name)}</b><span class="ml-pill ${v >= 3 ? 'love' : ''}">${v} · ${LEVELS[v].name}</span><small>주입 ≈${c.tok}토큰 · 추가 호출 ${c.calls}회</small></div><input type="range" class="ml-range" min="0" max="4" step="1" value="${v}" data-gauge="${id}"><div class="ml-gauge-t">${LEVELS.map(l => `<span class="${l.n === v ? 'on' : ''}">${l.name}</span>`).join('')}</div></div>`; };
 
-export const RENDER = { now, dice, bag, rel, map, cal, news, rec, mind, custom, book, gauge };
+export { upcoming, lastAI, relCard };
+function music(r) {
+    const { S } = r, last = r.changes[lastAI()] ?? [], tg = moodTags(r, last), m = pickMusic(tg, settings().musicTaste);
+    const why = tg.map(t => MOOD_KO[t] ?? t);
+    let h = `<div class="ml-scene tap" data-act="music" data-v="${esc(S.bgm || m.query)}"><i>🎵</i><span><b>${esc(S.bgm || m.label)}</b><small>${S.bgm ? '이번 답에 나온 곡' : '지금 장면에 맞춰 고름'}</small></span><em>▶</em></div>`;
+    h += `<h4 class="ml-h4">왜 이 곡</h4><div class="ml-chips">${why.map(w => `<span class="ml-chip">${esc(w)}</span>`).join('')}</div>`;
+    h += `<h4 class="ml-h4">다른 분위기</h4>${['love', 'calm', 'tired', 'rain', 'festive', 'conflict'].filter(t => !tg.includes(t)).slice(0, 4).map(t => { const x = pickMusic([t], settings().musicTaste); return `<div class="ml-rl tap" data-act="music" data-v="${esc(x.query)}"><i>🎧</i>${esc(x.label)} <span>${esc(MOOD_KO[t])}</span></div>`; }).join('')}`;
+    h += `<h4 class="ml-h4">어디서 틀까</h4><div class="ml-picks">${[['youtube', 'YouTube'], ['spotify', 'Spotify']].map(([k, n]) => `<button class="ml-btn xs${settings().musicApp === k ? ' on' : ''}" data-act="musicapp" data-v="${k}">${n}</button>`).join('')}</div>`;
+    return h;
+}
+function quote(r) {
+    const { S } = r, meta = getMeta(), tg = moodTags(r, r.changes[lastAI()] ?? []), q = pickQuote(tg, meta.recent?.quote ?? [], S.turn);
+    return `<div class="ml-qcard"><b>${esc(q.text)}</b><p>${esc(q.mean)}</p><small>— ${esc(q.src)}</small></div><div class="ml-hint">AI가 고르지 않아요. 확인된 구절 ${QN}개 중에서 지금 분위기(${tg.map(t => MOOD_KO[t] ?? t).join(' · ')})로 골라요. 영향력을 올리면 대사나 내레이션에 한 번 녹아들어요.</div>`;
+}
+export const RENDER = { music, quote, now, dice, bag, rel, map, cal, news, rec, mind, custom, book, gauge };
 
 // ───── 누르기 ─────
 export async function onAct(act, v, el) {
@@ -327,29 +348,49 @@ export async function onAct(act, v, el) {
         case 'person': personSheet(r, v); return;
         case 'mapsel': setMapSel(v); app.refresh?.(); return;
         case 'photo': { const url = await pickPhoto(); if (url == null) return; const pl = placeOf(meta.book, v); if (!pl) return; pl.photo = url; saveMeta(); app.refresh?.(true); toast(url ? '사진을 붙였어요' : '사진을 뺐어요'); return; }
+        case 'musicapp': settings().musicApp = v; saveSettings(); app.refresh?.(); return;
+        case 'install': case 'uninstall': {
+            const a = (await import('./home.js')).appOf(v); if (!a?.mod) return;
+            if (act === 'install') { el?.classList.add('loading'); el && (el.textContent = ''); await new Promise(res => setTimeout(res, 700)); }
+            meta.mods[a.mod] = act === 'install'; saveMeta(); app.refresh?.(); toast(act === 'install' ? `${a.icon} ${a.name} 받았어요` : `${a.name} 지웠어요`); return;
+        }
+        case 'luckroll': {
+            const d = 1 + Math.floor(Math.random() * 20); meta.luckRoll = { day: Math.floor(r.S.t / DAY), d }; saveMeta();
+            toast(`🎲 ${d}${d === 20 ? ' · 대길!' : d === 1 ? ' · 대흉…' : ''}`, d >= 11 ? 'good' : 'bad'); app.refresh?.(); return;
+        }
         case 'dset': { const [k, x] = v.split(':'); setDice(k, k === 'dc' ? Number(x) : x); app.refresh?.(); return; }
         case 'rollattr': setDice('attr', v); app.openSheet?.('dice'); return;
         case 'roll': {
             const mod = Number(v), d = 1 + Math.floor(Math.random() * 20), tot = d + mod;
             const res = d === 20 ? '대성공' : d === 1 ? '대실패' : tot >= diceSel.dc ? '성공' : '실패';
             const text = `(🎲 ${diceSel.attr} 판정: d20 ${d}${mod ? ` ${signed(mod)}` : ''} = ${tot} vs ${diceSel.dc} → ${res})`;
-            meta.recent.rolls = [{ text, res }, ...(meta.recent.rolls ?? [])].slice(0, 5); saveMeta();
+            document.querySelectorAll('.ml-d20').forEach(x => x.classList.add('spin')); await new Promise(res => setTimeout(res, 650));
+            meta.recent.rolls = [{ text, res, d, tot }, ...(meta.recent.rolls ?? [])].slice(0, 5); saveMeta();
             toast(`${res}! ${d}${mod ? signed(mod) : ''} = ${tot}`, res.includes('성공') ? 'good' : 'bad'); putInput(text); app.refresh?.(); return;
+        }
+        case 'edit-val': {
+            const [kind, key] = v.split('|'); let cur = 0, label = key, line = '';
+            if (kind === 'need') { const n = meta.book.me.needs.find(x => x.key === key); cur = Math.round(r.S.needs[key]); label = `${n.icon} ${n.name}`; line = n.name; }
+            if (kind === 'gauge') { const g = meta.book.me.gauges.find(x => x.key === key); cur = r.S.gauges[key]; label = g.name; line = g.name; }
+            if (kind === 'aff' || kind === 'trust') { cur = r.S.rel[key]?.[kind]; label = `${key} ${kind === 'aff' ? '애정' : '우정'}`; }
+            const fv = await form(`✏️ ${esc(label)} 고치기`, [{ k: 'n', label: '값', type: 'number', v: cur, chips: ['0', '50', '100'] }, { k: 'why', label: '이유', ph: '직접 고침', chips: ['계산이 틀림', '이야기와 안 맞음', '되돌림'] }]);
+            if (!fv || fv.n === '') return; const d = num(fv.n) - num(cur); if (!d) return;
+            hand(kind === 'aff' || kind === 'trust' ? `${kind}: ${key} ${d > 0 ? '+' : ''}${d}` : `${line}: ${d > 0 ? '+' : ''}${d}`, fv.why || '직접 고침'); return;
         }
         case 'gstep': { const [g, d] = v.split(':'); hand(`${g}: ${Number(d) > 0 ? '+' : ''}${d}`, '직접'); return; }
         case 'jump': app.jump?.(Number(v)); return;
         case 'tab-book': app.openSheet?.('book'); return;
         case 'undo': { const [i, j] = v.split(':').map(Number); const m = ctx().chat[i], sl = slot(m, true); if (!sl.ops && j < 1000) sl.ops = (await import('../rules/tags.js')).readOps(m.mes); sl.undo = [...new Set([...(sl.undo ?? []), j])]; sl.rev = (sl.rev ?? 0) + 1; syncSwipe(m); ctx().saveChatDebounced?.(); app.refresh?.(); toast('되돌렸어요'); return; }
         case 'flagok': { const [i] = v.split(':').map(Number); const m = ctx().chat[i], sl = slot(m, true); sl.flagOk = true; sl.rev = (sl.rev ?? 0) + 1; ctx().saveChatDebounced?.(); app.refresh?.(); return; }
-        case 'mark': { const i = lastAI(); if (i < 0) return; const name = await ctx().Popup.show.input('책갈피 이름', '', short(ctx().chat[i].mes, 20)); if (!name) return; meta.marks = [...(meta.marks ?? []).filter(m => m.key !== msgKey(ctx().chat[i])), { key: msgKey(ctx().chat[i]), name: short(name, 30) }]; saveMeta(); app.refresh?.(); return; }
-        case 'past': { const n = await ctx().Popup.show.input('그때 상태 보기', '메시지 번호', String(lastAI())); const i = Number(n); const s = r.states[i]; if (!s) return; app.openPast?.(i); return; }
+        case 'mark': { const i = lastAI(); if (i < 0) return; const fv = await form('⭐ 책갈피', [{ k: 'name', label: '이름', v: '', ph: short(ctx().chat[i].mes, 20), chips: ['고백 직전', '첫 만남', '큰 싸움', '중요한 선택'] }]); const name = fv?.name?.trim() || (fv ? short(ctx().chat[i].mes, 20) : ''); if (!name) return; meta.marks = [...(meta.marks ?? []).filter(m => m.key !== msgKey(ctx().chat[i])), { key: msgKey(ctx().chat[i]), name: short(name, 30) }]; saveMeta(); app.refresh?.(); return; }
+        case 'past': { const ais = (ctx().chat ?? []).map((m, k) => [k, m]).filter(([, m]) => !m.is_user && !m.is_system).slice(-12).reverse(); const fv = await form('🕰 그때 상태 보기', [{ k: 'i', label: '어느 답의 시점?', type: 'pick', v: ais[0]?.[0], opts: ais.map(([k, m]) => [k, `#${k} ${esc(short(m.mes, 14))}`]) }], { ok: '보기' }); if (!fv) return; const i = Number(fv.i); const s = r.states[i]; if (!s) return; app.openPast?.(i); return; }
         case 'mindwho': { const w = new Set(meta.mindWho ?? ['cast']); w.has(v) ? w.delete(v) : w.add(v); meta.mindWho = [...w]; saveMeta(); app.refresh?.(); return; }
         case 'ctab-tpl': { const t = structuredClone(TEMPLATES[v]); meta.custom = [...(meta.custom ?? []), t]; saveMeta(); app.refresh?.(); return; }
-        case 'ctab-new': { const name = await ctx().Popup.show.input('새 탭 이름', '', ''); if (!name) return; const f = await ctx().Popup.show.input('칸 이름 (쉼표로)', '숫자 칸은 이름 뒤에 /100', '점수/100, 메모'); meta.custom = [...(meta.custom ?? []), { name: short(name, 12), icon: '🧩', fields: String(f ?? '').split(',').map(x => x.trim()).filter(Boolean).map(x => { const [n, mx] = x.split('/'); return { name: short(n, 12), max: num(mx, 0), stages: [30, 70] }; }) }]; saveMeta(); app.refresh?.(); return; }
+        case 'ctab-new': { const fv = await form('🧩 새 탭', [{ k: 'name', label: '탭 이름', ph: '예: 마력 수련' }, { k: 'icon', label: '아이콘', v: '🧩', chips: ['🧩', '🌀', '⚔️', '📚', '💼', '🔮'] }, { k: 'f', label: '칸 (쉼표로)', v: '점수/100, 메모', hint: '숫자 칸은 이름 뒤에 /최대값' }]); if (!fv?.name) return; const name = fv.name, f = fv.f; meta.custom = [...(meta.custom ?? []), { name: short(name, 12), icon: '🧩', fields: String(f ?? '').split(',').map(x => x.trim()).filter(Boolean).map(x => { const [n, mx] = x.split('/'); return { name: short(n, 12), max: num(mx, 0), stages: [30, 70] }; }) }]; saveMeta(); app.refresh?.(); return; }
         case 'ctab-del': meta.custom.splice(Number(v), 1); saveMeta(); app.refresh?.(); return;
-        case 'merge': { const into = await ctx().Popup.show.input(`${v} 합치기`, '같은 사람인 이름', ''); if (!into || !personOf(meta.book, into)) return; const p = personOf(meta.book, into); p.aka = [...new Set([...p.aka, v])]; meta.book.people = meta.book.people.filter(x => x.name !== v); saveMeta(); app.refresh?.(true); toast(`${v} → ${into}로 합쳤어요`); return; }
+        case 'merge': { const fv = await form(`🔗 ${esc(v)} 합치기`, [{ k: 'into', label: '같은 사람', type: 'pick', opts: meta.book.people.filter(p => p.name !== v).map(p => [p.name, `${p.face} ${esc(p.name)}`]) }], { ok: '합치기' }); const into = fv?.into; if (!into || !personOf(meta.book, into)) return; const p = personOf(meta.book, into); p.aka = [...new Set([...p.aka, v])]; meta.book.people = meta.book.people.filter(x => x.name !== v); saveMeta(); app.refresh?.(true); toast(`${v} → ${into}로 합쳤어요`); return; }
         case 'gone': hand(`gone: ${v} | ${r.S.rel[v]?.gone ? '' : '직접 뺌'}`, '직접'); return;
-        case 'edit-cash': { const n = await ctx().Popup.show.input('가진 돈 고치기', '숫자 · 이유는 다음 칸에', String(r.S.cash)); if (n == null) return; const why = await ctx().Popup.show.input('이유', '', '직접 고침'); hand(`cash: ${num(n)}`, why || '직접 고침'); return; }
+        case 'edit-cash': { const fv = await form('💰 가진 돈 고치기', [{ k: 'n', label: `${esc(meta.book.world.currency)}`, type: 'number', v: r.S.cash }, { k: 'why', label: '이유', v: '', ph: '직접 고침', chips: ['계산이 틀림', '이야기에서 받음', '이야기에서 씀'] }]); if (!fv || fv.n === '') return; hand(`cash: ${num(fv.n)}`, fv.why || '직접 고침'); return; }
         case 'bk-refill': { toast('로어북을 읽는 중…'); const { book } = await fillBook(); if (!book) { toast('채우지 못했어요', 'bad'); return; } const nb = normBook(book); const keep = new Set(meta.book.people.map(p => p.name)); for (const p of nb.people) { const i = meta.book.people.findIndex(x => x.name === p.name); if (i >= 0) meta.book.people[i] = p; else meta.book.people.push(p); } meta.book.world = nb.world.places.length ? nb.world : meta.book.world; saveMeta(); app.refresh?.(true); toast(`인물 ${nb.people.length}명 갱신 (이전 ${keep.size}명)`, 'good'); return; }
         case 'bk-person': case 'bk-me': case 'bk-world': case 'bk-places': return editBook(act, v);
         case 'preset': { const p = PRESETS[v]; const tgt = meta.influence ? meta.influence : settings().influence; tgt.all = p.all; tgt.by = { ...p.by }; meta.influence ? saveMeta() : saveSettings(); app.refresh?.(); toast(`${p.name}`); return; }
@@ -378,10 +419,10 @@ function editBook(act, v) {
 
 // 📷 장소 사진: 파일(크기를 줄여 이 채팅에 저장 · 약 30KB) 또는 주소 · 빈칸이면 빼기
 async function pickPhoto() {
-    const how = await ctx().Popup.show.input('장소 사진', '이미지 주소를 넣거나, 비워 두고 확인을 누르면 파일을 고를 수 있어요. 「삭제」라고 쓰면 사진을 빼요.', '');
-    if (how == null) return null;
-    if (/^삭제$|^지우기$/.test(how.trim())) return '';
-    if (/^https?:\/\//.test(how.trim())) return how.trim();
+    const fv = await form('📷 장소 사진', [{ k: 'url', label: '이미지 주소', ph: 'https://…' }, { k: 'how', label: '또는', type: 'pick', v: 'url', opts: [['url', '주소 쓰기'], ['file', '파일 고르기'], ['del', '사진 빼기']] }], { ok: '확인' });
+    if (!fv) return null;
+    if (fv.how === 'del') return '';
+    if (fv.how === 'url') return /^https?:\/\//.test(fv.url.trim()) ? fv.url.trim() : null;
     return new Promise((res) => {
         const inp = Object.assign(document.createElement('input'), { type: 'file', accept: 'image/*' });
         inp.onchange = () => {

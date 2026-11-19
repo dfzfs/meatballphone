@@ -12,15 +12,17 @@ const ACTS = [
 ];
 const COLORS = ['빨강', '파랑', '초록', '노랑', '보라', '하양', '검정'];
 const pick = (arr, h, k) => arr[(parseInt(hash(`${h}:${k}`), 36)) % arr.length];
-export function luckOf(book, S, chatId = '') {
+export function luckOf(book, S, chatId = '', roll = null) {
     const day = Math.floor(S.t / DAY), h = `${chatId}:${day}`;
+    const d = roll && roll.day === day ? roll.d : null; // 🎲 오늘 운세 주사위 (굴렸으면 그 눈으로 별 · 대길 · 대흉)
     const good = pick(ACTS, h, 'g'); let bad = pick(ACTS, h, 'b'); if (bad.k === good.k) bad = ACTS[(ACTS.indexOf(good) + 3) % ACTS.length];
     const people = book.people.filter(p => !S.rel[p.name]?.gone), places = book.world.places;
     const who = people.length ? pick(people, h, 'p').name : '', where = places.length ? pick(places, h, 'l').name : '';
-    const stars = 1 + (parseInt(hash(`${h}:s`), 36) % 5);
+    const stars = d ? Math.max(1, Math.ceil(d / 4)) : 1 + (parseInt(hash(`${h}:s`), 36) % 5);
+    const tier = d === 20 ? '대길' : d === 1 ? '대흉' : '';
     const toWho = who && ['talk', 'gift'].includes(good.k) ? `${who}에게 ` : '';
     const text = `${'★'.repeat(stars)}${'☆'.repeat(5 - stars)} ${toWho}${good.ko} 좋은 날 · ${bad.no}${where ? ` · 행운의 곳 ${where}` : ''} · ${pick(COLORS, h, 'c')}`;
-    return { day, stars, text, good: good.k, bad: bad.k, who, where, color: pick(COLORS, h, 'c') };
+    return { day, stars, text: `${tier ? `【${tier}】 ` : ''}${text}`, good: good.k, bad: bad.k, who, where, color: pick(COLORS, h, 'c'), d, tier, rolled: d != null };
 }
 // 글(선택지)이 오늘 운세와 맞는지: 1 = 🍀 · −1 = ⚠ · 0
 export function luckFit(luck, label) {

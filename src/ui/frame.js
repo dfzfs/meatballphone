@@ -4,10 +4,11 @@ import { esc, dateText, slotName, short, fmt } from '../base/util.js';
 import { fold, derived, needStage } from '../rules/engine.js';
 import { placeOf } from '../rules/book.js';
 import { TABS, RENDER, onAct, changeRow, setRecFilter } from './tabs.js';
+import { home, market, APPS, appOf, installed } from './home.js';
 import { chip, sheet, bar } from './kit.js';
 
 const MASCOT = (n) => new URL(`../../img/mascot_${n}.webp`, import.meta.url).href;
-let cur = 'now', past = null;
+let cur = 'home', past = null;
 
 // ───── HUD: 한 줄 (욕구 · 돈 · 시간 · 장소 · 가게 한 줄) ─────
 function hudHTML(r) {
@@ -41,7 +42,8 @@ export function drawFrame() {
     } else mb?.remove();
 }
 // ───── 전체화면 ─────
-export function openSheet(tab = cur) {
+export function openSheet(tab = 'home') {
+    if (tab === 'now' && !document.getElementById('ml-full')) tab = 'home';
     cur = tab; past = null;
     let el = document.getElementById('ml-full');
     if (!el) {
@@ -57,16 +59,16 @@ export function closeSheet() { document.getElementById('ml-full')?.remove(); doc
 export function drawSheet() {
     const el = document.getElementById('ml-full'); if (!el) return;
     const r = fold(); if (!r) { closeSheet(); return; }
-    const tabs = TABS.filter(t => !t.mod || modOn(t.mod));
-    if (!tabs.some(t => t.id === cur)) cur = 'now';
+    const R2 = { ...RENDER, home, market };
+    if (!R2[cur] || (appOf(cur) && !installed(appOf(cur)))) cur = 'home';
     const view = past != null ? { ...r, S: r.states[past] ?? r.S } : r;
-    const meta = getMeta();
-    el.innerHTML = `<header class="ml-top"><b>${TITLE}</b>${past != null ? chip(`🕰 #${past} 시점 · 읽기 전용`, 'mid', 'past-off') : ''}<span class="ml-sp"></span><button class="ml-ib" data-act="pause" title="일시정지">${meta.paused ? '▶' : '⏸'}</button><button class="ml-ib" data-act="skip" title="다음 1번 건너뛰기">${meta.skipNext ? '⏭✓' : '⏭'}</button><button class="ml-ib" data-act="find" title="검색">🔍</button><button class="ml-ib" data-act="close">✕</button></header>`
-        + `<main class="ml-body" data-tab="${cur}">${RENDER[cur](view)}</main>`
-        + `<nav class="ml-nav">${tabs.map(t => `<button class="${t.id === cur ? 'on' : ''}" data-tab="${t.id}"><i>${t.icon}</i><span>${t.name}</span></button>`).join('')}</nav>`;
+    const meta = getMeta(), a = appOf(cur);
+    el.innerHTML = `<header class="ml-top">${cur === 'home' ? `<b>${TITLE}</b>` : `<button class="ml-ib back" data-tab="home" title="홈">‹</button><b>${a ? `${a.icon} ${a.name}` : ''}</b>`}${past != null ? chip(`🕰 #${past} 시점 · 읽기 전용`, 'mid', 'past-off') : ''}<span class="ml-sp"></span><button class="ml-ib" data-act="pause" title="일시정지">${meta.paused ? '▶' : '⏸'}</button><button class="ml-ib" data-act="skip" title="다음 1번 건너뛰기">${meta.skipNext ? '⏭✓' : '⏭'}</button><button class="ml-ib" data-act="find" title="검색">🔍</button><button class="ml-ib" data-act="close">✕</button></header>`
+        + `<main class="ml-body" data-tab="${cur}">${R2[cur](view)}</main>`;
 }
 async function clickHandler(e) {
     const t = e.target.closest('[data-tab]'); if (t && t.tagName === 'BUTTON') { cur = t.dataset.tab; drawSheet(); return; }
+    const o = e.target.closest('[data-act="open"]'); if (o && !e.target.closest('[data-act]:not([data-act="open"])')) { cur = o.dataset.v; drawSheet(); el0()?.querySelector('.ml-body')?.scrollTo(0, 0); return; }
     const s = e.target.closest('.ml-seg button'); if (s) { const name = s.parentElement.dataset.seg, v = s.dataset.v, meta = getMeta();
         if (name === 'hide') meta.hideNums = v === '1';
         if (name === 'scope') { meta.influence = v === 'chat' ? structuredClone(settings().influence) : null; }
@@ -117,3 +119,4 @@ export function drawChips() {
 }
 const signed2 = (n) => (n > 0 ? `+${Math.round(n)}` : `−${Math.abs(Math.round(n))}`);
 export function turnSheet(i) { const r = fold(); sheet(`#${i} 이번 답에서 바뀐 것`, `<div class="ml-card">${(r.changes[i] ?? []).filter(c => c.src !== 'time').map(c => changeRow(c, i)).join('')}</div>`); }
+const el0 = () => document.getElementById('ml-full');

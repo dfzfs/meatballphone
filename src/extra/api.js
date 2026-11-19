@@ -28,7 +28,7 @@ export function preview(label) {
     if (/먹|식사|eat/.test(label) && !out.length) out.push(`${needName('hunger')} +`);
     if (/씻|샤워|목욕/.test(label)) out.push(`${needName('hygiene')} +`);
     if (/(선물|gift)/.test(label)) tags.push('🎁');
-    const lk = luckFit(luckOf(book, S, ctx().getCurrentChatId?.()), label); if (lk > 0) tags.unshift('🍀'); if (lk < 0) tags.unshift('⚠');
+    const lk = luckFit(luckOf(book, S, ctx().getCurrentChatId?.(), getMeta()?.luckRoll), label); if (lk > 0 && getMeta()?.luckRoll?.day === Math.floor(S.t / 1440)) tags.unshift('🍀'); if (lk < 0 && getMeta()?.luckRoll?.day === Math.floor(S.t / 1440)) tags.unshift('⚠');
     return out.length || tags.length ? { text: [...tags, ...out].join(' · '), ok } : null;
 }
 export function mount() {
@@ -39,7 +39,7 @@ export function mount() {
         state: () => { const r = ready() ? fold() : null; if (!r) return null; return structuredClone({ t: r.S.t, loc: r.S.loc, with: r.S.with, cash: r.S.cash, needs: r.S.needs, status: r.S.status, danger: derived(r.book, r.S), currency: r.book.world.currency }); },
         preview,
         // 🍀 오늘 운세 쪽지 + 이 글과 맞는지 (1 · 0 · −1)
-        luck: (label = '') => { const r = ready() ? fold() : null; if (!r) return null; const l = luckOf(r.book, r.S, ctx().getCurrentChatId?.()); return { ...l, fit: label ? luckFit(l, label) : 0 }; },
+        luck: (label = '') => { const r = ready() ? fold() : null; if (!r) return null; const l = luckOf(r.book, r.S, ctx().getCurrentChatId?.(), getMeta()?.luckRoll); if (!l.rolled) return { ...l, fit: 0 }; return { ...l, fit: label ? luckFit(l, label) : 0 }; },
         paused: () => !!getMeta()?.paused,
     });
 }
