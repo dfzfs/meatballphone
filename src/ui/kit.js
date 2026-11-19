@@ -4,14 +4,14 @@ import { mascot } from './mascot.js';
 
 // [아이콘] 제목 / 작은 부제 ··· 오른쪽 값 또는 ›
 export const row = ({ icon = '', title, sub = '', value = '', act = '', data = '', faint = false, more = false }) =>
-    `<div class="ml-row${act ? ' tap' : ''}${faint ? ' faint' : ''}"${act ? ` data-act="${act}"` : ''}${data ? ` data-v="${esc(data)}"` : ''}>${icon ? `<span class="ml-ic">${icon}</span>` : ''}<span class="ml-tx"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span><span class="ml-val">${value}${more ? '<i class="ml-chev">›</i>' : ''}</span></div>`;
+    `<div class="ml-row${act ? ' tap' : ''}${faint ? ' faint' : ''}"${act ? ` data-act="${act}"` : ''}${data !== '' && data != null ? ` data-v="${esc(data)}"` : ''}>${icon ? `<span class="ml-ic">${icon}</span>` : ''}<span class="ml-tx"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span><span class="ml-val">${value}${more ? '<i class="ml-chev">›</i>' : ''}</span></div>`;
 export const card = (head, body, tail = '') => (body ? `<section class="ml-sec">${head ? `<h4>${head}${tail ? `<span>${tail}</span>` : ''}</h4>` : ''}<div class="ml-card">${body}</div></section>` : '');
 // 색은 의미별 셋만: good · bad · mid
-export const chip = (text, kind = 'mid', act = '', data = '') => `<span class="ml-chip ${kind}${act ? ' tap' : ''}"${act ? ` data-act="${act}"` : ''}${data ? ` data-v="${esc(data)}"` : ''}>${text}</span>`;
+export const chip = (text, kind = 'mid', act = '', data = '') => `<span class="ml-chip ${kind}${act ? ' tap' : ''}"${act ? ` data-act="${act}"` : ''}${data !== '' && data != null ? ` data-v="${esc(data)}"` : ''}>${text}</span>`;
 export const seg = (name, opts, cur) => `<div class="ml-seg" data-seg="${name}">${opts.map(([v, l]) => `<button class="${String(v) === String(cur) ? 'on' : ''}" data-v="${esc(v)}">${l}</button>`).join('')}</div>`;
 export const bar = (v, kind = '') => `<span class="ml-bar ${kind}"><i style="width:${Math.max(0, Math.min(100, v))}%"></i></span>`;
 export const empty = (text, btn = '', act = '') => `<div class="ml-empty">${mascot('lg', 'think', 'bob')}<p>${text}</p>${btn ? `<button class="ml-btn" data-act="${act}">${btn}</button>` : ''}</div>`;
-export const btn = (text, act, data = '', kind = '') => `<button class="ml-btn ${kind}" data-act="${act}"${data ? ` data-v="${esc(data)}"` : ''}>${text}</button>`;
+export const btn = (text, act, data = '', kind = '') => `<button class="ml-btn ${kind}" data-act="${act}"${data !== '' && data != null ? ` data-v="${esc(data)}"` : ''}>${text}</button>`;
 
 // 바텀시트: 보는 화면과 고치는 화면을 나눈다
 export function sheet(title, html, { onOk = null, ok = '저장' } = {}) {

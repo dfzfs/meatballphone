@@ -333,7 +333,7 @@ export function fold(force = false) {
     // 빠른 길: 채팅 · 마지막 메시지 · 스와이프 · 설정집 저장 번호가 그대로면 지난 결과 (선택지 미리 보기처럼 한 화면에 여러 번 부를 때)
     const last = chat[chat.length - 1], qk = `${id}|${chat.length}|${last ? sigOf(last) : ''}|${metaRev}|${meta.book === quick.book ? 1 : 0}`;
     if (!force && quick.r && quick.key === qk) return quick.r;
-    const bsig = hash(JSON.stringify(meta.book) + JSON.stringify(meta.start ?? {}));
+    const bsig = hash(JSON.stringify(meta.book) + JSON.stringify(meta.start ?? {}) + (meta.startAt ?? 0));
     if (force || cache.chatId !== id || cache.bookSig !== bsig) cache = { chatId: id, bookSig: bsig, sig: [], snap: [], needs: [], changes: [], flags: [], base: null, last: null };
     if (!cache.base) cache.base = startState(meta);
     let from = 0;
@@ -348,7 +348,8 @@ export function fold(force = false) {
     let S = structuredClone(S0);
     for (let i = start; i < chat.length; i++) {
         const m = chat[i], ch = [], flags = [];
-        if (!m.is_user && !m.is_system) {
+        if (i === (meta.startAt ?? -1) - 1 && meta.start?.full) ch.push({ f: 'save', label: '💾 세이브 불러옴', icon: '💾', from: '', to: short(meta.start.name ?? '', 20), why: '여기부터 그 세이브 상태로', src: 'auto', sure: true, i });
+        if (!m.is_user && !m.is_system && i >= (meta.startAt ?? 0)) {
             S.mind = {}; S.watch = {}; S.cell = {}; S.turn++;
             const x = makeCtx(meta.book, S, ch, flags);
             const W = wantsOf(meta.book, S), P = { tasted: S.tasted?.length ?? 0, visited: S.visited?.length ?? 0, custom: JSON.stringify(S.custom) }; // ⭐ 이 답 전에 원하던 것 · 그때 개수
@@ -370,7 +371,7 @@ export function stateAt(i) {
     let k = i; while (k >= 0 && !cache.snap[k]) k--;
     const S = structuredClone(k >= 0 ? cache.snap[k] : cache.base);
     for (let j = k + 1; j <= i && j < chat.length; j++) {
-        const m = chat[j]; if (m.is_user || m.is_system) continue;
+        const m = chat[j]; if (m.is_user || m.is_system || j < (meta.startAt ?? 0)) continue;
         const ch = [], flags = []; S.mind = {}; S.watch = {}; S.cell = {}; S.turn++;
         const x = makeCtx(meta.book, S, ch, flags), W = wantsOf(meta.book, S), P = { tasted: S.tasted?.length ?? 0, visited: S.visited?.length ?? 0, custom: JSON.stringify(S.custom) };
         for (const o of opsOf(m, meta.book)) { try { applyOp(meta.book, S, x, o.k, o.v, o.j, o.src, ch); } catch { /* 건너뜀 */ } }
@@ -379,8 +380,9 @@ export function stateAt(i) {
     return S;
 }
 export function startState(meta) {
-    const S = initState(meta.book);
     const st = meta.start ?? {};
+    if (st.full && typeof st.full === 'object') { const S = { ...initState(meta.book), ...structuredClone(st.full) }; for (const p of meta.book.people) S.rel[p.name] ??= initState(meta.book).rel[p.name]; return S; }
+    const S = initState(meta.book);
     if (st.cash != null) S.cash = num(st.cash);
     if (Array.isArray(st.items)) S.items = st.items.map(it => ({ name: safeKey(it.name), n: Math.max(1, num(it.n, 1)), worn: !!it.worn, fx: it.fx ?? {} })).filter(it => it.name);
     if (st.loc) S.loc = st.loc;

@@ -301,7 +301,9 @@ function rec(r) {
     }
     const marks = (meta.marks ?? []).map(m => ({ ...m, i: chat.findIndex(x => msgKey(x) === m.key) })).filter(m => m.i >= 0);
     const RF = REC_F.filter(([k]) => ({ need: 'stats', cash: 'wallet', item: 'wallet', rel: 'rel', loc: 'map', status: 'stats' }[k] ?? null) == null || modOn({ need: 'stats', cash: 'wallet', item: 'wallet', rel: 'rel', loc: 'map', status: 'stats' }[k]));
-    return `<div class="ml-tools">${seg('recf', RF, recF)}${btn('⭐ 마지막 답 책갈피', 'mark')}${btn('🕰 그때 상태 보기', 'past')}</div>` + card('책갈피', marks.map(m => row({ icon: '⭐', title: esc(m.name), sub: `#${m.i}`, act: 'jump', data: m.i, more: true })).join('')) + card('하이라이트', hi.join('')) + card('타임라인', L.join('') || row({ title: '아직 기록이 없어요', faint: true }));
+    const SV = meta.saves ?? [];
+    const saves = `<h4 class="ml-h4">💾 세이브 <span>5칸 · 채팅 글은 그대로 · 불러오면 그 상태로 이어서</span></h4><div class="ml-saves">${[0, 1, 2, 3, 4].map(k => { const x = SV[k]; return x ? `<div class="ml-save"><b>${esc(x.name)}</b><small>${esc(x.when)} · #${x.i}</small><span>${btn('불러오기', 'sv-load', k, 'xs')}${btn('덮어쓰기', 'sv-save', k, 'xs')}<button class="ml-mini" data-act="sv-del" data-v="${k}">🗑</button></span></div>` : `<button class="ml-save empty" data-act="sv-save" data-v="${k}">＋ ${k + 1}번 칸에 저장</button>`; }).join('')}${meta.autoSave ? `<div class="ml-save auto"><b>⏮ 자동 세이브</b><small>${esc(meta.autoSave.why)} · ${esc(meta.autoSave.when)}</small><span>${btn('되돌리기', 'sv-load', 'auto', 'xs')}</span></div>` : ''}</div>`;
+    return saves + `<div class="ml-tools">${seg('recf', RF, recF)}${btn('⭐ 마지막 답 책갈피', 'mark')}${btn('🕰 그때 상태 보기', 'past')}</div>` + card('책갈피', marks.map(m => row({ icon: '⭐', title: esc(m.name), sub: `#${m.i}`, act: 'jump', data: m.i, more: true })).join('')) + card('하이라이트', hi.join('')) + card('타임라인', L.join('') || row({ title: '아직 기록이 없어요', faint: true }));
 }
 function graph(r, key) {
     const pts = []; r.needsAt.forEach((s, i) => { if (s?.[key] != null && (i === 0 || r.changes[i]?.length)) pts.push([i, s[key]]); });
@@ -465,6 +467,20 @@ export async function onAct(act, v, el) {
         case 'undo': { const [i, j] = v.split(':').map(Number); const m = ctx().chat[i], sl = slot(m, true); if (!sl.ops && j < 1000) sl.ops = (await import('../rules/tags.js')).readOps(m.mes); sl.undo = [...new Set([...(sl.undo ?? []), j])]; sl.rev = (sl.rev ?? 0) + 1; bumpMeta(); syncSwipe(m); ctx().saveChatDebounced?.(); app.refresh?.(); toast('되돌렸어요'); return; }
         case 'flagfix': hand(v, '어긋남 고침'); return;
         case 'flagok': { const [i] = v.split(':').map(Number); const m = ctx().chat[i], sl = slot(m, true); sl.flagOk = true; sl.rev = (sl.rev ?? 0) + 1; bumpMeta(); ctx().saveChatDebounced?.(); app.refresh?.(); return; }
+        case 'sv-save': {
+            const k = Number(v), i = (ctx().chat ?? []).length;
+            const fv = await form(`💾 ${k + 1}번 칸`, [{ k: 'name', label: '이름', v: meta.saves?.[k]?.name ?? '', ph: '고백 직전', chips: ['고백 직전', '큰 싸움 전', '여행 출발', '시험 전날'] }]); if (!fv) return;
+            (meta.saves ??= [])[k] = { name: short(fv.name || `세이브 ${k + 1}`, 24), when: dateText(r.book.world.start, r.S.t), i, full: structuredClone(r.S), book: structuredClone(meta.book) };
+            saveMeta(); app.refresh?.(); toast('💾 저장했어요', 'good'); return;
+        }
+        case 'sv-load': {
+            const x = v === 'auto' ? meta.autoSave : meta.saves?.[Number(v)]; if (!x) return;
+            if (v !== 'auto') meta.autoSave = { why: '불러오기 전', when: dateText(r.book.world.start, r.S.t), full: structuredClone(r.S), book: structuredClone(meta.book), startAt: meta.startAt ?? 0, start: structuredClone(meta.start ?? null) };
+            if (v === 'auto' && x.start !== undefined) { meta.start = x.start; meta.startAt = x.startAt; }
+            else { meta.start = { full: structuredClone(x.full), name: x.name }; meta.startAt = (ctx().chat ?? []).length; }
+            meta.book = structuredClone(x.book); saveMeta(); app.refresh?.(true); toast(`💾 「${x.name ?? '자동 세이브'}」 상태로 이어서 해요`, 'good'); return;
+        }
+        case 'sv-del': meta.saves[Number(v)] = null; saveMeta(); app.refresh?.(); return;
         case 'mark': { const i = lastAI(); if (i < 0) return; const fv = await form('⭐ 책갈피', [{ k: 'name', label: '이름', v: '', ph: short(ctx().chat[i].mes, 20), chips: ['고백 직전', '첫 만남', '큰 싸움', '중요한 선택'] }]); const name = fv?.name?.trim() || (fv ? short(ctx().chat[i].mes, 20) : ''); if (!name) return; meta.marks = [...(meta.marks ?? []).filter(m => m.key !== msgKey(ctx().chat[i])), { key: msgKey(ctx().chat[i]), name: short(name, 30) }]; saveMeta(); app.refresh?.(); return; }
         case 'past': { const ais = (ctx().chat ?? []).map((m, k) => [k, m]).filter(([, m]) => !m.is_user && !m.is_system).slice(-12).reverse(); const fv = await form('🕰 그때 상태 보기', [{ k: 'i', label: '어느 답의 시점?', type: 'pick', v: ais[0]?.[0], opts: ais.map(([k, m]) => [k, `#${k} ${esc(short(m.mes, 14))}`]) }], { ok: '보기' }); if (!fv) return; const i = Number(fv.i); if (!(i >= 0)) return; app.openPast?.(i); return; }
         case 'mindwho': { const w = new Set(meta.mindWho ?? ['cast']); w.has(v) ? w.delete(v) : w.add(v); meta.mindWho = [...w]; saveMeta(); app.refresh?.(); return; }
@@ -476,6 +492,7 @@ export async function onAct(act, v, el) {
         case 'edit-cash': { const fv = await form('💰 가진 돈 고치기', [{ k: 'n', label: `${esc(meta.book.world.currency)}`, type: 'number', v: r.S.cash }, { k: 'why', label: '이유', v: '', ph: '직접 고침', chips: ['계산이 틀림', '이야기에서 받음', '이야기에서 씀'] }]); if (!fv || fv.n === '') return; hand(`cash: ${num(fv.n)}`, fv.why || '직접 고침'); return; }
         case 'bk-refill': {
             // 바뀐 로어북 항목만 보고, 거기 나오는 인물만 다시 채운다 (안 바뀐 인물 · 직접 고친 인물은 그대로)
+            meta.autoSave = { why: '다시 채우기 전', when: dateText(r.book.world.start, r.S.t), full: structuredClone(r.S), book: structuredClone(meta.book), startAt: meta.startAt ?? 0, start: structuredClone(meta.start ?? null) };
             const { sources } = await import('../rules/ai.js'); const src = await sources(), old = meta.book.src?.sig ?? {};
             const changed = Object.keys(src.sig).filter(k => old[k] !== src.sig[k]);
             if (Object.keys(old).length && !changed.length) { toast('로어북이 바뀌지 않았어요'); return; }
