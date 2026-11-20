@@ -1180,6 +1180,7 @@ export async function onAct(act, v, el) {
             const nb = normBook({ ...meta.book, ...book, world: book.world ?? meta.book.world, me: book.me ?? meta.book.me });
             let up = 0,
                 add = 0;
+            let full = 0;
             for (const p of nb.people) {
                 const i = meta.book.people.findIndex((x) => x.name === p.name);
                 if (i >= 0) {
@@ -1187,7 +1188,8 @@ export async function onAct(act, v, el) {
                         meta.book.people[i] = { ...p, face: meta.book.people[i].face || p.face };
                         up++;
                     }
-                } else {
+                } else if (meta.book.people.length >= LIMIT.people) full++; // 👥 꽉 차면 더 안 넣음 (나중에 저장할 때 잘려 나가던 것)
+                else {
                     meta.book.people.push(p);
                     add++;
                 }
@@ -1197,7 +1199,7 @@ export async function onAct(act, v, el) {
             meta.book.src.sig = src.sig;
             saveMeta();
             app.refresh?.(true);
-            toast(`인물 ${up}명 갱신 · ${add}명 추가`, 'good');
+            toast(`인물 ${up}명 갱신 · ${add}명 추가${full ? ` · ${full}명은 꽉 차서 못 넣음(${LIMIT.people}명까지)` : ''}`, full ? 'bad' : 'good');
             return;
         }
         case 'bk-person':
@@ -1314,6 +1316,7 @@ async function editBook(act, v) {
     }
     // 👤 인물 — 설정집 칸 그대로 (성격 · 시작값 · 오르는/내리는 행동 · 증상 · 시너지 · 장소 · 루틴 · 취향 · 기념일 · 속셈)
     const p = v ? personOf(b, v) : null;
+    if (!p && b.people.length >= LIMIT.people) { toast(`인물은 ${LIMIT.people}명까지예요 · 안 나오는 인물을 지우고 넣어 주세요`, 'bad'); return; } // 👥 넣어도 잘려 나가던 것
     const acts = (a) => (a ?? []).map(x => `${x.act}${x.d != null ? ` ${x.d > 0 ? '+' : ''}${x.d}` : ''}`).join(', ');
     const fv = await form(p ? `${p.face} ${esc(p.name)}` : '＋ 인물', [
         { k: 'name', label: '이름', v: p?.name ?? '' }, { k: 'face', label: '얼굴 이모지', v: p?.face ?? '🙂', chips: ['🙂', '😎', '🥰', '😤', '🦊', '🐺', '🛡️', '🌸'] },

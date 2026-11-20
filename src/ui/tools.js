@@ -9,7 +9,7 @@ import { clsRoute } from '../rules/clsconn.js';
 import { fold } from '../rules/engine.js';
 import { normBook, placeOf, PLACE_KINDS, fxOf } from '../rules/book.js';
 import { ask, parseJSON } from '../rules/ai.js';
-import { readOps } from '../rules/tags.js';
+import { readOps, kindOf } from '../rules/tags.js';
 import { glossList, gloss, applyGloss } from '../base/gloss.js';
 import { trOn, trList, flush, trRules, trOrig } from '../extra/translate.js';
 export { glossList, gloss };
@@ -616,7 +616,10 @@ export async function aiEdit(appId) {
         // 가벼운 연결(분류 연결 · 깨끗한 프리셋)이 있으면 그쪽으로 — 본편 프리셋 · 탈옥에 휘둘리지 않고 빠르게
         raw = clsRoute() ? await askLight(SYS, Q) : await ask(Q, SYS);
     } catch (e) { toast(`AI 호출 실패 · ${e.message ?? e}`, 'bad'); return; }
-    const lines = readOps(raw).map(([k, v]) => `${k}: ${v}`);
+    // 알려 준 키만 (AI가 다른 키를 지어내면 미리 보기에 「알 수 없음」으로 섞이던 것)
+    const OKK = new Set(['loc', 'time', 'weather', 'cash', 'got', 'lost', 'item', 'wear', 'unwear', 'act', 'aff', 'trust', 'status', 'memory', 'promise', 'life', 'mind', 'bgm', 'quote', 'need']);
+    const nn = [...r.book.me.needs.flatMap(n => [n.name, n.key]), ...r.book.me.gauges.flatMap(g => [g.name, g.key])];
+    const lines = readOps(raw).filter(([k]) => OKK.has(kindOf(k, nn))).map(([k, v]) => `${k}: ${v}`);
     const j = keys.length ? parseJSON(String(raw).replace(/<meatball>[\s\S]*?<\/meatball>/i, '')) : null;
     const patch = j && typeof j === 'object' && patchSummary(j, keys).length ? j : null;
     if (!lines.length && !patch) { toast('바꿀 것을 못 찾았어요', 'bad'); return; }
