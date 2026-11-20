@@ -114,8 +114,14 @@ export function buildPrompt(i) {
 // 분류 지시 (미트볼폰의 분류 지시만 · 사용자 프리셋 · 탈옥 없음)
 const SYSTEM = 'You label what happened in ONE roleplay reply for a status tracker. Use ONLY the keys and actions listed. '
         + 'If the wording differs, map it to the closest listed action (e.g. "spoke sweetly" → the listed "칭찬"). '
-        + 'Never write an event that did not happen in the reply. No numbers except the formats shown. '
-        + 'Output ONLY a <meatball> block, one "key: value" per line. If nothing happened, output an empty <meatball></meatball>.';
+        + 'Never invent an event that did not happen in the reply. No numbers except the formats shown. '
+        + 'Almost every reply has something to record: '
+        + '(1) for EACH listed person who talked with, touched, helped, teased, comforted or reacted to the player character in this reply, write ONE act line — '
+        + 'pick the closest listed action, and if none fits use 기쁘게 함 (warm / friendly / pleasant moment) or 상처 줌 (cold / hurtful moment); '
+        + '(2) if time clearly passed (a meal, a walk, a scene change, "later", "after a while"), write a time line (+30m, +1h …); '
+        + '(3) any place change, food, purchase, item, sleep or wash that happened. '
+        + 'Only output an empty <meatball></meatball> when the reply is pure description with no interaction and no time passing. '
+        + 'Output ONLY a <meatball> block, one "key: value" per line.';
 // 분류 연결로 보냄 (「미트볼 분류용」 프리셋: 온도 0 · 답 1000토큰 · 생각 최소 · 스트리밍 끔)
 export const clsStats = { calls: 0, tok: 0, lastTok: 0, fails: 0 };
 async function send(system, user) {

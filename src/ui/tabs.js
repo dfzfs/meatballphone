@@ -1223,8 +1223,8 @@ export function hand(line, why) {
 }
 async function editBook(act, v) {
     const meta = getMeta(), b = meta.book;
-    if (act === 'bk-me') return (await import('./tools.js')).editApp('now');
-    if (act === 'bk-places') return (await import('./tools.js')).editApp('map');
+    if (act === 'bk-me') return (await import('./tools.js')).editRules('now');
+    if (act === 'bk-places') return (await import('./tools.js')).editRules('map');
     const L = (a) => (a ?? []).join(', '), P = (t) => String(t ?? '').split(/[,、]/).map(x => x.trim()).filter(Boolean);
     if (act === 'bk-start') { // 📅 이야기 시작 날짜 · 시각만 빠르게 (쓸 앱 고르기 화면 · 달력)
         const st = b.world.start, hh = Math.floor((st.clock ?? 480) / 60), mm = (st.clock ?? 480) % 60;

@@ -1,8 +1,11 @@
 // 🧰 앱마다 붙는 공통 도구줄: ✏️ 편집 · ✨ AI로 수정 · 🙈 AI에게 숨기기 · 👁 보일 것 · 🌐 용어집(번역 고정)
 //   편집은 바텀시트 입력 칸 → 상태 값은 마지막 답에 「손으로 고침 + 이유」로 적고(기록 · 되돌리기), 설정집은 설정집에 바로
 import { app, ctx, settings, saveSettings, getMeta, saveMeta, msgData, syncSwipe, bumpMeta, saveChatSoon, setEyes } from '../base/st.js';
-import { esc, num, short, norm, safeKey, signed } from '../base/util.js';
+import { esc, num, short, norm, safeKey, signed, dateText } from '../base/util.js';
 import { form, sheet, toast, btn } from './kit.js';
+import { quickEdit } from './editnow.js';
+import { askLight } from '../rules/classify.js';
+import { clsRoute } from '../rules/clsconn.js';
 import { fold } from '../rules/engine.js';
 import { normBook, placeOf, PLACE_KINDS, fxOf } from '../rules/book.js';
 import { ask, parseJSON } from '../rules/ai.js';
@@ -77,7 +80,12 @@ function listSheet(title, rows, addLabel, addAct, hint = '') {
 }
 
 // ───── 앱별 편집 ─────
+// ✏️ 편집: 먼저 「지금 값」 한 화면(수치 · 소지품 · 관계 · 지도) → 그 안의 「📘 규칙 고치기」로 설정집 칸 (editRules)
 export async function editApp(appId) {
+    const q = await quickEdit(appId, handLines);
+    if (q === null) return editRules(appId);
+}
+export async function editRules(appId) {
     const r = fold(), meta = getMeta(), b = meta.book;
     switch (appId) {
         case 'now':
@@ -538,14 +546,14 @@ const AI_SCOPE = {
 export const AI_APPS = new Set(Object.keys(AI_SCOPE));
 function aiNow(appId, r) {
     const S = r.S, b = r.book;
-    const all = `place ${S.loc} · time ${S.t} · weather ${S.weather} · cash ${S.cash} · needs ${JSON.stringify(S.needs)} · status ${S.status.map((x) => x.name).join(',') || '-'}`;
+    const all = `place ${S.loc} · time ${dateText(b.world.start, S.t)} · weather ${S.weather} · cash ${S.cash} · needs ${JSON.stringify(S.needs)} · status ${S.status.map((x) => x.name).join(',') || '-'}`;
     return {
         now: `needs ${JSON.stringify(S.needs)} gauges ${JSON.stringify(S.gauges)} attrs ${JSON.stringify(S.attrs)} status ${S.status.map((x) => x.name).join(',') || '-'}`,
         dice: `attrs ${JSON.stringify(S.attrs)} status ${S.status.map((x) => `${x.name}(${x.dice ?? 0})`).join(',') || '-'}`,
         bag: `cash ${S.cash} items ${S.items.map((i) => `${i.name}x${i.n}${i.worn ? '(worn)' : ''}`).join(', ') || '-'}`,
         rel: Object.entries(S.rel).map(([n, x]) => `${n} aff ${x.aff} trust ${x.trust}`).join(' · '),
         map: `here ${S.loc} with ${(S.with ?? []).join(',') || '-'}`,
-        cal: `time ${S.t} weather ${S.weather} promises ${(S.promises ?? []).map((q) => q.text).join(' / ') || '-'}`,
+        cal: `time ${dateText(b.world.start, S.t)} weather ${S.weather} promises ${(S.promises ?? []).map((q) => q.text).join(' / ') || '-'}`,
         news: (S.news ?? []).slice(0, 5).map((n) => n.text).join(' / ') || '-',
         music: S.bgm ? `now song ${S.bgm.title} - ${S.bgm.artist ?? ''} (${S.bgm.mood ?? ''})` : 'no song yet',
         quote: S.quote ? `now quote "${S.quote.text}" — ${S.quote.src ?? ''}` : 'no quote yet',
@@ -582,6 +590,15 @@ function patchSummary(patch, keys) {
     if (keys.includes('places') && Array.isArray(patch.places)) L.push(`📍 장소 ${patch.places.length}곳으로`);
     return L;
 }
+// ✨ 미리 보기 한 줄: 「aff: Leon +5 | 이유」 → 💗 Leon 애정 +5 · 이유
+const KEY_NICE = { aff: ['💗', '애정'], trust: ['🤝', '우정'], cash: ['💰', '돈'], earn: ['💰', '받은 돈'], got: ['👜', '얻음'], lost: ['👜', '잃음'], item: ['👜', '물건'], used: ['👜', '씀'], wear: ['👕', '입음'],
+    loc: ['📍', '장소'], with: ['👥', '같이 있는 사람'], time: ['🕰️', '시간'], date: ['📅', '날짜'], weather: ['🌦️', '날씨'], status: ['🏷️', '상태'], act: ['💞', '행동'], memory: ['💬', '기억'],
+    promise: ['🤝', '약속'], bgm: ['🎵', '곡'], quote: ['📜', '구절'], mind: ['💭', '속마음'], npc: ['👤', '새 인물'], gone: ['🕊️', '빠짐'], attr: ['💪', '능력치'], ate: ['🍽', '먹음'], slept: ['😴', '잠'], newsline: ['📰', '소식'], custom: ['🧩', '내 탭'] };
+function niceLine(l) {
+    const k = l.slice(0, l.indexOf(':')).trim(), v = l.slice(l.indexOf(':') + 1).trim(), [ic, nm] = KEY_NICE[k.toLowerCase()] ?? ['•', k];
+    const [a, ...rest] = v.split('|').map(x => x.trim());
+    return `<div class="ml-rl"><i>${ic}</i><b>${esc(nm)}</b> ${esc(a)}${rest.filter(Boolean).length ? ` <span>${esc(rest.filter(Boolean).join(' · '))}</span>` : ''}</div>`;
+}
 export async function aiEdit(appId) {
     const scope = AI_SCOPE[appId] ?? AI_SCOPE.book, keys = scope.book;
     const fv = await form('✨ AI로 수정', [{ k: 'say', label: '어떻게 바꿀까요?', type: 'area', ph: '예: 아까 산 빵은 사실 두 개였어 · 다은 애정을 조금 낮춰 줘 · 지금 곡을 잔잔한 걸로 · 카페에 케이크를 추가해 줘' }], { ok: 'AI에게 맡기기' });
@@ -591,17 +608,19 @@ export async function aiEdit(appId) {
     toast('AI에게 묻는 중…');
     let raw = '';
     try {
-        raw = await ask(`The user wants to change the status window (${appId}): "${fv.say.trim()}"\nCurrent values: ${aiNow(appId, r)}\n`
+        const SYS = 'You edit a status window. Be minimal and exact. Change only what the user asked.';
+        const Q = `The user wants to change the status window (${appId}): "${fv.say.trim()}"\nCurrent values: ${aiNow(appId, r)}\n`
             + (bookPart ? `Rulebook part (JSON): ${bookPart}\nIf the change is about the rulebook, output ONLY the changed top-level parts as JSON in a \`\`\`json block (same shape; for people/places give the FULL changed list).\n` : '')
             + (appId === 'rel' ? `Relationship stages by aff (affection): ${(r.book.stages ?? []).map(s => `${s.name} ${s.at}+`).join(' · ')}. If the user describes where the relationship is NOW (e.g. "not lovers yet", "crush", "broke up"), change the current aff with an aff line so it lands inside that stage (e.g. aff: Name -25 | why), and if they mean how it STARTED, also change people[].start in the rulebook.\n` : '')
-            + `If it is about current values, output event lines inside <meatball></meatball>, ONE per line in the form \`key: value\` (e.g. \`aff: Name -25 | why\`, \`cash: +10 | why\`), using keys: ${AI_KEYS}. Never write key(value). You may output both. Output nothing else.\n${gloss()}`,
-            'You edit a status window. Be minimal and exact. Change only what the user asked.');
+            + `If it is about current values, output event lines inside <meatball></meatball>, ONE per line in the form \`key: value\` (e.g. \`aff: Name -25 | why\`, \`cash: +10 | why\`), using keys: ${AI_KEYS}. Never write key(value). You may output both. Output nothing else.\n${gloss()}`;
+        // 가벼운 연결(분류 연결 · 깨끗한 프리셋)이 있으면 그쪽으로 — 본편 프리셋 · 탈옥에 휘둘리지 않고 빠르게
+        raw = clsRoute() ? await askLight(SYS, Q) : await ask(Q, SYS);
     } catch (e) { toast(`AI 호출 실패 · ${e.message ?? e}`, 'bad'); return; }
     const lines = readOps(raw).map(([k, v]) => `${k}: ${v}`);
     const j = keys.length ? parseJSON(String(raw).replace(/<meatball>[\s\S]*?<\/meatball>/i, '')) : null;
     const patch = j && typeof j === 'object' && patchSummary(j, keys).length ? j : null;
     if (!lines.length && !patch) { toast('바꿀 것을 못 찾았어요', 'bad'); return; }
-    const preview = `${lines.length ? `<h4 class="ml-h4">값 바꾸기 (기록에 ✨로 남음)</h4>${lines.map((l) => `<div class="ml-rl"><i>•</i>${esc(l)}</div>`).join('')}` : ''}`
+    const preview = `${lines.length ? `<h4 class="ml-h4">지금 값 바꾸기 <span>기록에 ✨로 남고 되돌릴 수 있어요</span></h4>${lines.map((l) => niceLine(l)).join('')}` : ''}`
         + `${patch ? `<h4 class="ml-h4">설정집 바꾸기</h4>${patchSummary(patch, keys).map((x) => `<div class="ml-rl"><i>📘</i>${esc(x)}</div>`).join('')}` : ''}`;
     sheet('✨ 이렇게 바꿀까요?', preview, {
         ok: '반영',
@@ -716,6 +735,7 @@ export async function onTool(act, v) {
                 + '<div class="ml-hint">화면에서 칸만 가리려면 「👁 보일 것」을 쓰세요 (AI와는 상관없음).</div>');
             return;
         }
+        case 't-rules': document.querySelectorAll('.ml-bs').forEach(x => x.remove()); return editRules(v); // 📘 지금 값 창 → 규칙(설정집)
         case 'eye-set': {
             const [mod, gid, m] = String(v).split('|');
             if (mod) setEyes(mod, m === 'once' || m === 'on' ? m : '');
@@ -846,4 +866,4 @@ export async function onTool(act, v) {
             return editItem(act, v);
     }
 }
-export const TOOL_ACTS = new Set(['eye-set', 'tr-edit', 'tr-now', 'tr-clear', 'tr-rules', 'tr-orig', 'tr-redo', 't-edit', 't-ai', 't-hide', 't-parts', 't-gloss', 't-eye', 'g-edit', 'g-fill', 'e-need', 'e-gauge', 'e-attr', 'e-status', 'e-add-stat', 'e-item', 'e-place', 'e-cfield', 'e-mark']);
+export const TOOL_ACTS = new Set(['t-rules', 'eye-set', 'tr-edit', 'tr-now', 'tr-clear', 'tr-rules', 'tr-orig', 'tr-redo', 't-edit', 't-ai', 't-hide', 't-parts', 't-gloss', 't-eye', 'g-edit', 'g-fill', 'e-need', 'e-gauge', 'e-attr', 'e-status', 'e-add-stat', 'e-item', 'e-place', 'e-cfield', 'e-mark']);

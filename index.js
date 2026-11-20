@@ -30,7 +30,7 @@ export function refresh(force = false) {
     cancelAnimationFrame(pending);
     pending = requestAnimationFrame(() => {
         const t0 = performance.now();
-        try { drawFrame(); drawChips(); if (document.getElementById('ml-full')) drawSheet(); inject(); announce(); const r = !getMeta()?.off && fold(); if (r) askCardName(r); } catch (e) { console.error(`[${TITLE}]`, e); }
+        try { drawFrame(); drawChips(); if (document.getElementById('ml-full')) drawSheet(); inject(); announce(); syncChatState(); const r = !getMeta()?.off && fold(); if (r) askCardName(r); } catch (e) { console.error(`[${TITLE}]`, e); }
         perf.refresh.push(performance.now() - t0); if (perf.refresh.length > 50) perf.refresh.shift();
     });
 }
@@ -199,6 +199,15 @@ async function create(useAI) {
     saveMeta(); refresh(true); openSheet(first ? 'home' : 'book');
 }
 
+// 🔌 지금 이 채팅의 상태 한 줄 (확장 설정 맨 위) — 「켜기」는 모든 채팅 스위치라, 이 채팅만 끈 건 여기서 보이게
+function chatState() {
+    const s = settings(), m = getMeta();
+    if (!s.enabled) return '<small class="ml-set-note">⚫ 모든 채팅에서 꺼져 있어요</small>';
+    if (m?.off) return '<small class="ml-set-note" style="color:#d9534f">🔌 이 채팅에서는 꺼져 있어요 · 다시 켜려면 「이 채팅에서만 끄기」를 풀어요</small>';
+    if (m?.paused) return '<small class="ml-set-note">⏸ 이 채팅은 멈춤 중이에요</small>';
+    return m?.book ? '<small class="ml-set-note">🟢 이 채팅에서 켜져 있어요</small>' : '<small class="ml-set-note">📘 이 채팅은 아직 설정집이 없어요</small>';
+}
+const syncChatState = () => { const el = document.querySelector('.ml-set-chatstate'); if (el) el.innerHTML = chatState(); const cb = document.querySelector('[data-ml-chatoff]'); if (cb) cb.checked = !!getMeta()?.off; };
 // ───── 확장 설정 서랍 (남긴 설정만) ─────
 function settingsHTML() {
     const s = settings();
@@ -222,7 +231,7 @@ function settingsHTML() {
     const sel = (k, label, opts) => `<label>${label} <select class="text_pole" data-ml-s="${k}">${opts.map(([v, l]) => `<option value="${v}" ${String(s[k]) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`;
     return `<div class="inline-drawer ml-set"><div class="inline-drawer-toggle inline-drawer-header"><b>😼 ${TITLE} <small>v${VERSION}</small></b><div `
         + `class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div><div class="inline-drawer-content">
-${sw('enabled', '켜기')}<label class="checkbox_label"><input type="checkbox" data-ml-chatoff ${getMeta()?.off ? 'checked' : ''}> 이 채팅에서만 끄기</label>
+${sw('enabled', '켜기 (모든 채팅)')}<label class="checkbox_label"><input type="checkbox" data-ml-chatoff ${getMeta()?.off ? 'checked' : ''}> 이 채팅에서만 끄기</label><div class="ml-set-chatstate">${chatState()}</div>
 <div class="ml-set-btns"><button class="menu_button" data-ml="create-ai">📘 상태창 만들기 (AI 1회)</button><button class="menu_button" `
         + `data-ml="create-tpl">⚡ 바로 시작 (AI 0회)</button><button class="menu_button" data-ml="open">펼치기</button></div>
 <h4>화면</h4>${sw('hud', 'HUD')}${sel('hudPos', 'HUD 자리', [['top', '위'], ['bottom', '아래']])}${sw('minibar', '미니바')}${sw('mascot', '마스코트')}`
@@ -251,7 +260,7 @@ export function setChatOff(v) {
     const meta = getMeta(); if (!meta) return;
     if (v) meta.off = true; else delete meta.off;
     saveMeta(); closeSheet(); if (v) import('./src/ui/player.js').then(m => m.closePlayer()); document.getElementById('ml-hud')?.remove(); document.getElementById('ml-mini')?.remove(); document.querySelectorAll('.ml-msg').forEach(x => x.remove());
-    const cb = document.querySelector('[data-ml-chatoff]'); if (cb) cb.checked = !!v;
+    syncChatState();
     refresh(true);
     toast(v ? '이 채팅에서 미트볼폰을 껐어요 · 다시 켜기: 확장 설정 › 미트볼폰 › 「이 채팅에서만 끄기」 해제' : '이 채팅에서 다시 켰어요', v ? 'mid' : 'good');
 }
@@ -334,15 +343,34 @@ function showPerf() {
             ),
     );
 }
+// 💤 쉬는 중에도 확장 탭에 서랍 하나는 보이게 (「확장 탭에서 아예 안 보여요」 막기)
+function restDrawer(text, canSwitch) {
+    const host = document.getElementById('extensions_settings2') ?? document.getElementById('extensions_settings'); if (!host || host.querySelector('.ml-set')) return;
+    host.insertAdjacentHTML('beforeend', `<div class="inline-drawer ml-set"><div class="inline-drawer-toggle inline-drawer-header"><b>😼 ${TITLE} <small>v${VERSION} · 쉬는 중</small></b><div `
+        + `class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div><div class="inline-drawer-content"><p>${esc(text)}</p>`
+        + (canSwitch ? `<div class="ml-set-btns"><button class="menu_button" data-ml-rest="switch">미트볼 상태창 끄고 미트볼폰 쓰기 (새로 고침)</button></div>`
+            + '<small class="ml-set-note">옛 미트볼 상태창을 다시 쓰려면: 확장 관리에서 미트볼폰을 끄거나, 옛 미트볼 설정에서 다시 켜요. 옛 채팅 기록은 미트볼폰 확장 설정 「🍖 옛 미트볼 옮겨 오기」로 가져와요.</small>' : '')
+        + '</div></div>');
+    host.querySelector('[data-ml-rest="switch"]')?.addEventListener('click', () => {
+        const es = ctx().extensionSettings; es[OLD] ??= {}; es[OLD].enabled = false; ctx().saveSettingsDebounced();
+        setTimeout(() => location.reload(), 800);
+    });
+}
 // ───── 시작 ─────
 async function boot() {
     initLog(); settings(); applyLook(); // 테마 변수는 늘 열어 둔다 (선택지 확장이 미트볼폰 디자인을 따름)
-    if (oldActive()) { resting = true; console.info(`[${TITLE}] 옛 미트볼이 켜져 있어서 쉽니다.`); return; }
+    if (oldActive()) { // 옛 미트볼 상태창이 켜져 있으면 둘이 같이 돌지 않게 쉰다 — 다만 확장 탭에서 사라지지 않게 안내 서랍은 꼭 띄운다
+        resting = true; console.info(`[${TITLE}] 옛 미트볼이 켜져 있어서 쉽니다.`);
+        restDrawer('😼 옛 「미트볼 상태창」이 켜져 있어서 미트볼폰은 쉬는 중이에요. 둘이 같이 돌면 본편에 두 번 들어가서 한쪽만 켜요.', true);
+        setTimeout(() => toastr?.info?.('옛 「미트볼 상태창」이 켜져 있어서 미트볼폰은 쉬어요 · 확장 탭 「미트볼폰」에서 바꿀 수 있어요', '미트볼폰'), 1500);
+        return;
+    }
     // 🔁 같은 확장이 두 번 깔린 경우(옛 「미트볼 라이트」 폴더 + 새 「meatballphone」 폴더): 새 폴더 쪽만 돈다
     const folder = (import.meta.url.match(/third-party\/([^/]+)\//) ?? [])[1] ?? '', hasNew = [...document.querySelectorAll('script[src]')].some(e => /third-party\/meatballphone\//i.test(e.src));
     if ((folder && folder !== 'meatballphone' && hasNew) || globalThis.__meatballPhoneBoot) {
         resting = true; console.warn(`[${TITLE}] 같은 확장이 두 번 깔려 있어서 이쪽(${folder || '?'})은 쉽니다.`);
         setTimeout(() => toastr?.warning?.(`미트볼폰이 두 번 깔려 있어요. 실리태번 › 확장 관리에서 옛 「${folder || '미트볼 라이트'}」를 지워 주세요.`, '미트볼폰'), 1500);
+        if (!globalThis.__meatballPhoneBoot) restDrawer(`미트볼폰이 두 번 깔려 있어요(${folder || '?'} 폴더). 실리태번 › 확장 관리에서 옛 것을 지워 주세요.`, false);
         return;
     }
     globalThis.__meatballPhoneBoot = folder || 'dev';
@@ -354,7 +382,7 @@ async function boot() {
     for (const n of [E.GENERATION_ENDED, E.GENERATION_STOPPED]) on(n, genEnded);
     on(E.MESSAGE_RECEIVED, async (...a) => { await onReceived(...a); genEnded(); });
     on(E.MESSAGE_EDITED, onEdited);
-    for (const n of [E.CHAT_CHANGED]) on(n, () => { closeSheet(); fromCard(); refresh(true); const cb = document.querySelector('[data-ml-chatoff]'); if (cb) cb.checked = !!getMeta()?.off; });
+    for (const n of [E.CHAT_CHANGED]) on(n, () => { closeSheet(); fromCard(); refresh(true); syncChatState(); });
     on(E.MESSAGE_SWIPED, onSwiped);
     for (const n of [E.CHARACTER_MESSAGE_RENDERED, E.USER_MESSAGE_RENDERED, E.MESSAGE_DELETED, E.MESSAGE_SWIPE_DELETED, E.MORE_MESSAGES_LOADED, E.MESSAGE_UPDATED]) on(n, () => { bumpMeta(); refresh(); });
     c.SlashCommandParser?.addCommandObject?.(c.SlashCommand.fromProps({ name: 'ml', callback: () => { openSheet('now'); return ''; }, helpString: '미트볼폰 열기' }));

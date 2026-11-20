@@ -354,6 +354,7 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             return;
         }
         case 'with': {
+            if (/^\s*(없음|혼자|-|none|alone)\s*$/i.test(String(v))) { S.with = []; return; } // 혼자가 됨
             S.with = String(v)
                 .split(/[,、·/|]/)
                 .map((n) => x.who(n) ?? safeKey(n))

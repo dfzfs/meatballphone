@@ -4,7 +4,7 @@ import { normBook } from '../rules/book.js';
 
 export const MODULE = 'meatlite';
 export const OLD = 'statussim';
-export const VERSION = '0.44.0';
+export const VERSION = '0.44.2';
 export const DATA_V = 2;
 export const TITLE = '미트볼폰';
 export const INJ = { facts: 'meatlite_facts', hint: 'meatlite_hint', rule: 'meatlite_rule' };
@@ -162,7 +162,13 @@ export const KEY_MOD = {
     act: 'rel', gift: 'rel', memory: 'rel', jealous: 'rel', pair: 'rel', npc: 'rel', gone: 'rel', aff: 'rel', trust: 'rel', meddle: 'rel', taste: 'rel',
     roll: 'dice', bgm: 'music', quote: 'quote', mind: 'mind', watch: 'mind', cell: 'mind', life: 'news', newsline: 'news', feed: 'news', custom: 'custom',
 };
-export function aiNoOf(i) { const c = ctx().chat ?? []; let n = 0; for (let k = 0; k <= i && k < c.length; k++) if (!c[k].is_user && !c[k].is_system) n++; return n; }
+// 몇 번째 AI 답인가 — 긴 채팅에서 매번 처음부터 세지 않게 앞에서부터 센 표를 채팅이 바뀔 때만 다시 만든다
+let aiTab = { c: null, n: -1, last: null, a: [] };
+export function aiNoOf(i) {
+    const c = ctx().chat ?? [];
+    if (aiTab.c !== c || aiTab.n !== c.length || aiTab.last !== c[c.length - 1]) { const a = new Array(c.length); let n = 0; for (let k = 0; k < c.length; k++) { if (!c[k].is_user && !c[k].is_system) n++; a[k] = n; } aiTab = { c, n: c.length, last: c[c.length - 1], a }; }
+    return i < 0 ? 0 : aiTab.a[Math.min(i, c.length - 1)] ?? 0;
+}
 export const nextAiNo = () => aiNoOf((ctx().chat?.length ?? 0) - 1) + 1;
 export function shut(mod, aiNo = nextAiNo()) {
     const e = getMeta()?.eyes?.[mod]; if (!e || !mod) return false;

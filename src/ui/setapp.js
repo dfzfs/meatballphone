@@ -46,7 +46,8 @@ export function chipWhy() {
         else if (!box) add('mid', `바뀐 것 ${ch.length}개가 있는데 칩이 안 그려졌어요`, '다른 확장 · 테마가 메시지 칸을 덮어썼을 수 있어요', btn('🖌 다시 그리기', 'set-redraw', '', 'xs'));
         else add('good', `칩 ${ch.length}개가 붙어 있어요`, '안 보이면 테마가 가리는 거예요 (🎨 꾸미기 · 실리태번 테마)');
     }
-    if (!L.length) add('good', '걸리는 게 없어요', ops.length ? '' : '이번 답에는 바뀐 일이 없었어요');
+    if (!L.length && !ops.length && B && sl?.src === 'cls') add('mid', '분류 모델이 「바뀐 일 없음」으로 골랐어요', '답에 대화 · 행동이 있었는데도 비었다면 다시 고르게 해 보세요 (같은 답도 다시 고르면 달라질 수 있어요)', btn('🔄 다시 분류', 'set-recls', String(i), 'xs'));
+    if (!L.length) add('good', '걸리는 게 없어요', ops.length ? '' : '이번 답에는 바뀐 일이 없었어요 · 답 밑에 「✓ 변화 없음」 칩');
     return { i, L };
 }
 const rowOf = (x) => `<div class="ml-row ml-chk ${x.l}"><span class="ml-tx"><b>${lv(x.l)} ${x.t}</b>${x.sub ? `<small>${x.sub}</small>` : ''}</span>${x.fix ? `<span class="ml-val">${x.fix}</span>` : ''}</div>`;

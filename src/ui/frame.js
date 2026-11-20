@@ -17,7 +17,7 @@ import { chip, sheet, bar, toast, layerHost, resetLayerHost } from './kit.js';
 import { mascot } from './mascot.js';
 import { isWaiting } from '../rules/classify.js';
 import { chipCheck } from '../extra/doctor.js';
-let cur = 'home', past = null;
+let cur = 'home', past = null, lastHtml = ''; // lastHtml: 지난번에 그린 폰 화면 (같으면 다시 안 그림)
 
 // ───── HUD: 한 줄 (욕구 · 돈 · 시간 · 장소 · 가게 한 줄) ─────
 function hudHTML(r) {
@@ -97,18 +97,18 @@ export function openSheet(tab = 'home') {
     try { drawSheet(); } catch (e) {
         // 그리다 실패해도 빈 화면이 아니라 무엇이 잘못됐는지 보이게 (📋로 복사해서 보내 줄 수 있음)
         console.error(`[${TITLE}] 화면 그리기 실패`, e);
-        el.innerHTML = `<header class="ml-top"><b>${TITLE}</b><span class="ml-sp"></span><button class="ml-ib" data-act="report" title="전체 복사">📋</button><button class="ml-ib" data-act="close">✕</button></header>`
+        lastHtml = ''; el.innerHTML = `<header class="ml-top"><b>${TITLE}</b><span class="ml-sp"></span><button class="ml-ib" data-act="report" title="전체 복사">📋</button><button class="ml-ib" data-act="close">✕</button></header>`
             + `<main class="ml-body"><div class="ml-hint">⚠ 화면을 그리다 멈췄어요. 위 📋를 눌러 복사해서 보내 주세요.</div><pre class="ml-err">${esc(String(e?.stack || e)).slice(0, 1200)}</pre></main>`;
     }
 }
-export function closeSheet() { document.getElementById('ml-full')?.remove(); document.body.classList.remove('ml-open'); }
+export function closeSheet() { lastHtml = ''; document.getElementById('ml-full')?.remove(); document.body.classList.remove('ml-open'); }
 export function drawSheet() {
     const el = document.getElementById('ml-full'); if (!el) return;
     if (!ctx().chatMetadata) { closeSheet(); return; }
     const meta0 = getMeta(), r = fold();
     if (!r || meta0?.setup) {
         // 📘 설정집이 없으면 설정집 하나만 · 🛍️ 만든 뒤에는 쓸 앱 고르기 한 화면
-        el.innerHTML = `<header class="ml-top">${mascot('head')}<b>${r ? '🛍️ 쓸 앱 고르기' : TITLE}</b><span class="ml-sp"></span><button class="ml-ib" data-act="report" title="전체 복사">📋</button><button class="ml-ib" data-act="close">✕</button></header>`
+        lastHtml = ''; el.innerHTML = `<header class="ml-top">${mascot('head')}<b>${r ? '🛍️ 쓸 앱 고르기' : TITLE}</b><span class="ml-sp"></span><button class="ml-ib" data-act="report" title="전체 복사">📋</button><button class="ml-ib" data-act="close">✕</button></header>`
             + `<main class="ml-body" data-tab="${r ? 'setup' : 'first'}">${r ? setupView(r) : firstView()}</main>`;
         return;
     }
@@ -127,7 +127,9 @@ export function drawSheet() {
     el.classList.toggle('dark-wall', !!wall && (L.wall === 'night' || (L.wallDim ?? 0) >= 35));
     el.style.setProperty('--ml-wall', wall || 'none'); el.style.setProperty('--ml-wdim', `${(L.wallDim ?? 0) / 100}`);
     if (cur === 'home') {
-        el.innerHTML = statusBar(view, meta) + `<main class="ml-body" data-tab="home">${home(view)}</main>`;
+        const html = statusBar(view, meta) + `<main class="ml-body" data-tab="home">${home(view)}</main>`;
+        if (same && lastHtml === html && !keep && el.querySelector('.ml-body')) return; // 🏎 바뀐 게 없으면 다시 그리지 않음 (답마다 폰을 통째로 다시 그리던 것)
+        el.innerHTML = html; lastHtml = html;
         applyGloss(el.querySelector('.ml-body')); applyTr(el.querySelector('.ml-body'));
         if (keep) el.appendChild(keep);
         if (same) el.querySelector('.ml-body').scrollTop = scroll;
@@ -135,16 +137,18 @@ export function drawSheet() {
     }
     if (xa) { // 🧩 기타 앱: 앱이 그린 화면은 다시 그리지 않음 (앱 쪽 상태 지키기)
         if (same && el.querySelector('.ml-ext')) return;
-        el.innerHTML = `<header class="ml-top"><button class="ml-ib back" data-tab="home" title="홈">‹</button><b>${esc(xa.icon)} ${esc(xa.name)}</b><span class="ml-sp"></span>`
+        lastHtml = ''; el.innerHTML = `<header class="ml-top"><button class="ml-ib back" data-tab="home" title="홈">‹</button><b>${esc(xa.icon)} ${esc(xa.name)}</b><span class="ml-sp"></span>`
             + `<button class="ml-ib" data-act="close">✕</button></header><main class="ml-body" data-tab="${esc(cur)}"><div class="ml-ext"></div></main>`;
         renderExt(el.querySelector('.ml-ext'), xa, Object.freeze({ close: closeSheet, redraw: () => { el.querySelector('.ml-ext')?.remove(); drawSheet(); }, toast: (t) => toast(String(t)) }));
         if (keep) el.appendChild(keep);
         return;
     }
-    el.innerHTML = `<header class="ml-top"><button class="ml-ib back" data-tab="home" title="홈">‹</button><b>${a ? `${a.icon} ${a.name}` : ''}</b>`
+    const html = `<header class="ml-top"><button class="ml-ib back" data-tab="home" title="홈">‹</button><b>${a ? `${a.icon} ${a.name}` : ''}</b>`
         + `${past != null ? chip(`🕰 #${past} 시점 · 읽기 전용`, 'mid', 'past-off') : ''}<span class="ml-sp"></span><button class="ml-ib${meta.paused || meta.skipNext || eyesShut().length ? ' on' : ''}" data-act="pause" `
         + `title="멈춤 · 건너뛰기 · 😌 눈 감기">${pauseLabel(meta)}</button><button class="ml-ib" data-act="find" title="검색">🔍</button><button class="ml-ib" data-act="report" title="📋 전체 복사">📋</button><button class="ml-ib" data-act="close">✕</button></header>`
         + `<main class="ml-body" data-tab="${cur}">${a && !a.sys ? toolbar(cur) : ''}${past != null && cur === 'now' ? thenNow(view.S, r) : ''}${R2[cur](view)}</main>`;
+    if (same && lastHtml === html && !keep && el.querySelector('.ml-body')) return; // 🏎 같은 화면이면 그대로
+    el.innerHTML = html; lastHtml = html;
     applyGloss(el.querySelector('.ml-body')); applyTr(el.querySelector('.ml-body'));
     if (trOn() && trBusy()) el.querySelector('.ml-sp')?.insertAdjacentHTML('beforebegin', '<span class="ml-pill">🌐 번역 중…</span>');
     if (a && !a.sys) markSeen(cur, r);
@@ -242,16 +246,19 @@ export function drawChips() {
         const ch = (r.changes[i] ?? []).filter(c => c.src !== 'time'), fl = (r.flags[i] ?? []);
         let box = el.parentElement.querySelector('.ml-msg');
         const sl = msgData(chat[i]), wait = isWaiting(i), failed = !wait && sl?.clsFail, B = !chat[i].is_user && sl?.src === 'cls' && !wait && !failed;
-        if (!ch.length && !fl.length && !wait && !failed) { box?.remove(); continue; }
+        // ✓ 셈한 답인데 바뀐 게 없으면 「변화 없음」 칩 (안 붙은 건지 · 없던 건지 헷갈리지 않게) · B면 🔄로 다시 고르기
+        const read = !chat[i].is_user && !sl?.skip && (B || sl?.ops?.length || /<meatball>/i.test(chat[i].mes ?? '') || sl?.src === 'tag');
+        if (!ch.length && !fl.length && !wait && !failed && !read) { box?.remove(); continue; }
         const cls = wait ? chip('…', 'mid') : failed ? chip('⚠ 분류 실패 · 다시', 'bad', 'cls-redo', String(i)) : B ? chip('🔄', 'mid', 'cls-redo', String(i)) : '';
-        const h = cls + fl.map(f => chip(`⚠ 확인 필요 · ${esc(short(f.text, 24))}`, 'bad')).join('') + ch.slice(0, 8).map(c => chip(`${c.icon} ${esc(c.label)} ${typeof c.to === 'number' && typeof c.from === 'number' ? (c.f === 'time' ? '' : signed2(c.to - c.from)) : esc(c.to)}`
+        const none = !ch.length && !fl.length && !wait && !failed ? chip('✓ 변화 없음', 'good', 'turncard', String(i)) : '';
+        const h = cls + none + fl.map(f => chip(`⚠ 확인 필요 · ${esc(short(f.text, 24))}`, 'bad')).join('') + ch.slice(0, 8).map(c => chip(`${c.icon} ${esc(c.label)} ${typeof c.to === 'number' && typeof c.from === 'number' ? (c.f === 'time' ? '' : signed2(c.to - c.from)) : esc(c.to)}`
             + `${c.why ? ` · ${esc(short(c.why, 12))}` : ''}`, c.kind === 'bad' || (typeof c.to === 'number' && c.to < c.from) ? 'bad' : 'good', 'turncard', String(i))).join('') + (ch.length > 8 ? chip(`+${ch.length - 8}`, 'mid', 'turncard', String(i)) : '');
         if (!box) { box = document.createElement('div'); box.className = 'ml-msg ml-scope'; el.after(box); }
         if (box.dataset.h !== h) { box.innerHTML = h; box.dataset.h = h; applyTr(box); }
     }
 }
 const signed2 = (n) => (n > 0 ? `+${Math.round(n)}` : `−${Math.abs(Math.round(n))}`);
-export function turnSheet(i) { const r = fold(); sheet(`#${i} 이번 답에서 바뀐 것`, `<div class="ml-card">${(r.changes[i] ?? []).filter(c => c.src !== 'time').map(c => changeRow(c, i)).join('')}</div><details class="ml-det"><summary>🔍 칩 점검 · 줄마다 어떻게 읽혔나</summary>${chipCheck(i)}</details>`); }
+export function turnSheet(i) { const r = fold(), L = (r.changes[i] ?? []).filter(c => c.src !== 'time'); sheet(`#${i} 이번 답에서 바뀐 것`, `<div class="ml-card">${L.map(c => changeRow(c, i)).join('') || '<div class="ml-row"><span class="ml-tx"><b>✓ 변화 없음</b><small>이 답에서는 셈할 일이 없었어요 · 분류 모델(B)이면 「🔄 다시 분류」로 다시 고를 수 있어요</small></span></div>'}</div>${msgData(ctx().chat?.[i])?.src === 'cls' ? `<div class="ml-acts"><button class="ml-btn xs" data-act="cls-redo" data-v="${i}">🔄 다시 분류</button></div>` : ''}<details class="ml-det"><summary>🔍 칩 점검 · 줄마다 어떻게 읽혔나</summary>${chipCheck(i)}</details>`); }
 const el0 = () => document.getElementById('ml-full');
 
 // ───── ⏸ 멈춤 메뉴: 전체 멈춤 · 다음 1번 건너뛰기 · 😌 앱마다 눈 감기 (깔린 앱만) ─────

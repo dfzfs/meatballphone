@@ -14,6 +14,8 @@ globalThis.__SS_TEST__ = {};
 if (new URLSearchParams(location.search).get('oldset')) window.__st.extensionSettings.statussim = { enabled: true, contactReflect: 'detail', lastSeenVersion: '2.8.0', v27asked: true };
 // ?preset={...} → 확장이 켜지기 전부터 이 설정으로 (켤 때 무엇을 불러오는지 보는 시나리오용 · 예전 판을 쓰던 사람으로 시작)
 { const ps = new URLSearchParams(location.search).get('preset'); if (ps) window.__st.extensionSettings.statussim = { enabled: true, lastSeenVersion: '2.9.0', v27asked: true, trFreeAsked: true, tidyAsked: true, ...JSON.parse(ps) }; }
+// ?old=1 → 옛 미트볼 상태창이 같이 깔려 켜져 있는 사람 (스크립트 주소만 흉내)
+if (new URLSearchParams(location.search).get('old')) { const sc = document.createElement('script'); sc.type = 'text/plain'; sc.setAttribute('src', '/scripts/extensions/third-party/meatballstats/index.js'); document.head.appendChild(sc); }
 await import('/ext/index.js');
 await SillyTavern.getContext().eventSource.emit('app_ready');
 window.__ready = true;

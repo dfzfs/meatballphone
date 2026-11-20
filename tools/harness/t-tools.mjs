@@ -23,6 +23,7 @@ try {
     check(await page.evaluate(() => !!document.querySelector('.ml-tools2 [data-act="t-edit"]')), '지도에 도구줄');
     // 장소 추가: 대장간 (시장과 이어짐 · 물건)
     await page.evaluate(() => document.querySelector('[data-act="t-edit"]').click()); await sleep(150);
+    await page.evaluate(() => document.querySelector('.ml-bs [data-act="t-rules"]').click()); await sleep(200); // 지금 값 창 → 📘 규칙
     await page.evaluate(() => [...document.querySelectorAll('.ml-bs [data-act="e-place"]')].at(-1).click()); await sleep(200);
     await fill({ name: '대장간', kind: 'shop', near: '시장', goods: '단검 40 힘 +1\n숫돌 5' });
     const pl = await page.evaluate(async () => { const st = await import('/ext/src/base/st.js'); const b = st.getMeta().book; return { smith: b.world.places.find(p => p.name === '대장간'), market: b.world.places.find(p => p.name === '시장') }; });
@@ -30,6 +31,7 @@ try {
     // 물건 넣기 (효과) → 기록에 ✋
     await page.evaluate(() => __ML__.app.openSheet('bag')); await sleep(100);
     await page.evaluate(() => document.querySelector('[data-act="t-edit"]').click()); await sleep(150);
+    await page.evaluate(() => document.querySelector('.ml-bs [data-act="t-rules"]').click()); await sleep(200);
     await page.evaluate(() => [...document.querySelectorAll('.ml-bs [data-act="e-item"]')].at(-1).click()); await sleep(200);
     await fill({ name: '사과', n: '2', fx: '허기 +15', why: '이야기에서 얻음' });
     const it = await page.evaluate(() => { const r = __ML__.fold(); return { it: r.S.items.find(i => i.name === '사과'), hand: r.changes.at(-1).some(c => c.src === 'hand') }; });
