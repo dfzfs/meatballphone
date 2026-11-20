@@ -4,11 +4,7 @@ import { normBook, emptyBook } from '../rules/book.js';
 import { clockOf } from '../base/util.js';
 import { toast } from '../ui/kit.js';
 
-// 옛 미트볼(폴더 이름 · manifest 이름)이 같이 켜져 있으면 미트볼폰은 쉰다
-export function oldActive() {
-    const loaded = [...document.querySelectorAll('script[src], link[href]')].some(e => /third-party\/(meatballstats|meatball-stats)\//i.test(e.src || e.href));
-    return loaded && ctx().extensionSettings?.[OLD]?.enabled !== false;
-}
+export { oldActive, fromCard } from './safecore.js'; // 켤 때 꼭 필요한 두 개만 따로 (나머지는 쓸 때 받음)
 export function backup() {
     const meta = getMeta(); if (!meta) return;
     const msgs = (ctx().chat ?? []).map((m, i) => (m.extra?.[MODULE] ? [i, m.extra[MODULE]] : null)).filter(Boolean);
@@ -36,11 +32,6 @@ export async function toCard() {
     if (c.groupId || c.characterId == null) return toast('그룹 채팅에서는 카드에 붙일 수 없어요 · 1:1 채팅에서 해 주세요', 'bad');
     await c.writeExtensionField?.(c.characterId, MODULE, { book: meta.book, start: meta.start });
     toast('카드에 붙였어요', 'good');
-}
-export function fromCard() {
-    const c = ctx(); if (getMeta()?.book) return;
-    const x = c.characters?.[c.characterId]?.data?.extensions?.[MODULE]; if (!x?.book) return;
-    const meta = getMeta(true); meta.book = normBook(x.book); meta.start = x.start ?? null; saveMeta();
 }
 // 옛 미트볼(dev) 채팅 옮기기 — 시작 지점 상태(base + 그 앞 편집)를 그대로 시작값으로, 그 뒤 답마다 변화(bySwipe)를 새 칸으로.
 // 돌려주는 값: 무엇을 얼마나 옮겼는지 (설정 화면 보고용)

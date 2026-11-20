@@ -4,7 +4,7 @@ import { clamp, num, norm, short, safeKey, parseDelta, spanOf, clockOf, dayOfDat
 import { msgData, getMeta, ctx, metaRev } from '../base/st.js';
 import { readOps, kindOf, parts } from './tags.js';
 import { match } from './names.js';
-import { NEED_STAGES, NEED_SYMPTOM, personOf, placeOf, BASIC_ACTS } from './book.js';
+import { NEED_STAGES, NEED_SYMPTOM, NEED_SYMPTOM_EN, personOf, placeOf, BASIC_ACTS, BASIC_ACTS_EN } from './book.js';
 import { glossList } from '../base/gloss.js';
 import { readNewsline, kindInfo } from './newskinds.js';
 import { applySneak } from './sneak.js';
@@ -420,8 +420,8 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             if (up) x.setRel(name, 'aff', up.d ?? DEF.up, up.act, src, up.d != null, i);
             else if (down) x.setRel(name, 'aff', down.d ?? DEF.down, down.act, src, down.d != null, i);
             // 설정집에 딱 맞는 행동이 없을 때: 모든 인물의 기본 행동 (기쁘게 함 +2 · 상처 줌 −3)
-            else if (basic(BASIC_ACTS.up)) x.setRel(name, 'aff', BASIC_ACTS.up.d, BASIC_ACTS.up.act, src, true, i);
-            else if (basic(BASIC_ACTS.down)) x.setRel(name, 'aff', BASIC_ACTS.down.d, BASIC_ACTS.down.act, src, true, i);
+            else if (basic(BASIC_ACTS.up) || basic(BASIC_ACTS_EN.up)) x.setRel(name, 'aff', BASIC_ACTS.up.d, BASIC_ACTS.up.act, src, true, i);
+            else if (basic(BASIC_ACTS.down) || basic(BASIC_ACTS_EN.down)) x.setRel(name, 'aff', BASIC_ACTS.down.d, BASIC_ACTS.down.act, src, true, i);
             if (/(고백|키스|첫|약속|싸움|배신|구해|울)/.test(b)) remember(S, x.rel(name), b);
             return;
         }
@@ -697,7 +697,7 @@ export function derived(book, S) {
     const out = [];
     for (const nd of book.me.needs) {
         const st = needStage(S.needs[nd.key] ?? 0);
-        if (st !== '정상') out.push({ key: nd.key, name: nd.name, icon: nd.icon, stage: st, text: nd.sym?.[st] || NEED_SYMPTOM[nd.key]?.[st] || `${nd.name} ${st}`, dice: st === '위험' ? -2 : -1 });
+        if (st !== '정상') out.push({ key: nd.key, name: nd.name, icon: nd.icon, stage: st, text: nd.sym?.[st] || (book.lang === 'en' ? NEED_SYMPTOM_EN : NEED_SYMPTOM)[nd.key]?.[st] || `${nd.name} ${st}`, dice: st === '위험' ? -2 : -1 });
     }
     return out;
 }

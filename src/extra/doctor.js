@@ -6,7 +6,7 @@ import { kindOf } from '../rules/tags.js';
 import { stats as aiStats } from '../rules/ai.js';
 import { injTokens } from '../rules/inject.js';
 import { mode, modeNote, clsStats } from '../rules/classify.js';
-import { oldActive } from './safe.js';
+import { oldActive } from './safecore.js';
 import { sheet, btn } from '../ui/kit.js';
 
 // 이벤트 종류 → 앱

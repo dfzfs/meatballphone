@@ -21,6 +21,28 @@ export const NEED_SYMPTOM = {
     hygiene: { 주의: '머리가 헝클어지고 옷이 구겨짐', 위험: '주변이 냄새를 알아챔' },
     mood: { 주의: '말수가 줄고 날카로움', 위험: '작은 일에도 무너질 듯함' },
 };
+// 🌐 영어 이야기용 기본값 (AI에게 가는 말이 영어 · 화면은 번역으로)
+export const NEED_SET_EN = [
+    { key: 'hunger', name: 'Hunger', icon: '🍞', start: 80, rate: 4 },
+    { key: 'energy', name: 'Energy', icon: '⚡', start: 80, rate: 3 },
+    { key: 'hygiene', name: 'Hygiene', icon: '🫧', start: 80, rate: 2 },
+    { key: 'mood', name: 'Mood', icon: '🙂', start: 70, rate: 1 },
+];
+export const GAUGE_SET_EN = [{ key: 'hp', name: 'HP', max: 100, start: 100, desc: 'collapses at 0', color: '#e5484d' }];
+export const ATTR_SET_EN = ['Strength', 'Agility', 'Intellect', 'Charm', 'Perception'].map(name => ({ name, v: 0 }));
+export const NEED_SYMPTOM_EN = {
+    hunger: { 주의: 'stomach growling, hard to focus', 위험: 'irritable and shaky from hunger' },
+    energy: { 주의: 'yawning, slow to react', 위험: 'eyelids drooping, making mistakes' },
+    hygiene: { 주의: 'messy hair, wrinkled clothes', 위험: 'people nearby notice the smell' },
+    mood: { 주의: 'quiet and sharp-tongued', 위험: 'about to break down over small things' },
+};
+export const REL_STAGES_EN = [
+    { at: 0, name: 'Stranger', call: 'name', act: 'formal · keeps distance' },
+    { at: 20, name: 'Acquaintance', call: 'name', act: 'small talk' },
+    { at: 40, name: 'Friend', call: 'name · nickname', act: 'jokes · favors' },
+    { at: 60, name: 'Close', call: 'nickname', act: 'light touch · shares a little of their heart' },
+    { at: 80, name: 'Lover', call: 'pet name', act: 'shows affection · makes promises' },
+];
 export const REL_STAGES = [
     { at: 0, name: '낯선 사람', call: '이름', act: '존댓말 · 거리 둠' },
     { at: 20, name: '아는 사이', call: '이름', act: '가벼운 대화' },
@@ -45,12 +67,14 @@ const acts = (v) =>
         .filter((x) => x.act)
         .slice(0, LIMIT.lines);
 
-export function emptyBook() {
+export function emptyBook(lang = 'ko') {
+    const en = lang === 'en';
     return {
-        world: { genre: '', summary: '', rules: [], currency: '골드', fx: { rate: 0, unit: '원' }, meal: 10, weather: ['맑음', '흐림', '비'], start: { y: 2026, m: 3, d: 1, clock: 480 }, places: [] },
-        me: { name: '', day: '', needs: NEED_SET.map(n => ({ ...n })), gauges: GAUGE_SET.map(g => ({ ...g })), attrs: ATTR_SET.map(a => ({ ...a })), traits: '' },
+        lang: en ? 'en' : 'ko',
+        world: { genre: '', summary: '', rules: [], currency: en ? 'Gold' : '골드', fx: { rate: 0, unit: '원' }, meal: 10, weather: en ? ['Clear', 'Cloudy', 'Rain'] : ['맑음', '흐림', '비'], start: { y: 2026, m: 3, d: 1, clock: 480 }, places: [] },
+        me: { name: '', day: '', needs: (en ? NEED_SET_EN : NEED_SET).map(n => ({ ...n })), gauges: (en ? GAUGE_SET_EN : GAUGE_SET).map(g => ({ ...g })), attrs: (en ? ATTR_SET_EN : ATTR_SET).map(a => ({ ...a })), traits: '' },
         people: [],
-        stages: REL_STAGES.map(s => ({ ...s })),
+        stages: (en ? REL_STAGES_EN : REL_STAGES).map(s => ({ ...s })),
         src: { from: 'blank', at: 0, sig: {} },
     };
 }
@@ -66,7 +90,7 @@ export function normPerson(p) {
         up: acts(p.up), down: acts(p.down),
         signs: arr(p.signs).map(s => ({ at: clamp(num(s?.at, 60), 0, 100), text: line(s?.text, 160) })).filter(s => s.text).slice(0, 4),
         // 💞 이 사람만의 관계 단계 (비우면 설정집 공통 단계)
-        stages: arr(p.stages).length >= 2 ? arr(p.stages).map(s => ({ at: clamp(num(s?.at), 0, 100), name: line(s?.name, 10), call: line(s?.call, 40), act: line(s?.act, 100) })).filter(s => s.name).sort((a, b) => a.at - b.at) : null,
+        stages: arr(p.stages).length >= 2 ? arr(p.stages).map(s => ({ at: clamp(num(s?.at), 0, 100), name: line(s?.name, 16), call: line(s?.call, 40), act: line(s?.act, 100) })).filter(s => s.name).sort((a, b) => a.at - b.at) : null,
         syn: arr(p.syn).map(s => ({ to: safeKey(s?.to), text: line(s?.text, 160) })).filter(s => s.to).slice(0, 4),
         haunt: list(p.haunt, 3),
         routine: arr(p.routine).map(r => ({ at: line(r?.at, 6), place: line(r?.place, 60) })).filter(r => r.at && r.place).slice(0, 4),
@@ -101,13 +125,13 @@ export function fxOf(v) {
     return o;
 }
 export function normBook(b) {
-    const e = emptyBook();
+    const e = emptyBook(b?.lang === 'en' ? 'en' : 'ko');
     if (!b || typeof b !== 'object') return e;
     const w = b.world ?? {};
     e.world.genre = line(w.genre, 60);
     e.world.summary = line(w.summary, 400); // 🌍 세계관 요약 (2~3문장 · 보기 · 미트볼 AI 호출용 · 본편엔 안 감)
     e.world.rules = list(w.rules, 6); // 📏 이 세계 규칙 (짧게)
-    e.world.currency = line(w.currency, 16) || '골드';
+    e.world.currency = line(w.currency, 16) || e.world.currency;
     e.world.meal = Math.max(1, num(w.meal, 10));
     e.world.fx = { rate: Math.max(0, num(w.fx?.rate, 0)), unit: line(w.fx?.unit, 8) || '원' };
     e.world.weather = list(w.weather, 6).length ? list(w.weather, 6) : e.world.weather;
@@ -148,7 +172,7 @@ export function normBook(b) {
             .slice(0, 4);
     if (Array.isArray(me.attrs)) e.me.attrs = me.attrs.map(a => ({ name: line(a?.name, 6), v: clamp(num(a?.v), -5, 10) })).filter(a => a.name).slice(0, 6);
     e.people = arr(b.people).map(normPerson).filter(Boolean).slice(0, LIMIT.people);
-    if (arr(b.stages).length >= 2) e.stages = arr(b.stages).map(s => ({ at: clamp(num(s?.at), 0, 100), name: line(s?.name, 10), call: line(s?.call, 40), act: line(s?.act, 100) })).filter(s => s.name).sort((a, b2) => a.at - b2.at);
+    if (arr(b.stages).length >= 2) e.stages = arr(b.stages).map(s => ({ at: clamp(num(s?.at), 0, 100), name: line(s?.name, 16), call: line(s?.call, 40), act: line(s?.act, 100) })).filter(s => s.name).sort((a, b2) => a.at - b2.at);
     e.src = { from: line(b.src?.from, 10) || 'user', at: num(b.src?.at), sig: b.src?.sig && typeof b.src.sig === 'object' ? b.src.sig : {} };
     return e;
 }
@@ -182,6 +206,9 @@ export const personTokens = (book, p) => tokens(bookText({ ...book, people: [p],
 
 // 💞 모든 인물의 기본 행동: 설정집에 딱 맞는 행동이 없어도 큰일은 반영되게 (분류 모델 목록 · 계산 둘 다)
 export const BASIC_ACTS = { up: { act: '기쁘게 함', d: 2 }, down: { act: '상처 줌', d: -3 } };
+// 🌐 영어 이야기에서 AI에게 보여 주는 기본 행동 이름 (계산은 둘 다 같은 행동으로 읽음)
+export const BASIC_ACTS_EN = { up: { act: 'pleased', d: 2 }, down: { act: 'hurt', d: -3 } };
+export const basicActs = (en) => (en ? BASIC_ACTS_EN : BASIC_ACTS);
 
 // ⭐ 주요 인물: 설정집에서 온 인물은 기본 ⭐ · 이야기 중 새로 나온 인물(npc)은 기본 아님 · 누르면 바뀜 (meta.stars)
 //   ⭐만 자세히(카드 · 규칙 채우기 AI 1회) · 나머지는 이름 · 단계 · 애정만 가볍게

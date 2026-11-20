@@ -193,9 +193,7 @@ function poke(img) {
 let bound = false;
 export function initMascot() {
     if (bound) return; bound = true;
-    fetchClips(); // 냥 소리 파일 미리 받아 두기 (작아요, 3개 합쳐 13KB)
-    // 이미지 미리 받아 두기 (처음 뜰 때 빈칸 방지)
-    for (const n of MASCOTS) { const i = new Image(); i.src = mascotUrl(n); }
+    // 🏎 미리 받기는 평소 얼굴 하나만 · 다른 표정은 처음 보일 때 · 냥 소리는 처음 누를 때 (켤 때 그림 7장 · 소리 3개 ≈ 110KB를 다 받던 것)
     { const i = new Image(); i.src = mascotUrl(mascotPick()); }
     document.addEventListener('click', (e) => {
         const img = e.target.closest?.('.ss-mascot');

@@ -1,11 +1,11 @@
 // 화면은 셋뿐: HUD · 미니바 · 전체화면 — 여기는 늘 떠 있는 HUD · 미니바 · 답 밑 칩만.
 //   펼친 폰 화면(sheet.js)과 앱들(tabs · home · tools …)은 처음 열 때 불러와서, 실리태번을 켤 때 받는 코드를 줄인다.
-import { app, ctx, settings, getMeta, modOn, ready, msgData } from '../base/st.js';
+import { app, ctx, settings, getMeta, modOn, ready, msgData, VERSION } from '../base/st.js';
 import { esc, dateText, periodName, short, fmt } from '../base/util.js';
 import { fold, derived, needStage } from '../rules/engine.js';
 import { placeOf } from '../rules/book.js';
 import { applyGloss, glossList } from '../base/gloss.js';
-import { applyTr, trSig } from '../extra/tr.js';
+import { applyTr, trSig } from '../extra/trgate.js';
 // 번역 사전 · 용어집이 바뀌면 같은 글이어도 다시 칠함
 const paintKey = (h) => `${h}|${trSig()}|${glossList().length}`;
 import { chip, bar, layerHost } from './kit.js';
@@ -15,7 +15,16 @@ import { isWaiting } from '../rules/classify.js';
 // ───── 펼친 화면은 필요할 때 불러오기 ─────
 let SH = null, loading = null;
 export const sheetLoaded = () => !!SH;
-export function loadSheet() { if (SH) return Promise.resolve(SH); loading ??= import('./sheet.js').then(m => (SH = m)); return loading; }
+// 🎨 펼친 화면 CSS(sheet.css)도 처음 열 때 같이 (다 받은 뒤에 그려서 맨 화면이 번쩍이지 않게)
+let cssP = null;
+export function sheetCss() {
+    return (cssP ??= new Promise((ok) => {
+        if (document.getElementById('ml-sheet-css')) return ok();
+        const l = Object.assign(document.createElement('link'), { id: 'ml-sheet-css', rel: 'stylesheet', href: new URL(`../../sheet.css?v=${VERSION}`, import.meta.url).href });
+        l.onload = l.onerror = () => ok(); document.head.appendChild(l);
+    }));
+}
+export function loadSheet() { if (SH) return Promise.resolve(SH); loading ??= Promise.all([import('./sheet.js'), sheetCss()]).then(([m]) => (SH = m)); return loading; }
 export function openSheet(tab = 'home') { if (SH) return SH.openSheet(tab); return loadSheet().then(m => m.openSheet(tab)); }
 export function drawSheet() { if (SH && document.getElementById('ml-full')) SH.drawSheet(); }
 export function closeSheet() { if (SH) return SH.closeSheet(); document.getElementById('ml-full')?.remove(); document.body.classList.remove('ml-open'); }
@@ -23,7 +32,7 @@ export function openPast(i) { return loadSheet().then(m => m.openPast(i)); }
 export function turnSheet(i) { return loadSheet().then(m => m.turnSheet(i)); }
 export const redraw = () => drawSheet();
 // 바깥(HUD · 미니바 · 답 밑 칩 · 패널 밖 시트)에서 누른 것 → 앱 쪽 처리는 불러와서
-const onAct = async (...a) => (await import('./tabs.js')).onAct(...a);
+const onAct = async (...a) => (await Promise.all([import('./tabs.js'), sheetCss()]))[0].onAct(...a); // 칩 · 미니바에서 연 작은 창도 앱 CSS가 필요
 
 
 // ───── HUD: 한 줄 (욕구 · 돈 · 시간 · 장소 · 가게 한 줄) ─────
@@ -97,7 +106,7 @@ export function bindOuter() {
         const a = e.target.closest('.ml-bs [data-act], .ml-msg [data-act]');
         if (!a || a.closest('#ml-full')) return;
         /* 패널 안 시트는 패널이 처리 */ if (a.dataset.act === 'turncard') return turnSheet(Number(a.dataset.v));
-        const T = await import('./tools.js');
+        const [T] = await Promise.all([import('./tools.js'), sheetCss()]);
         if (T.TOOL_ACTS.has(a.dataset.act)) {
             a.closest('.ml-bs')?.remove();
             return T.onTool(a.dataset.act, a.dataset.v);

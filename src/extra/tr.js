@@ -8,13 +8,8 @@ import { app, ctx, settings, getMeta, saveMeta, TITLE } from '../base/st.js';
 import { glossText, glossIn } from '../base/gloss.js';
 import { short } from '../base/util.js';
 
-export const TR_CATS = [
-    ['trSent', 'sent', '문장', '세계 소식 · 속마음 · 기억 · 약속 · 성격 한 줄'],
-    ['trPhrase', 'phrase', '단어 · 짧은 구절', '상태 · 날씨 · 행동 · 취향 · 분위기'],
-    ['trPlace', 'place', '장소 이름', '지금 장소 · 가 본 곳 · 설정집 장소'],
-    ['trName', 'name', '고유 명칭', '인물 · 물건 · 가게 상품 이름'],
-    ['trUnit', 'unit', '숫자 · 단위', '돈 단위(Gold 같은)'],
-];
+import { TR_CATS } from './trgate.js';
+export { TR_CATS };
 export const trMode = () => { const m = settings().trMode; return m === 'free' || m === 'ai' ? m : 'off'; };
 const catOn = (c) => { const k = TR_CATS.find(x => x[1] === c)?.[0]; return !!k && !!settings()[k]; };
 const MAX_DICT = 2000, BATCH_N = 80, BATCH_CH = 3500, WAIT = 700, COOL = 60000;

@@ -2,11 +2,12 @@
 import { settings, getMeta, modOn, userName, ctx, shut, shutKey, nextAiNo } from '../base/st.js';
 // 😌 눈 감은 앱은 다음 답에 없는 셈 (켜져 있어도)
 const onNow = (id) => modOn(id) && !shut(id);
-import { clamp, dateText, short, tokens, DAY } from '../base/util.js';
+import { clamp, dateText, dateTextEN, short, tokens, DAY } from '../base/util.js';
 import { derived, relStage, fold } from './engine.js';
 import { tasteOf, recentQuotes, customKey } from './classify.js';
-import { personOf } from './book.js';
-import { ruleKeys as newsRuleKeys } from './newskinds.js';
+import { personOf, BASIC_ACTS_EN } from './book.js';
+import { isEN } from './lang.js';
+import { ruleKeys as newsRuleKeys, kindsOn } from './newskinds.js';
 import { calLines } from './calplus.js';
 import { mode } from './classify.js';
 import { sneakExample, foundLines } from './sneak.js';
@@ -40,6 +41,7 @@ export function level(id) {
 // 💭 카모지 견본 — 답마다 돌려 가며 몇 개만 보여 줌 (같은 것만 반복하지 않게)
 const KAO = ['(｡•̀ᴗ-)✧', '(￣ヘ￣)', '(｡>﹏<｡)', '(⁄ ⁄•⁄ω⁄•⁄ ⁄)', '( ˘•ω•˘ )', '(╬ Ò﹏Ó)', '(っ˘ω˘ς )', '(・_・;)', '(*´▽`*)', '(ㆆ_ㆆ)', '(´；ω；`)', '(ง •̀_•́)ง', '(¬‿¬)', '( ・ั﹏・ั)', '٩(◕‿◕｡)۶', '(；￣Д￣)', '(￣▽￣)ノ', '(｀・ω・´)', '(⊙_⊙)', '(｡•́︿•̀｡)'];
 export function ruleText(book) {
+    if (isEN()) return ruleTextEN(book); // 🌐 영어 이야기: 본편 AI에게 가는 적는 법도 영어로
     const meta = getMeta(), flash = settings().preset !== 'general';
     const cs = book.world.start.cal ?? {}, tk = cs.style === '' ? '저녁 | +2h' : cs.style === '12' ? '오후 2:30 | +2h' : '14:30 | +2h';
     const K = ['loc: 장소 (옮기면 with도 같이)', `time: ${tk}`, 'with: 이름, 이름 (혼자면 없음)'];
@@ -71,6 +73,37 @@ export function ruleText(book) {
     const ex = flash ? exOf(['loc: 빵집', 'buy: 크림빵 | 3', 'ate: 크림빵', 'act: Leon | 칭찬']) + exOf(['time: +3h', 'worked: 3h | +20', 'mind: Leon | 또 늦네']) : '';
     return head + ex;
 }
+// 🌐 영어 이야기용 적는 법 (위 한국어판과 같은 키 · 같은 순서)
+function ruleTextEN(book) {
+    const meta = getMeta(), flash = settings().preset !== 'general';
+    const cs = book.world.start.cal ?? {}, tk = cs.style === '' ? 'evening | +2h' : cs.style === '12' ? '2:30 PM | +2h' : '14:30 | +2h';
+    const K = ['loc: place (when you move, write with too)', `time: ${tk}`, 'with: name, name (none if alone)'];
+    if (cs.months?.length) K.push(`date: ${cs.months[0].name} 3 (months: ${cs.months.map(x => x.name).join('·')})`);
+    if (onNow('stats')) K.push('ate: food', 'slept: 6h', 'washed: -', 'rest: 1h', 'worked: 4h | +30');
+    if (onNow('wallet')) K.push('buy: item | price', 'earn: 30 | reason', 'got: item', 'used: item', 'sell: item | price', 'lost: item', 'wear: clothes', 'unwear: clothes');
+    if (onNow('rel')) K.push(`act: name | what they did to/for them (if nothing listed fits: "${BASIC_ACTS_EN.up.act}" or "${BASIC_ACTS_EN.down.act}")`, 'gift: name | item', 'memory: name | big event', 'jealous: name | reason', ...(level('rel') >= 3 ? ['pair: name | name | +3 | reason'] : []), 'promise: what | 3/14', 'promise: -kept promise');
+    if (onNow('calendar')) K.push('weather: rain');
+    K.push('status: cold | 3d', 'status: -recovered status', 'npc: name | one-line personality', 'gone: name | reason');
+    if (onNow('news')) { const on = kindsOn(); if (on.world) K.push('newsline: news | one line of world news (now and then)'); if (on.rumor) K.push('newsline: rumor | a rumor going around (now and then)'); if (on.feed) K.push('feed: name | a short social media post by that person (now and then)'); if (on.life && level('news') >= 3) K.push('life: name | what they did off-screen (now and then)'); }
+    if (onNow('rel') && level('rel') >= 4) K.push('meddle: name | slot | +5 | prank (slot: a stat like mood · bag | item · money | +30 · calendar | 5/14 | note — only things they secretly GIVE, never take)');
+    if (onNow('dice')) K.push('roll: what to check');
+    if (onNow('custom')) { const T = (meta?.custom ?? []).filter(t => t?.name && t.fields?.length); if (T.length) K.push(`custom: tab | field | new value (tabs: ${T.slice(0, 4).map(t => `${t.name}(${t.fields.slice(0, 6).map(f => f.name).join('·')})`).join(', ')})`); }
+    if (onNow('music')) K.push(`bgm: song title - artist | mood in one word | why (only when the mood changes · a real song${tasteOf() ? ` · taste: ${tasteOf()}` : ''})`);
+    if (onNow('quote')) { const rq = recentQuotes(fold()?.S ?? {}); K.push(`quote: original quote | source | Korean meaning (if not Korean) | why (only when the mood changes · proverb · film line · book · poem · famous saying · no song lyrics · one or two sentences${rq.length ? ` · avoid: ${rq.join(' / ')}` : ''})`); }
+    if (onNow('mind') && level('mind') > 0) {
+        const who = meta?.mindWho ?? ['cast'];
+        const mm = meta?.mindMode ?? 'thought', form = { thought: 'one short inner thought', emoji: '2-3 emoji only (no words)', kaomoji: 'one kaomoji + a very short phrase', mix: 'short inner thought + a kaomoji at the end' }[mm] ?? 'one short inner thought';
+        if (who.includes('cast')) K.push(`mind: name | ${form} (each character in the scene · franker the closer they are, guarded with strangers)`);
+        if (who.includes('watch')) K.push('watch: onlooker | one remark');
+        if (who.includes('cell')) K.push(`cell: brain cell | ${userName()}'s inner reaction`);
+        if (meta?.mindTone) K.push(`(inner-thought tone: ${meta.mindTone})`);
+        if (mm === 'kaomoji' || mm === 'mix') { const turn = ctx().chat?.length ?? 0, P = KAO.slice((turn * 5) % KAO.length).concat(KAO).slice(0, 6); K.push(`(vary the kaomoji · e.g. ${P.join(' ')})`); }
+    }
+    const head = `[STATUS LOG] After the reply, add a <meatball> block. Write EVENTS, not numbers — the extension computes the numbers. One "key: value" per line, in English. Only lines for what happened this reply; skip the rest. Keys:\n${K.filter((k) => !/^[a-z]+:/i.test(k) || !shutKey(k.split(':')[0])).join('\n')}`;
+    const exOf = (lines) => { const L = lines.filter(l => !shutKey(l.split(':')[0])); return L.length ? `\nExample:\n<meatball>\n${L.join('\n')}\n</meatball>` : ''; };
+    const ex = flash ? exOf(['loc: Bakery', 'buy: Cream bun | 3', 'ate: Cream bun', 'act: Leon | praise']) + exOf(['time: +3h', 'worked: 3h | +20', 'mind: Leon | late again']) : '';
+    return head + ex;
+}
 // 지금 사실 고정 · 경계 한 줄 · 연출 힌트 (게이지에 따라)
 // 본편에는 「결과값」만: 지금 사실(돈 · 장소 · 시간 · 같이 있는 사람) · 경계를 넘은 결과(증상) · 관계 단계 · 상태 이름 · 약속
 // 중간값(숫자 · 보정 · 배수 · 운세 · 능력치)은 상태창 안에서만 쓴다
@@ -92,7 +125,7 @@ export function factText(r, lastChanges = []) {
     if (lv('wallet') >= 3) L.push('cannot spend more money than this; items not listed are not owned');
     // 장소 · 시간
     if (lv('map') >= 2 && S.loc) L.push(`place: ${S.loc}${S.with.length ? ` · with: ${S.with.join(', ')}` : ''}`);
-    if (lv('calendar') >= 2) { L.push(`now: ${dateText(book.world.start, S.t)} · ${S.weather}`); }
+    if (lv('calendar') >= 2) { L.push(`now: ${(isEN() ? dateTextEN : dateText)(book.world.start, S.t)} · ${S.weather}`); }
     // 관계
     const scene = S.with.length ? S.with : [];
     for (const name of scene) {
@@ -115,7 +148,7 @@ export function factText(r, lastChanges = []) {
                         `${lv('rel') >= 3 && pr.why ? ` (${pr.why})` : ''}`,
                 );
         }
-    if (lv('rel') >= 4 && S.turn % 6 === 3) H.push('add one small heart-flutter moment this reply (설렘 한 스푼)');
+    if (lv('rel') >= 4 && S.turn % 6 === 3) H.push('add one small heart-flutter moment this reply');
     // 바뀐 단계 · 딱지
     for (const c of lastChanges) if (c.cross && lv('rel') >= 1) H.push(`${c.label}: ${c.from} → ${c.to}`);
     for (const st of S.status) if (lv('stats') >= 2) L.push(`status: ${st.name}`);

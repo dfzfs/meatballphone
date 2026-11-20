@@ -18,7 +18,7 @@ try {
     check(r.list.length === 3 && !r.list.includes('틀림'), '같은 말은 하나만 (이 채팅 → 모든 채팅)', JSON.stringify(r.list));
     check(r.ai === 'Glossary (always use the right side): Leon=레온', 'AI에는 그 글에 나온 말만', r.ai);
     check(/Sky Tower=하늘탑/.test(r.aiAll), '글을 안 주면 모두', r.aiAll);
-    check(r.tr === 'undefined', '화면 번역 설정 없음', r.tr);
+    check(r.tr === 'string', '🌐 AI에게 보내는 언어 설정(saveLang)이 있음 (화면 번역과 따로)', r.tr);
     // 화면: 소지품 이름에 용어집이 입혀짐 · 입력칸은 안 건드림
     await page.evaluate(() => window.__addUser('가자'));
     await page.evaluate(() => window.__addAI('…\n<meatball>\ngot: Sky Tower ticket\nwith: Leon\n</meatball>')); await sleep(300);

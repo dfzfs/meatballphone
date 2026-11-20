@@ -17,7 +17,7 @@ import { chip, sheet, bar, toast, layerHost, resetLayerHost } from './kit.js';
 
 import { mascot } from './mascot.js';
 import { isWaiting } from '../rules/classify.js';
-import { applyTr, trSig, trBusy } from '../extra/tr.js';
+import { applyTr, trSig, trBusy } from '../extra/trgate.js';
 import { chipCheck } from '../extra/doctor.js';
 let cur = 'home', past = null, lastHtml = ''; // lastHtml: 지난번에 그린 폰 화면 (같으면 다시 안 그림)
 // ───── 전체화면 ─────

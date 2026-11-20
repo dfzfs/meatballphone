@@ -13,6 +13,7 @@ import { personOf, placeOf, bookTokens, personTokens, normBook, PLACE_KINDS, LIM
 import { musicView, quoteView, songLine, quoteLine, musicAct } from './music.js';
 import { LEVELS, GAUGES, PRESETS, level, gaugeCfg, levelCost } from '../rules/inject.js';
 import { fillBook } from '../rules/ai.js';
+import { isEN } from '../rules/lang.js';
 import { newsView, newsAct } from './newskinds.js';
 import { calBar, calTabView, calCell, calDayExtra, calSettings, calAct } from './calplus.js';
 import { ddaysOn } from '../rules/calplus.js';
@@ -591,6 +592,9 @@ function custom(r) {
 function book(r) {
     const b = r.book;
     let h = `<div class="ml-hint">본편에는 영향 없음 · 상태창을 만들고 계산할 때 긴 로어북 대신 이걸 봅니다</div>`;
+    // 🌐 영어 이야기인데 설정집이 한국어면 → 한 번에 영어로 (AI 1회 · 이름은 그대로 · 화면은 번역으로 한국어)
+    { const L = isEN() ? 'en' : 'ko', hasKo = /[\uAC00-\uD7A3]/.test(JSON.stringify({ ...b, people: b.people.map(({ name, aka, ...p }) => p), world: { ...b.world, places: b.world.places.map(({ name, photo, ...p }) => p) } }));
+      if (L === 'en' && hasKo) h += card('', row({ icon: '🌐', title: '이야기는 영어인데 설정집이 한국어예요', sub: 'AI에게 한국어 값(허기 · 연인 · 행동 이름)이 섞여 가요 · 눌러서 영어로 바꾸기 (AI 1회 · 이름은 그대로)', act: 'bk-tolang', data: 'en', more: true })); }
     // 📐 숫자 규칙 판: 오르는 · 내리는 폭 · 줄어드는 속도를 고치면 그 메시지부터 새 규칙 (앞은 옛 규칙 그대로)
     const V = getMeta().ruleVers ?? [];
     h += `<div class="ml-hint">📐 숫자 규칙 ${V.length + 1}판${V.length ? ` · #${V[V.length - 1].until}부터 지금 규칙 (그 앞 메시지는 그때 규칙으로 계산)` : ''} · 성격 · 취향 · 루틴 · 시작 값은 판을 나누지 않아요</div>`;
@@ -1217,6 +1221,23 @@ export async function onAct(act, v, el) {
         }
         case 'bk-person':
         case 'bk-me':
+        case 'bk-tolang': {
+            const { ask, parseJSON } = await import('../rules/ai.js');
+            const b = meta.book, photos = new Map(b.world.places.map(p => [p.name, p.photo]));
+            const slim = { ...b, src: undefined, world: { ...b.world, places: b.world.places.map(({ photo, ...p }) => p) } };
+            toast('설정집을 영어로 바꾸는 중…');
+            try {
+                const raw = await ask(`Translate every Korean VALUE in this JSON to natural, short English. Keep all keys, numbers, emoji and structure exactly. Do NOT change "name" or "aka" values (names stay as written). Output the full JSON only, minified.\n${JSON.stringify(slim)}`, 'You translate JSON values from Korean to English for a roleplay status sheet. Output JSON only.');
+                const j = parseJSON(raw); if (!j?.world || !Array.isArray(j.people)) throw new Error('답을 못 읽었어요');
+                j.lang = 'en'; j.src = b.src;
+                // 장소 이름 · 사람 이름은 그대로 (지금 장소 · 기록이 이 이름으로 이어져 있음)
+                j.world.places = (j.world.places ?? []).map((p, k) => ({ ...p, name: b.world.places[k]?.name ?? p.name, near: b.world.places[k]?.near ?? p.near, photo: photos.get(b.world.places[k]?.name ?? p.name) ?? '' }));
+                // 이름이 바뀌었으면(번역기가 건드림) 원래 이름으로 되돌림
+                j.people = j.people.map((p, k) => ({ ...p, name: b.people[k]?.name ?? p.name, aka: b.people[k]?.aka ?? p.aka }));
+                meta.book = normBook(j); saveMeta(); app.refresh?.(true); toast('설정집을 영어로 바꿨어요 · 화면은 🌐 번역으로 한국어', 'good');
+            } catch (e) { toast(`못 바꿨어요: ${e.message}`, 'bad'); }
+            return;
+        }
         case 'bk-world':
         case 'bk-start':
         case 'bk-places':

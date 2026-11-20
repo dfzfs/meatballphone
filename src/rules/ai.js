@@ -1,6 +1,7 @@
 // 미트볼이 부르는 AI (설정집 채우기 · 번역). 사건 고르기(B 모드)는 classify.js. 본편이 아니므로 설정집을 여기서만 본다.
 import { ctx, settings, userName, getMeta } from '../base/st.js';
 import { normBook, emptyBook, REL_STAGES } from './book.js';
+import { isEN } from './lang.js';
 import { short, hash } from '../base/util.js';
 import { gloss } from '../base/gloss.js';
 
@@ -122,9 +123,13 @@ const SCHEMA = `{"world":{"genre":"","summary":"세계관 요약 2~3문장 (시�
     + `줄","start":{"aff":10,"trust":10},"up":[{"act":"칭찬","d":3}],"down":[{"act":"거짓말","d":-5}],"signs":[{"at":60,"text":"눈을 `
     + `피함"}],"syn":[{"to":"","text":""}],"haunt":[],"routine":[{"at":"아침","place":""}],"likes":[],"hates":[],"day":"3월 14일 생일","want":"지금 원하는 `
     + `것","official":"-","noLove":false}]}`;
+// 🌐 영어 이야기용 견본 (값을 한국어로 보여 주면 AI가 한국어로 따라 씀)
+const SCHEMA_EN = `{"world":{"genre":"","summary":"2-3 sentence world summary (era · setting · current situation · main conflict)","rules":["3-5 short rules this world always keeps (magic · tech · class · taboos)"],"currency":"","meal":10,"weather":["Clear","Rain"],"start":{"y":2026,"m":3,"d":1,"clock":480},"places":[{"name":"","kind":"home|shop|food|bath|work|street|school|other","line":"line name","near":["connected place"],"floors":[],"goods":[{"name":"","price":3,"fx":{"hunger":20}}],"rest":{"energy":20},"note":""}]},
+"me":{"name":"","traits":"","day":"March 14","needs":[{"key":"hunger","name":"Hunger","icon":"🍞","start":80,"rate":4}]},
+"people":[{"name":"","aka":[],"face":"🙂","line":"one-line personality","start":{"aff":10,"trust":10},"up":[{"act":"praise","d":3}],"down":[{"act":"lying","d":-5}],"signs":[{"at":60,"text":"avoids eye contact"}],"syn":[{"to":"","text":""}],"haunt":[],"routine":[{"at":"morning","place":""}],"likes":[],"hates":[],"day":"March 14","want":"what they want right now","official":"-","noLove":false}]}`;
 export async function fillBook(only = null, pick = undefined) {
-    const src = await sources(pick);
-    const sys = `You build a compact status-sheet rulebook for a roleplay. Output JSON only. Korean values. `
+    const src = await sources(pick), en = isEN();
+    const sys = `You build a compact status-sheet rulebook for a roleplay. Output JSON only. ${en ? 'The story is in ENGLISH: write every value in English (this text is sent to the story AI; the player reads a translation).' : 'Korean values.'} `
         + 'Keep every person and place NAME exactly as spelled in the source (never translate or transliterate names); put other spellings or readings (e.g. a Korean reading of an English name) in "aka". '
         + 'The SOURCE is the truth. It may be an AU or an original setting that changes canon (e.g. a modern-day AU of a known series): follow the source and the first message, '
         + 'and never bring in canon places, items, ships, powers or events that the source does not use. Places, goods, prices, currency (name it as this setting would, e.g. 원, 달러, Gold) and routines must fit THIS setting. '
@@ -138,10 +143,10 @@ export async function fillBook(only = null, pick = undefined) {
         + 'Write minified JSON (no indentation, no code fence) so it fits in one reply.';
     const ask2 = only ? `Rebuild ONLY these people: ${only.join(', ')}. Output {"people":[...]}` : 'Fill the whole rulebook.';
     const note = String(getMeta()?.srcNote ?? '').trim();
-    const raw = await ask(`${ask2}\n${gloss()}${note ? `\nUSER'S EXTRA INSTRUCTIONS (follow these over the source when they conflict):\n${note}\n` : ''}\nSchema:\n${SCHEMA}\n\nSource:\n${src.text}`, sys);
+    const raw = await ask(`${ask2}\n${gloss()}${note ? `\nUSER'S EXTRA INSTRUCTIONS (follow these over the source when they conflict):\n${note}\n` : ''}\nSchema:\n${en ? SCHEMA_EN : SCHEMA}\n\nSource:\n${src.text}`, sys);
     const j = parseJSON(raw);
     if (!j) return { book: null, src };
-    capLove(j);
+    capLove(j); if (!only) j.lang = en ? 'en' : 'ko';
     if (lastCut) import('../ui/kit.js').then(k => k.toast('AI 답이 길이 제한에서 끊겨서 받은 데까지만 채웠어요 · 빠진 인물은 인물 편집의 ✨로 다시 채울 수 있어요', 'mid')).catch(() => {});
     return { book: j, src, cut: lastCut };
 }
@@ -160,10 +165,15 @@ export function capLove(j) {
 }
 // AI 없이 바로 시작하는 틀 (입력 거의 없게)
 export function templateBook() {
-    const c = ctx(), b = emptyBook(), name = c.characters?.[c.characterId]?.name;
+    const c = ctx(), en = isEN(), b = emptyBook(en ? 'en' : 'ko'), name = c.characters?.[c.characterId]?.name;
     b.me.name = userName();
     if (name) b.people.push({ name, aka: [], face: '🙂', line: '', start: { aff: 10, trust: 10 }, up: [], down: [], signs: [], syn: [], haunt: [], routine: [], likes: [], hates: [], day: '', want: '', noLove: false });
-    b.world.places = [
+    b.world.places = en ? [
+        { name: 'Home', kind: 'home', rest: { energy: 20 } },
+        { name: 'Market', kind: 'shop', goods: [{ name: 'Bread', price: 3, fx: { hunger: 20 } }, { name: 'Water', price: 1, fx: { hunger: 5 } }, { name: 'Flowers', price: 5 }] },
+        { name: 'Diner', kind: 'food', goods: [{ name: 'Set meal', price: 10, fx: { hunger: 40 } }] },
+        { name: 'Bathhouse', kind: 'bath', goods: [{ name: 'Bath', price: 4, fx: { hygiene: 70 } }] },
+    ] : [
         { name: '집', kind: 'home', rest: { energy: 20 } },
         {
             name: '시장',

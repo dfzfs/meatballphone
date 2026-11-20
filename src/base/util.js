@@ -133,6 +133,14 @@ export function dateText(start, min, withTime = true) {
     const d = dateOf(start, min), era = start?.cal?.era ? `${start.cal.era} ${d.y}년 ` : '';
     return `${era}${d.mn} ${d.d}일 (${d.w})${withTime ? ` ${periodName(min)}${start?.cal?.style === '' ? '' : ` ${clockText(start, min)}`}` : ''}`;
 }
+// 🌐 영어 이야기용 (본편 AI에게 가는 날짜): 「Mar 14 (Sat) evening 19:30」
+const EN_MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], EN_WEEK = { 일: 'Sun', 월: 'Mon', 화: 'Tue', 수: 'Wed', 목: 'Thu', 금: 'Fri', 토: 'Sat' };
+const EN_PERIOD = { 심야: 'late night', 새벽: 'dawn', 아침: 'morning', 낮: 'daytime', 저녁: 'evening', 밤: 'night' };
+export function dateTextEN(start, min, withTime = true) {
+    const d = dateOf(start, min), custom = !!start?.cal?.months;
+    const day = custom ? `${d.mn} ${d.d}` : `${EN_MON[d.m - 1] ?? d.mn} ${d.d}`, era = start?.cal?.era ? `${start.cal.era} ${d.y}, ` : '';
+    return `${era}${day} (${EN_WEEK[d.w] ?? d.w})${withTime ? ` ${EN_PERIOD[periodName(min)] ?? ''}${start?.cal?.style === '' ? '' : ` ${hhmm(min)}`}` : ''}`;
+}
 // 「3월 14일」 「3/14」 「서리달 14일」 → 그날 0시의 분 (지났으면 다음 해)
 export function dayOfDate(start, v, now = 0) {
     const s = String(v ?? '');

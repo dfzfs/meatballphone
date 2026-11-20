@@ -9,13 +9,15 @@ import { fillBook, templateBook } from './src/rules/ai.js';
 import { mode, modeNote, profiles, enqueue, fingerprint, newPeople, fillPerson, clsStats, testConnection, presetText } from './src/rules/classify.js';
 import { CURRENT, currentApi, resetThink } from './src/rules/clsconn.js';
 import { parseStart, firstMessage } from './src/rules/firstmsg.js';
+import { isEN } from './src/rules/lang.js';
 import { drawFrame, drawChips, drawSheet, openSheet, closeSheet, openPast, bindOuter } from './src/ui/frame.js';
 import { sheet, toast, row, card } from './src/ui/kit.js';
 import { initMascot, playMascotSound, MASCOT_SOUNDS } from './src/ui/mascot.js';
 import { mount as mountApi, announce } from './src/extra/api.js';
-import { backup, restore, toCard, fromCard, migrateOld, oldActive, wipeChat } from './src/extra/safe.js';
-import { initLog, reportSheet } from './src/extra/report.js';
-import { trScan, TR_CATS } from './src/extra/tr.js';
+import { fromCard, oldActive } from './src/extra/safecore.js';
+const SAFE = () => import('./src/extra/safe.js'); // 🏎 백업 · 불러오기 · 카드에 붙이기 · 옮기기 · 지우기는 누를 때 받음
+import { initLog } from './src/extra/log.js';
+import { trScan, TR_CATS } from './src/extra/trgate.js';
 
 const perf = { turns: [], refresh: [] };
 let resting = false;
@@ -253,6 +255,7 @@ ${sw('enabled', '켜기 (모든 채팅)')}<label class="checkbox_label"><input t
 ${sel('mode', '사건 고르기', [['B', 'B. 분류 모델 (본편은 소설만 · 답마다 1회)'], ['A', 'A. 본편 태그 (추가 호출 0회)']])}${clsPick()}`
         + `${modeNote() ? `<small class="ml-set-note">⚠ ${esc(modeNote())}</small>` : ''}${prof('profile', '상태창 만들기 연결', '지금 연결')}
 ${sel('pinBook', '장면 인물의 증상 한 줄 본편에', [['auto', '붙이기'], ['off', '안 붙이기']])}
+<h4>🌐 언어</h4>${sel('saveLang', 'AI에게 보내는 말', [['auto', `자동 · 이야기 언어 (지금: ${isEN() ? '영어' : '한국어'})`], ['en', '영어'], ['ko', '한국어']])}<small class="ml-set-note">설정집 값 · 본편 지시 · 분류가 이 언어로 가요. 화면은 아래 번역으로 한국어.</small>
 <h4>🌐 상태창 번역</h4>${sel('trMode', '번역', [['off', '끄기'], ['free', '무료 · 빠름 (실리태번 기본 번역)'], ['ai', '제대로 (AI · 토큰 씀)']])}${s.trMode === 'ai' ? prof('trProfile', 'AI 번역 연결', '상태창 만들기 연결') : ''}${s.trMode !== 'off' && s.trMode ? `<small class="ml-set-note">번역할 것</small>${TR_CATS.map(([k, , l, d]) => sw(k, `${l} <small>(${d})</small>`)).join('')}<small class="ml-set-note">용어집에 있는 말은 번역기를 안 거치고 바로 바뀌어요 · 새로 나온 말만 모아서 한 번에 보내요 · 다시 번역은 폰의 🌐 용어집에서</small>` : ''}
 <h4>저장 · 옮기기</h4><div class="ml-set-btns"><button class="menu_button" data-ml="perf">🏎 부하 재기</button><button class="menu_button" data-ml="report">📋 전체 복사</button><button class="menu_button" data-ml="doctor">🩺 `
         + `자가 진단</button><button class="menu_button" data-ml="backup">💾 백업</button><button class="menu_button" data-ml="restore">📂 불러오기</button>`
@@ -290,14 +293,14 @@ function mountSettings() {
         if (a === 'open') return openSheet(ready() ? 'now' : 'home');
         if (a === 'perf') return showPerf();
         if (a === 'cls-test') return clsTest(box.querySelector('.ml-cls-test'), e.target.closest('button'));
-        if (a === 'report') return reportSheet();
+        if (a === 'report') return (await import('./src/extra/report.js')).reportSheet();
         if (a === 'doctor') { const d = await import('./src/extra/doctor.js'); return d.doctor(app, perf); }
         if (a === 'cat') return ready() ? openSheet('cat') : toast('먼저 상태창을 만들어 주세요');
-        if (a === 'wipe') { if (await wipeChat()) { closeSheet(); document.getElementById('ml-hud')?.remove(); document.querySelectorAll('.ml-msg').forEach(x => x.remove()); refresh(true); } return; }
-        if (a === 'backup') return backup();
-        if (a === 'restore') return restore().then(() => refresh(true));
-        if (a === 'card') return toCard();
-        if (a === 'migrate') { const r = migrateOld(); toast(r ? `옮겼어요 · 시작값(#${r.start}부터) · 답 ${r.ops}개 · 인물 ${r.people}명 · 물건 ${r.items}개${r.later ? ` · 손 고침 ${r.later}개` : ''}${r.skipped ? ` · 못 옮긴 고침 ${r.skipped}개` : ''}` : '옮길 옛 기록이 없어요', r ? 'good' : 'mid'); refresh(true); }
+        if (a === 'wipe') { if (await (await SAFE()).wipeChat()) { closeSheet(); document.getElementById('ml-hud')?.remove(); document.querySelectorAll('.ml-msg').forEach(x => x.remove()); refresh(true); } return; }
+        if (a === 'backup') return (await SAFE()).backup();
+        if (a === 'restore') return (await SAFE()).restore().then(() => refresh(true));
+        if (a === 'card') return (await SAFE()).toCard();
+        if (a === 'migrate') { const r = (await SAFE()).migrateOld(); toast(r ? `옮겼어요 · 시작값(#${r.start}부터) · 답 ${r.ops}개 · 인물 ${r.people}명 · 물건 ${r.items}개${r.later ? ` · 손 고침 ${r.later}개` : ''}${r.skipped ? ` · 못 옮긴 고침 ${r.skipped}개` : ''}` : '옮길 옛 기록이 없어요', r ? 'good' : 'mid'); refresh(true); }
     });
 }
 // 🔌 분류 연결 시험 → 결과를 버튼 아래에 바로

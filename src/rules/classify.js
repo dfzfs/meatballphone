@@ -6,7 +6,8 @@ import { short, hash, norm, tokens, safeKey, hhmm } from '../base/util.js';
 import { readOps, kindOf, parts, stripTags, storyOnly } from './tags.js';
 import { sendClean, clsRoute, connStats, routeText, CLS_PRESET } from './clsconn.js';
 import { fold } from './engine.js';
-import { personOf, normBook, BASIC_ACTS, LIMIT } from './book.js';
+import { personOf, normBook, BASIC_ACTS, BASIC_ACTS_EN, basicActs, LIMIT } from './book.js';
+import { isEN } from './lang.js';
 import { gloss } from '../base/gloss.js';
 import { clsKeys } from './newskinds.js';
 import { notedKey } from './calplus.js';
@@ -31,12 +32,24 @@ const KEYS = [
     ['sell', '물건 | 값', '팔았을 때'], ['unwear', '옷', '벗었을 때'], ['status', '-감기', '상태가 나았을 때 (앞에 -)'], ['promise', '-내용', '약속을 지켰거나 끝났을 때 (앞에 -)'],
     ['conflict', '내용', '답 글이 [STATE]와 분명히 부딪칠 때만 (예: 없는 돈을 씀)'],
 ];
+// 🌐 영어 이야기용 목록 (값이 영어로 나오게 · 키는 같음)
+const KEYS_EN = [
+    ['loc', 'place name', 'moved somewhere'], ['time', '+2h or 14:30', 'time passed'], ['with', 'name, name', 'who is in the scene changed'],
+    ['ate', 'food', 'ate'], ['slept', '7h', 'slept'], ['washed', '-', 'washed'], ['rest', '1h', 'rested'], ['worked', '3h | +30', 'worked (money earned)'],
+    ['buy', 'item | price', 'bought'], ['earn', '30 | reason', 'received money'], ['got', 'item', 'got an item'], ['used', 'item', 'used an item'], ['lost', 'item', 'lost an item'],
+    ['wear', 'clothes', 'put on'], ['gift', 'name | item', 'gave a gift'], ['act', 'name | action', 'did one of the listed actions to that person (listed actions only)'],
+    ['memory', 'name | big event', 'something that person will remember'], ['jealous', 'name | reason', 'got jealous'], ['pair', 'name | name | rivals', 'two characters\' relationship changed'],
+    ['promise', 'what | 3/14', 'a promise or deadline was made'], ['weather', 'rain', 'weather changed'], ['status', 'cold | 3d', 'got sick or a condition started'],
+    ['npc', 'name | one-line personality', 'a new character appeared'], ['gone', 'name | reason', 'a character left the story'],
+    ['sell', 'item | price', 'sold'], ['unwear', 'clothes', 'took off'], ['status', '-cold', 'a condition ended (prefix -)'], ['promise', '-what', 'a promise was kept or ended (prefix -)'],
+    ['conflict', 'what', 'only when the reply clearly contradicts [STATE] (e.g. spending money they do not have)'],
+];
 const MEDDLE = [['meddle', '이름 | 소지품 | 물건 | 한마디 · 이름 | 돈 | +30 | 한마디 · 이름 | 달력 | 5/14 | 글', '인물이 몰래 내 가방에 물건을 넣거나 · 지갑에 돈을 넣거나 · 달력에 메모를 남겼을 때만 (가져간 것은 적지 않음)']];
 const MIND = [['mind', '이름 | 짧은 속마음', '장면 속 인물의 속마음']];
 const BGM = [['bgm', '곡 제목 - 가수 | 분위기 한 단어 | 왜 어울리는지', '장면 분위기가 바뀌었을 때만 · 실제로 있는 곡 · [NOW]의 취향 참고 · 안 바뀌었으면 쓰지 않음']];
 const QUOTE = [['quote', '구절 원문 | 출처(작품 · 사람 · 나라) | 한국어 뜻(외국어일 때만) | 왜 어울리는지', '장면 분위기가 바뀌었을 때만 · 속담 · 영화/드라마 명대사 · 책/시 한 줄 · 유명인의 말 · 사자성어 · 노래 가사는 안 됨 · 한두 문장 · [NOW]의 최근 구절은 피함']];
 // aiNo: 몇 번째 AI 답을 고르는지 — 😌 그 답에 눈 감은 앱의 키는 뺀다
-const keyList = (aiNo) => { const M = getMeta()?.mods ?? {}; return [...KEYS, ...(M.rel ? MEDDLE : []), ...(M.mind ? MIND : []), ...(M.music ? BGM : []), ...(M.quote ? QUOTE : []), ...(M.news ? clsKeys() : []), ...(M.calendar ? notedKey(fold()) : []), ...(M.custom ? customKey() : [])].filter(([k]) => aiNo == null || !shutKey(k, aiNo)); };
+const keyList = (aiNo) => { const M = getMeta()?.mods ?? {}; return [...(isEN() ? KEYS_EN : KEYS), ...(M.rel ? MEDDLE : []), ...(M.mind ? MIND : []), ...(M.music ? BGM : []), ...(M.quote ? QUOTE : []), ...(M.news ? clsKeys() : []), ...(M.calendar ? notedKey(fold()) : []), ...(M.custom ? customKey() : [])].filter(([k]) => aiNo == null || !shutKey(k, aiNo)); };
 // 🧩 내 탭: 만든 탭이 있을 때만 · 탭과 칸 이름을 알려 줌 (숫자 칸은 지금 값으로)
 export function customKey() {
     const T = (getMeta()?.custom ?? []).filter(t => t?.name && t.fields?.length); if (!T.length) return [];
@@ -59,7 +72,7 @@ export function actionsOf(book, S, text = '') {
     const seen = new Set();
     return who.map(n => personOf(book, n) ?? (S.rel[n] ? { name: n, up: [], down: [] } : null))
         .filter(p => p && !seen.has(p.name) && seen.add(p.name))
-        .map(p => ({ name: p.name, up: [...p.up.map(a => a.act), BASIC_ACTS.up.act], down: [...p.down.map(a => a.act), BASIC_ACTS.down.act] }));
+        .map(p => ({ name: p.name, up: [...p.up.map(a => a.act), basicActs(isEN()).up.act], down: [...p.down.map(a => a.act), basicActs(isEN()).down.act] }));
 }
 // 이 턴 고른 선택과 결과 (미트볼 선택지: 사용자 메시지 extra.mbc 또는 통로로 받은 것)
 function choiceOf(u) {
@@ -104,7 +117,7 @@ export function buildPrompt(i) {
     const places = book.world.places.map(p => `${p.name}${p.goods.length ? `(${p.goods.map(g => g.name).join('·')})` : ''}`).join(', ');
     const keys = keyList(aiNoOf(i)).map(([k, v, when]) => `${k}: ${v}  — ${when}`).join('\n');
     const ch = choiceText(choiceOf(u));
-    const ex = String(settings().clsExtra ?? '').trim(), system = ex ? `${SYSTEM}\nExtra instruction from the user (keep the output format): ${ex.slice(0, 600)}` : SYSTEM; // ✍ ⚙️ 설정 앱
+    const SYS = isEN() ? SYSTEM_EN : SYSTEM, ex = String(settings().clsExtra ?? '').trim(), system = ex ? `${SYS}\nExtra instruction from the user (keep the output format): ${ex.slice(0, 600)}` : SYS; // ✍ ⚙️ 설정 앱
     const user = [
         `[STATE] place ${S.loc || '-'} · time ${hhmm(S.t)} · with ${S.with.join(', ') || '-'} · money ${S.cash} ${book.world.currency} · items ${items}`,
         ch && `[CHOICE] ${ch} — pick events that match this result (cost, trap, success or failure).`,
@@ -119,6 +132,17 @@ export function buildPrompt(i) {
     return { system, user, tok: tokens(system) + tokens(user) };
 }
 // 분류 지시 (미트볼폰의 분류 지시만 · 사용자 프리셋 · 탈옥 없음)
+const SYSTEM_EN = 'You label what happened in ONE roleplay reply for a status tracker. Use ONLY the keys and actions listed. Write every value in English (names exactly as written). '
+        + 'If the wording differs, map it to the closest listed action (e.g. "spoke sweetly" → the listed "praise"). '
+        + 'Never invent an event that did not happen in the reply. No numbers except the formats shown. '
+        + 'Almost every reply has something to record: '
+        + '(1) for EACH listed person who talked with, touched, helped, teased, comforted or reacted to the player character in this reply, write ONE act line — '
+        + 'pick the closest listed action, and if none fits use pleased (warm / friendly / pleasant moment) or hurt (cold / hurtful moment); '
+        + '(2) if time clearly passed (a meal, a walk, a scene change, "later", "after a while"), write a time line (+30m, +1h …); '
+        + '(3) any place change, food, purchase, item, sleep or wash that happened; '
+        + 'whenever you write a loc line, also write a with line for who is there now (with: none if the player character is alone). '
+        + 'Only output an empty <meatball></meatball> when the reply is pure description with no interaction and no time passing. '
+        + 'Output ONLY a <meatball> block, one "key: value" per line.';
 const SYSTEM = 'You label what happened in ONE roleplay reply for a status tracker. Use ONLY the keys and actions listed. '
         + 'If the wording differs, map it to the closest listed action (e.g. "spoke sweetly" → the listed "칭찬"). '
         + 'Never invent an event that did not happen in the reply. No numbers except the formats shown. '
@@ -162,7 +186,7 @@ export function filterOps(raw, book, S, aiNo) {
         if (kind === 'act') {
             // 설정집에 없는 인물(이야기 중 새로 나와 아직 규칙이 없는 사람)도 기본 행동은 받는다
             const [a = '', b = ''] = parts(v), p = personOf(book, a) ?? (S?.rel?.[a] ? { name: a, up: [], down: [] } : null); if (!p) continue;
-            const list = [...p.up, ...p.down].map(x => x.act).concat(BASIC_ACTS.up.act, BASIC_ACTS.down.act), t = norm(b);
+            const list = [...p.up, ...p.down].map(x => x.act).concat(BASIC_ACTS.up.act, BASIC_ACTS.down.act, BASIC_ACTS_EN.up.act, BASIC_ACTS_EN.down.act), t = norm(b);
             const hit = list.find(x => norm(x) === t) ?? list.find(x => t.includes(norm(x)) || norm(x).includes(t));
             if (!hit || !t) continue;
             out.push(['act', `${p.name} | ${hit}`]); continue;
@@ -242,7 +266,7 @@ export async function testConnection() {
     const user = `[STATE] place 거리 · time 12h · with 민지 · money 10000 원 · items -\n\n[ACTIONS]\n도윤 — up: 칭찬 / down: 거짓말\n\n[KEYS]\n`
         + `${KEYS.slice(0, 16).map(([k, v, w]) => `${k}: ${v}  — ${w}`).join('\n')}\n\n[REPLY]\n${SAMPLE}`;
     try {
-        const reply = await send(SYSTEM, user), ms = Math.round(performance.now() - t0);
+        const reply = await send(isEN() ? SYSTEM_EN : SYSTEM, user), ms = Math.round(performance.now() - t0);
         const ok = /<meatball>/i.test(reply), ops = ok ? readOps(reply) : [];
         return { ok: ok && ops.length > 0, ms, route, reply, ops, error: ok ? (ops.length ? '' : '답은 왔지만 고른 사건이 0개예요') : '답에 <meatball> 블록이 없어요' };
     } catch (e) { return { ok: false, ms: Math.round(performance.now() - t0), route, error: e.message }; }
@@ -255,7 +279,11 @@ export async function fillPerson(name, why = '') {
     // 👥 설정집 인물이 꽉 차면(LIMIT.people) 넣어도 잘려 나감 → AI를 부르지 않음 (기본 행동으로만)
     if (meta.book.people.length >= LIMIT.people) { (meta.npcTried ??= {})[name] = 'full'; saveMeta(); (await import('../ui/kit.js')).toast(`설정집 인물이 꽉 찼어요(${LIMIT.people}명) · 안 나오는 인물을 지우면 ${name}의 규칙을 채울 수 있어요`, 'bad'); return false; }
     (meta.npcTried ??= {})[name] = 'try'; saveMeta();
-    const sys = 'You write a tiny rule card for a new roleplay character. Output JSON only, Korean values: '
+    const sys = isEN()
+        ? 'You write a tiny rule card for a new roleplay character. Output JSON only, English values: '
+        + '{"line":"one-line personality","face":"one emoji","up":[{"act":"praise","d":3},{"act":"","d":2},{"act":"","d":4}],"down":[{"act":"lying","d":-5},{"act":"","d":-3},{"act":"","d":-4}],"start":{"aff":10,"trust":10}}. '
+        + 'up = 3 actions that raise their affection, down = 3 that lower it. Short words.'
+        : 'You write a tiny rule card for a new roleplay character. Output JSON only, Korean values: '
         + '{"line":"성격 한 줄","face":"이모지 하나","up":[{"act":"칭찬","d":3},{"act":"","d":2},{"act":"","d":4}],"down":[{"act":"거짓말","d":-5},{"act":"","d":-3},{"act":"","d":-4}],"start":{"aff":10,"trust":10}}. '
         + 'up = 3 actions that raise their affection, down = 3 that lower it. Short words.';
     const chat = ctx().chat ?? [], last = [...chat].reverse().find(m => !m.is_user && m.mes?.includes(name));
