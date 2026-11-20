@@ -49,7 +49,7 @@ export function ruleText(book) {
     if (cs.months?.length) K.push(`date: ${cs.months[0].name} 3일 (달: ${cs.months.map(x => x.name).join('·')})`);
     if (onNow('stats')) K.push('ate: 음식', 'slept: 6h', 'washed: -', 'rest: 1h', 'worked: 4h | +30');
     if (onNow('wallet')) K.push('buy: 물건 | 가격', 'earn: 30 | 이유', 'got: 물건', 'used: 물건', 'sell: 물건 | 값', 'lost: 물건', 'wear: 옷', 'unwear: 옷');
-    if (onNow('rel')) K.push('act: 이름 | 한 일 (맞는 게 없으면 「기쁘게 함」 · 「상처 줌」)', 'gift: 이름 | 물건', 'memory: 이름 | 큰 사건', 'jealous: 이름 | 이유', ...(level('rel') >= 3 ? ['pair: 이름 | 이름 | +3 | 이유'] : []), 'promise: 내용 | 3/14', 'promise: -지킨 약속');
+    if (onNow('rel')) K.push('act: 이름 | 한 일 (맞는 게 없으면 「기쁘게 함」 · 「상처 줌」 · 아주 큰 장면이면 끝에 | big · 사소하면 | small)', 'gift: 이름 | 물건', 'memory: 이름 | 큰 사건', 'jealous: 이름 | 이유', ...(level('rel') >= 3 ? ['pair: 이름 | 이름 | +3 | 이유'] : []), 'promise: 내용 | 3/14', 'promise: -지킨 약속');
     if (onNow('rel')) { const r0 = fold(); if (r0) K.push(...bondKeys(r0.book, r0.S, false).map(([k, v, w]) => `${k}: ${v} — ${w}`)); }
     if (onNow('calendar')) K.push('weather: 비');
     K.push('status: 감기 | 3d', 'status: -나은 상태', 'npc: 이름 | 성격 한 줄', 'gone: 이름 | 사유');
@@ -69,7 +69,7 @@ export function ruleText(book) {
         if (meta?.mindTone) K.push(`(속마음 말투: ${meta.mindTone})`);
         if (mm === 'kaomoji' || mm === 'mix') { const turn = ctx().chat?.length ?? 0, P = KAO.slice((turn * 5) % KAO.length).concat(KAO).slice(0, 6); K.push(`(카모지는 매번 다르게 · 예: ${P.join(' ')})`); }
     }
-    const head = `[STATUS LOG] After the reply, add a <meatball> block. Write EVENTS, not numbers — the extension computes the numbers. One "key: value" per line. Only lines for what happened this reply; skip the rest. Keys:\n${K.filter((k) => !/^[a-z]+:/i.test(k) || !shutKey(k.split(':')[0])).join('\n')}`;
+    const head = `[STATUS LOG] After the reply, add a <meatball> block. Write EVENTS, not numbers — the extension computes the numbers. One "key: value" per line. Only lines for what happened this reply — including what the user's last message narrates (e.g. time passing, someone confessing); skip the rest. Keys:\n${K.filter((k) => !/^[a-z]+:/i.test(k) || !shutKey(k.split(':')[0])).join('\n')}`;
     // 예시도 깔린 앱 줄만 (지운 앱 키를 보여 주면 AI가 따라 씀)
     const exOf = (lines) => { const L = lines.filter(l => !shutKey(l.split(':')[0])); return L.length ? `\nExample:\n<meatball>\n${L.join('\n')}\n</meatball>` : ''; };
     const ex = flash ? exOf(['loc: 빵집', 'buy: 크림빵 | 3', 'ate: 크림빵', 'act: Leon | 칭찬']) + exOf(['time: +3h', 'worked: 3h | +20', 'mind: Leon | 또 늦네']) : '';
@@ -83,7 +83,7 @@ function ruleTextEN(book) {
     if (cs.months?.length) K.push(`date: ${cs.months[0].name} 3 (months: ${cs.months.map(x => x.name).join('·')})`);
     if (onNow('stats')) K.push('ate: food', 'slept: 6h', 'washed: -', 'rest: 1h', 'worked: 4h | +30');
     if (onNow('wallet')) K.push('buy: item | price', 'earn: 30 | reason', 'got: item', 'used: item', 'sell: item | price', 'lost: item', 'wear: clothes', 'unwear: clothes');
-    if (onNow('rel')) K.push(`act: name | what they did to/for them (if nothing listed fits: "${BASIC_ACTS_EN.up.act}" or "${BASIC_ACTS_EN.down.act}")`, 'gift: name | item', 'memory: name | big event', 'jealous: name | reason', ...(level('rel') >= 3 ? ['pair: name | name | +3 | reason'] : []), 'promise: what | 3/14', 'promise: -kept promise');
+    if (onNow('rel')) K.push(`act: name | what they did to/for them (if nothing listed fits: "${BASIC_ACTS_EN.up.act}" or "${BASIC_ACTS_EN.down.act}" · add | big for a truly major moment, | small for a trivial one)`, 'gift: name | item', 'memory: name | big event', 'jealous: name | reason', ...(level('rel') >= 3 ? ['pair: name | name | +3 | reason'] : []), 'promise: what | 3/14', 'promise: -kept promise');
     if (onNow('rel')) { const r0 = fold(); if (r0) K.push(...bondKeys(r0.book, r0.S, true).map(([k, v, w]) => `${k}: ${v} — ${w}`)); }
     if (onNow('calendar')) K.push('weather: rain');
     K.push('status: cold | 3d', 'status: -recovered status', 'npc: name | one-line personality', 'gone: name | reason');
@@ -102,7 +102,7 @@ function ruleTextEN(book) {
         if (meta?.mindTone) K.push(`(inner-thought tone: ${meta.mindTone})`);
         if (mm === 'kaomoji' || mm === 'mix') { const turn = ctx().chat?.length ?? 0, P = KAO.slice((turn * 5) % KAO.length).concat(KAO).slice(0, 6); K.push(`(vary the kaomoji · e.g. ${P.join(' ')})`); }
     }
-    const head = `[STATUS LOG] After the reply, add a <meatball> block. Write EVENTS, not numbers — the extension computes the numbers. One "key: value" per line, in English. Only lines for what happened this reply; skip the rest. Keys:\n${K.filter((k) => !/^[a-z]+:/i.test(k) || !shutKey(k.split(':')[0])).join('\n')}`;
+    const head = `[STATUS LOG] After the reply, add a <meatball> block. Write EVENTS, not numbers — the extension computes the numbers. One "key: value" per line, in English. Only lines for what happened this reply — including what the user's last message narrates (e.g. time passing, someone confessing); skip the rest. Keys:\n${K.filter((k) => !/^[a-z]+:/i.test(k) || !shutKey(k.split(':')[0])).join('\n')}`;
     const exOf = (lines) => { const L = lines.filter(l => !shutKey(l.split(':')[0])); return L.length ? `\nExample:\n<meatball>\n${L.join('\n')}\n</meatball>` : ''; };
     const ex = flash ? exOf(['loc: Bakery', 'buy: Cream bun | 3', 'ate: Cream bun', 'act: Leon | praise']) + exOf(['time: +3h', 'worked: 3h | +20', 'mind: Leon | late again']) : '';
     return head + ex;

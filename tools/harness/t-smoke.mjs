@@ -16,7 +16,7 @@ try {
             hunger: r.S.needs.hunger,
             aff: r.S.rel.Leon?.aff,
             st: r.S.status.map((s) => s.name),
-            flags: r.flags.at(-1).length,
+            flags: r.flags.at(-1).filter(f => !f.soft).length,
             mes: m.mes,
             chips: document.querySelectorAll('.ml-msg .ml-chip').length,
             inj: Object.keys(window.__prompts).filter((k) => window.__prompts[k].value).length,

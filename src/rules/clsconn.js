@@ -94,7 +94,7 @@ async function viaProfile(messages, P) {
 }
 
 // 마지막 요청 기록 (전체 복사 · 시험 버튼)
-export const connStats = { lastError: null, lastMs: 0, lastRoute: '', thinkOff: false, bigMax: false };
+export const connStats = { lastError: null, lastMs: 0, lastRoute: '', thinkOff: false, bigMax: false, thinkChars: 0, thinkTold: false };
 export const resetThink = () => { connStats.thinkOff = false; connStats.bigMax = false; connStats.cap = 0; }; // 연결을 바꾸면 생각 설정 다시 보내 봄
 // 분류 지시 + 글 하나 보내기 → 답 글
 export async function sendClean(system, user) {
@@ -131,6 +131,9 @@ export async function sendClean(system, user) {
         // 🧠 생각을 끄지 못하는 모델(생각이 답 길이를 다 씀 → 빈 답): 답 길이를 늘려 한 번 더 · 되면 다음부터 늘린 채로
         if (!text.trim() && !connStats.bigMax && !fixed) { P = { ...P, max_tokens: connStats.cap || BIG_MAX }; r = await go(); text = String(r?.content ?? (typeof r === 'string' ? r : '') ?? ''); if (text.trim()) connStats.bigMax = true; }
         connStats.lastMs = Math.round(performance.now() - t0); connStats.lastRoute = routeText();
+        // 🧠 생각을 못 끄는 모델: 생각 글이 따라오면 길이를 기억 · 처음 한 번만 알림 (생각은 읽지 않음 · 시간 · 토큰만 듦)
+        { const th = String(r?.reasoning ?? r?.reasoning_content ?? '').length; connStats.thinkChars = th;
+          if (th > 400 && !connStats.thinkTold) { connStats.thinkTold = true; import('../ui/kit.js').then(k => k.toast(`🧠 분류 모델이 답마다 생각을 해요 (이번 ${th.toLocaleString()}자) · 결과엔 안 쓰지만 느리고 토큰이 들어요 · 생각 없는 가벼운 모델을 권해요`, 'mid')).catch(() => {}); } }
         if (!text.trim()) throw new Error(`빈 답 (생각이 답 길이 ${P.max_tokens}토큰을 다 썼거나 안전 필터에 막혔을 수 있어요)${r?.reasoning ? ` · 생각 글 ${String(r.reasoning).length}자` : ''}`);
         connStats.lastError = null;
         return text;

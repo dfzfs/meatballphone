@@ -230,5 +230,50 @@ export async function fullEdit(appId, handLines) {
         const w = o.top.with ?? []; if (w.join('|') !== S.with.join('|')) L.push(`with: ${w.length ? w.join(', ') : '없음'}`);
         return finish(b, L, o.top.why, handLines);
     }
+    if (appId === 'cal') {
+        const { calOf, mdOf, parseDay, dayNow } = await import('../rules/calplus.js');
+        const cal = calOf(meta), st = b.world.start, today = dayNow(S);
+        const md = (t) => (t == null ? '' : mdOf(st, Math.floor(t / 1440)));
+        const proms = { k: 'proms', label: '🤝 약속 · 일정 (지금 걸려 있는 것)', addLabel: '일정 추가', title: x => x.text, icon: () => '🤝', sub: x => x.due,
+            items: S.promises.filter(p => !p.done).map(p => ({ text: p.text, due: md(p.due) })), blank: () => ({ text: '', due: '' }),
+            fields: [{ k: 'text', label: '내용', wide: true }, { k: 'due', label: '날짜 (예: 3/14 · 비우면 날짜 없음)' }] };
+        const dday = { k: 'dday', label: '📌 D-day', addLabel: 'D-day 추가', title: x => x.name, icon: () => '📌', sub: x => x.date,
+            items: cal.dday.map(d => ({ ...d, date: mdOf(st, d.day) })), blank: () => ({ name: '', date: '', pin: false }),
+            fields: [{ k: 'name', label: '이름', wide: true }, { k: 'date', label: '날짜 (예: 12/25)' }, { k: 'pin', label: '홈에 걸기', type: 'bool' }] };
+        const months = { k: 'months', label: '🗓 달 이름 (비우면 보통 달력)', addLabel: '달 추가', title: x => x.name, icon: () => '🗓', sub: x => `${x.days}일`,
+            items: (st.cal?.months ?? []).map(m => ({ ...m })), blank: () => ({ name: '', days: 30 }),
+            fields: [{ k: 'name', label: '이름' }, { k: 'days', label: '일수', type: 'num' }] };
+        const top = [{ k: 'time', label: '🕰 시각 (14:30 · 저녁 · +2h · +1일)', ph: '비우면 그대로' }, { k: 'weather', label: '☁️ 날씨', v: S.weather },
+            { k: 'wx', label: '이 세계 날씨 목록 (쉼표)', type: 'tags', v: b.world.weather }, { k: 'week', label: '요일 이름 (쉼표 · 비우면 보통)', type: 'tags', v: st.cal?.week ?? [] }, { k: 'era', label: '연호', v: st.cal?.era ?? '' }, WHY];
+        const o = await edSheet('✏️ 달력 편집', [proms, dday, months], top); if (!o) return true;
+        const L = [];
+        const t = (o.top.time ?? '').trim(); if (t) L.push(/^\+\s*1\s*일$/.test(t) ? 'pass: 1d' : `time: ${t}`);
+        if (o.top.weather && o.top.weather !== S.weather) L.push(`weather: ${o.top.weather}`);
+        const had = S.promises.filter(p => !p.done);
+        for (const x of o.lists.proms) { if (!x.text) continue; const old = x.__i != null ? had[x.__i] : null; if (old && old.text === x.text && md(old.due) === x.due) continue; if (old) L.push(`promise: -${old.text}`); L.push(`promise: ${x.text}${x.due ? ` | ${x.due}` : ''}`); }
+        const kept = new Set(o.lists.proms.map(x => x.__i).filter(v => v != null)); had.forEach((p, k) => { if (!kept.has(k)) L.push(`promise: -${p.text}`); });
+        cal.dday = o.lists.dday.filter(x => x.name).map(x => { const old = x.__i != null ? cal.dday[x.__i] : null; const day = parseDay(st, x.date, today) ?? old?.day ?? today; return { id: old?.id ?? Math.random().toString(36).slice(2, 9), name: x.name.slice(0, 40), day, pin: !!x.pin }; });
+        if (o.lists.months.some(x => x.name) || st.cal?.months) { const M = o.lists.months.filter(x => x.name).map(x => ({ name: x.name.slice(0, 10), days: Math.max(1, Math.min(60, x.days ?? 30)) })); st.cal = { ...(st.cal ?? {}), months: M.length ? M : null }; }
+        st.cal = { ...(st.cal ?? {}), week: (o.top.week ?? []).length ? o.top.week.map(w => w.slice(0, 6)).slice(0, 10) : null, era: (o.top.era ?? '').slice(0, 12) };
+        if ((o.top.wx ?? []).length) b.world.weather = o.top.wx.slice(0, 6);
+        return finish(b, L, o.top.why, handLines);
+    }
+    if (appId === 'custom') { // 🧩 내 탭: 칸 「이름 | 최대(숫자 칸만) | 지금 값」 · 지금 값을 바꾸면 ✋ 직접
+        const T = meta.custom ?? [], cur = (t, f) => S.custom?.[t]?.[f] ?? '';
+        const tabs = { k: 'tabs', label: '🧩 내 탭', addLabel: '탭 추가', title: x => x.name, icon: x => x.icon || '🧩', sub: x => x.note,
+            items: T.map(t => ({ ...t, note: t.note ?? '', fields: (t.fields ?? []).map(f => `${f.name} | ${f.max || ''} | ${cur(t.name, f.name)}`) })),
+            blank: () => ({ name: '', icon: '🧩', note: '', fields: [] }),
+            fields: [{ k: 'name', label: '탭 이름' }, { k: 'icon', label: '아이콘' }, { k: 'note', label: '설명 (AI에게도 감)', type: 'area', wide: true },
+                { k: 'fields', label: '칸 (한 줄에 하나 · 「명성 | 100 | 20」 = 숫자 칸 최대 100 · 지금 20 · 「칭호 | | 신참」 = 글 칸)', type: 'lines', wide: true, rows: 5 }] };
+        const o = await edSheet('✏️ 내 탭 편집', [tabs], [WHY]); if (!o) return true;
+        const L = [];
+        meta.custom = o.lists.tabs.filter(x => x.name).map(x => { const old = x.__i != null ? T[x.__i] : null, tn = x.name.slice(0, 12);
+            const fields = x.fields.map(line => { const [n = '', mx = '', v] = line.split('|').map(q => q.trim()); if (!n) return null;
+                const of = old?.fields?.find(f => f.name === n); const f = { stages: [30, 70], ...(of ?? {}), name: n.slice(0, 12), max: Math.max(0, Number(mx) || 0) };
+                if (v != null && String(v) !== String(old ? cur(old.name, n) : '') && v !== '') L.push(`custom: ${tn} | ${f.name} | ${v}`);
+                return f; }).filter(Boolean).slice(0, 12);
+            return { ...(old ?? {}), name: tn, icon: (x.icon || '🧩').slice(0, 4), note: (x.note ?? '').slice(0, 160), fields }; });
+        return finish(b, L, o.top.why, handLines);
+    }
     return null;
 }

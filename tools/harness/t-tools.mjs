@@ -42,8 +42,9 @@ try {
     check(it.it?.n === 2 && it.it?.fx?.hunger === 15 && it.hand, '물건 넣기 · 효과 · ✋기록', JSON.stringify(it));
     // 달력: 시간 · 날씨 · 일정
     await page.evaluate(() => __ML__.app.openSheet('cal')); await sleep(100);
-    await page.evaluate(() => document.querySelector('[data-act="t-edit"]').click()); await sleep(200);
-    await fill({ time: '저녁', weather: '비', ev: '레온과 저녁 | 3/5' });
+    await page.evaluate(() => document.querySelector('[data-act="t-edit"]').click()); await sleep(300);
+    await page.evaluate(() => { document.querySelector('.ml-bs .ml-ed-top [data-f="time"]').value = '저녁'; document.querySelector('.ml-bs .ml-ed-top [data-f="weather"]').value = '비'; });
+    await edAdd('proms', { text: '레온과 저녁', due: '3/5' });
     const cal = await page.evaluate(() => { const r = __ML__.fold(); return { w: r.S.weather, p: r.S.promises.length, clock: r.S.t % 1440 }; });
     check(cal.w === '비' && cal.p === 1 && cal.clock >= 19 * 60, '달력 편집 (시간 · 날씨 · 일정)', JSON.stringify(cal));
     // AI로 수정

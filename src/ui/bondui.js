@@ -37,6 +37,14 @@ function congrats(name, lv) {
     pop(name, `<p class="ml-cat-yay">${lv === 3 ? '💍' : '💗'} 축하해요!<br>이제 <b>${esc(name)}</b>와(과) <b>${lv === 3 ? '부부' : '연인'}</b>이에요</p><small>${lv === 3 ? '부부 애정이 0부터 새로 쌓여요' : '연인 애정(Lv.2)이 0부터 새로 쌓여요 · 🛍 마켓에 관계 앱 업데이트'}</small>`, null, 7000);
     if (document.getElementById('ml-full')) import('./love.js').then(m => m.burst()).catch(() => {});
 }
+// 📌 사귄 날 · 결혼한 날을 달력 D-day에 (D+n으로 셈 · 달력 앱에서 지우거나 홈에 걸 수 있음)
+function anniv(r, name, lv) {
+    import('../rules/calplus.js').then(({ calOf, dayNow }) => {
+        const cal = calOf(); if (!cal) return; const day = dayNow(r.S), nm = `${lv === 3 ? '💍' : '💗'} ${name}와(과) ${lv === 3 ? '결혼한 날' : '사귄 날'}`;
+        if (cal.dday.some(d => d.name === nm && d.day === day)) return;
+        cal.dday.push({ id: Math.random().toString(36).slice(2, 9), name: nm.slice(0, 40), day, pin: !cal.dday.some(d => d.pin) }); saveMeta();
+    }).catch(() => {});
+}
 // 계산할 때마다: 새 고백 · 청혼 → 알림 한 번 · 막 이루어진 레벨 업 → 축하 한 번
 export function bondNotify(r) {
     const meta = getMeta(); if (!meta || !r) return;
@@ -47,7 +55,7 @@ export function bondNotify(r) {
     }
     r.changes.forEach((L, i) => (L ?? []).forEach(c => {
         if (!c?.lvUp) return; const k = `up|${c.who}|${c.lvUp}|${i}`; if (told[k]) return; told[k] = 1;
-        if (i >= len - 3 || meta.bondJust === c.who) congrats(c.who, c.lvUp); // 옛 채팅을 처음 열 때 지난 일로 알림이 쏟아지지 않게
+        if (i >= len - 3 || meta.bondJust === c.who) { congrats(c.who, c.lvUp); anniv(r, c.who, c.lvUp); } // 옛 채팅을 처음 열 때 지난 일로 알림이 쏟아지지 않게
     }));
     if (meta.bondJust) delete meta.bondJust;
     if (Object.keys(told).length !== n0) saveMeta();

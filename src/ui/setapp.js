@@ -85,7 +85,7 @@ export function setView(r) {
         + (s.clsProfile === CURRENT ? `<label class="ml-field"><span>분류 모델 이름</span><input class="ml-in" data-mlset="clsModel" value="${esc(s.clsModel)}" placeholder="비우면 지금 모델 (${esc(a.model || '?')}) · 예: gemini-3.8-flash"></label>` : '')
         + `<label class="ml-field"><span>설정집 만들기 · 번역 연결</span><select class="ml-in" data-mlset="profile">${opt([['', '지금 연결'], ...P.map(p => [p.id, p.name])], s.profile)}</select></label>`
         + (modeNote() ? `<div class="ml-hint">⚠ ${esc(modeNote())}</div>` : '')
-        + `<div class="ml-acts">${btn('🔌 분류 연결 시험 (AI 1회)', 'set-test', '', 'sm')}</div>`
+        + `<div class="ml-acts">${btn('🔌 분류 연결 시험 (AI 1회)', 'set-test', '', 'sm')}${btn('🔍 최근 5개 분류 점검 (AI 5회)', 'set-audit', '', 'sm')}</div>`
         + (t ? `<div class="ml-cls-res ${t.ok ? 'good' : 'bad'}"><b>${t.ok ? '✅ 성공' : '❌ 실패'}</b> · ${t.ms}ms · ${esc(t.route ?? '')}`
             + `${t.ok ? `<br>고른 사건: ${esc((t.ops ?? []).map(([k, v]) => `${k}: ${v}`).join(' · '))}` : `<br>오류: <code>${esc(t.error ?? '')}</code>`}</div>` : ''));
 
@@ -101,7 +101,7 @@ export function setView(r) {
         + (clsNext ? det(`분류 모델 · #${W.i}을 다시 분류하면 보낼 글 ≈${clsNext.tok}토큰`, pre(`[system]\n${clsNext.system}\n\n[user]\n${clsNext.user}`)) : '')
         + `<label class="ml-field"><span>✍ 본편에 덧붙일 지시 · 이 채팅만</span><textarea class="ml-in" rows="2" data-mlmeta="injExtra" placeholder="예: 날짜와 시각은 꼭 본문에 한 번 언급해 줘">${esc(meta.injExtra ?? '')}</textarea><small>귀띔 칸 끝에 붙어요 · 비우면 아래 「모든 채팅」 값</small></label>`
         + `<label class="ml-field"><span>✍ 본편에 덧붙일 지시 · 모든 채팅</span><textarea class="ml-in" rows="2" data-mlset="injExtra" placeholder="비우면 없음">${esc(s.injExtra ?? '')}</textarea></label>`
-        + (B ? `<label class="ml-field"><span>✍ 분류 모델에 덧붙일 지시</span><textarea class="ml-in" rows="2" data-mlset="clsExtra" placeholder="예: 대화 속 회상은 지금 일어난 일로 치지 마">${esc(s.clsExtra ?? '')}</textarea><small>분류 지시 끝에 붙어요 · 줄 모양(key: value)은 바꾸지 마세요</small></label>` : '')
+        + (B ? `<label class="ml-field"><span>✍ 분류 모델에 덧붙일 지시</span><textarea class="ml-in" rows="2" data-mlset="clsExtra" placeholder="예: 대화 속 회상은 지금 일어난 일로 치지 마">${esc(s.clsExtra ?? '')}</textarea><small>분류 지시 끝에 붙어요 · 줄 모양(key: value)은 바꾸지 마세요 · 분류 모델은 「무슨 일이 있었나」만 적고 숫자는 확장이 계산해요 (애정은 한 답에 ±8까지) → 애정 +30 같은 지시는 안 먹어요 · 시험할 땐 ✏️ 편집에서 지금 값을 바로 바꾸세요</small></label>` : '')
         + `<label class="ml-field"><span>주입 깊이 (작을수록 답 바로 앞)</span><select class="ml-in" data-mlset="injectDepth">${opt([[0, '0 · 맨 끝'], [1, '1 (기본)'], [2, '2'], [4, '4'], [8, '8']], s.injectDepth)}</select></label>`
         + `<label class="ml-field"><span>본편 지시 (A 모드)</span><select class="ml-in" data-mlset="preset">${opt([['flash', '플래시용 (짧은 키 + 예시)'], ['general', '일반']], s.preset)}</select></label>`);
 
@@ -128,6 +128,15 @@ export async function setAct(act, v) {
         case 'set-chaton': app.setChatOff?.(false); return true;
         case 'set-recls': app.reclassify?.(Number(v)); toast('🔄 다시 분류해요'); setTimeout(() => app.refresh?.(), 300); return true;
         case 'set-redraw': resetCache(); document.querySelectorAll('.ml-msg').forEach(x => x.remove()); document.getElementById('ml-hud')?.remove(); app.refresh?.(true); toast('🖌 다시 그렸어요'); return true;
+        case 'set-audit': { // 🔍 최근 답 5개를 다시 분류해 저장된 결과와 다른 줄만 보여 줌 · 고르면 그 답만 새 결과로
+            const { audit, useAudit } = await import('../rules/classify.js'); toast('🔍 최근 답 5개를 다시 분류해 비교해요…');
+            const A = await audit(5); const { sheet } = await import('./kit.js');
+            const body = A.map((a, k) => `<div class="ml-card"><div class="ml-row"><span class="ml-tx"><b>#${a.i}</b><small>${a.err ? `⚠ ${esc(short(a.err, 80))}` : !a.gone.length && !a.added.length ? '✅ 같아요' : `다른 줄 ${a.gone.length + a.added.length}개`}</small></span>${a.fresh && (a.gone.length || a.added.length) ? `<span class="ml-val"><button class="ml-btn xs" data-audit="${k}">새 결과로</button></span>` : ''}</div>`
+                + a.gone.map(x => `<div class="ml-row"><span class="ml-tx"><small class="neg">− ${esc(x)}</small></span></div>`).join('') + a.added.map(x => `<div class="ml-row"><span class="ml-tx"><small class="pos">＋ ${esc(x)}</small></span></div>`).join('') + '</div>').join('') || '<div class="ml-hint">점검할 답이 없어요</div>';
+            const el = sheet('🔍 분류 점검 (최근 5개)', `<div class="ml-hint">− 지금 저장된 줄 · ＋ 다시 분류하면 나오는 줄 · 같으면 정확도가 안정적이에요 · 「새 결과로」는 그 답만 바꿔요</div>${body}`);
+            el.addEventListener('click', (e) => { const b = e.target.closest('[data-audit]'); if (!b) return; const a = A[Number(b.dataset.audit)]; if (a && useAudit(a.i, a.fresh)) { b.textContent = '바꿈 ✓'; b.disabled = true; toast(`#${a.i}을 새 결과로 바꿨어요`, 'good'); } });
+            return true;
+        }
         case 'set-test': { toast('🔌 견본 답 하나를 분류해 봐요…'); test = await testConnection(); app.refresh?.(); return true; }
         case 'set-perf': { const t0 = performance.now(); resetCache(); fold(); const full = performance.now() - t0; const t1 = performance.now(); fold(); perfNow = { full, inc: performance.now() - t1, n: ctx().chat?.length ?? 0 }; app.refresh?.(); return true; }
     }

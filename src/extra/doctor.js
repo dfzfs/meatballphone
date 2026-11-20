@@ -64,7 +64,7 @@ export function doctorRows(app, perf) {
         if (uk.length) add('mid', `모르는 키 ${uk.length}종`, uk.slice(0, 6).map(([k, n]) => `${esc(k)}×${n}`).join(' · ') + ' · 그 줄은 건너뛰어요');
     }
     // 확인 필요
-    if (r) { const fl = Object.values(r.flags ?? {}).flat().length; add(fl ? 'mid' : 'good', `확인 필요 ${fl}개`, fl ? '돈 부족 · 없는 물건 같은 걸 AI가 썼어요 · 기록에서 고치거나 무시' : '어긋난 줄 없음', fl ? btn('기록', 'doc-open', 'rec', 'xs') : ''); }
+    if (r) { const fl = Object.values(r.flags ?? {}).flat().filter(f => !f.soft).length; add(fl ? 'mid' : 'good', `확인 필요 ${fl}개`, fl ? '돈 부족 · 없는 물건 같은 걸 AI가 썼어요 · 기록에서 고치거나 무시' : '어긋난 줄 없음', fl ? btn('기록', 'doc-open', 'rec', 'xs') : ''); }
     // 주입
     const inj = app.lastInj?.() ?? {}, tk = injTokens(inj);
     const sent = !!(inj.rule || inj.facts || inj.hint), noAI = !(ctx().chat ?? []).some(m => !m.is_user && !m.is_system);

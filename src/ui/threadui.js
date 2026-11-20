@@ -29,6 +29,9 @@ export function personThread(r, name) {
     if (F.stageUp) firsts.push(row({ icon: '💞', title: `처음 「${esc(F.stageUp.c.to)}」`, sub: `${esc(when(r, F.stageUp.i))} · #${F.stageUp.i}`, value: ddBtn(r, F.stageUp.i, `${name} ${short(F.stageUp.c.to, 10)}`), act: 'jump', data: F.stageUp.i }));
     if (F.gift) firsts.push(row({ icon: '🎁', title: '처음 준 선물', sub: `${esc(short(F.gift.c.why.replace(/^🎁\s*/, ''), 24))} · ${esc(when(r, F.gift.i))}`, act: 'jump', data: F.gift.i }));
     if (firsts.length) L.push(card('처음', firsts.join('')));
+    // 💍 관계 흐름: 단계 · 고백 · 연인 · 부부 · 이별 (이미 있는 기록에서 이름만 골라냄 · ✋ 직접은 빼고)
+    { const B = []; r.changes.forEach((C, i) => (C ?? []).forEach(c => { if (c?.who === name && !c.hand && c.src !== 'hand' && (c.f === `stage.${name}` || c.f === `bond.${name}` || c.f === `ask.${name}`)) B.push({ c, i }); }));
+      if (B.length) L.push(card('관계 흐름', B.slice(-12).reverse().map(({ c, i }) => row({ icon: c.icon || '💞', title: `${c.from ? `${esc(c.from)} → ` : ''}${esc(c.to)}`, sub: `${esc(c.why || '')} · ${esc(when(r, i))} · #${i}`, act: 'jump', data: i })).join(''), '최근 12개')); }
     const top = [...F.places.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
     if (F.together || top.length) L.push(card('함께한 시간', row({ icon: '👥', title: `함께한 답 ${F.together}개`, sub: top.length ? `자주 같이 있던 곳: ${top.map(([p, n]) => `${esc(p)} ${n}`).join(' · ')}` : '' })));
     if (F.songs.length) L.push(card('같이 들은 곡', F.songs.map(s => row({ icon: '🎵', title: esc(s.title), sub: `${esc(s.artist || '')}${s.mood ? ` · ${esc(s.mood)}` : ''} · ${esc(when(r, s.m))}`, act: 'jump', data: s.m })).join('')));

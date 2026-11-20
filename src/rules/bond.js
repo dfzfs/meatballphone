@@ -1,12 +1,14 @@
 // 💍 고백 · 청혼 · 이별 — 본편 지시 · 분류 키 · 힌트 (보기만 · 계산은 engine)
 import { personOf } from './book.js';
+import { DAY } from '../base/util.js';
 
 // 지금 누가: 고백할 때(레벨 1 · 애정 100) · 청혼할 때(레벨 2 · 애정 100) · 연인 · 부부 · 대답 기다림
 export function bondNow(book, S) {
     const live = Object.entries(S?.rel ?? {}).filter(([n, r]) => !r.gone && !personOf(book, n)?.noLove);
+    const rest = (r) => r.turned != null && S.t - r.turned < DAY; // 💤 거절당한 뒤 하루는 쉼
     return {
-        confess: live.filter(([n, r]) => (r.lv ?? 1) === 1 && r.aff >= 100 && !S.asks?.[n]).map(([n]) => n),
-        propose: live.filter(([n, r]) => r.lv === 2 && r.aff >= 100 && !S.asks?.[n]).map(([n]) => n),
+        confess: live.filter(([n, r]) => (r.lv ?? 1) === 1 && r.aff >= 100 && !S.asks?.[n] && !rest(r)).map(([n]) => n),
+        propose: live.filter(([n, r]) => r.lv === 2 && r.aff >= 100 && !S.asks?.[n] && !rest(r)).map(([n]) => n),
         couple: live.filter(([, r]) => r.lv >= 2).map(([n]) => n),
         waiting: Object.entries(S?.asks ?? {}).map(([n, a]) => ({ name: n, ...a })),
     };

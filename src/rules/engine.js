@@ -104,7 +104,7 @@ function makeCtx(book, S, ch, flags, G = glossList()) {
         // 💗 로맨스 보정: 같은 행동을 연달아 하면 반만 · 한 답에 ±8까지 · 단계 하나를 건너뛰지 못함
         if (src !== 'hand' && src !== 'meddle' && src !== 'ai') {
             d = Math.sign(d) * Math.max(1, Math.round(Math.abs(d)));
-            const key = norm(why);
+            const key = norm(String(why ?? '').replace(/ \((큰 장면|살짝)\)$/, ''));
             if (key && r.last.includes(key)) d = Math.sign(d) * Math.ceil(Math.abs(d) / 2);
             // 💗 「기쁘게 함」(맞는 행동이 없을 때의 기본)은 연달아 세 번째부터 0 — 대화만 이어져도 답마다 +1씩 끝없이 오르던 것
             if (d > 0 && key === norm(BASIC_ACTS.up.act) && r.last.filter(q => q === key).length >= 2) d = 0;
@@ -136,7 +136,7 @@ function makeCtx(book, S, ch, flags, G = glossList()) {
         // 기간이 끝난 딱지는 저절로 풀린다
         for (const st of [...S.status]) if (st.until != null && st.until <= S.t) { S.status.splice(S.status.indexOf(st), 1); ch.push({ f: `status.${st.name}`, label: st.name, icon: st.src === 'fate' ? '🔮' : '🏷️', from: '있음', to: '풀림', why: '기간 끝', src: 'auto', sure: true, i, kind: st.kind }); }
     };
-    return { people, who, need, setNeed, gauge, setGauge, setCash, findItem, addItem, rel, setRel, pass, flag: (text, i) => flags.push({ text, i }) };
+    return { people, who, need, setNeed, gauge, setGauge, setCash, findItem, addItem, rel, setRel, pass, flag: (text, i, soft = false) => flags.push(soft ? { text, i, soft } : { text, i }) };
 }
 
 const DEF = { meal: 35, snack: 15, sleepPerH: 12, wash: 60, restPerH: 10, workPerH: 6, giftLike: 6, giftHate: -4, gift: 2, up: 3, down: -4 };
@@ -145,7 +145,7 @@ const isSnack = (t) => /간식|빵|과자|사탕|snack|cookie|bread|커피|coffe
 // 💍 레벨 올리기: 연인(2) · 부부(3) — 새 애정 0부터 · 🐱 폰 알림은 화면 쪽
 function bondUp(S, book, ch, name, lv, kind, src, i) {
     const r = S.rel[name]; if (!r || r.lv >= lv) return;
-    const from = r.lv, fa = r.aff; r.lv = lv; r.aff = 0; r.ex = ''; delete S.asks?.[name];
+    const from = r.lv, fa = r.aff; r.lv = lv; r.aff = 0; r.ex = ''; r.turned = null; (r.since ??= {})[lv] = S.t; delete S.asks?.[name];
     ch.push({ f: `bond.${name}`, label: `${name} 관계`, icon: lv === 3 ? '💍' : '💗', from: ['', '연인 전', '연인'][from], to: lv === 3 ? '부부' : '연인', why: kind === 'confess' ? '고백이 이루어졌어요' : '청혼이 이루어졌어요', src, sure: true, i, cross: true, who: name, lvUp: lv });
     ch.push({ f: `rel.${name}.aff`, label: `${name} 애정`, icon: '💗', from: fa, to: 0, why: `${lv === 3 ? '부부' : '연인'} 애정 새로 시작`, src: 'auto', sure: true, i, who: name });
 }
@@ -429,19 +429,24 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
         }
         case 'act': {
             const name = x.who(a);
-            if (!name) return;
+            if (!name) { if (a.trim() && src !== 'hand') x.flag(`모르는 인물에게 한 일 (안 셈): ${short(a, 20)}`, i, true); return; }
             const p = personOf(book, name),
                 t = norm(b);
             if (!t) return; // 한 일이 비면 무엇이 오를지 모름 → 건너뜀
             const up = p?.up.find((u) => t.includes(norm(u.act)) || norm(u.act).includes(t)),
                 down = p?.down.find((u) => t.includes(norm(u.act)) || norm(u.act).includes(t));
             const basic = (B) => t.includes(norm(B.act)) || norm(B.act).includes(t);
-            if (up) x.setRel(name, 'aff', up.d ?? DEF.up, up.act, src, up.d != null, i);
-            else if (down) x.setRel(name, 'aff', down.d ?? DEF.down, down.act, src, down.d != null, i);
+            // 📏 크기: 「act: 이름 | 행동 | big」 = ×1.5 (큰 장면) · 「| small」 = ×0.5 — 숫자는 여전히 확장이 정하고 한 답 ±8 그대로
+            const sz = /^(big|large|huge|major|크게|큰|크다|매우)$/i.test(c.trim()) ? 1.5 : /^(small|minor|slight|작게|작은|살짝)$/i.test(c.trim()) ? 0.5 : 1;
+            const D = (d) => (sz === 1 ? d : Math.sign(d) * Math.max(1, Math.round(Math.abs(d) * sz)));
+            const tag = sz > 1 ? ' (큰 장면)' : sz < 1 ? ' (살짝)' : '';
+            if (up) x.setRel(name, 'aff', D(up.d ?? DEF.up), up.act + tag, src, up.d != null, i);
+            else if (down) x.setRel(name, 'aff', D(down.d ?? DEF.down), down.act + tag, src, down.d != null, i);
             // 설정집에 딱 맞는 행동이 없을 때: 모든 인물의 기본 행동 (기쁘게 함 +2 · 상처 줌 −3)
-            else if (basic(BASIC_ACTS.up) || basic(BASIC_ACTS_EN.up)) x.setRel(name, 'aff', BASIC_ACTS.up.d, BASIC_ACTS.up.act, src, true, i);
-            else if (basic(BASIC_ACTS.down) || basic(BASIC_ACTS_EN.down)) x.setRel(name, 'aff', BASIC_ACTS.down.d, BASIC_ACTS.down.act, src, true, i);
-            if (/(고백|키스|첫|약속|싸움|배신|구해|울)/.test(b)) remember(S, x.rel(name), b);
+            else if (basic(BASIC_ACTS.up) || basic(BASIC_ACTS_EN.up)) x.setRel(name, 'aff', D(BASIC_ACTS.up.d), BASIC_ACTS.up.act + tag, src, true, i);
+            else if (basic(BASIC_ACTS.down) || basic(BASIC_ACTS_EN.down)) x.setRel(name, 'aff', D(BASIC_ACTS.down.d), BASIC_ACTS.down.act + tag, src, true, i);
+            else if (src !== 'hand') x.flag(`${name}: 목록에 없는 행동 「${short(b, 20)}」 (안 셈)`, i, true); // 답 밑 칩엔 안 띄움 · 기록 · 이번 답 카드에만
+            if (/(고백|키스|첫|약속|싸움|배신|구해|울)/.test(b) || sz > 1) remember(S, x.rel(name), b);
             return;
         }
         case 'need': {
@@ -611,7 +616,7 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             const said = /^(yes|y|ok|예|네|응|수락|받아들임|accepted?)$/i.test(b.trim()) ? 'yes' : /^(no|n|아니오|아니|거절|refused?|rejected?|declined?)$/i.test(b.trim()) ? 'no' : (curAnswers[`${curKey}|${name}|${kind}`] ?? '');
             if (said === 'yes') { bondUp(S, book, ch, name, want + 1, kind, src, i); return; }
             if (said === 'no') {
-                delete S.asks?.[name]; const from = r.aff; r.aff = Math.max(0, r.aff - 15);
+                delete S.asks?.[name]; const from = r.aff; r.aff = Math.max(0, r.aff - 15); r.turned = S.t; // 💤 거절 뒤 하루는 다시 고백 힌트 안 감
                 ch.push({ f: `bond.${name}`, label: `${name} ${kind === 'confess' ? '고백' : '청혼'}`, icon: '💔', from: kind === 'confess' ? '고백' : '청혼', to: '거절', why: '거절했어요', src, sure: true, i, cross: true, who: name });
                 if (from !== r.aff) ch.push({ f: `rel.${name}.aff`, label: `${name} 애정`, icon: '💗', from, to: r.aff, why: '거절당함', src, sure: true, i, who: name });
                 return;
