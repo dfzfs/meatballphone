@@ -484,7 +484,7 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             return;
         }
         case 'roll':
-            S.rolls.push({ t: S.t, what: short(v, 120), i });
+            S.rollN = (S.rollN ?? 0) + 1; S.rolls.push({ t: S.t, what: short(v, 120), i }); if (S.rolls.length > 30) S.rolls.shift(); // 🎲 화면엔 최근 3개만 씀 · 배지는 rollN
             return;
         case 'mind':
         case 'watch':
@@ -689,7 +689,8 @@ function addStatus(S, st, ch, i, why) {
     ch.push({ f: `status.${st.name}`, label: st.name, icon: st.src === 'fate' ? '🔮' : '🏷️', from: '', to: st.until ? `${Math.round((st.until - S.t) / 60)}시간` : '붙음', why, src: st.src ?? 'tag', sure: true, i, kind: st.kind });
 }
 function remember(S, r, text) { r.mem = [{ t: S.t, text: short(text, 160) }, ...r.mem.filter(m => m.text !== short(text, 160))].slice(0, 5); }
-function news(S, icon, text, kind, who) { S.news.unshift({ t: S.t, icon, text, kind, who }); S.news.length = Math.min(S.news.length, 40); }
+// 📰 소식은 40개만 남기지만 배지는 지금까지 온 개수(newsN)로 센다 (40개가 찬 뒤로 배지가 안 뜨던 것)
+function news(S, icon, text, kind, who) { S.newsN = (S.newsN ?? 0) + 1; S.news.unshift({ t: S.t, icon, text, kind, who }); S.news.length = Math.min(S.news.length, 40); }
 
 // 위험 단계 → 상태 딱지(주사위 보정)는 계산해서 붙인다 (저장 안 함)
 export function derived(book, S) {

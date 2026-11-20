@@ -550,3 +550,6 @@ html > .ml-scope{font-family:var(--ml-font,var(--mainFontFamily,system-ui,sans-s
 .ml-sec .ml-acts{padding:4px 10px 10px}
 .ml-bs .ml-row.on{background:color-mix(in srgb,var(--a) 12%,transparent)}
 .ml-chk .ml-tx small{white-space:normal;overflow:visible;text-overflow:clip}
+
+/* 📱 아이폰 사파리는 16px보다 작은 입력칸을 누르면 화면을 확대하고 안 돌아옴 → 작은 화면에선 16px */
+@media (max-width:600px){#ml-full .ml-in,.ml-bs .ml-in,#ml-full input:not([type]),#ml-full input[type="text"],#ml-full input[type="search"],#ml-full input[type="number"],#ml-full textarea,.ml-bs input:not([type]),.ml-bs input[type="text"],.ml-bs input[type="number"],.ml-bs textarea,.ml-bs select,#ml-full select{font-size:16px}}

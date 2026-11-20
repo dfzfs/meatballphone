@@ -143,7 +143,7 @@ function onEdited(i) {
         if (hasTag(m.mes)) { m.mes = stripTags(m.mes); syncSwipe(m); saveChatSoon(); }
         if (!sl?.skip && sl?.fp !== fingerprint(i)) enqueue(i);
     } else if (hasTag(m.mes)) {
-        const s2 = msgData(m, true); s2.ops = readOps(m.mes); s2.src = 'tag'; s2.rev = (s2.rev ?? 0) + 1; bumpMeta(); m.mes = stripTags(m.mes); syncSwipe(m); saveChatSoon();
+        const s2 = msgData(m, true); s2.ops = readOps(m.mes).filter(([k]) => !shutKey(k, aiNoOf(i))); /* 😌 받을 때처럼 지운 앱 · 눈 감은 앱 줄은 버림 */ s2.src = 'tag'; s2.rev = (s2.rev ?? 0) + 1; bumpMeta(); m.mes = stripTags(m.mes); syncSwipe(m); saveChatSoon();
     }
     refresh();
 }

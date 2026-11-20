@@ -291,10 +291,10 @@ function soon(r) {
 export function badges(r) {
     const { book, S } = r, seen = getMeta().seen ?? {}, b = {};
     const danger = derived(book, S).filter(d => d.stage === '위험').length; if (danger) b.now = '!';
-    const nw = S.news.length - (seen.news ?? 0); if (nw > 0) b.news = nw;
+    const nw = Math.min(S.news.length, (S.newsN ?? S.news.length) - (seen.news ?? 0)); if (nw > 0) b.news = nw;
     const due = S.promises.filter(p => !p.done && p.due != null && p.due >= S.t && p.due - S.t <= DAY).length; if (due) b.cal = due;
     const jl = Object.values(S.rel).filter(x => x.jealous && !x.gone).length; if (jl) b.rel = jl;
-    const rq = S.rolls.length - (seen.dice ?? 0); if (rq > 0) b.dice = rq;
+    const rq = Math.min(S.rolls.length, (S.rollN ?? S.rolls.length) - (seen.dice ?? 0)); if (rq > 0) b.dice = rq;
     const ch = r.changes.length - (seen.rec ?? 0); if (ch > 0 && seen.rec != null) b.rec = '•';
     sneakBadges(getMeta(), S, b); // ✍ 몰래 생긴 것 (처음 열어 볼 때까지)
     loveBadge(r, b); // 💗 연인 업데이트
@@ -302,7 +302,7 @@ export function badges(r) {
 }
 export function markSeen(appId, r) {
     const meta = getMeta(), seen = (meta.seen ??= {});
-    const v = { news: r.S.news.length, dice: r.S.rolls.length, rec: r.changes.length }[appId];
+    const v = { news: r.S.newsN ?? r.S.news.length, dice: r.S.rollN ?? r.S.rolls.length, rec: r.changes.length }[appId];
     if (v != null && seen[appId] !== v) { seen[appId] = v; saveMeta(); }
     if (markSneakSeen(meta, r.S, appId, nextAiNo())) saveMeta(); // ✍ 처음 열어 봄 → 다음 답 1번에 알아채기
 }
