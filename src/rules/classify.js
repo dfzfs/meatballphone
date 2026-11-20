@@ -126,7 +126,8 @@ const SYSTEM = 'You label what happened in ONE roleplay reply for a status track
         + '(1) for EACH listed person who talked with, touched, helped, teased, comforted or reacted to the player character in this reply, write ONE act line — '
         + 'pick the closest listed action, and if none fits use 기쁘게 함 (warm / friendly / pleasant moment) or 상처 줌 (cold / hurtful moment); '
         + '(2) if time clearly passed (a meal, a walk, a scene change, "later", "after a while"), write a time line (+30m, +1h …); '
-        + '(3) any place change, food, purchase, item, sleep or wash that happened. '
+        + '(3) any place change, food, purchase, item, sleep or wash that happened; '
+        + 'whenever you write a loc line, also write a with line for who is there now (with: 없음 if the player character is alone). '
         + 'Only output an empty <meatball></meatball> when the reply is pure description with no interaction and no time passing. '
         + 'Output ONLY a <meatball> block, one "key: value" per line.';
 // 분류 연결로 보냄 (「미트볼 분류용」 프리셋: 온도 0 · 답 1000토큰 · 생각 최소 · 스트리밍 끔)

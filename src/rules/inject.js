@@ -42,7 +42,7 @@ const KAO = ['(｡•̀ᴗ-)✧', '(￣ヘ￣)', '(｡>﹏<｡)', '(⁄ ⁄•�
 export function ruleText(book) {
     const meta = getMeta(), flash = settings().preset !== 'general';
     const cs = book.world.start.cal ?? {}, tk = cs.style === '' ? '저녁 | +2h' : cs.style === '12' ? '오후 2:30 | +2h' : '14:30 | +2h';
-    const K = ['loc: 장소', `time: ${tk}`, 'with: 이름, 이름'];
+    const K = ['loc: 장소 (옮기면 with도 같이)', `time: ${tk}`, 'with: 이름, 이름 (혼자면 없음)'];
     if (cs.months?.length) K.push(`date: ${cs.months[0].name} 3일 (달: ${cs.months.map(x => x.name).join('·')})`);
     if (onNow('stats')) K.push('ate: 음식', 'slept: 6h', 'washed: -', 'rest: 1h', 'worked: 4h | +30');
     if (onNow('wallet')) K.push('buy: 물건 | 가격', 'earn: 30 | 이유', 'got: 물건', 'used: 물건', 'sell: 물건 | 값', 'lost: 물건', 'wear: 옷', 'unwear: 옷');
