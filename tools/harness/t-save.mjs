@@ -1,4 +1,4 @@
-// 💾 저장 겹침 막기: 스트리밍 중 저장 0회 · 끝나고 1초 뒤 한 번 · saveChatDebounced만 · 글(mes)은 끝난 뒤 한 번만 고침
+// 💾 저장 겹침 막기: 스트리밍 중 저장 0회 · 끝나고 1초 뒤 한 번 · saveChat 하나만 · 글(mes)은 끝난 뒤 한 번만 고침
 import { open, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open();
 const saves = () => page.evaluate(() => window.__saves ?? []);
@@ -22,8 +22,8 @@ try {
     await sleep(1400);
     const after = (await saves()).filter(x => x.fn !== 'st-own');
     const ended = await page.evaluate(() => window.__ended);
-    check(after.length === 1 && after[0].fn === 'saveChatDebounced' && after[0].at - ended >= 900, `답 하나에 저장 요청 한 번 · 끝나고 ≈1초 뒤 (${after.map(x => Math.round(x.at - ended)).join(',')}ms)`, JSON.stringify(after));
-    check(!(await saves()).some(x => /^saveChat$|saveMetadata/.test(x.fn)), 'saveChat · saveMetadata를 직접 안 부름 (saveChatDebounced만)');
+    check(after.length === 1 && after[0].fn === 'saveChat' && after[0].at - ended >= 900, `답 하나에 저장 요청 한 번 · 끝나고 ≈1초 뒤 (${after.map(x => Math.round(x.at - ended)).join(',')}ms)`, JSON.stringify(after));
+    check(!(await saves()).some(x => /saveMetadata/.test(x.fn)), 'saveMetadata를 따로 안 부름 (saveChat 하나로 메타까지)');
     const m = await page.evaluate(() => { const c = SillyTavern.getContext().chat; return c[c.length - 1].mes; });
     check(!/meatball/.test(m) && /사과를 샀다/.test(m) && await page.evaluate(() => __ML__.fold().S.loc) === '시장', '태그는 끝난 뒤 한 번 떼고 사건은 읽힘', m);
 
@@ -47,7 +47,7 @@ try {
     check(all.filter(x => x.at > lastEnd).length === 1, 'B: 끝나고 한 번만 (분류 결과 저장까지 합침)', JSON.stringify(all.map(x => Math.round(x.at - lastEnd))));
     // 겹침 없음: 우리 저장 요청끼리 1초 안에 두 번 없음 · 실리태번 자체 저장 1초 안에 없음
     const every = await saves();
-    const ours = every.filter(x => x.fn === 'saveChatDebounced').map(x => x.at), own = every.filter(x => x.fn === 'st-own').map(x => x.at);
+    const ours = every.filter(x => x.fn === 'saveChat').map(x => x.at), own = every.filter(x => x.fn === 'st-own').map(x => x.at);
     const close1 = ours.some((t, k) => k && t - ours[k - 1] < 900) || ours.some(t => own.some(o => t >= o && t - o < 900));
     check(!close1, '저장 요청이 서로 · 실리태번 저장과 1초 안에 겹치지 않음', JSON.stringify({ ours, own }));
     check(await page.evaluate(() => __ML__.fold().S.loc) === '집', '분류 결과는 그대로 들어감');

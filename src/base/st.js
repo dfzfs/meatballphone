@@ -5,7 +5,7 @@ import { kindOf } from '../rules/tags.js';
 
 export const MODULE = 'meatlite';
 export const OLD = 'statussim';
-export const VERSION = '0.49.0';
+export const VERSION = '0.49.1';
 export const DATA_V = 2;
 export const TITLE = '미트볼폰';
 export const INJ = { facts: 'meatlite_facts', hint: 'meatlite_hint', rule: 'meatlite_rule' };
@@ -124,7 +124,9 @@ export const saveMeta = () => { metaRev++; saveChatSoon(); };
 
 // ───── 💾 채팅 저장은 여기 한 곳에서만 ─────
 //   · 답을 받는 중(스트리밍)에는 절대 저장하지 않음 → 끝나면(GENERATION_ENDED · STOPPED · MESSAGE_RECEIVED) 1초 뒤 한 번
-//   · 실리태번 함수는 saveChatDebounced 하나만 (saveChat · saveMetadata를 직접 안 부름 · 채팅 저장에 메타데이터도 같이 감)
+//   · 실리태번 함수는 getContext().saveChat 하나만 (= saveChatConditional · 하던 저장이 끝날 때까지 기다렸다 씀 · 채팅 저장에 메타데이터도 같이 감)
+//     ⚠ getContext()에는 saveChatDebounced가 없다 — 예전엔 그걸 불러서 아무것도 저장되지 않았고, 실리태번이 스스로 저장할 때(새 메시지)만 남았다 → 새로고침하면 날아가던 것
+const stSave = () => { const c = ctx(); return (c.saveChat ?? c.saveChatDebounced)?.(); };
 //   · 여러 번 불러도 1초 안의 요청은 한 번으로 합침 (윈도우에서 .jsonl 이름 바꾸기가 겹치면 EPERM)
 export const AFTER_GEN_MS = 1000;
 const SAFETY_MS = 10 * 60 * 1000; // 끝 신호를 못 받았을 때 10분 뒤엔 풀어 줌
@@ -136,7 +138,7 @@ function flushLater(ms) {
         if (!saveState.want) return;
         if (saveState.generating) return; // 끝나면 다시 잡힘
         saveState.want = false; saveState.calls++; saveState.handed = Date.now();
-        ctx().saveChatDebounced?.();
+        Promise.resolve(stSave()).catch(e => console.warn('[미트볼폰] 채팅 저장 실패', e));
     }, ms);
 }
 // ⚡ 답을 받은 직후(실리태번 자체 저장과 겹칠 때)만 1초 기다림 · 평소 고친 것은 바로 (새로고침하면 사라지던 것)
@@ -151,7 +153,7 @@ export function flushNow() {
         const c = ctx();
         if (!saveState.generating && (saveState.want || Date.now() - (saveState.handed ?? 0) < 2500)) {
             clearTimeout(saveState.timer); saveState.timer = null; saveState.want = false; saveState.handed = 0;
-            if (c.saveChatDebounced?.flush) c.saveChatDebounced.flush(); else c.saveChat?.();
+            Promise.resolve(stSave()).catch(() => {});
         }
         if (Date.now() - (saveState.setAt ?? 0) < 2500) { saveState.setAt = 0; if (c.saveSettingsDebounced?.flush) c.saveSettingsDebounced.flush(); else c.saveSettings?.(); }
     } catch (e) { console.warn('[미트볼폰] 나가기 전 저장 실패', e); }

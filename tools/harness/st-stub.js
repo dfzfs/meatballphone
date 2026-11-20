@@ -198,7 +198,6 @@
         getCurrentChatId: () => state.chatId,
         // 저장 기록: 누가 · 언제 · 답을 받는 중이었나 (시험이 겹침을 셈)
         saveChat: async () => { (window.__saves ??= []).push({ fn: 'saveChat', at: performance.now(), gen: !!window.__streaming }); },
-        saveChatDebounced: () => { (window.__saves ??= []).push({ fn: 'saveChatDebounced', at: performance.now(), gen: !!window.__streaming }); },
         saveMetadata: async () => { (window.__saves ??= []).push({ fn: 'saveMetadata', at: performance.now(), gen: !!window.__streaming }); },
         saveMetadataDebounced: () => { (window.__saves ??= []).push({ fn: 'saveMetadataDebounced', at: performance.now(), gen: !!window.__streaming }); },
         saveSettingsDebounced: () => {},

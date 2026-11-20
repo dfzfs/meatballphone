@@ -12,7 +12,7 @@ try {
         await new Promise(r => setTimeout(r, 300));
         return window.__saves.map(s => s.fn);
     });
-    check(quick.includes('saveChatDebounced'), '평소 고친 것은 300ms 안에 저장으로 넘김', JSON.stringify(quick));
+    check(quick.includes('saveChat'), '평소 고친 것은 300ms 안에 저장으로 넘김', JSON.stringify(quick));
     // 2) 고치자마자 나감(pagehide): 기다리지 않고 바로 저장
     const out = await page.evaluate(async () => {
         const st = await import('/ext/src/base/st.js');
