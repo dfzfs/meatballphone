@@ -5,21 +5,43 @@ import { short, hash } from '../base/util.js';
 import { gloss } from '../base/gloss.js';
 
 export const stats = { calls: 0, ms: 0, last: 0 };
-export async function ask(prompt, system = '') {
+// 답 길이: 생각하는 모델(제미니 등)은 생각도 이 안에서 써서, 3000이면 설정집 JSON이 중간에 잘렸다(finish_reason: length) → 넉넉히
+export const ASK_MAX = 8192;
+export async function ask(prompt, system = '', maxTok = ASK_MAX) {
     const t0 = performance.now(); stats.calls++;
     try {
         const prof = settings().profile, c = ctx();
         if (prof && c.ConnectionManagerRequestService) {
-            const r = await c.ConnectionManagerRequestService.sendRequest(prof, [{ role: 'system', content: system }, { role: 'user', content: prompt }], 3000);
+            const r = await c.ConnectionManagerRequestService.sendRequest(prof, [{ role: 'system', content: system }, { role: 'user', content: prompt }], maxTok);
             return String(r?.content ?? r ?? '');
         }
-        return String(await c.generateRaw({ prompt, systemPrompt: system }) ?? '');
+        return String(await c.generateRaw({ prompt, systemPrompt: system, responseLength: maxTok }) ?? '');
     } finally { stats.last = performance.now() - t0; stats.ms += stats.last; }
 }
+export let lastCut = false; // 마지막 parseJSON이 끊긴 답을 살려 읽었는지
 export function parseJSON(t) {
+    lastCut = false;
     const s = String(t ?? ''); const a = s.indexOf('{'), b = s.lastIndexOf('}');
-    if (a < 0 || b <= a) return null;
-    try { return JSON.parse(s.slice(a, b + 1)); } catch { try { return JSON.parse(s.slice(a, b + 1).replace(/,\s*([}\]])/g, '$1')); } catch { return null; } }
+    if (a < 0) return null;
+    if (b > a) { try { return JSON.parse(s.slice(a, b + 1)); } catch { try { return JSON.parse(s.slice(a, b + 1).replace(/,\s*([}\]])/g, '$1')); } catch { /* 아래에서 살리기 */ } } }
+    const j = repairJSON(s.slice(a)); if (j) lastCut = true; return j;
+}
+// ✂ 답이 길이 제한에서 중간에 끊긴 JSON → 마지막으로 온전히 끝난 값까지만 남기고 괄호를 닫아 읽기
+function repairJSON(s) {
+    const st = [], cuts = []; let str = false, esc = false;
+    for (let i = 0; i < s.length; i++) {
+        const ch = s[i];
+        if (str) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') str = false; continue; }
+        if (ch === '"') str = true;
+        else if (ch === '{' || ch === '[') st.push(ch === '{' ? '}' : ']');
+        else if (ch === '}' || ch === ']') { st.pop(); if (!st.length) break; cuts.push([i + 1, st.join('')]); }
+        else if (ch === ',') cuts.push([i, st.join('')]);
+    }
+    for (let k = cuts.length - 1, n = 0; k >= 0 && n < 400; k--, n++) {
+        const [at, close] = cuts[k];
+        try { return JSON.parse(s.slice(0, at).replace(/,\s*$/, '') + [...close].reverse().join('')); } catch { /* 더 앞에서 */ }
+    }
+    return null;
 }
 // 로어북 · 캐릭터 카드 읽기 (한 번만)
 // ───── 📚 설정집이 읽을 곳 ─────
@@ -109,13 +131,14 @@ export async function fillBook(only = null, pick = undefined) {
         + 'If something is not in the source, make it fit the source\'s setting, not the original canon. '
         + 'Keep every line short. Prices must be consistent with '
         + '"meal" (one meal). 3-6 places that matter, 3-5 goods per shop/food place. needs: 3-5 (hunger/energy/hygiene/mood style; rate = drop per '
-        + 'hour). Birthdays as 「M월 D일」 if known.';
+        + 'hour). Birthdays as 「M월 D일」 if known. Write minified JSON (no indentation, no code fence) so it fits in one reply.';
     const ask2 = only ? `Rebuild ONLY these people: ${only.join(', ')}. Output {"people":[...]}` : 'Fill the whole rulebook.';
     const note = String(getMeta()?.srcNote ?? '').trim();
     const raw = await ask(`${ask2}\n${gloss()}${note ? `\nUSER'S EXTRA INSTRUCTIONS (follow these over the source when they conflict):\n${note}\n` : ''}\nSchema:\n${SCHEMA}\n\nSource:\n${src.text}`, sys);
     const j = parseJSON(raw);
     if (!j) return { book: null, src };
-    return { book: j, src };
+    if (lastCut) import('../ui/kit.js').then(k => k.toast('AI 답이 길이 제한에서 끊겨서 받은 데까지만 채웠어요 · 빠진 인물은 인물 편집의 ✨로 다시 채울 수 있어요', 'mid')).catch(() => {});
+    return { book: j, src, cut: lastCut };
 }
 // AI 없이 바로 시작하는 틀 (입력 거의 없게)
 export function templateBook() {
