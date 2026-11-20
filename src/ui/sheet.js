@@ -164,7 +164,7 @@ function changeHandler(e) {
     const g = e.target.closest('[data-gauge]'); if (!g) return;
     const meta = getMeta(), tgt = meta.influence ?? settings().influence, id = g.dataset.gauge, v = Number(g.value);
     if (id === 'all') tgt.all = v; else { tgt.by ??= {}; tgt.by[id] = v - (tgt.all ?? 2); }
-    meta.influence ? saveMeta() : ctx().saveSettingsDebounced();
+    meta.influence ? saveMeta() : saveSettings();
     drawSheet(); app.inject?.();
 }
 // 🕰 그때 ↔ 지금: 그때 상태와 지금 상태의 차이 한 장 (보기만 · 저장 0)

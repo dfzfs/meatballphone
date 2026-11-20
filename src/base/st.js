@@ -5,7 +5,7 @@ import { kindOf } from '../rules/tags.js';
 
 export const MODULE = 'meatlite';
 export const OLD = 'statussim';
-export const VERSION = '0.45.9';
+export const VERSION = '0.46.0';
 export const DATA_V = 2;
 export const TITLE = '미트볼폰';
 export const INJ = { facts: 'meatlite_facts', hint: 'meatlite_hint', rule: 'meatlite_rule' };
@@ -134,13 +134,26 @@ function flushLater(ms) {
         saveState.timer = null;
         if (!saveState.want) return;
         if (saveState.generating) return; // 끝나면 다시 잡힘
-        saveState.want = false; saveState.calls++;
+        saveState.want = false; saveState.calls++; saveState.handed = Date.now();
         ctx().saveChatDebounced?.();
     }, ms);
 }
+// ⚡ 답을 받은 직후(실리태번 자체 저장과 겹칠 때)만 1초 기다림 · 평소 고친 것은 바로 (새로고침하면 사라지던 것)
+const QUICK_MS = 120;
 export function saveChatSoon() {
     saveState.want = true;
-    if (!saveState.generating) flushLater(AFTER_GEN_MS);
+    if (!saveState.generating) flushLater(Date.now() - (saveState.ended ?? 0) < 3000 ? AFTER_GEN_MS : QUICK_MS);
+}
+// 🚪 새로고침 · 탭 닫기 · 앱 전환: 밀린 저장을 바로 (기다리는 중이던 채팅 · 실리태번이 아직 안 쓴 채팅 · 설정)
+export function flushNow() {
+    try {
+        const c = ctx();
+        if (!saveState.generating && (saveState.want || Date.now() - (saveState.handed ?? 0) < 2500)) {
+            clearTimeout(saveState.timer); saveState.timer = null; saveState.want = false; saveState.handed = 0;
+            if (c.saveChatDebounced?.flush) c.saveChatDebounced.flush(); else c.saveChat?.();
+        }
+        if (Date.now() - (saveState.setAt ?? 0) < 2500) { saveState.setAt = 0; if (c.saveSettingsDebounced?.flush) c.saveSettingsDebounced.flush(); else c.saveSettings?.(); }
+    } catch (e) { console.warn('[미트볼폰] 나가기 전 저장 실패', e); }
 }
 export function genStarted(type, opts, dry) {
     if (dry || type === 'quiet') return; // 미리 재기 · 조용한 생성은 채팅에 답을 흘려 넣지 않음
@@ -149,12 +162,12 @@ export function genStarted(type, opts, dry) {
 }
 export function genEnded() {
     if (!saveState.generating) { if (saveState.want) flushLater(AFTER_GEN_MS); return; }
-    saveState.generating = false; clearTimeout(saveState.safety);
+    saveState.generating = false; saveState.ended = Date.now(); clearTimeout(saveState.safety);
     if (saveState.want) flushLater(AFTER_GEN_MS); // 실리태번 자체 저장이 끝난 뒤 한 번
 }
 export const isGenerating = () => saveState.generating;
 export const bumpMeta = () => { metaRev++; };
-export const saveSettings = () => { metaRev++; ctx().saveSettingsDebounced(); };
+export const saveSettings = () => { metaRev++; saveState.setAt = Date.now(); ctx().saveSettingsDebounced(); };
 export const modOn = (id, meta = getMeta()) => !!meta?.mods?.[id];
 // 😌 눈 감기: 깔린 앱마다 「다음 답 1번」(once) · 「계속」(on) — 그 답엔 그 앱의 사건을 만들지도(본편 · 분류 지시) 받지도 않는다.
 //   once는 「몇 번째 AI 답」에 묶여서, 그 답을 리롤해도 감긴 채 · 다음 답부터는 저절로 뜬다.

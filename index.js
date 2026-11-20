@@ -1,5 +1,5 @@
 // 미트볼폰 — 실리태번 이벤트 연결
-import { app, ctx, settings, saveSettings, getMeta, saveMeta, msgData, syncSwipe, ready, MODULE, OLD, VERSION, TITLE, INJ, MODS, DATA_V, bumpMeta, modOn, saveChatSoon, genStarted, genEnded, isGenerating, shutKey, aiNoOf, tidyEyes } from './src/base/st.js';
+import { app, ctx, settings, saveSettings, getMeta, saveMeta, msgData, syncSwipe, ready, MODULE, OLD, VERSION, TITLE, INJ, MODS, DATA_V, bumpMeta, modOn, saveChatSoon, genStarted, genEnded, isGenerating, flushNow, shutKey, aiNoOf, tidyEyes } from './src/base/st.js';
 import { esc, short, tokens, dateOf } from './src/base/util.js';
 import { readOps, stripTags, hasTag } from './src/rules/tags.js';
 import { fold, resetCache, noteRules } from './src/rules/engine.js';
@@ -379,6 +379,9 @@ async function boot() {
     }
     globalThis.__meatballPhoneBoot = folder || 'dev';
     mountSettings(); bindOuter(); mountApi(); initMascot();
+    // 🚪 바꾸고 바로 새로고침해도 남게 (휴대폰은 앱 전환 · 아이폰은 pagehide만 믿을 수 있음)
+    addEventListener('pagehide', flushNow); addEventListener('beforeunload', flushNow);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushNow(); });
     const c = ctx(), E = c.event_types, on = (n, f) => n && c.eventSource.on(n, f);
     on(E.GENERATION_AFTER_COMMANDS, onBeforeGen);
     // 💾 저장 시점: 답을 받는 중엔 안 함 · 끝나고 1초 뒤 한 번 (윈도우 EPERM 겹침 막기)
