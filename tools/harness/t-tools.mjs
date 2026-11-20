@@ -48,8 +48,9 @@ try {
     await page.evaluate(() => document.querySelector('.ml-bs [data-bs="ok"]').click()); await sleep(300);
     const ai = await page.evaluate(() => { const r = __ML__.fold(); return { cash: r.S.cash, ai: r.changes.at(-1).some(c => c.src === 'ai') }; });
     check(ai.cash >= 150 && ai.ai, 'AI로 수정 → 미리 보기 → 반영', JSON.stringify(ai));
-    // 숨기기 → 주입에서 빠짐
-    await page.evaluate(() => document.querySelector('[data-act="t-hide"]').click()); await sleep(200);
+    // 😌 눈 감기 › 🙈 결과만 본편에 숨기기 → 주입에서 빠짐
+    await page.evaluate(() => document.querySelector('.ml-tools2 [data-act="t-eye"]').click()); await sleep(200);
+    await page.evaluate(() => document.querySelector('.ml-bs [data-act="eye-set"][data-v$="|hide"]').click()); await sleep(200);
     const inj = await page.evaluate(() => { __ML__.inject(); return window.__prompts.meatlite_facts?.value ?? ''; });
     check(!/money/.test(inj), '🙈 소지품 숨기기 → 본편에 돈 안 감', inj);
     // 용어집

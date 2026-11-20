@@ -32,11 +32,10 @@ export function toolbar(appId) {
     const B = [];
     if (EDITABLE.has(appId)) B.push(`<button class="ml-tool" data-act="t-edit" data-v="${appId}">✏️ 편집</button>`);
     if (AI_APPS.has(appId)) B.push(`<button class="ml-tool" data-act="t-ai" data-v="${appId}">✨ AI로 수정</button>`);
-    if (gid) B.push(`<button class="ml-tool${hid ? ' on' : ''}" data-act="t-hide" data-v="${gid}" title="${hid ? '본편에 다시 보내기' : '이 앱의 결과값을 본편에 안 보내기'}">${hid ? '🙈 AI에게 숨김' : '🙈 숨기기'}</button>`);
     if (PARTS[appId]) B.push(`<button class="ml-tool" data-act="t-parts" data-v="${appId}">👁 보일 것</button>`);
-    // 😌 눈 감기: 이 앱만 다음 답 1번 · 계속 (누를 때마다 뜸 → 다음 1번 → 계속 → 뜸)
+    // 😌 눈 감기 하나로: 누르면 고르기 — 평소 · 🙈 결과만 본편에 숨기기(계속 셈) · 다음 1번 쉬기 · 계속 쉬기
     const mod = APPS_MOD[appId], e = mod && getMeta()?.eyes?.[mod]?.mode;
-    if (mod) B.push(`<button class="ml-tool${e ? ' on' : ''}" data-act="t-eye" data-v="${mod}" title="이 앱만 다음 답에서 쉬기 (누를 때마다 바뀜)">${e === 'on' ? '😌 계속 눈 감음' : e === 'once' ? '😌 다음 1번 눈 감음' : '😌 눈 감기'}</button>`);
+    if (mod || gid) B.push(`<button class="ml-tool${e || hid ? ' on' : ''}" data-act="t-eye" data-v="${mod ?? ''}|${gid ?? ''}" title="이 앱을 AI에게서 쉬게 하기">${e === 'on' ? '😌 계속 쉼' : e === 'once' ? '😌 다음 1번 쉼' : hid ? '🙈 본편에만 숨김' : '😌 눈 감기'}</button>`);
     B.push('<button class="ml-tool" data-act="t-gloss">🌐 용어집</button>');
     return `<div class="ml-tools2">${B.join('')}</div>`;
 }
@@ -706,7 +705,26 @@ export function applyGloss(root) {
 export async function onTool(act, v) {
     const meta = getMeta();
     switch (act) {
-        case 't-eye': { const cur = meta?.eyes?.[v]?.mode ?? ''; setEyes(v, cur === '' ? 'once' : cur === 'once' ? 'on' : ''); toast(cur === '' ? '😌 다음 답 1번 눈 감아요' : cur === 'once' ? '😌 다시 뜰 때까지 눈 감아요' : '👀 다시 떴어요'); app.refresh?.(); return; }
+        case 't-eye': { // 고르기 시트
+            const [mod, gid] = String(v).split('|'), e = mod ? meta?.eyes?.[mod]?.mode ?? '' : '', hid = !!(gid && meta?.hideAI?.[gid]);
+            const cur = e || (hid ? 'hide' : 'open');
+            const opt = (m, icon, title, sub) => `<div class="ml-row tap${cur === m ? ' on' : ''}" data-act="eye-set" data-v="${mod}|${gid}|${m}"><span class="ml-ic">${icon}</span><span class="ml-tx"><b>${title}${cur === m ? ' ✓' : ''}</b><small>${sub}</small></span></div>`;
+            sheet('😌 눈 감기', `<div class="ml-card">${opt('open', '👀', '평소대로', '셈하고 · 본편에도 알려요')}`
+                + `${gid ? opt('hide', '🙈', '결과만 본편에 숨기기', '계속 셈해요 (숫자 · 기록은 쌓임) · 본편 AI에게만 안 알려요') : ''}`
+                + `${mod ? opt('once', '😌', '다음 답 1번 쉬기', '다음 답은 이 앱을 셈하지도 · 알리지도 않아요 (분류 목록에서도 빠짐)') : ''}`
+                + `${mod ? opt('on', '😴', '계속 쉬기', '다시 뜰 때까지 셈하지도 · 알리지도 않아요') : ''}</div>`
+                + '<div class="ml-hint">화면에서 칸만 가리려면 「👁 보일 것」을 쓰세요 (AI와는 상관없음).</div>');
+            return;
+        }
+        case 'eye-set': {
+            const [mod, gid, m] = String(v).split('|');
+            if (mod) setEyes(mod, m === 'once' || m === 'on' ? m : '');
+            if (gid) { meta.hideAI ??= {}; if (m === 'hide') meta.hideAI[gid] = true; else delete meta.hideAI[gid]; saveMeta(); }
+            document.querySelector('.ml-bs')?.remove();
+            toast({ open: '👀 평소대로', hide: '🙈 결과만 본편에 숨겨요 (계속 셈)', once: '😌 다음 답 1번 쉬어요', on: '😴 다시 뜰 때까지 쉬어요' }[m] ?? '');
+            app.refresh?.();
+            return;
+        }
         case 't-edit':
             return editApp(v);
         case 't-ai':
@@ -828,4 +846,4 @@ export async function onTool(act, v) {
             return editItem(act, v);
     }
 }
-export const TOOL_ACTS = new Set(['tr-edit', 'tr-now', 'tr-clear', 'tr-rules', 'tr-orig', 'tr-redo', 't-edit', 't-ai', 't-hide', 't-parts', 't-gloss', 't-eye', 'g-edit', 'g-fill', 'e-need', 'e-gauge', 'e-attr', 'e-status', 'e-add-stat', 'e-item', 'e-place', 'e-cfield', 'e-mark']);
+export const TOOL_ACTS = new Set(['eye-set', 'tr-edit', 'tr-now', 'tr-clear', 'tr-rules', 'tr-orig', 'tr-redo', 't-edit', 't-ai', 't-hide', 't-parts', 't-gloss', 't-eye', 'g-edit', 'g-fill', 'e-need', 'e-gauge', 'e-attr', 'e-status', 'e-add-stat', 'e-item', 'e-place', 'e-cfield', 'e-mark']);

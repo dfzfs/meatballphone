@@ -36,6 +36,7 @@ export const APPS = [
     { id: 'cat', icon: '😺', name: '마스코트', sys: true, c: '#f2a7b5' },
     { id: 'look', icon: '🎨', name: '꾸미기', sys: true, c: '#a0c4ff' },
     { id: 'market', icon: '🛍️', name: '마켓', sys: true, c: '#ff9f1c' },
+    { id: 'set', icon: '⚙️', name: '설정', sys: true, c: '#6c757d' }, // 칩 점검 · 진단 · 프롬프트 · 모델 · 부하 · 복사
 ];
 export const appOf = (id) => (String(id).startsWith('x:') ? extOf(id) : APPS.find(a => a.id === id));
 export const installed = (a) => a.sys || a.ext || modOn(a.mod);

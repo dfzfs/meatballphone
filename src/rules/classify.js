@@ -97,7 +97,7 @@ export function buildPrompt(i) {
     const places = book.world.places.map(p => `${p.name}${p.goods.length ? `(${p.goods.map(g => g.name).join('·')})` : ''}`).join(', ');
     const keys = keyList(aiNoOf(i)).map(([k, v, when]) => `${k}: ${v}  — ${when}`).join('\n');
     const ch = choiceText(choiceOf(u));
-    const system = SYSTEM;
+    const ex = String(settings().clsExtra ?? '').trim(), system = ex ? `${SYSTEM}\nExtra instruction from the user (keep the output format): ${ex.slice(0, 600)}` : SYSTEM; // ✍ ⚙️ 설정 앱
     const user = [
         `[STATE] place ${S.loc || '-'} · time ${Math.floor(((S.t % 1440) + 1440) % 1440 / 60)}h · with ${S.with.join(', ') || '-'} · money ${S.cash} ${book.world.currency} · items ${items}`,
         ch && `[CHOICE] ${ch} — pick events that match this result (cost, trap, success or failure).`,

@@ -538,3 +538,15 @@ a.ml-play,a.ml-scene{text-decoration:none;color:inherit}
 /* 🧷 body 대신 <html>에 붙었을 때(아이폰 · 테마 · 다른 확장이 body에 transform 등을 건 경우) 글꼴을 실리태번 것으로 */
 html > .ml-scope{font-family:var(--ml-font,var(--mainFontFamily,system-ui,sans-serif))}
 .ml-err{white-space:pre-wrap;font-size:11px;opacity:.75;max-height:40vh;overflow:auto}
+/* ⚙️ 설정 앱 */
+.ml-det{margin:6px 0;border:var(--bd) solid var(--line);border-radius:10px;overflow:hidden}
+.ml-det>summary{padding:8px 10px;cursor:pointer;font-size:.9em;font-weight:600}
+.ml-det .ml-pre,.ml-det .ml-card,.ml-det .ml-hint{margin:0 8px 8px}
+.ml-pre{white-space:pre-wrap;word-break:break-word;font-size:11.5px;line-height:1.45;max-height:42vh;overflow:auto;padding:8px;border-radius:8px;background:color-mix(in srgb,var(--fg) 5%,transparent);margin:6px 0}
+.ml-sec .ml-field{display:flex;flex-direction:column;gap:4px;padding:8px 10px}.ml-sec .ml-field>span{font-size:.85em;font-weight:600}.ml-sec .ml-field small{font-size:.75em;opacity:.65}
+.ml-sec select.ml-in{appearance:auto;min-height:38px}
+.ml-sec .ml-cls-res{margin:4px 10px 10px;padding:8px;border-radius:8px;font-size:.85em;background:color-mix(in srgb,var(--fg) 5%,transparent)}
+.ml-sec .ml-cls-res.good b{color:var(--good)}.ml-sec .ml-cls-res.bad b{color:var(--bad)}
+.ml-sec .ml-acts{padding:4px 10px 10px}
+.ml-bs .ml-row.on{background:color-mix(in srgb,var(--a) 12%,transparent)}
+.ml-chk .ml-tx small{white-space:normal;overflow:visible;text-overflow:clip}

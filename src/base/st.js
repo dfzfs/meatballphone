@@ -4,7 +4,7 @@ import { normBook } from '../rules/book.js';
 
 export const MODULE = 'meatlite';
 export const OLD = 'statussim';
-export const VERSION = '0.43.1';
+export const VERSION = '0.44.0';
 export const DATA_V = 2;
 export const TITLE = '미트볼폰';
 export const INJ = { facts: 'meatlite_facts', hint: 'meatlite_hint', rule: 'meatlite_rule' };
@@ -46,6 +46,8 @@ export const DEFAULTS = Object.freeze({
     ytKey: '',              // 유튜브 API 키 (선택 · 있으면 ▶ 1번에 검색 1회로 영상 id)
     musicPos: null,         // 🎵 작은 창 자리 { d: 노트북 {x,y}, m: 휴대폰 {x,y} }
     pinBook: 'auto',        // 설정집 한두 줄을 본편에 붙일지: auto | off
+    injExtra: '',           // ✍ 본편에 덧붙일 지시 (모든 채팅 · 채팅마다 meta.injExtra가 먼저)
+    clsExtra: '',           // ✍ 분류 모델에 덧붙일 지시
 });
 const SETTING_EXTRA = new Set(['glossary', 'trRules', 'partsOff', 'tidied']);
 export function settings() {

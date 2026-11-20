@@ -49,7 +49,8 @@ export function inject() {
     const r = fold(); if (!r) return setInj({});
     const chat = ctx().chat ?? []; let li = chat.length - 1; while (li >= 0 && (chat[li].is_user || chat[li].is_system)) li--;
     const ft = factText(r, li >= 0 ? r.changes[li] ?? [] : []);
-    setInj({ rule: mode() === 'A' ? ruleText(r.book) : '', ...ft }); // B: 본편은 소설만 (적는 법 규칙 뺌)
+    const ex = String(meta.injExtra || settings().injExtra || '').trim(); // ✍ 사용자가 덧붙인 지시 (⚙️ 설정 앱)
+    setInj({ rule: mode() === 'A' ? ruleText(r.book) : '', ...ft, hint: [ft.hint, ex].filter(Boolean).join('\n') }); // B: 본편은 소설만 (적는 법 규칙 뺌)
 }
 app.create = (useAI) => create(useAI);
 app.refresh = refresh; app.inject = inject; app.applyLook = () => applyLook(); app.lastInj = () => lastInj; app.perfLast = () => perf.turns.at(-1) ?? null; app.perfData = () => perf; app.openSheet = openSheet; app.closeSheet = closeSheet; app.openPast = openPast;

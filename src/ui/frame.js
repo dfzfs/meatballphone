@@ -8,6 +8,7 @@ import { home, market, cat, look, appOf, installed, markSeen, firstView, setupVi
 import { renderExt, setAppsChange, installApp } from '../extra/apps.js';
 import { resetCal } from './calplus.js';
 import { loveAct } from './love.js';
+import { setView, setAct, setChange } from './setapp.js';
 import { bindHomeEdit } from './homeedit.js';
 import { toolbar, onTool, TOOL_ACTS, applyGloss } from './tools.js';
 import { applyTr, trOn, trBusy } from '../extra/translate.js';
@@ -111,7 +112,7 @@ export function drawSheet() {
             + `<main class="ml-body" data-tab="${r ? 'setup' : 'first'}">${r ? setupView(r) : firstView()}</main>`;
         return;
     }
-    const R2 = { ...RENDER, home, market, cat, look };
+    const R2 = { ...RENDER, home, market, cat, look, set: setView };
     const xa = String(cur).startsWith('x:') ? appOf(cur) : null;
     if (!xa && (!R2[cur] || (appOf(cur) && !installed(appOf(cur))))) cur = 'home';
     const view = past != null ? { ...r, S: r.stateAt(past) ?? r.S } : r;
@@ -184,9 +185,11 @@ async function clickHandler(e) {
     if (act === 'eye') { const [mod, mode] = String(v).split('|'); setEyes(mod, mode); app.refresh(); return pauseMenu(); }
     if (act === 'past-off') { past = null; drawSheet(); return; }
     if (act === 'find') return app.find?.();
+    if (String(act).startsWith('set-')) { await setAct(act, v); drawSheet(); return; } // ⚙️ 설정 앱
     await onAct(act, v, a);
 }
 function changeHandler(e) {
+    const ms = e.target.closest?.('[data-mlset], [data-mlmeta]'); if (ms) { setChange(ms); return; } // ⚙️ 설정 앱
     const wf = e.target.closest?.('[data-wallfile]'); if (wf) { wallUpload(wf.files?.[0]); return; }
     const lk = e.target.closest('[data-look]'); if (lk) { const L = settings().look, k = lk.dataset.look; L[k] = lk.type === 'range' ? Number(lk.value) : lk.value; saveSettings(); app.applyLook?.(); drawSheet(); return; }
     const g = e.target.closest('[data-gauge]'); if (!g) return;
@@ -294,7 +297,7 @@ function controlCenter() {
     const t = (act, icon, name, on = false, v = '') => `<button class="ml-cc-b${on ? ' on' : ''}" data-act="${act}" data-v="${v}"><i>${icon}</i><span>${name}</span></button>`;
     sheet('🎛 제어 센터', `<div class="ml-cc">${t('p-all', '⏸', meta.paused ? '멈춤 중' : '전체 멈춤', meta.paused)}${t('p-skip', '⏭', '다음 1번 건너뛰기', meta.skipNext)}`
         + `${t('pause', '😌', `눈 감기${eyesShut().length ? ` · ${eyesShut().length}` : ''}`, eyesShut().length > 0)}${t('find', '🔍', '검색')}${t('report', '📋', '전체 복사')}`
-        + `${t('cc-open', '🎨', '꾸미기 · 배경화면', false, 'look')}${t('home-edit', '✏️', '홈 편집')}${t('cc-open', '🎚️', '영향력', false, 'gauge')}</div>`
+        + `${t('cc-open', '🎨', '꾸미기 · 배경화면', false, 'look')}${t('home-edit', '✏️', '홈 편집')}${t('cc-open', '🎚️', '영향력', false, 'gauge')}${t('cc-open', '⚙️', '설정 · 칩 점검', false, 'set')}</div>`
         + '<div class="ml-hint">미트볼은 위의 섬 안에 숨어 있어요. 누르면 이 화면이 열려요.</div>');
 }
 // 🖼 내 사진 → 1280px · JPEG로 줄여서 설정에 (확장 파일에는 안 들어감)
