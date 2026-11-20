@@ -32,7 +32,8 @@ export function restore() {
 }
 // 카드에 설정집을 넣어 두면 그 카드로 연 새 채팅이 AI 없이 바로 시작
 export async function toCard() {
-    const meta = getMeta(), c = ctx(); if (!meta?.book || c.characterId == null) return;
+    const meta = getMeta(), c = ctx(); if (!meta?.book) return;
+    if (c.groupId || c.characterId == null) return toast('그룹 채팅에서는 카드에 붙일 수 없어요 · 1:1 채팅에서 해 주세요', 'bad');
     await c.writeExtensionField?.(c.characterId, MODULE, { book: meta.book, start: meta.start });
     toast('카드에 붙였어요', 'good');
 }

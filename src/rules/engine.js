@@ -94,6 +94,8 @@ function makeCtx(book, S, ch, flags, G = glossList()) {
             d = Math.sign(d) * Math.max(1, Math.round(Math.abs(d)));
             const key = norm(why);
             if (key && r.last.includes(key)) d = Math.sign(d) * Math.ceil(Math.abs(d) / 2);
+            // 💗 「기쁘게 함」(맞는 행동이 없을 때의 기본)은 연달아 세 번째부터 0 — 대화만 이어져도 답마다 +1씩 끝없이 오르던 것
+            if (d > 0 && key === norm(BASIC_ACTS.up.act) && r.last.filter(q => q === key).length >= 2) d = 0;
             r.last = [key, ...r.last].filter(Boolean).slice(0, 3);
             const done = ch.filter(c => c.f === `rel.${name}.${axis}` && c.src !== 'hand').reduce((a, c) => a + c.to - c.from, 0);
             d = clamp(d, -8 - done, 8 - done);
@@ -736,6 +738,7 @@ export function noteRules(meta, chatLen) {
     meta.ruleSnap = snap;
     return true;
 }
+const noPhoto = (k, v) => (k === 'photo' && typeof v === 'string' ? v.length : v);
 const bookCache = new WeakMap();
 function bookFor(meta, i) {
     const v = (meta.ruleVers ?? []).find(x => i < x.until); if (!v) return meta.book;
@@ -774,7 +777,7 @@ export function fold(force = false) {
     // 빠른 길: 채팅 · 마지막 메시지 · 스와이프 · 설정집 저장 번호가 그대로면 지난 결과 (선택지 미리 보기처럼 한 화면에 여러 번 부를 때)
     const last = chat[chat.length - 1], qk = `${id}|${chat.length}|${last ? sigOf(last) : ''}|${metaRev}|${meta.book === quick.book ? 1 : 0}`;
     if (!force && quick.r && quick.key === qk) return quick.r;
-    const bsig = hash(JSON.stringify(meta.book) + JSON.stringify(meta.start ?? {}) + (meta.startAt ?? 0) + JSON.stringify(meta.ruleVers ?? []) + JSON.stringify(meta.preHand ?? []));
+    const bsig = hash(JSON.stringify(meta.book, noPhoto) + /* 🏎 장소 사진(수백 KB)은 계산과 무관 → 길이만 */ JSON.stringify(meta.start ?? {}) + (meta.startAt ?? 0) + JSON.stringify(meta.ruleVers ?? []) + JSON.stringify(meta.preHand ?? []));
     // 💾 채팅마다 계산 결과를 메모리에 둔다 (최근 4개 채팅) — 다른 채팅에 갔다 와도 처음부터 다시 안 셈
     if (cache.chatId !== id) { if (cache.chatId != null) { caches.delete(cache.chatId); caches.set(cache.chatId, cache); while (caches.size > 4) caches.delete(caches.keys().next().value); } const old = caches.get(id); if (old) cache = old; }
     if (force || cache.chatId !== id || cache.bookSig !== bsig) cache = { chatId: id, bookSig: bsig, sig: [], snap: [], needs: [], at: [], changes: [], flags: [], base: null, last: null };

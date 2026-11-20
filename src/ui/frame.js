@@ -108,8 +108,7 @@ const CHIP_N = 6;
 export function drawChips() {
     const r = fold(); const chat = ctx().chat ?? [];
     document.querySelectorAll('.ml-msg').forEach(x => { const i = Number(x.closest('.mes')?.getAttribute('mesid')); if (!(i >= chat.length - CHIP_N * 2)) x.remove(); });
-    if (getMeta()?.off) { document.querySelectorAll('.ml-msg').forEach(x => x.remove()); return; }
-    if (!r || !settings().enabled) return;
+    if (getMeta()?.off || !settings().enabled || !r) { document.querySelectorAll('.ml-msg').forEach(x => x.remove()); return; } // 「켜기(모든 채팅)」를 끄면 붙어 있던 칩도 뗌
     for (let i = Math.max(0, chat.length - CHIP_N * 2); i < chat.length; i++) {
         const el = document.querySelector(`#chat .mes[mesid="${i}"] .mes_text`); if (!el) continue;
         const ch = (r.changes[i] ?? []).filter(c => c.src !== 'time'), fl = (r.flags[i] ?? []);

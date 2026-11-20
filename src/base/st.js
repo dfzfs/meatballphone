@@ -5,7 +5,7 @@ import { kindOf } from '../rules/tags.js';
 
 export const MODULE = 'meatlite';
 export const OLD = 'statussim';
-export const VERSION = '0.45.2';
+export const VERSION = '0.45.3';
 export const DATA_V = 2;
 export const TITLE = '미트볼폰';
 export const INJ = { facts: 'meatlite_facts', hint: 'meatlite_hint', rule: 'meatlite_rule' };
@@ -202,7 +202,10 @@ export function msgData(m, create = false) {
 export function syncSwipe(m) {
     const sid = m?.swipe_id;
     if (typeof sid !== 'number' || !Array.isArray(m.swipe_info) || !m.swipe_info[sid] || typeof m.swipe_info[sid] !== 'object') return;
-    m.swipe_info[sid].extra = clone(m.extra);
+    const ex = clone(m.extra);
+    // 💾 스와이프 칸에는 그 스와이프의 칸만 (전부 복사하면 스와이프마다 겹쳐 쌓임 · 스와이프를 옮기면 실리가 이 extra로 돌려놓음)
+    const own = ex?.[MODULE]?.sw?.[sid]; if (ex?.[MODULE]?.sw) ex[MODULE].sw = own ? { [sid]: own } : {};
+    m.swipe_info[sid].extra = ex;
 }
 // 메시지 열쇠 (책갈피 · 이동용) — 보낸 시각 + 이름
 export const msgKey = (m) => (m ? hash(`${m.send_date ?? ''}|${m.name ?? ''}|${m.is_user ? 1 : 0}`) : '');

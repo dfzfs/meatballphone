@@ -39,7 +39,9 @@ async function linkedBooks() {
 const loreText = (e) => `[LORE${e.constant ? ' ALWAYS' : ''} ${(e.key ?? []).join(', ') || e.comment || ''}]\n${String(e.content ?? '')}`;
 const chatPart = (kind) => {
     const c = ctx(), ch = c.characters?.[c.characterId] ?? {}, chat = (c.chat ?? []).filter(m => !m.is_system);
-    if (kind === 'card') return `[CARD ${ch.name ?? ''}]\n${[ch.description, ch.personality, ch.scenario, ch.mes_example].filter(Boolean).join('\n')}`;
+    // 👥 그룹 채팅: 멤버 카드를 모두 (characterId가 없음)
+    const cards = c.groupId ? (c.groups ?? []).find(g => g.id === c.groupId)?.members?.map(av => c.characters?.find(x => x.avatar === av)).filter(Boolean) ?? [] : [ch];
+    if (kind === 'card') return cards.map(x => `[CARD ${x.name ?? ''}]\n${[x.description, x.personality, x.scenario, x.mes_example].filter(Boolean).join('\n')}`).join('\n\n');
     if (kind === 'persona') return `[USER ${userName()}]\n${c.powerUserSettings?.persona_description ?? ''}`;
     if (kind === 'first') { const t = chat[0]?.mes ?? ch.first_mes ?? ''; return t ? `[FIRST MESSAGE]\n${t}` : ''; }
     if (kind === 'recent') { const r = chat.slice(Math.max(1, chat.length - 6)); return r.length ? `[RECENT CHAT]\n${r.map(m => `${m.name}: ${String(m.mes ?? '').replace(/<meatball>[\s\S]*?<\/meatball>/g, '')}`).join('\n')}` : ''; }

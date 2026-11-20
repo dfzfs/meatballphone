@@ -4,7 +4,7 @@ import { settings, getMeta, modOn, userName, ctx, shut, shutKey, nextAiNo } from
 const onNow = (id) => modOn(id) && !shut(id);
 import { clamp, dateText, short, tokens, DAY } from '../base/util.js';
 import { derived, relStage, fold } from './engine.js';
-import { tasteOf, recentQuotes } from './classify.js';
+import { tasteOf, recentQuotes, customKey } from './classify.js';
 import { personOf } from './book.js';
 import { ruleKeys as newsRuleKeys } from './newskinds.js';
 import { calLines } from './calplus.js';
@@ -52,6 +52,7 @@ export function ruleText(book) {
     if (onNow('news')) K.push(...newsRuleKeys(level('news')));
     if (onNow('rel') && level('rel') >= 4) K.push('meddle: 이름 | 칸 | +5 | 장난 (칸: 기분 같은 수치 · 소지품 | 물건 · 돈 | +30 · 달력 | 5/14 | 글 — 몰래 주는 것만, 가져가지 않음)');
     if (onNow('dice')) K.push('roll: 판정할 일');
+    if (onNow('custom')) { const ck = customKey(); if (ck.length) K.push(`custom: ${ck[0][1]} (${ck[0][2]})`); }
     // 🎵 📜 장면 분위기가 바뀌었을 때만 (dev처럼 본편이 고름)
     if (onNow('music')) K.push(`bgm: 곡 제목 - 가수 | 분위기 한 단어 | 왜 (장면 분위기가 바뀌었을 때만 · 실제로 있는 곡${tasteOf() ? ` · 취향: ${tasteOf()}` : ''})`);
     if (onNow('quote')) { const rq = recentQuotes(fold()?.S ?? {}); K.push(`quote: 구절 원문 | 출처 | 한국어 뜻(외국어일 때) | 왜 (분위기가 바뀌었을 때만 · 속담 · 명대사 · 책 · 시 · 유명인의 말 · 사자성어 · 노래 가사 금지 · 한두 문장${rq.length ? ` · 피할 것: ${rq.join(' / ')}` : ''})`); }

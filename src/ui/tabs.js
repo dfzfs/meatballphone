@@ -83,7 +83,7 @@ function now(r) {
     const side = [];
     if (modOn('music')) side.push(songLine(S));
     if (modOn('quote')) side.push(quoteLine(S));
-    { const l = luckOf(book, S, ctx().getCurrentChatId?.()); side.push(`<div class="ml-scene luck"><i>🍀</i><span><b>${esc(l.text)}</b><small>오늘 운세 · 선택지에 🍀 · ⚠로 보여요</small></span></div>`); }
+    { const l = luckOf(book, S, ctx().getCurrentChatId?.(), getMeta().luckRoll); side.push(`<div class="ml-scene luck"><i>🍀</i><span><b>${esc(l.text)}</b><small>오늘 운세 · 선택지에 🍀 · ⚠로 보여요</small></span></div>`); }
     if (side.length && V('scene')) h += `<h4 class="ml-h4">이 장면</h4><div class="ml-scenes">${side.join('')}</div>`;
     if (modOn('stats')) {
         if (V('needs')) h += `<h4 class="ml-h4">욕구 <span>달력 시간으로 줄어요</span></h4><div class="ml-gcs">${book.me.needs.map(n => needCard(r, n, last)).join('')}</div>`;
@@ -1100,7 +1100,7 @@ export async function onAct(act, v, el) {
                 ...(meta.custom ?? []),
                 {
                     name: short(name, 12),
-                    icon: '🧩',
+                    icon: fv.icon || '🧩',
                     fields: String(f ?? '')
                         .split(',')
                         .map((x) => x.trim())
