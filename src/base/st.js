@@ -4,7 +4,7 @@ import { normBook } from '../rules/book.js';
 
 export const MODULE = 'meatlite';
 export const OLD = 'statussim';
-export const VERSION = '0.44.2';
+export const VERSION = '0.45.0';
 export const DATA_V = 2;
 export const TITLE = '미트볼폰';
 export const INJ = { facts: 'meatlite_facts', hint: 'meatlite_hint', rule: 'meatlite_rule' };
@@ -100,6 +100,7 @@ function tidyMeta(m) {
     if (m.mods) delete m.mods.traits;
     m.tidied = 3;
 }
+const metaOk = new WeakSet();
 export function getMeta(create = false) {
     const md = ctx().chatMetadata;
     if (!md) return null;
@@ -107,7 +108,8 @@ export function getMeta(create = false) {
     let m = md[MODULE];
     // 예전 미트볼 라이트(v0.2.x)가 같은 열쇠에 남긴 기록은 모양이 달라서 새로 시작한다 (설정집 · 칸 목록이 없음)
     if (m && m.app !== 'lite3') { const keep = { book: m.book ?? null, start: m.start ?? null }; md[MODULE] = m = Object.assign(newMeta(), m.book?.world ? keep : {}); }
-    if (m) {
+    if (m && !metaOk.has(m)) { // 🏎 한 번 맞춘 메타는 다시 안 맞춤 (계산 중 수백 번 불려서 매번 newMeta를 만들던 것)
+        metaOk.add(m);
         const d = newMeta(); for (const k of Object.keys(d)) if (!Object.hasOwn(m, k)) m[k] = d[k];
         // 새로 생긴 칸은 켠 채로 (목록에 없으면 꺼진 게 아니라 아직 몰랐던 것)
         for (const id of MOD_IDS) if (typeof m.mods[id] !== 'boolean') m.mods[id] = d.mods[id];

@@ -7,7 +7,7 @@
     "js": "index.js",
     "css": "style.css",
     "author": "Meatball",
-    "version": "0.44.2",
+    "version": "0.45.0",
     "homePage": "https://github.com/dfzfs/meatballphone",
     "auto_update": true
 }

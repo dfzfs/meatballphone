@@ -11,8 +11,6 @@ import { CURRENT, currentApi, resetThink } from './src/rules/clsconn.js';
 import { parseStart, firstMessage } from './src/rules/firstmsg.js';
 import { drawFrame, drawChips, drawSheet, openSheet, closeSheet, openPast, bindOuter } from './src/ui/frame.js';
 import { sheet, toast, row, card } from './src/ui/kit.js';
-import { askCardName } from './src/ui/tabs.js';
-import { findAll } from './src/extra/find.js';
 import { initMascot, playMascotSound, MASCOT_SOUNDS } from './src/ui/mascot.js';
 import { mount as mountApi, announce } from './src/extra/api.js';
 import { backup, restore, toCard, fromCard, migrateOld, oldActive, wipeChat } from './src/extra/safe.js';
@@ -23,6 +21,12 @@ let resting = false;
 
 // ───── 새로 그리기 (한 번에 묶어서) ─────
 let pending = 0;
+// 🪪 카드 이름을 물어볼 일이 있을 때만 앱 화면 코드(tabs.js)를 불러온다
+function maybeAskCard(r) {
+    const c = ctx(), meta = getMeta(), card = String(c.characters?.[c.characterId]?.name ?? '').trim();
+    if (!card || c.groupId || !meta?.book || !r?.S?.rel?.[card] || personOf(meta.book, card) || (meta.cardAsked ?? []).includes(card) || !meta.book.people.length) return;
+    import('./src/ui/tabs.js').then(m => m.askCardName(r));
+}
 export function refresh(force = false) {
     if (resting) return;
     if (force) resetCache();
@@ -30,7 +34,7 @@ export function refresh(force = false) {
     cancelAnimationFrame(pending);
     pending = requestAnimationFrame(() => {
         const t0 = performance.now();
-        try { drawFrame(); drawChips(); if (document.getElementById('ml-full')) drawSheet(); inject(); announce(); syncChatState(); const r = !getMeta()?.off && fold(); if (r) askCardName(r); } catch (e) { console.error(`[${TITLE}]`, e); }
+        try { drawFrame(); drawChips(); if (document.getElementById('ml-full')) drawSheet(); inject(); announce(); syncChatState(); const r = !getMeta()?.off && fold(); if (r) maybeAskCard(r); } catch (e) { console.error(`[${TITLE}]`, e); }
         perf.refresh.push(performance.now() - t0); if (perf.refresh.length > 50) perf.refresh.shift();
     });
 }
@@ -54,7 +58,7 @@ export function inject() {
 }
 app.create = (useAI) => create(useAI);
 app.refresh = refresh; app.inject = inject; app.applyLook = () => applyLook(); app.lastInj = () => lastInj; app.perfLast = () => perf.turns.at(-1) ?? null; app.perfData = () => perf; app.openSheet = openSheet; app.closeSheet = closeSheet; app.openPast = openPast;
-app.find = () => findAll();
+app.find = async () => (await import('./src/extra/find.js')).findAll();
 app.setChatOff = (v) => setChatOff(v);
 app.jump = async (i) => {
     closeSheet();

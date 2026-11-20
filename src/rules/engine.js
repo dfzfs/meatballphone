@@ -38,8 +38,7 @@ export const pairKey = (a, b) => [a, b].sort().join('|');
 
 // ───── 한 메시지 적용 ─────
 // ch: 이 메시지에서 바뀐 것 [{ f, label, from, to, why, src, sure, i(줄 번호) }]
-function makeCtx(book, S, ch, flags) {
-    const G = glossList();
+function makeCtx(book, S, ch, flags, G = glossList()) {
     const people = () => [...book.people.map(p => ({ name: p.name, aka: [...p.aka, ...G.filter(g => g.to === p.name).map(g => g.from)] })), ...Object.keys(S.rel).filter(n => !personOf(book, n)).map(name => ({ name }))];
     const who = (raw) => match(raw, people())?.name ?? null;
     const need = (raw) => { const n = norm(raw); return book.me.needs.find(x => norm(x.key) === n || norm(x.name) === n) ?? null; };
@@ -740,13 +739,18 @@ function bookFor(meta, i) {
 }
 // ───── 접기 (캐시: 메시지마다 서명이 같으면 다시 계산하지 않음) ─────
 let cache = { chatId: null, bookSig: '', sig: [], states: [], changes: [], flags: [], base: null };
+const caches = new Map();
+let curCustom = [];
 const sigOf = (m) => (m.is_user ? `u${m.mes?.length}` : `${m.swipe_id ?? 0}:${m.mes?.length}:${msgData(m)?.rev ?? 0}:${m.is_system ? 1 : 0}`);
 // 메시지 i의 변화 줄: 태그(답 글) → 저장해 둔 ops → 손으로 고친 것 · 손댄 것
+// 🏎 답 글에서 사건 줄 읽기는 글이 같으면 한 번만 (메시지 칸에 저장 안 된 옛 답 · 다시 계산할 때마다 다시 읽던 것)
+const opsMemo = new WeakMap();
+function readOpsOf(m) { const t = m.mes ?? '', hit = opsMemo.get(m); if (hit && hit.t === t) return hit.ops; const ops = readOps(t); opsMemo.set(m, { t, ops }); return ops; }
 export function opsOf(m, book = null) {
     if (!m || m.is_user || m.is_system) return [];
     const sl = msgData(m);
     const src = sl?.src ?? 'tag'; // tag: 본편 태그 · cls: 분류 모델
-    const ops = (sl?.ops ?? readOps(m.mes)).map(([k, v], j) => ({ k, v, src, j }));
+    const ops = (sl?.ops ?? readOpsOf(m)).map(([k, v], j) => ({ k, v, src, j }));
     for (const [j, h] of (sl?.hand ?? []).entries()) ops.push({ k: h.k, v: h.v, src: h.src ?? 'hand', why: h.why, j: 1000 + j });
     const undo = new Set(sl?.undo ?? []);
     return ops.filter(o => !undo.has(o.j));
@@ -762,7 +766,10 @@ export function fold(force = false) {
     const last = chat[chat.length - 1], qk = `${id}|${chat.length}|${last ? sigOf(last) : ''}|${metaRev}|${meta.book === quick.book ? 1 : 0}`;
     if (!force && quick.r && quick.key === qk) return quick.r;
     const bsig = hash(JSON.stringify(meta.book) + JSON.stringify(meta.start ?? {}) + (meta.startAt ?? 0) + JSON.stringify(meta.ruleVers ?? []) + JSON.stringify(meta.preHand ?? []));
+    // 💾 채팅마다 계산 결과를 메모리에 둔다 (최근 4개 채팅) — 다른 채팅에 갔다 와도 처음부터 다시 안 셈
+    if (cache.chatId !== id) { if (cache.chatId != null) { caches.delete(cache.chatId); caches.set(cache.chatId, cache); while (caches.size > 4) caches.delete(caches.keys().next().value); } const old = caches.get(id); if (old) cache = old; }
     if (force || cache.chatId !== id || cache.bookSig !== bsig) cache = { chatId: id, bookSig: bsig, sig: [], snap: [], needs: [], at: [], changes: [], flags: [], base: null, last: null };
+    const G = glossList(); curCustom = meta.custom ?? [];
     if (!cache.base) {
         cache.base = startState(meta);
         // ✋ AI 답이 아직 없을 때 고친 것(다른 곡 · AI로 수정 · 직접 고치기)은 시작 상태에 붙인다
@@ -782,7 +789,7 @@ export function fold(force = false) {
         const m = chat[i], ch = [], flags = [];
         if (!m.is_user && !m.is_system && i >= (meta.startAt ?? 0)) {
             S.mind = {}; S.watch = {}; S.cell = {}; S.turn++;
-            const bk = bookFor(meta, i), x = makeCtx(bk, S, ch, flags);
+            const bk = bookFor(meta, i), x = makeCtx(bk, S, ch, flags, G);
             const W = null, P = { tasted: S.tasted?.length ?? 0, visited: S.visited?.length ?? 0, rolls: S.rolls?.length ?? 0, kept: (S.promises ?? []).filter(q => q.done).length, custom: JSON.stringify(S.custom) }; // ⭐ 이 답 전에 원하던 것 · 그때 개수
             for (const o of opsOf(m, bk)) { const n0 = ch.length; try { applyOp(bk, S, x, o.k, o.v, o.j, o.src, ch); } catch (e) { console.warn('[미트볼폰] 줄 건너뜀', o, e); } if (o.why) for (let q = n0; q < ch.length; q++) if (ch[q].src === o.src) ch[q].why = o.why; }
             for (const e of [...(S.mindLog ?? []), ...(S.bgmLog ?? []), ...(S.quoteLog ?? []), S.bgm, S.quote]) if (e) e.m ??= i; // 💭🎵📜 몇 번째 메시지에서 떴나
@@ -800,12 +807,13 @@ export function fold(force = false) {
 // 🕰 그때 상태: 가장 가까운 사진에서 그 메시지까지 다시 계산 (읽기 전용)
 export function stateAt(i) {
     const meta = getMeta(), chat = ctx().chat ?? []; if (!meta?.book || i < 0) return null;
+    curCustom = meta.custom ?? []; const G = glossList();
     let k = i; while (k >= 0 && !cache.snap[k]) k--;
     const S = structuredClone(k >= 0 ? cache.snap[k] : cache.base);
     for (let j = k + 1; j <= i && j < chat.length; j++) {
         const m = chat[j]; if (m.is_user || m.is_system || j < (meta.startAt ?? 0)) continue;
         const ch = [], flags = []; S.mind = {}; S.watch = {}; S.cell = {}; S.turn++;
-        const bk = bookFor(meta, j), x = makeCtx(bk, S, ch, flags), W = null, P = { tasted: S.tasted?.length ?? 0, visited: S.visited?.length ?? 0, custom: JSON.stringify(S.custom) };
+        const bk = bookFor(meta, j), x = makeCtx(bk, S, ch, flags, G), W = null, P = { tasted: S.tasted?.length ?? 0, visited: S.visited?.length ?? 0, custom: JSON.stringify(S.custom) };
         for (const o of opsOf(m, bk)) { try { applyOp(bk, S, x, o.k, o.v, o.j, o.src, ch); } catch { /* 건너뜀 */ } }
         afterTurn(bk, S, x, ch, W, j, P);
     }
@@ -826,7 +834,7 @@ export function startState(meta) {
     if (st.pairs) S.pairs = { ...S.pairs, ...structuredClone(st.pairs) };
     return S;
 }
-export const resetCache = () => { cache.chatId = null; quick.key = ''; };
+export const resetCache = () => { cache.chatId = null; caches.clear(); quick.key = ''; };
 
 // 지금 이 시간에 인물이 있을 곳: 같이 있음 → 하루 루틴(시간대) → 자주 있는 곳으로
 export function whereNow(book, S, p) {
@@ -842,7 +850,7 @@ export function whereNow(book, S, p) {
 function afterTurn(book, S, x, ch, W, i, P) {
     // 🧩 내 탭: 「높음」 경계를 넘는 순간 → 경계 문구 (본편 힌트) + 다른 칸과 연결 (예: 「기분 -5」)
     const before = JSON.parse(P.custom || '{}');
-    for (const t of getMeta()?.custom ?? []) for (const f of t.fields ?? []) {
+    for (const t of curCustom) for (const f of t.fields ?? []) {
         if (!f.max) continue; const hi = f.stages?.[1] ?? 70, a = num(before[t.name]?.[f.name], -1), b = num(S.custom[t.name]?.[f.name], -1);
         if (a < hi && b >= hi) {
             ch.push({ f: `custom.${t.name}.${f.name}`, label: `${t.name} · ${f.name} 높음`, icon: t.icon || '🧩', from: a, to: b, why: f.say || '경계를 넘음', src: 'auto', sure: true, i, cross: true, say: f.say });

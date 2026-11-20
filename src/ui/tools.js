@@ -10,7 +10,7 @@ import { fold } from '../rules/engine.js';
 import { normBook, placeOf, PLACE_KINDS, fxOf } from '../rules/book.js';
 import { ask, parseJSON } from '../rules/ai.js';
 import { readOps } from '../rules/tags.js';
-import { glossList, gloss } from '../base/gloss.js';
+import { glossList, gloss, applyGloss } from '../base/gloss.js';
 import { trOn, trList, flush, trRules, trOrig } from '../extra/translate.js';
 export { glossList, gloss };
 
@@ -712,13 +712,7 @@ export function glossFill() {
     saveMeta(); app.refresh?.(true); editGloss(); toast(`용어 ${L.length}개`);
 }
 // 화면에 고정 번역 적용 (상태창 안의 글자만)
-export function applyGloss(root) {
-    const L = glossList(); if (!L.length || !root) return;
-    const res = L.map(g => [new RegExp(g.from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), g.to]);
-    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: (n) => (n.parentElement?.closest('input, textarea, script, style, .ml-gloss-off') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT) });
-    const nodes = []; while (w.nextNode()) nodes.push(w.currentNode);
-    for (const n of nodes) { let t = n.nodeValue; for (const [re, to] of res) t = t.replace(re, to); if (t !== n.nodeValue) n.nodeValue = t; }
-}
+export { applyGloss }; // 🌐 base/gloss.js로 옮김 (HUD가 tools.js를 안 불러도 되게)
 
 // 도구줄 누르기
 export async function onTool(act, v) {
