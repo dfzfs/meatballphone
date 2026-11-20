@@ -102,8 +102,7 @@ const SCHEMA = `{"world":{"genre":"","currency":"","meal":10,"weather":["맑음"
     + `것","noLove":false}]}`;
 export async function fillBook(only = null, pick = undefined) {
     const src = await sources(pick);
-    const en = settings().saveLang === 'en';
-    const sys = `You build a compact status-sheet rulebook for a roleplay. Output JSON only. ${en ? 'English values.' : 'Korean values.'} `
+    const sys = `You build a compact status-sheet rulebook for a roleplay. Output JSON only. Korean values. `
         + 'Keep every person and place NAME exactly as spelled in the source (never translate or transliterate names); put other spellings or readings (e.g. a Korean reading of an English name) in "aka". '
         + 'The SOURCE is the truth. It may be an AU or an original setting that changes canon (e.g. a modern-day AU of a known series): follow the source and the first message, '
         + 'and never bring in canon places, items, ships, powers or events that the source does not use. Places, goods, prices, currency (name it as this setting would, e.g. 원, 달러, Gold) and routines must fit THIS setting. '

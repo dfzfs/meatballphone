@@ -12,12 +12,12 @@ import { loveAct } from './love.js';
 import { setView, setAct, setChange } from './setapp.js';
 import { bindHomeEdit } from './homeedit.js';
 import { toolbar, onTool, TOOL_ACTS, applyGloss } from './tools.js';
-import { applyTr, trOn, trBusy } from '../extra/translate.js';
 import { glossList } from '../base/gloss.js';
 import { chip, sheet, bar, toast, layerHost, resetLayerHost } from './kit.js';
 
 import { mascot } from './mascot.js';
 import { isWaiting } from '../rules/classify.js';
+import { applyTr, trSig, trBusy } from '../extra/tr.js';
 import { chipCheck } from '../extra/doctor.js';
 let cur = 'home', past = null, lastHtml = ''; // lastHtml: 지난번에 그린 폰 화면 (같으면 다시 안 그림)
 // ───── 전체화면 ─────
@@ -88,7 +88,7 @@ export function drawSheet() {
     if (same && lastHtml === html && paintSig === sigNow() && el.querySelector('.ml-body')) return; // 🏎 같은 화면이면 그대로
     paint(el, html, same, scroll); lastHtml = html;
     el.querySelector('.ml-pill.tr-busy')?.remove();
-    if (trOn() && trBusy()) el.querySelector('.ml-sp')?.insertAdjacentHTML('beforebegin', '<span class="ml-pill tr-busy">🌐 번역 중…</span>');
+    if (trBusy()) el.querySelector('.ml-sp')?.insertAdjacentHTML('beforebegin', '<span class="ml-pill tr-busy">🌐</span>');
     if (a && !a.sys) markSeen(cur, r);
 }
 // 🧩 바뀐 칸만 갈아 끼우기 — 새 글을 맨 위(머리 · 본문) → 본문 안 칸(위젯 · 카드)으로 나눠 보고, 글이 같은 칸은 DOM을 그대로 둔다
@@ -108,14 +108,14 @@ function patch(box, html, depth = 0) {
     });
     return changed;
 }
-// 용어집 · 번역 사전이 바뀌면 글이 같아도 다시 칠해야 함 → 서명이 바뀌면 통째로
+// 용어집이 바뀌면 글이 같아도 다시 칠해야 함 → 서명이 바뀌면 통째로
 let paintSig = '';
-const sigNow = () => { const m = getMeta(); return `${JSON.stringify(glossList())}|${Object.keys(m?.tr ?? {}).length}|${trOn() ? 1 : 0}|${m?.trOrig ? 1 : 0}`; };
+const sigNow = () => `${JSON.stringify(glossList())}|${trSig()}`;
 function paint(el, html, same, scroll) {
     const sig = sigNow(); if (sig !== paintSig) { paintSig = sig; same = false; }
     if (!same) live(el).forEach(n => n.remove());
     const ch = patch(el, html), body = el.querySelector('.ml-body');
-    for (const n of ch) if (body && (n === body || body.contains(n))) { applyGloss(n); applyTr(n); }
+    for (const n of ch) if (body && (n === body || body.contains(n))) { applyTr(n); applyGloss(n); }
     if (same && body && body.scrollTop !== scroll) body.scrollTop = scroll;
     perfPaint.n++; perfPaint.nodes += ch.length;
 }

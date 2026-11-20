@@ -11,7 +11,6 @@ import { normBook, placeOf, PLACE_KINDS, fxOf } from '../rules/book.js';
 import { ask, parseJSON } from '../rules/ai.js';
 import { readOps, kindOf } from '../rules/tags.js';
 import { glossList, gloss, applyGloss } from '../base/gloss.js';
-import { trOn, trList, flush, trRules, trOrig } from '../extra/translate.js';
 export { glossList, gloss };
 
 // 앱 → 영향력 게이지 칸 (🙈 숨기기가 끄는 것)
@@ -635,12 +634,12 @@ export async function aiEdit(appId) {
     });
 }
 
-// ───── 🌐 용어집 (번역 고정): 「Leon → 레온」 — 상태창 화면 · 이름 맞추기 · 미트볼 AI 호출에 늘 같은 말 ─────
+// ───── 🌐 용어집 (표기 고정): 「Leon → 레온」 — 상태창 화면 · 이름 맞추기 · 미트볼 AI 호출에 늘 같은 말 ─────
 export async function editGloss() {
     const meta = getMeta(), all = settings().glossary ?? [], chat = meta.glossary ?? [];
     const rows = [...chat.map((g, i) => ({ ...g, sc: 'chat', i })), ...all.map((g, i) => ({ ...g, sc: 'all', i }))];
     sheet(
-        '🌐 용어집 · 번역 고정',
+        '🌐 용어집 · 표기 고정',
         `<div class="ml-hint">한 번 정해 두면 상태창 화면 · 이름 맞추기 · 미트볼 AI가 늘 이 말을 써요. 본편에는 안 가요.</div><div class="ml-card">${
             rows
                 .map(
@@ -650,28 +649,24 @@ export async function editGloss() {
                 )
                 .join('') || '<div class="ml-row"><span class="ml-tx"><small>아직 없어요</small></span></div>'
         }` +
-            `</div><div class="ml-acts">${btn('＋ 용어', 'g-edit', '')}${btn('📘 설정집 이름 모두 넣기', 'g-fill', '')}</div>${
-                trOn()
-                    ? `<h4 class="ml-h4">번역 사전 <span>영어 저장 · 화면만 한국어 · 누르면 고치기</span></h4><div class="ml-card">${
-                          trList()
-                              .map(
-                                  ([k, v]) =>
-                                      `<div class="ml-row tap" data-act="tr-edit" data-v="${esc(k)}"><span class="ml-tx"><b>${esc(k)} → ${esc(v)}</b></span><span class="ml-val"><i ` +
-                                      `class="ml-chev">›</i></span></div>`,
-                              )
-                              .join('') ||
-                          '<div class="ml-row"><span class="ml-tx"><small>아직 없어요 · 화면을 열면 모아서 번역해요</small></span></div>'
-                      }` +
-                      `</div><div class="ml-card">${
-                          `<div class="ml-row tap" data-act="tr-rules"><span class="ml-tx"><b>📏 번역 규칙</b><small>${esc(trRules() || '없음 · 예: 이름은 원어 발음대로 · 짧게 · 존댓말 없이')}` +
-                          `</small></span><span class="ml-val"><i class="ml-chev">›</i></span></div><div class="ml-row tap" data-act="tr-orig"><span class="ml-tx">` +
-                          `<b>👁 원문 보기</b><small>${trOrig() ? '지금 영어 그대로 보는 중 · 누르면 다시 번역' : '잠깐 영어 그대로 보기'}</small></span></div>`
-                      }</div><div ` +
-                      `class="ml-acts">${btn('🔄 지금 번역', 'tr-now', '', 'xs')}${btn('♻️ 사전 다시 만들기', 'tr-redo', '', 'xs')}${btn('🗑 사전 비우기', 'tr-clear', '', 'xs')}` +
-                      `</div>`
-                    : '<div class="ml-hint">영어로 저장하는 채팅이면 확장 설정에서 「상태창 저장 언어: 영어」를 고르세요. 화면만 한국어로 보여요.</div>'
-            }`,
+            `</div><div class="ml-acts">${btn('＋ 용어', 'g-edit', '')}${btn('📘 설정집 이름 모두 넣기', 'g-fill', '')}</div>`
+            + '<div class="ml-hint">영어 · 숫자로 된 말은 낱말 그대로만 바꿔요 (「Leo」는 「Leon」 안에서 안 바뀜) · 대소문자 · 띄어쓰기 · 하이픈은 같게 봐요 · 같은 말이면 이 채팅 것이 먼저예요.</div>'
+            + (await trSection()),
     );
+}
+// 🌐 번역 (확장 설정에서 켰을 때만) — 누르면 고치기 · 다시 번역 · 용어집에 고정 · 원문 그대로
+async function trSection() {
+    const T = await import('../extra/tr.js'); if (T.trMode() === 'off') return '<div class="ml-hint">상태창 번역은 꺼져 있어요 · 확장 설정 › 미트볼폰 › 🌐 상태창 번역에서 무료 · 빠름 또는 제대로(AI)를 골라요.</div>';
+    const D = T.dict(), E = Object.entries(D).reverse(), CAT = Object.fromEntries(T.TR_CATS.map(([, c, l]) => [c, l]));
+    const rows = E.slice(0, 120).map(([src, e]) => `<div class="ml-row tap ml-tr-off" data-act="tr-item" data-v="${esc(src)}"><span class="ml-tx"><b>${esc(short(src, 40))} → ${esc(short(e.t === src ? '(원문 그대로)' : e.t, 40))}</b>`
+        + `<small>${esc(CAT[e.c] ?? e.c)}${e.k ? ' · ✋ 직접 고침' : ''}</small></span><span class="ml-val"><i class="ml-chev">›</i></span></div>`).join('');
+    const st = T.trStats;
+    return `<h4 class="ml-h4">번역 <span>${T.trMode() === 'ai' ? '제대로 (AI)' : '무료 · 빠름'} · ${E.length}개${st.calls ? ` · 최근 ${st.ms}ms` : ''}${T.trBusy() ? ' · 번역 중' : ''}</span></h4>`
+        + (st.lastError ? `<div class="ml-hint bad ml-tr-off">⚠ ${esc(st.lastError)}</div>` : '')
+        + `<div class="ml-acts">${btn('🔄 전부 다시', 'tr-re', '')}${T.TR_CATS.map(([, c, l]) => btn(`🔄 ${l}`, 'tr-re', c, 'xs')).join('')}</div>`
+        + `<div class="ml-card">${rows || '<div class="ml-row"><span class="ml-tx"><small>아직 없어요 · 새로 나온 말이 생기면 모아서 한 번에 번역해요</small></span></div>'}</div>`
+        + (E.length > 120 ? `<div class="ml-hint">최근 120개만 보여요 · 🔍 검색으로 찾을 수 있어요</div>` : '')
+        + '<div class="ml-hint">✋ 직접 고친 번역은 「다시」 버튼에서 빠져요 (하나씩 눌러 다시 번역은 돼요).</div>';
 }
 export async function glossItem(v) {
     const meta = getMeta();
@@ -782,85 +777,28 @@ export async function onTool(act, v) {
             return glossItem(v);
         case 'g-fill':
             return glossFill();
-        case 'tr-edit': {
-            const cur = meta.tr?.[v] ?? '';
-            const fv = await form('🌐 번역 고치기', [
-                { k: 'to', label: esc(v), v: cur },
-                {
-                    k: 'how',
-                    label: '어디에',
-                    type: 'pick',
-                    v: 'tr',
-                    opts: [
-                        ['tr', '번역 사전 (이 채팅)'],
-                        ['fix', '🌐 용어집에 고정'],
-                        ['del', '지우고 다시 번역'],
-                    ],
-                },
+        case 'tr-re': {
+            const T = await import('../extra/tr.js'), n = T.retranslate({ cat: v || null });
+            toast(n ? `${n}개 다시 번역해요` : '다시 번역할 게 없어요');
+            return editGloss();
+        }
+        case 'tr-item': {
+            const T = await import('../extra/tr.js'), e = T.dict()[v]; if (!e) return editGloss();
+            const fv = await form('🌐 번역', [
+                { k: 't', label: esc(short(v, 120)), v: e.t === v ? '' : e.t, ph: '비우면 원문 그대로' },
+                { k: 'how', label: '어떻게', type: 'pick', v: 'fix', opts: [['fix', '이대로 저장 (✋ 고정)'], ['again', '이것만 다시 번역'], ['gloss', '🌐 용어집에 고정'], ['keep', '원문 그대로 두기'], ['del', '지우기']] },
             ]);
-            if (!fv) return;
-            if (fv.how === 'del') delete meta.tr[v];
-            else if (fv.how === 'fix') {
-                (meta.glossary ??= []).push({ from: v, to: fv.to.trim() || cur });
-                delete meta.tr[v];
-            } else (meta.tr ??= {})[v] = fv.to.trim() || cur;
-            saveMeta();
-            app.refresh?.();
+            if (!fv) return editGloss();
+            const t = String(fv.t ?? '').trim();
+            if (fv.how === 'again') T.retranslate({ src: v });
+            else if (fv.how === 'gloss') { (meta.glossary ??= []).push({ from: short(v, 60), to: short(t || e.t, 60) }); T.dropTr(v); saveMeta(); }
+            else if (fv.how === 'keep') T.setTr(v, v);
+            else if (fv.how === 'del') T.dropTr(v);
+            else T.setTr(v, t || v);
             return editGloss();
         }
-        case 'tr-now':
-            await flush();
-            return editGloss();
-        case 'tr-rules': {
-            const fv = await form('📏 번역 규칙', [
-                {
-                    k: 't',
-                    label: '규칙 (AI 번역에 같이 감 · 본편엔 안 감)',
-                    type: 'area',
-                    v: meta.trRules ?? settings().trRules ?? '',
-                    chips: ['이름은 원어 발음대로', '짧고 게임 UI처럼', '존댓말 없이', '판타지 말투로'],
-                },
-                {
-                    k: 'sc',
-                    label: '어디에',
-                    type: 'pick',
-                    v: meta.trRules ? 'chat' : 'all',
-                    opts: [
-                        ['chat', '이 채팅'],
-                        ['all', '모든 채팅'],
-                    ],
-                },
-            ]);
-            if (!fv) return;
-            if (fv.sc === 'chat') meta.trRules = fv.t.trim().slice(0, 200);
-            else {
-                settings().trRules = fv.t.trim().slice(0, 200);
-                meta.trRules = '';
-                saveSettings();
-            }
-            saveMeta();
-            return editGloss();
-        }
-        case 'tr-orig':
-            meta.trOrig = !meta.trOrig;
-            saveMeta();
-            app.refresh?.();
-            return editGloss();
-        case 'tr-redo': {
-            const keep = new Set(glossList().map((g) => g.from));
-            meta.tr = Object.fromEntries(Object.entries(meta.tr ?? {}).filter(([k]) => keep.has(k)));
-            saveMeta();
-            app.refresh?.();
-            setTimeout(() => flush(), 300);
-            return editGloss();
-        }
-        case 'tr-clear':
-            meta.tr = {};
-            saveMeta();
-            app.refresh?.();
-            return editGloss();
         default:
             return editItem(act, v);
     }
 }
-export const TOOL_ACTS = new Set(['t-rules', 'eye-set', 'tr-edit', 'tr-now', 'tr-clear', 'tr-rules', 'tr-orig', 'tr-redo', 't-edit', 't-ai', 't-hide', 't-parts', 't-gloss', 't-eye', 'g-edit', 'g-fill', 'e-need', 'e-gauge', 'e-attr', 'e-status', 'e-add-stat', 'e-item', 'e-place', 'e-cfield', 'e-mark']);
+export const TOOL_ACTS = new Set(['t-rules', 'eye-set', 't-edit', 't-ai', 't-hide', 't-parts', 't-gloss', 't-eye', 'g-edit', 'g-fill', 'tr-re', 'tr-item', 'e-need', 'e-gauge', 'e-attr', 'e-status', 'e-add-stat', 'e-item', 'e-place', 'e-cfield', 'e-mark']);

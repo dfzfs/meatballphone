@@ -4,8 +4,10 @@ import { app, ctx, settings, getMeta, modOn, ready, msgData } from '../base/st.j
 import { esc, dateText, periodName, short, fmt } from '../base/util.js';
 import { fold, derived, needStage } from '../rules/engine.js';
 import { placeOf } from '../rules/book.js';
-import { applyGloss } from '../base/gloss.js';
-import { applyTr } from '../extra/translate.js';
+import { applyGloss, glossList } from '../base/gloss.js';
+import { applyTr, trSig } from '../extra/tr.js';
+// 번역 사전 · 용어집이 바뀌면 같은 글이어도 다시 칠함
+const paintKey = (h) => `${h}|${trSig()}|${glossList().length}`;
 import { chip, bar, layerHost } from './kit.js';
 import { mascot } from './mascot.js';
 import { isWaiting } from '../rules/classify.js';
@@ -77,7 +79,7 @@ export function drawFrame() {
     if (settings().hud) {
         if (!hud) { hud = document.createElement('div'); hud.id = 'ml-hud'; hud.className = 'ml-scope'; const host = document.getElementById('sheld') ?? document.body; settings().hudPos === 'bottom' ? (document.getElementById('form_sheld') ?? host).before(hud) : host.prepend(hud); }
         const h = `<button class="ml-h tap" data-act="open" data-v="home">😼</button>${hudHTML(r)}${getMeta().paused ? '<span class="ml-h bad">⏸</span>' : ''}`;
-        if (hud.dataset.h !== h) { hud.innerHTML = h; hud.dataset.h = h; applyGloss(hud); applyTr(hud); }
+        if (hud.dataset.h !== paintKey(h)) { hud.innerHTML = h; hud.dataset.h = paintKey(h); applyTr(hud); applyGloss(hud); }
     } else hud?.remove();
     if (settings().minibar) {
         if (!mb) { mb = document.createElement('div'); mb.id = 'ml-mini'; mb.className = 'ml-scope'; layerHost().appendChild(mb); }
@@ -122,7 +124,7 @@ export function drawChips() {
         const h = cls + none + fl.map(f => chip(`⚠ 확인 필요 · ${esc(short(f.text, 24))}`, 'bad')).join('') + ch.slice(0, 8).map(c => chip(`${c.icon} ${esc(c.label)} ${typeof c.to === 'number' && typeof c.from === 'number' ? (c.f === 'time' ? '' : signed2(c.to - c.from)) : esc(c.to)}`
             + `${c.why ? ` · ${esc(short(c.why, 12))}` : ''}`, c.kind === 'bad' || (typeof c.to === 'number' && c.to < c.from) ? 'bad' : 'good', 'turncard', String(i))).join('') + (ch.length > 8 ? chip(`+${ch.length - 8}`, 'mid', 'turncard', String(i)) : '');
         if (!box) { box = document.createElement('div'); box.className = 'ml-msg ml-scope'; el.after(box); }
-        if (box.dataset.h !== h) { box.innerHTML = h; box.dataset.h = h; applyTr(box); }
+        if (box.dataset.h !== paintKey(h)) { box.innerHTML = h; box.dataset.h = paintKey(h); applyTr(box); applyGloss(box); }
     }
 }
 const signed2 = (n) => (n > 0 ? `+${Math.round(n)}` : `−${Math.abs(Math.round(n))}`);

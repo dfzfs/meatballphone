@@ -5,7 +5,7 @@ import { kindOf } from '../rules/tags.js';
 
 export const MODULE = 'meatlite';
 export const OLD = 'statussim';
-export const VERSION = '0.46.2';
+export const VERSION = '0.47.0';
 export const DATA_V = 2;
 export const TITLE = '미트볼폰';
 export const INJ = { facts: 'meatlite_facts', hint: 'meatlite_hint', rule: 'meatlite_rule' };
@@ -37,9 +37,6 @@ export const DEFAULTS = Object.freeze({
     oocPattern: '^\\s*(\\(\\(|\\[?\\(?\\s*ooc\\b|//)',
     injectDepth: 1,
     profile: '',            // 상태창 만들기 · 번역에 쓸 연결 프로필 (비우면 지금 연결)
-    saveLang: 'ko',         // 상태창 저장 언어: ko | en (en이면 화면 번역)
-    trEngine: 'st',          // 번역 담당: st = 실리 기본 번역(무료 · 빠름 · 늘 저절로) | ai = AI(분류 연결 · 토큰)
-    trAuto: 'ai',            // 영어 저장일 때 모르는 말: ai(모아서 1회) | off(직접만)
     musicApp: 'youtube',
     musicTaste: '',         // 음악 취향 기본값 (채팅마다 덮어쓰기 가능)
     musicPop: 'on',         // 곡이 바뀌면 작은 알림
@@ -49,8 +46,11 @@ export const DEFAULTS = Object.freeze({
     pinBook: 'auto',        // 설정집 한두 줄을 본편에 붙일지: auto | off
     injExtra: '',           // ✍ 본편에 덧붙일 지시 (모든 채팅 · 채팅마다 meta.injExtra가 먼저)
     clsExtra: '',           // ✍ 분류 모델에 덧붙일 지시
+    trMode: 'off',          // 🌐 상태창 번역: off | free(실리태번 기본 번역 · 무료 · 빠름) | ai(고른 AI · 제대로)
+    trProfile: '',          // AI 번역 연결 (비우면 상태창 만들기 연결)
+    trSent: true, trPhrase: true, trPlace: false, trName: false, trUnit: false, // 번역할 종류 (장소 · 명칭은 용어집으로 고치기 권함)
 });
-const SETTING_EXTRA = new Set(['glossary', 'trRules', 'partsOff', 'tidied']);
+const SETTING_EXTRA = new Set(['glossary', 'partsOff', 'tidied']);
 export function settings() {
     const es = ctx().extensionSettings;
     if (!es[MODULE]) es[MODULE] = clone(DEFAULTS);
@@ -59,7 +59,8 @@ export function settings() {
     for (const k of Object.keys(DEFAULTS.look)) if (!Object.hasOwn(s.look, k)) s.look[k] = DEFAULTS.look[k];
     if (typeof s.mascotSound === 'boolean') s.mascotSound = s.mascotSound ? 'meow' : 'off';
     // 한 번 정리: 지금 쓰지 않는 옛 설정 키는 지운다
-    if ((s.tidied ?? 0) < 2) { for (const k of Object.keys(s)) if (!Object.hasOwn(DEFAULTS, k) && !SETTING_EXTRA.has(k)) delete s[k]; s.tidied = 2; }
+    if ((s.tidied ?? 0) < 3) { // 3: 화면 번역(저장 언어 · 번역 담당 · 번역 규칙)을 들어냄
+        for (const k of Object.keys(s)) if (!Object.hasOwn(DEFAULTS, k) && !SETTING_EXTRA.has(k)) delete s[k]; s.tidied = 3; }
     return s;
 }
 

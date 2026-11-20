@@ -5,7 +5,6 @@ import { fold, opsOf } from '../rules/engine.js';
 import { kindOf } from '../rules/tags.js';
 import { stats as aiStats } from '../rules/ai.js';
 import { injTokens } from '../rules/inject.js';
-import { trOn, trBusy } from './translate.js';
 import { mode, modeNote, clsStats } from '../rules/classify.js';
 import { oldActive } from './safe.js';
 import { sheet, btn } from '../ui/kit.js';
@@ -80,7 +79,6 @@ export function doctorRows(app, perf) {
     // 저장 크기
     let bytes = 0; for (const m of chat) if (m.extra?.[MODULE]) bytes += JSON.stringify(m.extra[MODULE]).length; bytes += JSON.stringify(meta ?? {}).length;
     add(bytes < 400000 ? 'good' : 'mid', `채팅에 붙은 상태창 데이터 ${Math.round(bytes / 1024)}KB`, bytes < 400000 ? '가벼워요' : '조금 커요 · 오래된 채팅은 새 채팅으로 이어 가 보세요');
-    if (trOn()) add(trBusy() ? 'mid' : 'good', '상태창 번역', `영어 저장 · 사전 ${Object.keys(meta?.tr ?? {}).length}개${trBusy() ? ' · 번역 기다리는 중' : ''}`);
     return L;
 }
 export function doctor(app, perf) {

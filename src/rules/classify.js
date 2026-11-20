@@ -112,7 +112,7 @@ export function buildPrompt(i) {
         nowLine(S),
         `[PLACES] ${places || '-'}`,
         `[KEYS]\n${keys}`,
-        gloss(),
+        gloss(`${story}\n${u >= 0 ? chat[u].mes : ''}`),
         u >= 0 ? `[USER] ${short(storyOnly(chat[u].mes), 300)}` : '',
         `[REPLY]\n${short(story, 4000)}`,
     ].filter(Boolean).join('\n\n');

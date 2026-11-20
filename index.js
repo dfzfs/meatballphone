@@ -15,6 +15,7 @@ import { initMascot, playMascotSound, MASCOT_SOUNDS } from './src/ui/mascot.js';
 import { mount as mountApi, announce } from './src/extra/api.js';
 import { backup, restore, toCard, fromCard, migrateOld, oldActive, wipeChat } from './src/extra/safe.js';
 import { initLog, reportSheet } from './src/extra/report.js';
+import { trScan, TR_CATS } from './src/extra/tr.js';
 
 const perf = { turns: [], refresh: [] };
 let resting = false;
@@ -34,7 +35,7 @@ export function refresh(force = false) {
     cancelAnimationFrame(pending);
     pending = requestAnimationFrame(() => {
         const t0 = performance.now();
-        try { drawFrame(); drawChips(); if (document.getElementById('ml-full')) drawSheet(); inject(); announce(); syncChatState(); const r = !getMeta()?.off && fold(); if (r) maybeAskCard(r); } catch (e) { console.error(`[${TITLE}]`, e); }
+        try { drawFrame(); drawChips(); if (document.getElementById('ml-full')) drawSheet(); inject(); announce(); syncChatState(); const r = !getMeta()?.off && fold(); if (r) { maybeAskCard(r); trScan(r); } } catch (e) { console.error(`[${TITLE}]`, e); }
         perf.refresh.push(performance.now() - t0); if (perf.refresh.length > 50) perf.refresh.shift();
     });
 }
@@ -250,10 +251,9 @@ ${sw('enabled', '켜기 (모든 채팅)')}<label class="checkbox_label"><input t
 <h4>AI</h4>${sel('preset', '본편 지시', [['flash', '플래시용 (짧은 키 + 예시)'], ['general', '일반']])}`
         + `${sw('skipQuiet', '퀵리플라이 · /gen 답엔 안 붙이기')}${sw('ooc', 'OOC 메시지는 건너뛰기')}
 ${sel('mode', '사건 고르기', [['B', 'B. 분류 모델 (본편은 소설만 · 답마다 1회)'], ['A', 'A. 본편 태그 (추가 호출 0회)']])}${clsPick()}`
-        + `${modeNote() ? `<small class="ml-set-note">⚠ ${esc(modeNote())}</small>` : ''}${prof('profile', '상태창 만들기 · 번역 연결', '지금 연결')}
+        + `${modeNote() ? `<small class="ml-set-note">⚠ ${esc(modeNote())}</small>` : ''}${prof('profile', '상태창 만들기 연결', '지금 연결')}
 ${sel('pinBook', '장면 인물의 증상 한 줄 본편에', [['auto', '붙이기'], ['off', '안 붙이기']])}
-<h4>번역</h4>${sel('saveLang', '상태창 저장 언어', [['ko', '한국어'], ['en', '영어 (화면만 한국어로)']])}`
-        + `${sel('trEngine', '번역 담당', [['st', '실리 기본 번역 (무료 · 빠름 · 추천)'], ['ai', 'AI (분류 연결 · 토큰 씀)']])}${s.trEngine === 'ai' ? sel('trAuto', 'AI 번역', [['ai', '모아서 저절로 (1회씩)'], ['off', '직접 고친 것만']]) : ''}
+<h4>🌐 상태창 번역</h4>${sel('trMode', '번역', [['off', '끄기'], ['free', '무료 · 빠름 (실리태번 기본 번역)'], ['ai', '제대로 (AI · 토큰 씀)']])}${s.trMode === 'ai' ? prof('trProfile', 'AI 번역 연결', '상태창 만들기 연결') : ''}${s.trMode !== 'off' && s.trMode ? `<small class="ml-set-note">번역할 것</small>${TR_CATS.map(([k, , l, d]) => sw(k, `${l} <small>(${d})</small>`)).join('')}<small class="ml-set-note">용어집에 있는 말은 번역기를 안 거치고 바로 바뀌어요 · 새로 나온 말만 모아서 한 번에 보내요 · 다시 번역은 폰의 🌐 용어집에서</small>` : ''}
 <h4>저장 · 옮기기</h4><div class="ml-set-btns"><button class="menu_button" data-ml="perf">🏎 부하 재기</button><button class="menu_button" data-ml="report">📋 전체 복사</button><button class="menu_button" data-ml="doctor">🩺 `
         + `자가 진단</button><button class="menu_button" data-ml="backup">💾 백업</button><button class="menu_button" data-ml="restore">📂 불러오기</button>`
         + `<button class="menu_button" data-ml="card">🃏 카드에 붙이기</button><button class="menu_button" data-ml="migrate">🍖 옛 미트볼 옮겨 오기</button><button class="menu_button" data-ml="wipe">🗑 이 채팅 기록 전부 지우기</button></div>
@@ -280,7 +280,7 @@ function mountSettings() {
         if (k === 'mascotSound' || k === 'mascotVolume') playMascotSound();
         if (lk) settings().look[lk] = t.type === 'range' ? Number(t.value) : t.value;
         saveSettings(); applyLook(); document.getElementById('ml-hud')?.remove(); refresh();
-        if (k === 'mode' || k === 'clsProfile' || k === 'trEngine') mountSettings();
+        if (k === 'mode' || k === 'clsProfile' || k === 'trMode') mountSettings();
         if (k === 'clsProfile' || k === 'clsModel') resetThink(); // 「A로 돌아감」 알림 다시 그리기
     });
     box.addEventListener('click', async (e) => {
