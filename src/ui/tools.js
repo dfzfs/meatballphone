@@ -607,7 +607,7 @@ export async function aiEdit(appId) {
     toast('AI에게 묻는 중…');
     let raw = '';
     try {
-        const SYS = 'You edit a status window. Be minimal and exact. Change only what the user asked.';
+        const SYS = 'You edit a status window. Be minimal and exact. Change only what the user asked.' + ((await import('../rules/lang.js')).isEN() ? ' The story is in English: write every value in English (names exactly as written), even though the user wrote the request in Korean.' : '');
         const Q = `The user wants to change the status window (${appId}): "${fv.say.trim()}"\nCurrent values: ${aiNow(appId, r)}\n`
             + (bookPart ? `Rulebook part (JSON): ${bookPart}\nIf the change is about the rulebook, output ONLY the changed top-level parts as JSON in a \`\`\`json block (same shape; for people/places give the FULL changed list).\n` : '')
             + (appId === 'rel' ? `Relationship stages by aff (affection): ${(r.book.stages ?? []).map(s => `${s.name} ${s.at}+`).join(' · ')}. If the user describes where the relationship is NOW (e.g. "not lovers yet", "crush", "broke up"), change the current aff with an aff line so it lands inside that stage (e.g. aff: Name -25 | why), and if they mean how it STARTED, also change people[].start in the rulebook.\n` : '')

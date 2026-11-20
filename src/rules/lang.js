@@ -10,7 +10,8 @@ export function storyLang() {
     const c = ctx(), chat = c.chat ?? [], key = `${c.getCurrentChatId?.() ?? ''}|${Math.min(chat.length, 8)}`;
     if (memo.key === key) return memo.v;
     // 사용자 말 · AI 답 앞쪽 몇 개 (태그 · 꾸밈은 빼고) — 없으면 카드 첫 메시지
-    let t = chat.filter(x => !x.is_system).slice(0, 8).map(x => String(x.mes ?? '').replace(/<[^>]+>/g, ' ')).join('\n').slice(0, 4000);
+    // 이야기 언어 = AI 답의 언어 (사용자는 한국어로 쳐도 답이 영어면 영어)
+    let t = chat.filter(x => !x.is_system && !x.is_user).slice(0, 6).map(x => String(x.mes ?? '').replace(/<[^>]+>/g, ' ')).join('\n').slice(0, 4000);
     if (!t.trim()) t = String(c.characters?.[c.characterId]?.first_mes ?? '');
     memo = { key, v: textLang(t) ?? textLang(c.characters?.[c.characterId]?.first_mes) ?? 'ko' };
     return memo.v;

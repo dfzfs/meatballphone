@@ -196,7 +196,7 @@ function pairView(r, on) {
 }
 // 사람 카드 하나 (dev 관계 카드 기준 + 이유 · 해금 · 기억 · 취향 · 루틴)
 function lastRel(r, name) {
-    for (let i = r.changes.length - 1, k = 0; i >= 0 && k < 300; i--, k++) { const c = (r.changes[i] ?? []).find(x => x.who === name && /^rel\./.test(x.f)); if (c) return { c, i }; }
+    for (let i = r.changes.length - 1, k = 0; i >= 0 && k < 300; i--, k++) { const c = (r.changes[i] ?? []).find(x => x.who === name && /^rel\./.test(x.f) && x.src !== 'hand' && !x.hand); if (c) return { c, i }; } // ✋ 직접 고친 건 「최근 변화」가 아님
     return null;
 }
 function meter(kind, label, v, ticks, hide, who = '') {
@@ -453,7 +453,7 @@ function rec(r) {
     for (const n of book.me.needs) {
         let lo = null, top = null, big = null;
         r.needsAt.forEach((s, i) => { const v = s?.[n.key]; if (v == null) return; if (!lo || v < lo.v) lo = { v, i }; if (!top || v > top.v) top = { v, i }; });
-        (r.changes ?? []).forEach((ch, i) => { const d = (ch ?? []).filter(c => c.f === `need.${n.key}` && c.src !== 'time').reduce((a, c) => a + c.to - c.from, 0); if (d && (!big || Math.abs(d) > Math.abs(big.d))) big = { d, i }; });
+        (r.changes ?? []).forEach((ch, i) => { const d = (ch ?? []).filter(c => c.f === `need.${n.key}` && c.src !== 'time' && c.src !== 'hand' && !c.hand).reduce((a, c) => a + c.to - c.from, 0); if (d && (!big || Math.abs(d) > Math.abs(big.d))) big = { d, i }; });
         if (lo) hi.push(row({ icon: n.icon, title: esc(n.name), sub: `최저 ${Math.round(lo.v)} (#${lo.i}) · 최고 ${Math.round(top.v)} (#${top.i})${big ? ` · 가장 크게 ${signed(big.d)} (#${big.i})` : ''}`, value: graph(r, n.key) }));
     }
     const marks = (meta.marks ?? []).map(m => ({ ...m, i: chat.findIndex(x => msgKey(x) === m.key) })).filter(m => m.i >= 0);
@@ -473,7 +473,7 @@ function graph(r, key) {
     const P = pts.slice(-40), x0 = P[0][0], x1 = P[P.length - 1][0] || 1;
     const X = (i) => ((i - x0) / Math.max(1, x1 - x0) * 100).toFixed(1), Y = (v) => (30 - v * 0.3).toFixed(1);
     return `<svg class="ml-graph" viewBox="0 0 100 30" preserveAspectRatio="none"><polyline points="${P.map(([i, v]) => `${X(i)},${Y(v)}`).join(' ')}`
-        + `"/>${P.map(([i, v]) => { const ev = (r.changes[i] ?? []).find(c => c.f === `need.${key}` && c.src !== 'time'); // 📍 시간 말고 일이 있어 바뀐 점은 크게 · 이유를 띄움
+        + `"/>${P.map(([i, v]) => { const ev = (r.changes[i] ?? []).find(c => c.f === `need.${key}` && c.src !== 'time' && c.src !== 'hand' && !c.hand); // 📍 시간 말고 일이 있어 바뀐 점은 크게 · 이유를 띄움
             return `<circle class="tap${ev ? ' ev' : ''}" cx="${X(i)}" cy="${Y(v)}" r="${ev ? 3 : 2.2}" data-act="jump" data-v="${i}"><title>#${i} · ${Math.round(v)}${ev ? ` · ${esc(ev.why)} ${signed(ev.to - ev.from)}` : ''}</title></circle>`; }).join('')}`
         + `</svg>`;
 }

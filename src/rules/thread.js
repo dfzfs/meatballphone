@@ -8,9 +8,10 @@ import { DAY, norm } from '../base/util.js';
 
 const memo = new WeakMap();
 // 화면에 보일 만한 변화만 (시간 흐름 · 시간에 따른 욕구 감소는 뺌)
-const real = (c) => c && c.src !== 'time' && c.f !== 'time';
+// ✋ 직접 고친 것(그리고 그 때문에 따라 생긴 단계 · 경계 변화)은 「이야기에서 있었던 일」이 아님 → 실타래 · 가계부 · 하이라이트 · 날씨 · 리듬 · 앨범에서 뺀다 (기록 타임라인엔 ✋로 남음)
+const real = (c) => c && c.src !== 'time' && c.f !== 'time' && c.src !== 'hand' && !c.hand;
 // 💰 가계부에 넣는 돈 변화: 이야기 속에서 쓰고 번 것만 — ✋ 직접 고침(계산이 틀려서 맞춘 것 · 환율에 맞춤)은 빼기
-const isMoney = (c) => c.f === 'cash' && typeof c.to === 'number' && c.src !== 'hand';
+const isMoney = (c) => c.f === 'cash' && typeof c.to === 'number' && c.src !== 'hand' && !c.hand;
 const dayOfI = (r, i) => (r.at?.[i] ? Math.floor(r.at[i].t / DAY) : null);
 
 function build(r) {

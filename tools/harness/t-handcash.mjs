@@ -13,5 +13,10 @@ try {
     check(!/500/.test(chip), '답 밑 칩에 직접 고침이 안 붙음', chip);
     const rec = await page.evaluate(async () => { __ML__.app.openSheet('rec'); await new Promise(r => setTimeout(r, 400)); return document.querySelector('#ml-full')?.innerText ?? ''; });
     check(/✋/.test(rec), '기록 타임라인엔 ✋로 남음', '');
+    // 애정을 직접 고쳐 단계가 올라도 관계 날씨 · 최근 변화 · 앨범 · 칩에 안 들어감
+    const A = await page.evaluate(() => __ML__.getMeta().book.people[0].name);
+    await page.evaluate(async (A) => { const t = await import('/ext/src/ui/tabs.js'); await t.hand(`aff: ${A} +60`, '직접'); }, A); await sleep(400);
+    const z = await page.evaluate(async (A) => { const T = await import('/ext/src/rules/thread.js'); const r = __ML__.fold(); return { w: T.relWeather(r, A), album: T.album(r).length, chip: [...document.querySelectorAll('.ml-msg')].map(x => x.textContent).join('|') }; }, A);
+    check(z.w === null && z.album === 0 && !/단계|\+60/.test(z.chip), '직접 고친 애정 · 따라 오른 단계는 날씨 · 앨범 · 칩에서 빠짐', JSON.stringify(z));
     check(!logs.length && !(await page.evaluate(() => window.__errors.length)), '콘솔 오류 없음', logs.join('\n'));
 } finally { await close(); }

@@ -156,7 +156,16 @@ document.addEventListener('meatlite:update', () => {
 // 들을 수 없으면 손대지 않음 → 링크가 새 탭으로 열린다
 document.addEventListener('click', (e) => {
     const a = e.target.closest?.('a.ml-play, a.ml-pl-play, a.ml-scene[href]');
-    if (!a || !canPlay()) return;
+    if (!a) return;
+    if (!canPlay()) {
+        const s = settings();
+        if (s.musicPlay === 'tab' || !['youtube', 'ytmusic'].includes(s.musicApp || 'youtube')) return; // 「새 탭으로」 · 스포티파이 · 멜론: 링크 그대로
+        // 「폰에서 듣기」인데 유튜브 키가 없으면: 직접 새 탭을 열고 왜 그런지 알려 줌 (휴대폰 · 앱 화면에선 링크가 아무 반응 없던 것)
+        e.preventDefault(); e.stopPropagation();
+        const w = window.open(a.href, '_blank'); if (w) try { w.opener = null; } catch { /* 없음 */ }
+        toast(w ? '유튜브 키가 없어서 새 탭으로 열었어요 · 🎵 음악 앱 › 🔑에 키를 넣으면 폰 안에서 바로 들어요' : '새 탭을 못 열었어요 (팝업이 막혔을 수 있어요) · 🎵 음악 앱 › 🔑에 유튜브 키를 넣으면 폰 안에서 바로 들어요', w ? 'mid' : 'bad');
+        return;
+    }
     let song = null;
     try { song = a.dataset.song ? JSON.parse(a.dataset.song) : null; } catch { /* 없음 */ }
     song ??= nowSong();

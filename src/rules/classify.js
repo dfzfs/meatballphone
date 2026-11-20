@@ -46,7 +46,7 @@ const KEYS_EN = [
 ];
 const MEDDLE = [['meddle', '이름 | 소지품 | 물건 | 한마디 · 이름 | 돈 | +30 | 한마디 · 이름 | 달력 | 5/14 | 글', '인물이 몰래 내 가방에 물건을 넣거나 · 지갑에 돈을 넣거나 · 달력에 메모를 남겼을 때만 (가져간 것은 적지 않음)']];
 const MIND = [['mind', '이름 | 짧은 속마음', '장면 속 인물의 속마음']];
-const BGM = [['bgm', '곡 제목 - 가수 | 분위기 한 단어 | 왜 어울리는지', '장면 분위기가 바뀌었을 때만 · 실제로 있는 곡 · [NOW]의 취향 참고 · 안 바뀌었으면 쓰지 않음']];
+const BGM = [['bgm', '곡 제목 - 가수 | 분위기 한 단어 | 왜 어울리는지', '장면 분위기가 바뀌었을 때만 · 실제로 있는 곡 · 나라 · 장르는 장면 시대 · 무대에 맞게 (케이팝으로 쏠리지 않게) · [NOW]의 취향 참고 · 안 바뀌었으면 쓰지 않음']];
 const QUOTE = [['quote', '구절 원문 | 출처(작품 · 사람 · 나라) | 한국어 뜻(외국어일 때만) | 왜 어울리는지', '장면 분위기가 바뀌었을 때만 · 속담 · 영화/드라마 명대사 · 책/시 한 줄 · 유명인의 말 · 사자성어 · 노래 가사는 안 됨 · 한두 문장 · [NOW]의 최근 구절은 피함']];
 // aiNo: 몇 번째 AI 답을 고르는지 — 😌 그 답에 눈 감은 앱의 키는 뺀다
 const keyList = (aiNo) => { const M = getMeta()?.mods ?? {}; return [...(isEN() ? KEYS_EN : KEYS), ...(M.rel ? MEDDLE : []), ...(M.mind ? MIND : []), ...(M.music ? BGM : []), ...(M.quote ? QUOTE : []), ...(M.news ? clsKeys() : []), ...(M.calendar ? notedKey(fold()) : []), ...(M.custom ? customKey() : [])].filter(([k]) => aiNo == null || !shutKey(k, aiNo)); };
@@ -127,7 +127,7 @@ export function buildPrompt(i) {
         nowLine(S),
         `[PLACES] ${places || '-'}`,
         `[KEYS]\n${keys}`,
-        gloss(`${story}\n${u >= 0 ? chat[u].mes : ''}`),
+        isEN() ? '' : gloss(`${story}\n${u >= 0 ? chat[u].mes : ''}`), // 🌐 용어집(한국어 표기)은 화면용 — 영어 이야기면 분류에 안 보냄 (값이 한국어로 나오던 것)
         u >= 0 ? `[USER] ${short(storyOnly(chat[u].mes), 300)}` : '',
         `[REPLY]\n${short(story, 4000)}`,
     ].filter(Boolean).join('\n\n');

@@ -90,8 +90,8 @@ try {
     // 5. 키가 없으면 새 탭 (오류 0) · 키가 틀려도 오류 없이 「새 탭에서 열기」
     await page.evaluate(async () => { (await import('/ext/src/base/st.js')).settings().ytKey = ''; __ML__.app.refresh(); }); await sleep(200);
     check(await page.evaluate(() => /유튜브에서 열기/.test(document.querySelector('.ml-song a.ml-play').title)), '키가 없으면 ▶ = 유튜브에서 열기');
-    await page.evaluate(() => document.querySelector('.ml-song a.ml-play').click()); await sleep(200);
-    check(await page.evaluate(() => !window.__nav.at(-1).prevented && !document.getElementById('mbp')) && searches === before, '키 없음: 새 탭 링크 · 검색 0');
+    await page.evaluate(() => { window.__opened = []; window.__open0 = window.open; window.open = (u) => { window.__opened.push(u); return {}; }; document.querySelector('.ml-song a.ml-play').click(); window.open = window.__open0; }); await sleep(200);
+    check(await page.evaluate(() => window.__opened.length === 1 && /youtube\.com\/results/.test(window.__opened[0]) && !document.getElementById('mbp')) && searches === before, '키 없음(폰에서 듣기): 직접 새 탭을 엶 · 왜 그런지 알림 · 검색 0');
     await page.evaluate(async () => { (await import('/ext/src/base/st.js')).settings().ytKey = 'AIzaBADKEY'; __ML__.app.refresh(); }); await sleep(200);
     fail = true;
     await page.evaluate(async () => { (await import('/ext/src/ui/player.js')); }); // 같은 모듈 (캐시 공유)

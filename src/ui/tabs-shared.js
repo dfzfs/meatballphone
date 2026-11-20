@@ -69,7 +69,7 @@ function recoverOf(r, key) {
     return out.slice(0, 3);
 }
 function needCard(r, n, last) {
-    const { S } = r, v = Math.round(S.needs[n.key] ?? 0), st = needStage(v), c = last.find(x => x.f === `need.${n.key}` && x.src !== 'time');
+    const { S } = r, v = Math.round(S.needs[n.key] ?? 0), st = needStage(v), c = last.find(x => x.f === `need.${n.key}` && x.src !== 'time' && x.src !== 'hand' && !x.hand);
     const nextAt = st === '정상' ? 40 : st === '주의' ? 15 : 0, hrs = n.rate > 0 && v > nextAt ? (v - nextAt) / n.rate : null;
     const sym = derived(r.book, S).find(d => d.key === n.key);
     const rec = st !== '정상' || v < 60 ? recoverOf(r, n.key) : [];

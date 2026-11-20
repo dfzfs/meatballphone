@@ -72,8 +72,10 @@ export function quoteView(r) {
 }
 
 // ───── 버튼 (AI 1회) ─────
-const SONG_SYS = 'Pick ONE REAL existing song that fits the roleplay scene. Output JSON only: {"title":"","artist":"","mood":"한 단어","why":"왜 어울리는지 한 줄 (한국어)"}. '
-    + 'Use a song that actually exists. Respect the listener taste if given. Do not repeat the recent songs.';
+// 🎵 장면에 맞는 곡: 나라 · 장르는 장면(시대 · 무대 · 분위기)에 맞게 — 취향을 안 정했으면 케이팝으로 쏠리지 않게
+const songSys = (en) => `Pick ONE REAL existing song that fits the roleplay scene. Output JSON only: {"title":"","artist":"","mood":"${en ? 'one word' : '한 단어'}","why":"${en ? 'one line on why it fits' : '왜 어울리는지 한 줄 (한국어)'}"}. `
+    + 'Use a song that actually exists. Choose the country, language, genre and era that fit the scene\'s setting and mood (film score, classical, jazz, folk, rock, pop, J-pop, K-pop … anything) — '
+    + 'do NOT default to K-pop or Korean songs unless the scene or the listener taste calls for it. Respect the listener taste if given. Do not repeat the recent songs.';
 const recentSongs = (S) => [...(S.bgmLog ?? [])].reverse().slice(0, 10).map((x) => `${x.title} - ${x.artist ?? ''}`);
 const QUOTE_SYS = 'Pick ONE short line that fits the roleplay scene: a proverb from any country, a famous movie/drama line, a line from a book or poem, a famous person\'s saying, or a Korean 사자성어. '
     + 'NEVER song lyrics. One or two sentences. Output JSON only: {"text":"원문","src":"출처(작품 · 사람 · 나라)","mean":"한국어 뜻 (원문이 외국어일 때만)","why":"왜 어울리는지 한 줄 (한국어)"}.';
@@ -83,7 +85,7 @@ export async function musicAct(act, v, r, hand) {
         case 'song-new': {
             toast('어울리는 곡을 찾는 중…');
             try {
-                const x = parseJSON(await askLight(SONG_SYS, `Taste: ${tasteOf() || '-'}\nAvoid these recent ones: ${recentSongs(r.S).join(' / ') || '-'}\nScene:\n${sceneText()}`));
+                const x = parseJSON(await askLight(songSys((await import('../rules/lang.js')).isEN()), `Taste: ${tasteOf() || '-'}\nAvoid these recent ones: ${recentSongs(r.S).join(' / ') || '-'}\nScene:\n${sceneText()}`));
                 if (!x?.title) throw new Error('빈 답');
                 hand(`bgm: ${x.title} - ${x.artist ?? ''} | ${x.mood ?? ''} | ${x.why ?? ''}`, '🔄 다른 곡');
             } catch (e) { toast(`곡을 못 받았어요 · ${e.message}`, 'bad'); }

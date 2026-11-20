@@ -580,18 +580,10 @@ export async function onAct(act, v, el) {
         case 'bk-person':
         case 'bk-me':
         case 'bk-tolang': {
-            const { ask, parseJSON } = await import('../rules/ai.js');
-            const b = meta.book, photos = new Map(b.world.places.map(p => [p.name, p.photo]));
-            const slim = { ...b, src: undefined, world: { ...b.world, places: b.world.places.map(({ photo, ...p }) => p) } };
+            const { toEnglish } = await import('../rules/ai.js');
             toast('설정집을 영어로 바꾸는 중…');
             try {
-                const raw = await ask(`Translate every Korean VALUE in this JSON to natural, short English. Keep all keys, numbers, emoji and structure exactly. Do NOT change "name" or "aka" values (names stay as written). Output the full JSON only, minified.\n${JSON.stringify(slim)}`, 'You translate JSON values from Korean to English for a roleplay status sheet. Output JSON only.');
-                const j = parseJSON(raw); if (!j?.world || !Array.isArray(j.people)) throw new Error('답을 못 읽었어요');
-                j.lang = 'en'; j.src = b.src;
-                // 장소 이름 · 사람 이름은 그대로 (지금 장소 · 기록이 이 이름으로 이어져 있음)
-                j.world.places = (j.world.places ?? []).map((p, k) => ({ ...p, name: b.world.places[k]?.name ?? p.name, near: b.world.places[k]?.near ?? p.near, photo: photos.get(b.world.places[k]?.name ?? p.name) ?? '' }));
-                // 이름이 바뀌었으면(번역기가 건드림) 원래 이름으로 되돌림
-                j.people = j.people.map((p, k) => ({ ...p, name: b.people[k]?.name ?? p.name, aka: b.people[k]?.aka ?? p.aka }));
+                const j = await toEnglish(meta.book); if (!j?.world || !Array.isArray(j.people)) throw new Error('답을 못 읽었어요');
                 meta.book = normBook(j); saveMeta(); app.refresh?.(true); toast('설정집을 영어로 바꿨어요 · 화면은 🌐 번역으로 한국어', 'good');
             } catch (e) { toast(`못 바꿨어요: ${e.message}`, 'bad'); }
             return;

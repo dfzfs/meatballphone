@@ -56,7 +56,7 @@ export function ruleText(book) {
     if (onNow('dice')) K.push('roll: 판정할 일');
     if (onNow('custom')) { const ck = customKey(); if (ck.length) K.push(`custom: ${ck[0][1]} (${ck[0][2]})`); }
     // 🎵 📜 장면 분위기가 바뀌었을 때만 (dev처럼 본편이 고름)
-    if (onNow('music')) K.push(`bgm: 곡 제목 - 가수 | 분위기 한 단어 | 왜 (장면 분위기가 바뀌었을 때만 · 실제로 있는 곡${tasteOf() ? ` · 취향: ${tasteOf()}` : ''})`);
+    if (onNow('music')) K.push(`bgm: 곡 제목 - 가수 | 분위기 한 단어 | 왜 (장면 분위기가 바뀌었을 때만 · 실제로 있는 곡 · 나라 · 장르는 장면의 시대 · 무대에 맞게, 케이팝으로 쏠리지 말 것${tasteOf() ? ` · 취향: ${tasteOf()}` : ''})`);
     if (onNow('quote')) { const rq = recentQuotes(fold()?.S ?? {}); K.push(`quote: 구절 원문 | 출처 | 한국어 뜻(외국어일 때) | 왜 (분위기가 바뀌었을 때만 · 속담 · 명대사 · 책 · 시 · 유명인의 말 · 사자성어 · 노래 가사 금지 · 한두 문장${rq.length ? ` · 피할 것: ${rq.join(' / ')}` : ''})`); }
     if (onNow('mind') && level('mind') > 0) {
         const who = meta?.mindWho ?? ['cast'];
@@ -88,7 +88,7 @@ function ruleTextEN(book) {
     if (onNow('rel') && level('rel') >= 4) K.push('meddle: name | slot | +5 | prank (slot: a stat like mood · bag | item · money | +30 · calendar | 5/14 | note — only things they secretly GIVE, never take)');
     if (onNow('dice')) K.push('roll: what to check');
     if (onNow('custom')) { const T = (meta?.custom ?? []).filter(t => t?.name && t.fields?.length); if (T.length) K.push(`custom: tab | field | new value (tabs: ${T.slice(0, 4).map(t => `${t.name}(${t.fields.slice(0, 6).map(f => f.name).join('·')})`).join(', ')})`); }
-    if (onNow('music')) K.push(`bgm: song title - artist | mood in one word | why (only when the mood changes · a real song${tasteOf() ? ` · taste: ${tasteOf()}` : ''})`);
+    if (onNow('music')) K.push(`bgm: song title - artist | mood in one word | why (only when the mood changes · a real song · any country or genre that fits the setting and era, not K-pop by default${tasteOf() ? ` · taste: ${tasteOf()}` : ''})`);
     if (onNow('quote')) { const rq = recentQuotes(fold()?.S ?? {}); K.push(`quote: original quote | source | Korean meaning (if not Korean) | why (only when the mood changes · proverb · film line · book · poem · famous saying · no song lyrics · one or two sentences${rq.length ? ` · avoid: ${rq.join(' / ')}` : ''})`); }
     if (onNow('mind') && level('mind') > 0) {
         const who = meta?.mindWho ?? ['cast'];

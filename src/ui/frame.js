@@ -126,7 +126,7 @@ export function drawChips() {
     if (getMeta()?.off || !settings().enabled || !r) { document.querySelectorAll('.ml-msg').forEach(x => x.remove()); return; } // 「켜기(모든 채팅)」를 끄면 붙어 있던 칩도 뗌
     for (let i = Math.max(0, chat.length - CHIP_N * 2); i < chat.length; i++) {
         const el = document.querySelector(`#chat .mes[mesid="${i}"] .mes_text`); if (!el) continue;
-        const ch = (r.changes[i] ?? []).filter(c => c.src !== 'time' && c.src !== 'hand'), fl = (r.flags[i] ?? []); // ✋ 직접 고친 값은 답 밑 칩에 안 붙임 (이야기에서 생긴 일이 아님 · 기록엔 ✋로 남음)
+        const ch = (r.changes[i] ?? []).filter(c => c.src !== 'time' && c.src !== 'hand' && !c.hand), fl = (r.flags[i] ?? []); // ✋ 직접 고친 값은 답 밑 칩에 안 붙임 (이야기에서 생긴 일이 아님 · 기록엔 ✋로 남음)
         let box = el.parentElement.querySelector('.ml-msg');
         const sl = msgData(chat[i]), wait = isWaiting(i), failed = !wait && sl?.clsFail, B = !chat[i].is_user && sl?.src === 'cls' && !wait && !failed;
         // ✓ 셈한 답인데 바뀐 게 없으면 「변화 없음」 칩 (안 붙은 건지 · 없던 건지 헷갈리지 않게) · B면 🔄로 다시 고르기

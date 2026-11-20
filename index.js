@@ -55,7 +55,7 @@ export function inject() {
     if (!settings().enabled || !ready(meta) || meta.paused || meta.off || meta.setup) return setInj({}); // 앱을 고르기 전엔 본편에 아무것도
     const r = fold(); if (!r) return setInj({});
     const chat = ctx().chat ?? []; let li = chat.length - 1; while (li >= 0 && (chat[li].is_user || chat[li].is_system)) li--;
-    const ft = factText(r, li >= 0 ? r.changes[li] ?? [] : []);
+    const ft = factText(r, li >= 0 ? (r.changes[li] ?? []).filter(c => c.src !== 'hand' && !c.hand) : []); // ✋ 직접 고친 건 본편 「방금 일어난 일」 힌트로 안 보냄
     const ex = String(meta.injExtra || settings().injExtra || '').trim(); // ✍ 사용자가 덧붙인 지시 (⚙️ 설정 앱)
     setInj({ rule: mode() === 'A' ? ruleText(r.book) : '', ...ft, hint: [ft.hint, ex].filter(Boolean).join('\n') }); // B: 본편은 소설만 (적는 법 규칙 뺌)
 }

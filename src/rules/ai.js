@@ -143,12 +143,30 @@ export async function fillBook(only = null, pick = undefined) {
         + 'Write minified JSON (no indentation, no code fence) so it fits in one reply.';
     const ask2 = only ? `Rebuild ONLY these people: ${only.join(', ')}. Output {"people":[...]}` : 'Fill the whole rulebook.';
     const note = String(getMeta()?.srcNote ?? '').trim();
-    const raw = await ask(`${ask2}\n${gloss()}${note ? `\nUSER'S EXTRA INSTRUCTIONS (follow these over the source when they conflict):\n${note}\n` : ''}\nSchema:\n${en ? SCHEMA_EN : SCHEMA}\n\nSource:\n${src.text}`, sys);
+    const raw = await ask(`${ask2}\n${en ? '' : gloss()}${note ? `\nUSER'S EXTRA INSTRUCTIONS (follow these over the source when they conflict):\n${note}\n` : ''}\nSchema:\n${en ? SCHEMA_EN : SCHEMA}\n\nSource:\n${src.text}${en ? '\n\nLANGUAGE: the story is in English. Write EVERY value in English — even if the extra instructions, glossary or parts of the source are in Korean. Keep names exactly as written in the source.' : ''}`, sys);
     const j = parseJSON(raw);
     if (!j) return { book: null, src };
     capLove(j); if (!only) j.lang = en ? 'en' : 'ko';
+    // 🌐 영어 이야기인데 AI가 그래도 한국어로 채웠으면 → 한 번 더 영어로 (그때만 AI 1회)
+    if (en && koValues(j)) { try { const t = await toEnglish(j); if (t) { Object.assign(j, t); j.lang = only ? j.lang : 'en'; } } catch (e) { console.warn('[미트볼폰] 영어로 바꾸기 실패', e); } }
     if (lastCut) import('../ui/kit.js').then(k => k.toast('AI 답이 길이 제한에서 끊겨서 받은 데까지만 채웠어요 · 빠진 인물은 인물 편집의 ✨로 다시 채울 수 있어요', 'mid')).catch(() => {});
     return { book: j, src, cut: lastCut };
+}
+// 🌐 설정집 값에 한글이 있나 (사람 · 장소 이름 · 별칭은 빼고)
+export function koValues(b) {
+    const slim = { ...b, src: undefined, people: (b?.people ?? []).map(({ name, aka, ...p }) => p), world: { ...(b?.world ?? {}), places: (b?.world?.places ?? []).map(({ name, photo, near, ...p }) => p) } };
+    return /[\uAC00-\uD7A3]/.test(JSON.stringify(slim));
+}
+// 🌐 설정집 값을 영어로 (이름 · 장소 이름 · 사진은 그대로) — 새로 만들 때 · 「설정집을 영어로」
+export async function toEnglish(b) {
+    const photos = new Map((b.world?.places ?? []).map(p => [p.name, p.photo]));
+    const slim = { ...b, src: undefined, world: { ...b.world, places: (b.world?.places ?? []).map(({ photo, ...p }) => p) } };
+    const raw = await ask(`Translate every Korean VALUE in this JSON to natural, short English. Keep all keys, numbers, emoji and structure exactly. Do NOT change "name", "aka" or "near" values (names stay as written). Output the full JSON only, minified.\n${JSON.stringify(slim)}`, 'You translate JSON values from Korean to English for a roleplay status sheet. Output JSON only.');
+    const j = parseJSON(raw); if (!j || typeof j !== 'object') return null;
+    if (Array.isArray(b.people) && Array.isArray(j.people)) j.people = j.people.map((p, k) => ({ ...p, name: b.people[k]?.name ?? p.name, aka: b.people[k]?.aka ?? p.aka }));
+    if (b.world && j.world) j.world.places = (j.world.places ?? []).map((p, k) => ({ ...p, name: b.world.places?.[k]?.name ?? p.name, near: b.world.places?.[k]?.near ?? p.near, photo: photos.get(b.world.places?.[k]?.name ?? p.name) ?? '' }));
+    j.src = b.src; j.lang = 'en';
+    return j;
 }
 // 💞 공식 관계가 연인 · 부부 · 약혼이 아니면 시작 애정을 「연인」 단계 아래로 (사랑한다는 말이 많아도 사귀는 사이가 아니면 연인으로 시작하지 않게)
 const LOVER = /연인|애인|부부|배우자|남편|아내|약혼|결혼|사귀|dating|lover|girlfriend|boyfriend|married|spouse|husband|wife|engaged|fianc/i;
