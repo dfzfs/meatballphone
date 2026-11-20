@@ -2,7 +2,7 @@
 //   본편은 소설만 쓰고, 숫자는 지금처럼 설정집 규칙으로 계산한다.
 //   결과는 그 메시지 · 그 스와이프의 칸(msgData)에 src: 'cls'로 저장 → 다시 열기 · 다시 계산에는 다시 부르지 않음.
 import { ctx, settings, getMeta, saveMeta, msgData, syncSwipe, bumpMeta, msgKey, app, TITLE, saveChatSoon, shut, shutKey, aiNoOf } from '../base/st.js';
-import { short, hash, norm, tokens, safeKey } from '../base/util.js';
+import { short, hash, norm, tokens, safeKey, hhmm } from '../base/util.js';
 import { readOps, kindOf, parts, stripTags, storyOnly } from './tags.js';
 import { sendClean, clsRoute, connStats, routeText, CLS_PRESET } from './clsconn.js';
 import { fold } from './engine.js';
@@ -28,6 +28,7 @@ const KEYS = [
     ['memory', '이름 | 큰 사건', '그 사람이 오래 기억할 일'], ['jealous', '이름 | 이유', '질투했을 때'], ['pair', '이름 | 이름 | 라이벌', '두 인물 사이가 바뀌었을 때'],
     ['promise', '내용 | 3/14', '약속 · 마감이 생겼을 때'], ['weather', '비', '날씨가 바뀌었을 때'], ['status', '감기 | 3d', '아프거나 상태가 생겼을 때'],
     ['npc', '이름 | 성격 한 줄', '처음 나온 인물'], ['gone', '이름 | 사유', '이야기에서 빠진 인물'],
+    ['sell', '물건 | 값', '팔았을 때'], ['unwear', '옷', '벗었을 때'], ['status', '-감기', '상태가 나았을 때 (앞에 -)'], ['promise', '-내용', '약속을 지켰거나 끝났을 때 (앞에 -)'],
     ['conflict', '내용', '답 글이 [STATE]와 분명히 부딪칠 때만 (예: 없는 돈을 씀)'],
 ];
 const MEDDLE = [['meddle', '이름 | 소지품 | 물건 | 한마디 · 이름 | 돈 | +30 | 한마디 · 이름 | 달력 | 5/14 | 글', '인물이 몰래 내 가방에 물건을 넣거나 · 지갑에 돈을 넣거나 · 달력에 메모를 남겼을 때만 (가져간 것은 적지 않음)']];
@@ -105,7 +106,7 @@ export function buildPrompt(i) {
     const ch = choiceText(choiceOf(u));
     const ex = String(settings().clsExtra ?? '').trim(), system = ex ? `${SYSTEM}\nExtra instruction from the user (keep the output format): ${ex.slice(0, 600)}` : SYSTEM; // ✍ ⚙️ 설정 앱
     const user = [
-        `[STATE] place ${S.loc || '-'} · time ${Math.floor(((S.t % 1440) + 1440) % 1440 / 60)}h · with ${S.with.join(', ') || '-'} · money ${S.cash} ${book.world.currency} · items ${items}`,
+        `[STATE] place ${S.loc || '-'} · time ${hhmm(S.t)} · with ${S.with.join(', ') || '-'} · money ${S.cash} ${book.world.currency} · items ${items}`,
         ch && `[CHOICE] ${ch} — pick events that match this result (cost, trap, success or failure).`,
         acts.length ? `[ACTIONS]\n${acts.join('\n')}` : '[ACTIONS] (none)',
         nowLine(S),

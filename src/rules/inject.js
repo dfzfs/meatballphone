@@ -45,10 +45,10 @@ export function ruleText(book) {
     const K = ['loc: 장소', `time: ${tk}`, 'with: 이름, 이름'];
     if (cs.months?.length) K.push(`date: ${cs.months[0].name} 3일 (달: ${cs.months.map(x => x.name).join('·')})`);
     if (onNow('stats')) K.push('ate: 음식', 'slept: 6h', 'washed: -', 'rest: 1h', 'worked: 4h | +30');
-    if (onNow('wallet')) K.push('buy: 물건 | 가격', 'earn: 30 | 이유', 'got: 물건', 'used: 물건', 'wear: 옷');
-    if (onNow('rel')) K.push('act: 이름 | 한 일 (맞는 게 없으면 「기쁘게 함」 · 「상처 줌」)', 'gift: 이름 | 물건', 'memory: 이름 | 큰 사건', 'jealous: 이름 | 이유', ...(level('rel') >= 3 ? ['pair: 이름 | 이름 | +3 | 이유'] : []), 'promise: 내용 | 3/14');
+    if (onNow('wallet')) K.push('buy: 물건 | 가격', 'earn: 30 | 이유', 'got: 물건', 'used: 물건', 'sell: 물건 | 값', 'lost: 물건', 'wear: 옷', 'unwear: 옷');
+    if (onNow('rel')) K.push('act: 이름 | 한 일 (맞는 게 없으면 「기쁘게 함」 · 「상처 줌」)', 'gift: 이름 | 물건', 'memory: 이름 | 큰 사건', 'jealous: 이름 | 이유', ...(level('rel') >= 3 ? ['pair: 이름 | 이름 | +3 | 이유'] : []), 'promise: 내용 | 3/14', 'promise: -지킨 약속');
     if (onNow('calendar')) K.push('weather: 비');
-    K.push('status: 감기 | 3d', 'npc: 이름 | 성격 한 줄', 'gone: 이름 | 사유');
+    K.push('status: 감기 | 3d', 'status: -나은 상태', 'npc: 이름 | 성격 한 줄', 'gone: 이름 | 사유');
     if (onNow('news')) K.push(...newsRuleKeys(level('news')));
     if (onNow('rel') && level('rel') >= 4) K.push('meddle: 이름 | 칸 | +5 | 장난 (칸: 기분 같은 수치 · 소지품 | 물건 · 돈 | +30 · 달력 | 5/14 | 글 — 몰래 주는 것만, 가져가지 않음)');
     if (onNow('dice')) K.push('roll: 판정할 일');
@@ -132,6 +132,8 @@ export function factText(r, lastChanges = []) {
     { const cp = calLines(r, lv('calendar'), userName(), mode(), lv('rel')); L.push(...cp.facts); H.push(...cp.hint); }
     // 약속 하루 전
     for (const p of S.promises) if (!p.done && p.due != null && p.due - S.t <= DAY && p.due >= S.t && lv('calendar') >= 1) H.push(`promise due soon: ${p.text}`);
+    // ⏰ 지난 약속 (3일 안) — 지켰으면 promise: -내용 으로 지우게
+    for (const p of S.promises) if (!p.done && p.due != null && p.due < S.t && S.t - p.due <= DAY * 3 && lv('calendar') >= 2) H.push(`promise overdue (not kept yet): ${p.text}`);
     return { facts: L.length ? `[NOW — keep the story consistent with this]\n${L.join('\n')}` : '', hint: H.length ? `[HINT — show it naturally, don't state numbers]\n${H.join('\n')}` : '' };
 }
 export const injTokens = (o) => tokens(Object.values(o).join('\n'));
