@@ -1,6 +1,6 @@
 // 전체화면 안의 탭들 — 목록 행 + 묶음 카드. 설명은 한 줄까지.
 import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, msgData, syncSwipe, msgKey, userName, bumpMeta, saveChatSoon } from '../base/st.js';
-import { esc, fmt, signed, short, dateText, dateOf, DAY, periodName, num, norm, tokens, dayIndexOf, monthDays, monthName, weekName, faceOf, clockOf, inPeriod } from '../base/util.js';
+import { esc, fmt, fxText, signed, short, dateText, dateOf, DAY, periodName, num, norm, tokens, dayIndexOf, monthDays, monthName, weekName, faceOf, clockOf, inPeriod } from '../base/util.js';
 import { row, card, chip, seg, bar, empty, btn, sheet, toast, putInput, form } from './kit.js';
 import { fold, derived, needStage, relStage, nextStage, stagesOf, pairKey, diceParts, whereNow } from '../rules/engine.js';
 import { luckOf } from '../rules/luck.js';
@@ -19,10 +19,24 @@ import { ddaysOn } from '../rules/calplus.js';
 import { isSecret, secretSub, sneakCard, sneakUndo } from './sneak.js';
 import { sneakOnDay } from '../rules/sneak.js';
 import { personThread, placeThread, dayThread, lived, ledgerCard, statusCard, diceLog, albumView, statsView, daysView, threadAct } from './threadui.js';
-import { dayOfI, thread } from '../rules/thread.js';
+import { dayOfI, thread, itemKind, itemLife } from '../rules/thread.js';
 
 const lastAI = () => { const c = ctx().chat ?? []; for (let i = c.length - 1; i >= 0; i--) if (!c[i].is_user && !c[i].is_system) return i; return -1; };
 const money = (r, n) => `${fmt(n)} ${esc(r.book.world.currency)}`;
+const fxOf = (r, n) => { const t = fxText(r.book.world, n); return t ? ` <span class="ml-fx">${esc(t)}</span>` : ''; };
+// 👜 물건 단추는 하나만 (종류는 rules/thread.js itemKind)
+function itemBtns(r, it, kind) {
+    if (isSecret(it)) return '';
+    if (it.worn) return btn('벗기', 'say', `${it.name}을(를) 벗는다.`, 'sm');
+    if (kind === 'wear') return btn('입기', 'say', `${it.name}을(를) 입는다.`, 'sm');
+    return btn(kind === 'food' ? '먹기' : '쓰기', 'say', `${it.name}을(를) ${kind === 'food' ? '먹는다' : '쓴다'}.`, 'sm');
+}
+// 🎁 누구와 있을 때 생긴 물건인지 (기록에서 · 저장 0)
+function itemMemo(r, it) {
+    const f = itemLife(r, it.name).first; if (!f || !/얻음|받음|선물|got/i.test(String(f.c.why ?? ''))) return null;
+    const at = r.at?.[f.i]; if (!at?.with?.length) return null;
+    const d = dateOf(r.book.world.start, at.t); return `🤝 ${at.with.slice(0, 2).map(esc).join(', ')}와 있을 때 · ${d.mn} ${d.d}일`;
+}
 
 
 // ───── 턴 요약 카드: 줄마다 이유 · 줄마다 되돌리기 ─────
@@ -151,16 +165,16 @@ function bag(r) {
               row({
                   icon: '💰',
                   title: '가진 돈',
-                  sub: `식사 한 끼 ≈ ${money(r, book.world.meal)}`,
+                  sub: `${fxText(book.world, S.cash) ? `${esc(fxText(book.world, S.cash))} · ` : ''}식사 한 끼 ≈ ${money(r, book.world.meal)}${fxOf(r, book.world.meal)}`,
                   value: `<b class="ml-num">${money(r, S.cash)}</b>`,
                   act: 'edit-cash',
                   more: true,
               }) +
                   row({
-                      icon: '💬',
-                      title: '물가 물어보기',
-                      sub: '이 세계에서 얼마쯤 할까? (AI 0회 · 설정집 물가 기준)',
-                      act: 'askprice',
+                      icon: '💱',
+                      title: '화폐 · 환율',
+                      sub: book.world.fx?.rate > 0 ? `1 ${esc(book.world.currency)} = ${fmt(book.world.fx.rate)}원` : `${esc(book.world.currency)} · 1 ${esc(book.world.currency)}이 몇 원인지 적어 두기`,
+                      act: 'edit-fx',
                       more: true,
                   }),
           );
@@ -168,40 +182,31 @@ function bag(r) {
     if (V('items'))
         h += card(
             '소지품',
-            S.items.length
-                ? S.items
-                      .map((it) =>
-                          row({
-                              act: 'th-item',
-                              data: it.name,
-                              icon: isSecret(it) ? '🎁' : it.worn ? '👕' : '📦',
-                              title: `${esc(it.name)}${it.n > 1 ? ` ×${it.n}` : ''}`,
-                              sub: isSecret(it)
-                                  ? secretSub(it)
-                                  : it.worn
-                                  ? '착용 중'
-                                  : Object.entries(it.fx)
-                                        .map(([k, v]) => `${book.me.needs.find((n) => n.key === k)?.name ?? k} ${signed(v)}`)
-                                        .join(' · '),
-                              value: choiceBtns([
-                                  [Object.keys(it.fx).length ? `먹기` : '쓰기', `${it.name}을(를) 먹는다`],
-                                  [it.worn ? '벗기' : '입기', `${it.name}을(를) ${it.worn ? '벗는다' : '입는다'}`],
-                              ]),
-                          }),
-                      )
-                      .join('')
-                : row({ icon: '📦', title: '비어 있어요', faint: true }),
+            S.items.length ? bagGroups(r) : row({ icon: '📦', title: '비어 있어요', faint: true }),
         );
     if (place?.goods.length && V('shop')) h += card(`${PLACE_KINDS[place.kind]} ${esc(place.name)} 가게`, place.goods.map(g => goodRow(r, g)).join(''));
     return h + sneakCard(r, 'bag');
+}
+// 👜 가방 칸: 👕 입은 것 · 🎁 받은 것 · 🍞 먹을 것 · 👗 옷 · 📦 잡동사니 (이름 · 효과 · 기록으로 나눔 · 저장 0)
+const BAG_G = [['worn', '👕 입고 있는 것'], ['memo', '🎁 받은 것 · 추억'], ['food', '🍞 먹을 것'], ['wear', '👗 옷 · 꾸밈'], ['etc', '📦 잡동사니']];
+function bagGroups(r) {
+    const { S, book } = r, G = new Map();
+    for (const it of S.items) {
+        const kind = itemKind(book, it.name, it.fx), memo = isSecret(it) ? null : itemMemo(r, it);
+        const g = it.worn ? 'worn' : isSecret(it) || memo ? 'memo' : kind;
+        const fx = Object.entries(it.fx).map(([k, v]) => `${book.me.needs.find((n) => n.key === k)?.name ?? k} ${signed(v)}`).join(' · ');
+        const sub = isSecret(it) ? secretSub(it) : [it.worn ? '착용 중' : '', memo ?? '', fx].filter(Boolean).join(' · ');
+        (G.get(g) ?? G.set(g, []).get(g)).push(row({ act: 'th-item', data: it.name, icon: isSecret(it) ? '🎁' : it.worn ? '👕' : kind === 'food' ? '🍞' : kind === 'wear' ? '👗' : memo ? '🎁' : '📦', title: `${esc(it.name)}${it.n > 1 ? ` ×${it.n}` : ''}`, sub, value: itemBtns(r, it, kind) }));
+    }
+    const many = G.size > 1;
+    return BAG_G.filter(([k]) => G.has(k)).map(([k, t]) => `${many ? `<div class="ml-bagh">${t} ${G.get(k).length}</div>` : ''}${G.get(k).join('')}`).join('');
 }
 function goodRow(r, g) {
     const price = g.price, poor = r.S.cash < price;
     const liked = Object.values(r.S.rel).some(x => x.seen.likes.some(l => g.name.includes(l)));
     const fx = Object.entries(g.fx).map(([k, v]) => `${r.book.me.needs.find(n => n.key === k)?.name ?? k} ${signed(v)}`).join(' · ');
-    return row({ icon: liked ? '🎁' : '🛒', title: esc(g.name), sub: `−${price} · ${fx || '물건'}${poor ? ' · 돈 부족' : ''}`, value: poor ? '' : btn('사기', 'say', `${g.name} 하나 주세요.`), faint: poor });
+    return row({ icon: liked ? '🎁' : '🛒', title: esc(g.name), sub: `−${money(r, price)}${fxOf(r, price)} · ${fx || '물건'}${poor ? ' · 돈 부족' : ''}`, value: poor ? '' : btn('사기', 'say', `${g.name} 하나 주세요.`), faint: poor });
 }
-const choiceBtns = (L) => L.map(([t, say]) => btn(t, 'say', say, 'sm')).join('');
 // ───── 관계 ─────
 function rel(r) {
     const names = Object.keys(r.S.rel);
@@ -840,47 +845,6 @@ export async function onAct(act, v, el) {
         }
         case 'c-go':
             return hand(`date: ${v}`, '이 날로 이동');
-        case 'askprice': {
-            const fv = await form(
-                '💬 물가 물어보기',
-                [{ k: 'q', label: '무엇?', ph: '빵 · 여관 하룻밤 · 칼 · 마차', chips: ['커피', '하룻밤 숙박', '옷 한 벌', '무기', '꽃다발'] }],
-                { ok: '어림하기' },
-            );
-            if (!fv?.q.trim()) return;
-            const q = fv.q.trim(),
-                b = meta.book,
-                meal = b.world.meal,
-                cur = b.world.currency;
-            const known = b.world.places.flatMap((p) =>
-                p.goods
-                    .filter((g) => norm(g.name).includes(norm(q)) || norm(q).includes(norm(g.name)))
-                    .map((g) => `${p.name} ${g.name} ${g.price}${cur}`),
-            );
-            const RATIO = [
-                [/커피|음료|차|물|우유|주스/, 0.3, '음료'],
-                [/빵|간식|과자|사탕|떡/, 0.4, '간식'],
-                [/식사|밥|정식|요리|도시락/, 1, '한 끼'],
-                [/술|맥주|와인/, 0.6, '술 한 잔'],
-                [/숙박|하룻밤|방|여관|호텔/, 4, '하룻밤'],
-                [/옷|신발|모자|외투/, 3, '옷'],
-                [/꽃/, 0.5, '꽃'],
-                [/책/, 1.5, '책'],
-                [/칼|검|활|무기|창|도끼/, 8, '무기'],
-                [/갑옷|방패/, 12, '방어구'],
-                [/약|포션|물약/, 2, '약'],
-                [/마차|기차|버스|택시|배/, 1, '탈것 한 번'],
-                [/말|탈것|차$/, 60, '탈것 사기'],
-                [/집|땅/, 2000, '집'],
-            ];
-            const hit = RATIO.find(([re]) => re.test(q));
-            sheet(
-                `💬 ${esc(q)}`,
-                `<div class="ml-card">${known.length ? known.map((k) => row({ icon: '🛒', title: esc(k), sub: '설정집에 있는 값' })).join('') : ''}` +
-                    `${row({ icon: '🧮', title: hit ? `약 ${Math.max(1, Math.round(meal * hit[1]))}${esc(cur)}` : `약 ${meal}~${meal * 3}${esc(cur)}`, sub: hit ? `${hit[2]} · 식사 한 끼(${meal}) × ${hit[1]}` : '비슷한 게 없어서 식사 1~3끼로 어림' })}` +
-                    `</div><div class="ml-hint">계산만 해요. 실제 값은 이야기에서 정해져요.</div>`,
-            );
-            return;
-        }
         case 'look-set': {
             const [k, x] = v.split('|');
             settings().look[k] = x;
@@ -1146,6 +1110,18 @@ export async function onAct(act, v, el) {
         case 'gone':
             hand(`gone: ${v} | ${r.S.rel[v]?.gone ? '돌아옴' : '직접 뺌'}`, '직접');
             return;
+        case 'edit-fx': {
+            const w = meta.book.world;
+            const fv = await form('💱 화폐 · 환율', [
+                { k: 'cur', label: '이 세계의 돈 이름', v: w.currency, chips: ['원', '달러', '골드', '은화', '동화', '베리', '냥', '크레딧'] },
+                { k: 'rate', label: '1 (이 세계 돈) = 몇 원?', type: 'number', v: w.fx?.rate || '', ph: '예: 1000', hint: '적어 두면 돈이 나오는 곳마다 「≈ 12만 원」이 같이 보여요 · 비우면 안 보여요' },
+            ]);
+            if (!fv) return;
+            meta.book = normBook({ ...meta.book, world: { ...w, currency: String(fv.cur || w.currency).trim(), fx: { rate: Math.max(0, num(fv.rate)), unit: '원' } } });
+            saveMeta(); app.refresh?.(true);
+            toast(num(fv.rate) > 0 ? `1 ${meta.book.world.currency} ≈ ${fmt(num(fv.rate))} ${meta.book.world.fx.unit}로 같이 보여요` : '화폐를 바꿨어요', 'good');
+            return;
+        }
         case 'edit-cash': {
             const fv = await form('💰 가진 돈 고치기', [
                 { k: 'n', label: `${esc(meta.book.world.currency)}`, type: 'number', v: r.S.cash },

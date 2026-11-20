@@ -2,10 +2,10 @@
 //   저장 0 · 본편 0 · AI 0. 앱을 열 때만 계산하고, 긴 목록은 잘라서 보인다.
 //   (예외: 「📌 D-day로」 버튼은 사용자가 누를 때만 달력 D-day 한 줄을 저장)
 import { getMeta, saveMeta, app } from '../base/st.js';
-import { esc, fmt, signed, dateText, dateOf, DAY, short, uid } from '../base/util.js';
+import { esc, fmt, fxText, signed, dateText, dateOf, DAY, short, uid } from '../base/util.js';
 import { row, card, btn, sheet, toast } from './kit.js';
 import { personOf } from '../rules/book.js';
-import { thread, personLine, personFirsts, placeLife, dayInfo, dayTop, ledger, itemLife, statusLife, stats, album } from '../rules/thread.js';
+import { thread, personLine, personFirsts, placeLife, dayInfo, dayTop, ledger, SPEND, itemLife, statusLife, stats, album } from '../rules/thread.js';
 import { calOf } from '../rules/calplus.js';
 
 const when = (r, i) => (r.at?.[i] ? dateText(r.book.world.start, r.at[i].t, false) : '');
@@ -72,13 +72,20 @@ export const lived = (r, day) => !!dayInfo(r, day)?.ev.length;
 export function ledgerCard(r) {
     const G = ledger(r, 7); if (!G.spend && !G.earn) return '';
     const max = Math.max(1, ...G.recent.map(D => Math.max(D.spend, D.earn)));
-    const bars = G.recent.slice().reverse().map(D => { const d = dateOf(r.book.world.start, D.day * DAY);
-        return `<div class="ml-lg" title="${d.m}/${d.d}"><span class="out" style="height:${D.spend ? Math.max(4, Math.round(D.spend / max * 100)) : 0}%"></span><span class="in" style="height:${D.earn ? Math.max(4, Math.round(D.earn / max * 100)) : 0}%"></span><small>${d.d}</small></div>`; }).join('');
-    const body = `<div class="ml-ledger">${bars}</div>`
-        + row({ icon: '💸', title: '지금까지 쓴 돈', value: `<b class="neg">${money(r, G.spend)}</b>` })
-        + row({ icon: '💰', title: '지금까지 들어온 돈', value: `<b class="pos">${money(r, G.earn)}</b>` })
+    const ORDER = ['food', 'wear', 'gift', 'etc'];
+    // 쓴 돈 막대는 종류별 색으로 쌓기 (식비 · 옷 · 선물 · 기타)
+    const bars = G.recent.slice().reverse().map(D => { const d = dateOf(r.book.world.start, D.day * DAY), K = G.dayKind.get(D.day);
+        const out = D.spend ? `<span class="out" style="height:${Math.max(4, Math.round(D.spend / max * 100))}%">${ORDER.filter(k => K?.get(k)).map(k => `<i style="flex:${K.get(k)};background:${SPEND[k][2]}"></i>`).join('')}</span>` : '<span class="out" style="height:0"></span>';
+        return `<div class="ml-lg" title="${d.m}/${d.d}">${out}<span class="in" style="height:${D.earn ? Math.max(4, Math.round(D.earn / max * 100)) : 0}%"></span><small>${D.pre ? '' : d.d}</small></div>`; }).join('');
+    // 📝 한 줄 결산
+    const W = G.week, net = W.earn - W.spend, big = [...W.kind.entries()].sort((a, b) => b[1] - a[1])[0];
+    const sum = `<div class="ml-lgsum">이번 주 <b class="${net < 0 ? 'neg' : 'pos'}">${net < 0 ? '−' : '+'}${money(r, Math.abs(net))}</b>${big && W.spend ? ` · 대부분 ${SPEND[big[0]][0]} ${SPEND[big[0]][1]}` : ''}</div>`;
+    const legend = W.spend ? `<div class="ml-lgkey">${ORDER.filter(k => W.kind.get(k)).map(k => `<span><i style="background:${SPEND[k][2]}"></i>${SPEND[k][1]} ${fmt(W.kind.get(k))}</span>`).join('')}<span><i class="in"></i>들어옴 ${fmt(W.earn)}</span></div>` : '';
+    const body = sum + `<div class="ml-ledger">${bars}</div>` + legend
+        + row({ icon: '💸', title: '지금까지 쓴 돈', sub: esc(fxText(r.book.world, G.spend)), value: `<b class="neg">${money(r, G.spend)}</b>` })
+        + row({ icon: '💰', title: '지금까지 들어온 돈', sub: esc(fxText(r.book.world, G.earn)), value: `<b class="pos">${money(r, G.earn)}</b>` })
         + (G.top.length ? row({ icon: '🏷', title: '제일 많이 쓴 곳', sub: G.top.map(([k, v]) => `${esc(short(k, 14))} ${fmt(v)}`).join(' · ') }) : '');
-    return card('가계부', body, '최근 7일 · 막대: 쓴 돈 / 들어온 돈');
+    return card('가계부', body, '최근 7일');
 }
 export function itemSheet(r, name) {
     const I = itemLife(r, name);

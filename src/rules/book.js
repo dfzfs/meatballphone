@@ -47,7 +47,7 @@ const acts = (v) =>
 
 export function emptyBook() {
     return {
-        world: { genre: '', currency: '골드', meal: 10, weather: ['맑음', '흐림', '비'], start: { y: 2026, m: 3, d: 1, clock: 480 }, places: [] },
+        world: { genre: '', currency: '골드', fx: { rate: 0, unit: '원' }, meal: 10, weather: ['맑음', '흐림', '비'], start: { y: 2026, m: 3, d: 1, clock: 480 }, places: [] },
         me: { name: '', day: '', needs: NEED_SET.map(n => ({ ...n })), gauges: GAUGE_SET.map(g => ({ ...g })), attrs: ATTR_SET.map(a => ({ ...a })), traits: '' },
         people: [],
         stages: REL_STAGES.map(s => ({ ...s })),
@@ -107,6 +107,7 @@ export function normBook(b) {
     e.world.genre = line(w.genre, 60);
     e.world.currency = line(w.currency, 16) || '골드';
     e.world.meal = Math.max(1, num(w.meal, 10));
+    e.world.fx = { rate: Math.max(0, num(w.fx?.rate, 0)), unit: line(w.fx?.unit, 8) || '원' };
     e.world.weather = list(w.weather, 6).length ? list(w.weather, 6) : e.world.weather;
     const c = w.start?.cal ?? {};
     const months = arr(c.months).map(x => ({ name: line(x?.name, 10), days: clamp(num(x?.days, 30), 1, 60) })).filter(x => x.name).slice(0, 24);
@@ -163,7 +164,7 @@ export function placeOf(book, name) {
 export function bookText(book, who = null) {
     if (!book) return '';
     const w = book.world;
-    const L = [`[WORLD] ${w.genre || '-'} · money: ${w.currency} (meal ≈ ${w.meal}) · weather: ${w.weather.join('/')}`];
+    const L = [`[WORLD] ${w.genre || '-'} · money: ${w.currency} (${w.fx?.rate > 0 ? `1 ${w.currency} ≈ ${w.fx.rate}원 · ` : ''}meal ≈ ${w.meal}) · weather: ${w.weather.join('/')}`];
     if (w.places.length) L.push(`[PLACES] ${w.places.map(p => `${p.name}(${p.kind}${p.goods.length ? `: ${p.goods.map(g => `${g.name} ${g.price}`).join(', ')}` : ''})`).join(' · ')}`);
     L.push(`[ME] ${book.me.name || '{{user}}'}${book.me.traits ? ` · ${book.me.traits}` : ''} · needs: ${book.me.needs.map(n => n.name).join('/')}`);
     for (const p of book.people) {

@@ -14,6 +14,10 @@ export const faceOf = (t, fb = '') => {
     const f = g?.replace(/\u200d+$/, ''); return f && f.length <= 16 ? f : fb;
 };
 export const fmt = (n) => new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1 }).format(Number(n) || 0);
+// 큰 금액을 읽기 쉽게: 12,500,000 → 1,250만
+export function bigNum(n) { const v = Math.round(Number(n) || 0); if (Math.abs(v) >= 1e8) return `${fmt(Math.round(v / 1e6) / 100)}억`; if (Math.abs(v) >= 1e4) return `${fmt(Math.round(v / 1e2) / 100)}만`; return fmt(v); }
+// 💱 환율: 설정집 world.fx = { rate, unit } — 1 (이 세계 돈) = rate (현실 돈). 보기만 (계산 · AI 영향 없음)
+export const fxText = (w, n) => (w?.fx?.rate > 0 && w.fx.unit ? `≈ ${bigNum(n * w.fx.rate)} ${w.fx.unit}` : '');
 export const signed = (n) => (n > 0 ? `+${fmt(n)}` : n < 0 ? `−${fmt(Math.abs(n))}` : '±0');
 export const uid = () => Math.random().toString(36).slice(2, 9);
 // AI가 적은 이름을 객체 열쇠로 쓸 때 위험한 이름은 거른다

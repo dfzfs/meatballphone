@@ -107,18 +107,39 @@ export function dayTop(D, max = 5) {
     return [...D.ev].sort((a, b) => RANK(a.c) - RANK(b.c) || a.i - b.i).slice(0, max);
 }
 
+// ───── 👜 물건 종류 (이름 · 효과만 보고 · 저장 0) ─────
+export const WEAR = /(옷|셔츠|블라우스|니트|스웨터|후드|로브|코트|자켓|재킷|점퍼|패딩|조끼|망토|바지|청바지|치마|스커트|드레스|원피스|교복|정장|수트|제복|잠옷|파자마|속옷|양말|스타킹|신발|구두|운동화|부츠|샌들|슬리퍼|모자|비니|장갑|목도리|스카프|넥타이|벨트|반지|목걸이|귀걸이|팔찌|시계|안경|고글|마스크|가면|갑옷|투구|방패|머리띠|리본|앞치마|우비|coat|jacket|hood|robe|cloak|shirt|dress|skirt|pants|jeans|boots?|shoes?|\bhat\b|\bcap\b|gloves?|scarf|\bring\b|necklace|earrings?|glasses|goggles|mask|armor|uniform)/i;
+const FOODISH = /(빵|밥|면|국|떡|고기|갈비|과일|사과|우유|커피|차|주스|술|맥주|와인|과자|사탕|초콜릿|케이크|도시락|김밥|라면|원두|산나물|탕약|약|음식|간식|bread|meat|apple|coffee|tea|milk|beer|wine|candy|cake|food|snack)/i;
+const goodFx = (book, name) => { const n = norm(name); for (const p of book?.world?.places ?? []) for (const g of p.goods ?? []) if (norm(g.name) === n) return g.fx ?? {}; return book?.world?.itemFx?.[name] ?? null; };
+// food · wear · etc
+export function itemKind(book, name, fx) {
+    const f = fx && Object.keys(fx).length ? fx : goodFx(book, name);
+    if (WEAR.test(name)) return 'wear';
+    if ((f && Object.values(f).some(v => Number(v) > 0)) || FOODISH.test(name)) return 'food';
+    return 'etc';
+}
+// 돈 쓴 곳 종류: 식비 · 옷 · 선물 · 기타
+export const SPEND = { food: ['🍞', '식비', '#e8a33d'], wear: ['👕', '옷 · 꾸밈', '#7c6cf0'], gift: ['🎁', '선물', '#e85d8a'], etc: ['📦', '기타', '#8d99ae'] };
+const spendKind = (book, why) => { const w = String(why ?? ''); if (/선물|gift/i.test(w)) return 'gift'; const k = itemKind(book, cashWhy(w)); return k === 'etc' ? 'etc' : k; };
+
 // ───── 💰 가계부 ─────
 const cashWhy = (w) => String(w ?? '').replace(/\s*(삼|팖)$/, '').trim() || '기타';
 export function ledger(r, days = 7) {
     const T = thread(r), list = [...T.days.values()].sort((a, b) => b.day - a.day);
-    const recent = list.filter(D => D.spend || D.earn).slice(0, days);
-    const by = new Map(); let spend = 0, earn = 0;
+    // 오늘까지 이어진 날들 (돈이 안 움직인 날도 빈칸으로 — 하루치만 있으면 막대 하나가 화면을 다 차지하던 것)
+    const today = Math.floor((r.S?.t ?? 0) / DAY), recent = [];
+    if (list.some(D => D.spend || D.earn)) { const lo = Math.min(...list.map(D => D.day)); for (let d = today; d > today - days; d--) recent.push(T.days.get(d) ?? { day: d, spend: 0, earn: 0, pre: d < lo }); } // 이야기 전 날은 이름 없이 빈칸
+    const by = new Map(), kinds = new Map(), week = { spend: 0, earn: 0, kind: new Map() }, dayKind = new Map(); let spend = 0, earn = 0;
     for (const e of T.ev) {
         const c = e.c; if (c.f !== 'cash' || typeof c.to !== 'number') continue;
-        const d = c.to - c.from; if (d < 0) { spend -= d; const k = cashWhy(c.why); by.set(k, (by.get(k) ?? 0) - d); } else earn += d;
+        const d = c.to - c.from, inWeek = e.day > today - days;
+        if (d < 0) {
+            spend -= d; const k = cashWhy(c.why), sk = spendKind(r.book, c.why); by.set(k, (by.get(k) ?? 0) - d); kinds.set(sk, (kinds.get(sk) ?? 0) - d);
+            if (inWeek) { week.spend -= d; week.kind.set(sk, (week.kind.get(sk) ?? 0) - d); const m = dayKind.get(e.day) ?? new Map(); m.set(sk, (m.get(sk) ?? 0) - d); dayKind.set(e.day, m); }
+        } else { earn += d; if (inWeek) week.earn += d; }
     }
     const top = [...by.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
-    return { recent, top, spend, earn };
+    return { recent, top, spend, earn, week, dayKind, kinds };
 }
 // 👜 물건 이력: 이 물건이 언제 · 왜 들어오고 나갔나
 export function itemLife(r, name, max = 8) {
