@@ -374,8 +374,8 @@ function placeCard(r, p, here2, path) {
                 poor = S.cash < price;
             const liked = Object.values(S.rel).some((x) => x.seen.likes.some((l) => g.name.includes(l)));
             return (
-                `<div class="ml-good${poor ? ' poor' : ''}"><span>${liked ? '🎁 ' : ''}<b>${esc(g.name)}</b> <small>${esc(fxTxt(g.fx))}</small></span><em>${price}` +
-                 ` ${esc(book.world.currency)}` +
+                `<div class="ml-good${poor ? ' poor' : ''}"><span>${liked ? '🎁 ' : ''}<b>${esc(g.name)}</b> <small>${esc(fxTxt(g.fx))}</small></span><em>${fmt(price)}` +
+                 ` ${esc(book.world.currency)}${fxOf(r, price)}` +
                 `</em>${isHere && !poor ? btn('사기', 'say', `${g.name} 하나 주세요.`, 'xs') : poor && isHere ? '<small class="neg">돈 부족</small>' : ''}</div>`
             );
         })
@@ -1111,15 +1111,27 @@ export async function onAct(act, v, el) {
             hand(`gone: ${v} | ${r.S.rel[v]?.gone ? '돌아옴' : '직접 뺌'}`, '직접');
             return;
         case 'edit-fx': {
-            const w = meta.book.world;
+            const w = meta.book.world, old = num(w.fx?.rate);
+            // 💱 환율이 통용되게: 값을 바꾸면 물가 · 가진 돈도 그 환율에 맞춰 줌 (원하면 숫자 그대로)
+            //   전에 환율이 있었으면 현실 값이 그대로 남게(옛/새) · 처음이면 식사 한 끼 ≈ 9,000원이 되게
+            const factorOf = (rate) => (!(rate > 0) ? 1 : old > 0 && old !== rate ? old / rate : w.meal * rate < 3000 || w.meal * rate > 30000 ? 9000 / (w.meal * rate) : 1); // 같은 환율로 다시 저장해도 어긋난 물가면 맞춤
             const fv = await form('💱 화폐 · 환율', [
                 { k: 'cur', label: '이 세계의 돈 이름', v: w.currency, chips: ['원', '달러', '골드', '은화', '동화', '베리', '냥', '크레딧'] },
-                { k: 'rate', label: '1 (이 세계 돈) = 몇 원?', type: 'number', v: w.fx?.rate || '', ph: '예: 1000', hint: '적어 두면 돈이 나오는 곳마다 「≈ 12만 원」이 같이 보여요 · 비우면 안 보여요' },
+                { k: 'rate', label: '1 (이 세계 돈) = 몇 원?', type: 'number', v: w.fx?.rate || '', ph: '예: 1000', hint: `적어 두면 돈이 나오는 곳마다 「≈ 12만 원」이 같이 보이고 AI도 이 물가로 써요 · 지금 식사 한 끼 ${fmt(w.meal)} ${esc(w.currency)}` },
+                { k: 'fit', label: '물가 · 가진 돈도 이 환율에 맞출까요? (빵이 30원처럼 어긋나지 않게)', type: 'pick', v: 'yes', opts: [['yes', '✅ 맞추기'], ['no', '숫자는 그대로']] },
             ]);
             if (!fv) return;
-            meta.book = normBook({ ...meta.book, world: { ...w, currency: String(fv.cur || w.currency).trim(), fx: { rate: Math.max(0, num(fv.rate)), unit: '원' } } });
-            saveMeta(); app.refresh?.(true);
-            toast(num(fv.rate) > 0 ? `1 ${meta.book.world.currency} ≈ ${fmt(num(fv.rate))} ${meta.book.world.fx.unit}로 같이 보여요` : '화폐를 바꿨어요', 'good');
+            const rate = Math.max(0, num(fv.rate)), f = fv.fit === 'yes' ? factorOf(rate) : 1, cur = String(fv.cur || w.currency).trim();
+            const nice = (x) => { if (!(x > 0)) return 0; const p = 10 ** Math.max(0, Math.floor(Math.log10(x)) - 1); return Math.max(1, Math.round(x / p) * p); };
+            const scaled = Math.abs(f - 1) > 0.05;
+            meta.book = normBook({
+                ...meta.book,
+                world: { ...w, currency: cur, fx: { rate, unit: '원' }, ...(scaled ? { meal: nice(w.meal * f), places: w.places.map(p => ({ ...p, goods: (p.goods ?? []).map(g => ({ ...g, price: nice(g.price * f) })) })) } : {}) },
+            });
+            saveMeta();
+            if (scaled && r.S.cash > 0) hand(`cash: ${nice(r.S.cash * f)}`, `환율에 맞춤 (×${fmt(Math.round(f * 100) / 100)})`);
+            app.refresh?.(true);
+            toast(rate > 0 ? `1 ${cur} = ${fmt(rate)}원${scaled ? ` · 물가를 맞췄어요 (식사 한 끼 ${fmt(meta.book.world.meal)} ${cur} ≈ ${fmt(meta.book.world.meal * rate)}원)` : ''}` : '화폐를 바꿨어요', 'good');
             return;
         }
         case 'edit-cash': {
