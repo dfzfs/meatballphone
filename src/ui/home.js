@@ -15,6 +15,7 @@ import { nextAiNo } from '../base/st.js';
 import { mascot, MASCOTS, MEATCON, mascotUrl, MASCOT_SOUNDS, PACK, packOn } from './mascot.js';
 import { extApps, extOf, catalog, loadCatalog, hasApp, waitsReload } from '../extra/apps.js';
 import { loveCards, loveBadge, loveAny, homeHearts } from './love.js';
+import { todayLine } from './threadui.js';
 
 // 앱 목록 — mod가 있으면 받기 · 지우기 가능, sys는 늘 있음
 export const APPS = [
@@ -107,6 +108,8 @@ export function home(r) {
         );
     // 이번 답
     const tc = turnCard(r, li); if (tc) P.turn = tc;
+    // 📖 오늘 한 줄 (이야기 속 오늘 바뀐 것 중 가장 큰 것 · 보기만)
+    { const t = todayLine(r); if (t) put('오늘', t, 'rec', '', 'today'); }
     // 달력: 이번 주 + 다가오는 것
     if (modOn('calendar')) {
         const day0 = Math.floor(S.t / DAY), up = upcoming(r);
@@ -122,7 +125,7 @@ export function home(r) {
 
 // ───── 🏠 홈 꾸리기: 위젯 순서 · 숨기기 · 앱 순서 · 독 (✏️ 편집 모드 · 꾹 누르기) ─────
 export const W_NAMES = { hero: '🕰 시계 · 오늘', tags: '🏷 상태 딱지', music: '🎵 지금 곡', scene: '📜 이 장면 · 운세', soon: '⏳ 곧 일어날 일', stats: '❤️ 수치',
-    dice: '🎲 주사위', with: '👥 같이 있는 사람', turn: '🔁 이번 답', cal: '📅 달력', news: '📰 세계 소식' };
+    dice: '🎲 주사위', with: '👥 같이 있는 사람', turn: '🔁 이번 답', cal: '📅 달력', news: '📰 세계 소식', today: '📖 오늘 한 줄' };
 const DEF_W = Object.keys(W_NAMES), DEF_DOCK = ['now', 'rel', 'map', 'cal'];
 export function homeCfg() {
     const s = settings(); s.home ??= {}; const H = s.home;

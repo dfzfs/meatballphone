@@ -323,15 +323,17 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             const p = personOf(book, name),
                 r = x.rel(name),
                 g = norm(b);
-            const like = p?.likes.find((l) => g.includes(norm(l)) || norm(l).includes(g)),
-                hate = p?.hates.find((l) => g.includes(norm(l)) || norm(l).includes(g));
+            // 물건 이름이 비면 취향 판정 안 함 (빈 글은 모든 취향에 「들어 있음」으로 맞아 버림)
+            const hit = (l) => !!g && !!norm(l) && (g.includes(norm(l)) || norm(l).includes(g));
+            const like = p?.likes.find(hit),
+                hate = p?.hates.find(hit);
             if (like && !r.seen.likes.includes(like)) r.seen.likes.push(like);
             if (hate && !r.seen.hates.includes(hate)) r.seen.hates.push(hate);
             x.setRel(
                 name,
                 'aff',
                 like ? DEF.giftLike : hate ? DEF.giftHate : DEF.gift,
-                `🎁 ${short(b, 10)}${like ? ' · 취향 저격' : hate ? ' · 싫어함' : ''}`,
+                `🎁 ${short(b || '선물', 10)}${like ? ' · 취향 저격' : hate ? ' · 싫어함' : ''}`,
                 src,
                 !!(like || hate),
                 i,
@@ -360,7 +362,8 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             return;
         }
         case 'time': {
-            const sp = /^\+/.test(a) ? spanOf(a) : null;
+            // 「+2h」 · 「2시간 후」 · 「30분 뒤」 · 「3 hours later」 → 흐른 시간
+            const sp = /^\+/.test(a) || /(후|뒤|지나|흐름|later|after|passed)/i.test(a) ? spanOf(a) : null;
             if (sp) {
                 x.pass(sp, why(b || '시간 흐름'), i);
                 return;
@@ -406,6 +409,7 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             if (!name) return;
             const p = personOf(book, name),
                 t = norm(b);
+            if (!t) return; // 한 일이 비면 무엇이 오를지 모름 → 건너뜀
             const up = p?.up.find((u) => t.includes(norm(u.act)) || norm(u.act).includes(t)),
                 down = p?.down.find((u) => t.includes(norm(u.act)) || norm(u.act).includes(t));
             const basic = (B) => t.includes(norm(B.act)) || norm(B.act).includes(t);
@@ -749,6 +753,7 @@ export function opsOf(m, book = null) {
 let quick = { key: '', r: null };
 // 상태 사진은 16개마다 하나만 (긴 채팅에서 다시 계산이 가볍게) · 수치는 메시지마다 작게 (그래프 · 하이라이트용)
 const SNAP = 16;
+const EMPTY = Object.freeze([]);
 export function fold(force = false) {
     const meta = getMeta(); if (!meta?.book) return null;
     const chat = ctx().chat ?? [], id = ctx().getCurrentChatId?.();
@@ -756,7 +761,7 @@ export function fold(force = false) {
     const last = chat[chat.length - 1], qk = `${id}|${chat.length}|${last ? sigOf(last) : ''}|${metaRev}|${meta.book === quick.book ? 1 : 0}`;
     if (!force && quick.r && quick.key === qk) return quick.r;
     const bsig = hash(JSON.stringify(meta.book) + JSON.stringify(meta.start ?? {}) + (meta.startAt ?? 0) + JSON.stringify(meta.ruleVers ?? []) + JSON.stringify(meta.preHand ?? []));
-    if (force || cache.chatId !== id || cache.bookSig !== bsig) cache = { chatId: id, bookSig: bsig, sig: [], snap: [], needs: [], changes: [], flags: [], base: null, last: null };
+    if (force || cache.chatId !== id || cache.bookSig !== bsig) cache = { chatId: id, bookSig: bsig, sig: [], snap: [], needs: [], at: [], changes: [], flags: [], base: null, last: null };
     if (!cache.base) {
         cache.base = startState(meta);
         // ✋ AI 답이 아직 없을 때 고친 것(다른 곡 · AI로 수정 · 직접 고치기)은 시작 상태에 붙인다
@@ -769,7 +774,7 @@ export function fold(force = false) {
     if (from === cache.sig.length && from > 0 && cache.last && cache.last.i === from - 1) k = -2; // 끝에 붙기만 했으면 마지막 상태에서 바로
     const S0 = k === -2 ? cache.last.S : k >= 0 ? cache.snap[k] : cache.base;
     const start = k === -2 ? from : k + 1;
-    for (const arr2 of [cache.sig, cache.needs, cache.changes, cache.flags]) arr2.length = start;
+    for (const arr2 of [cache.sig, cache.needs, cache.at, cache.changes, cache.flags]) arr2.length = start;
     cache.snap.length = Math.min(cache.snap.length, start);
     let S = structuredClone(S0);
     for (let i = start; i < chat.length; i++) {
@@ -783,10 +788,11 @@ export function fold(force = false) {
             afterTurn(bk, S, x, ch, W, i, P);
         }
         cache.sig[i] = sigOf(m); cache.changes[i] = ch; cache.flags[i] = msgData(m)?.flagOk ? [] : flags; cache.needs[i] = { ...S.needs, ...Object.fromEntries(Object.entries(S.gauges ?? {}).map(([g, v]) => [`g:${g}`, v])) };
+        cache.at[i] = { t: S.t, loc: S.loc, with: S.with.length ? [...S.with] : EMPTY }; // 🧵 그때 장소 · 시각 · 같이 있던 사람 (메모리에만 · 저장 안 함)
         if (i % SNAP === 0) cache.snap[i] = structuredClone(S);
     }
     cache.last = { i: chat.length - 1, S };
-    const out = { S: chat.length ? S : cache.base, needsAt: cache.needs, changes: cache.changes, flags: cache.flags, book: meta.book, base: cache.base, stateAt };
+    const out = { S: chat.length ? S : cache.base, needsAt: cache.needs, at: cache.at, changes: cache.changes, flags: cache.flags, book: meta.book, base: cache.base, stateAt };
     quick = { key: qk, r: out, book: meta.book };
     return out;
 }

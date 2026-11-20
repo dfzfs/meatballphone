@@ -6,7 +6,7 @@
 import { settings, saveSettings } from '../base/st.js';
 import { esc } from '../base/util.js';
 import { fold } from '../rules/engine.js';
-import { toast } from './kit.js';
+import { toast, layerHost } from './kit.js';
 import { songLink } from './music.js';
 
 const EMBED = 'https://www.youtube-nocookie.com';
@@ -48,7 +48,7 @@ function box() {
         + '<div class="mbp-m"><span class="mbp-t"><b></b><small></small></span>'
         + '<span class="mbp-c"><button class="mbp-b" data-mbp="toggle" title="재생 · 멈춤">⏸</button><button class="mbp-b" data-mbp="big" title="크게 보기">⤢</button><button class="mbp-b" data-mbp="close" title="닫기">✕</button></span></div>'
         + '<button class="mbp-new" data-mbp="new" hidden></button>';
-    document.body.appendChild(el);
+    layerHost().appendChild(el);
     el.addEventListener('click', onBox);
     el.addEventListener('pointerdown', dragStart);
     return el;

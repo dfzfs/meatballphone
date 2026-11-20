@@ -108,7 +108,8 @@ export function lineNodes(places, o) {
         const lb = cands.reduce((m, c) => (c.score > m.score ? c : m), cands[0]);
         taken.push(lb.box); grow(lb.box); grow([cx - 6, cy - (pins.length ? 12 : 6), 12, pins.length ? 18 : 12]);
         const c = ls.length ? (o.net.colorOf?.get([...o.net.lineOf.entries()].find(([, n]) => n === ls[0])?.[0]) ?? LINE_COLORS[ls[0] % LINE_COLORS.length]) : 'var(--sub)';
-        return `<g class="node ${here ? 'here' : ''} ${isSel ? 'sel' : ''} ${xfer ? 'xfer' : ''}" style="--c:${c}" data-act="mapsel" data-v="${esc(p.name)}">
+        const vis = o.visits?.(p.name) ?? null, foot = vis == null ? '' : vis === 0 ? 'new' : vis >= 5 ? 'v3' : vis >= 2 ? 'v2' : 'v1'; // 👣 발자국 (보기만)
+        return `<g class="node ${here ? 'here' : ''} ${isSel ? 'sel' : ''} ${xfer ? 'xfer' : ''} ${foot}" style="--c:${c}" data-act="mapsel" data-v="${esc(p.name)}">
             <circle class="hitbox" cx="${cx}" cy="${cy}" r="5"/>${here ? `<circle class="ring" cx="${cx}" cy="${cy}" r="5.2"/>` : ''}${isSel ? `<circle class="halo" cx="${cx}" cy="${cy}" r="${xfer ? 4.3 : 3.8}"/>` : ''}
             ${stn(cx, cy, xfer ? 2.9 : 2.3)}${here ? `<circle class="me" cx="${cx}" cy="${cy}" r="1.25"/>` : ''}
             <text class="lb" x="${R(cx + lb.dx)}" y="${R(cy + lb.dy)}" style="text-anchor:${lb.anchor}"><tspan class="pi">${esc(ico)} </tspan><tspan class="pn">${esc(nm)}</tspan>${p.floors?.length ? `<tspan class="pf"> ${p.floors.length}층</tspan>` : ''}</text>

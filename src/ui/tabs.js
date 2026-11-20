@@ -18,6 +18,8 @@ import { calBar, calTabView, calCell, calDayExtra, calSettings, calAct } from '.
 import { ddaysOn } from '../rules/calplus.js';
 import { isSecret, secretSub, sneakCard, sneakUndo } from './sneak.js';
 import { sneakOnDay } from '../rules/sneak.js';
+import { personThread, placeThread, dayThread, lived, ledgerCard, statusCard, diceLog, albumView, statsView, daysView, threadAct } from './threadui.js';
+import { dayOfI, thread } from '../rules/thread.js';
 
 const lastAI = () => { const c = ctx().chat ?? []; for (let i = c.length - 1; i >= 0; i--) if (!c[i].is_user && !c[i].is_system) return i; return -1; };
 const money = (r, n) => `${fmt(n)} ${esc(r.book.world.currency)}`;
@@ -98,6 +100,7 @@ function now(r) {
                 .join('')}</div>`;
     }
     if (V('turn')) h += turnCard(r, li);
+    if (V('history')) h += statusCard(r); // 🧵 딱지 이력 (보기만)
     if (false) h += `<h4 class="ml-h4">같이 있는 사람</h4><div class="ml-rcs">${S.with.map(n => relCard(r, n)).join('')}</div>`;
     return h;
 }
@@ -134,6 +137,7 @@ function dice(r) {
         + `주사위</h4>${lk.rolled ? `<div class="ml-scene luck"><i>🍀</i><span><b>${esc(lk.text)}</b><small>🎲 ${lk.d} · 이야기 속 하루에 한 번</small></span></div>` : `<div class="ml-scene luck tap" data-act="luckroll"><i>🎲</i><span><b>오늘 운세 굴리기</b><small>선택지에 🍀 · ⚠로 반영돼요</small></span><em>굴리기</em></div>`}`;
     const hist = getMeta().recent?.rolls ?? [];
     if (hist.length) h += `<h4 class="ml-h4">최근 굴림</h4><div class="ml-dhist">${hist.map(x => `<span class="${x.res.includes('성공') ? 'ok' : 'no'}" title="${esc(x.text)}">${x.d ?? '?'}</span>`).join('')}</div>`;
+    h += diceLog(); // 🧵 판정 일지 (보기만)
     return h;
 }
 // ───── 소지품 · 재산 (+ 상점 미니 선택지) ─────
@@ -160,6 +164,7 @@ function bag(r) {
                       more: true,
                   }),
           );
+    if (V('ledger')) h += ledgerCard(r); // 🧵 가계부 (보기만)
     if (V('items'))
         h += card(
             '소지품',
@@ -167,6 +172,8 @@ function bag(r) {
                 ? S.items
                       .map((it) =>
                           row({
+                              act: 'th-item',
+                              data: it.name,
                               icon: isSecret(it) ? '🎁' : it.worn ? '👕' : '📦',
                               title: `${esc(it.name)}${it.n > 1 ? ` ×${it.n}` : ''}`,
                               sub: isSecret(it)
@@ -310,6 +317,7 @@ export function personSheet(r, name) {
         + `</div>`);
     if (p?.syn?.length) L.push(`<h4 class="ml-h4">다른 사람과</h4>${p.syn.map(sy => `<div class="ml-rl"><i>🔗</i>${esc(sy.to)} <span>${esc(sy.text)}</span></div>`).join('')}`);
     if (p?.routine?.length) L.push(`<h4 class="ml-h4">하루 루틴</h4>${p.routine.map(q => `<div class="ml-rl"><i>🕰</i>${esc(q.at)} <span>${esc(q.place)}</span></div>`).join('')}`);
+    if (vis('rel', 'thread')) L.push(personThread(r, name)); // 🧵 처음 · 함께한 시간 · 같이 들은 곡 · 연표 (보기만)
     L.push(`<div class="ml-acts">${btn('📅 약속 잡기', 'say', `${name}에게 약속을 잡자고 한다.`, 'xs')}${btn('✏️ 설정집에서 고치기', 'bk-person', name, 'xs')}${btn('🔗 합치기', 'merge', name, 'xs')}${btn('🕊 빠짐', 'gone', name, 'xs')}</div>`);
     sheet(`${p?.face || '🙂'} ${esc(name)}`, `<div class="ml-rcs">${relCard(r, name, true)}</div>${L.join('')}`);
 }
@@ -329,7 +337,8 @@ function map(r) {
     const path = route(adj, placeOf(book, S.loc)?.name, sel.name), onPath = new Set(path.slice(1).map((n, i) => [path[i], n].sort().join('|')));
     for (const e of pairs) e.route = onPath.has(e.key);
     const net = lineEdges(pairs, pos);
-    const nodes = lineNodes(places, { pos, here: S.loc, sel: sel.name, net, pins: (p) => at.get(p.name) ?? [] });
+    const T = vis('map', 'foot') ? thread(r) : null;
+    const nodes = lineNodes(places, { pos, here: S.loc, sel: sel.name, net, pins: (p) => at.get(p.name) ?? [], visits: T ? (n) => T.visits.get(n) ?? 0 : null });
     const [x0, y0, x1, y1] = nodes.ext, pad = 4;
     const svg = `<svg class="ml-map" viewBox="${x0 - pad} ${y0 - pad} ${x1 - x0 + pad * 2} ${y1 - y0 + pad * 2}" preserveAspectRatio="xMidYMid meet"><g class="edges">${net.svg}</g>${nodes.svg}</svg>`;
     const V = (k) => vis('map', k);
@@ -395,7 +404,7 @@ function placeCard(r, p, here2, path) {
         : btn(`🚶 ${esc(p.name)}(으)로 가기`, 'say', `${p.name}(으)로 간다.`, 'xs');
     return `<div class="ml-rc ml-place"><div class="ml-rc-h"><span class="ml-face">${PLACE_KINDS[p.kind]}</span><b>${esc(p.name)}`
         + `</b>${p.line ? `<span class="ml-pill">${esc(p.line)}</span>` : ''}${isHere ? '<span class="ml-pill good">지금 여기</span>' : ''}`
-        + `</div>${L.join('')}${goods && vis('map', 'goods') ? `<h4 class="ml-h4">물가</h4><div class="ml-goods">${goods}</div>` : ''}`
+        + `</div>${L.join('')}${vis('map', 'life') ? placeThread(r, p.name) : ''}${goods && vis('map', 'goods') ? `<h4 class="ml-h4">물가</h4><div class="ml-goods">${goods}</div>` : ''}`
         + `${vis('map', 'building') ? `<h4 class="ml-h4">${fl.length ? '건물 안' : '사진'}</h4>${elev}` : ''}<div class="ml-acts">${acts}`
         + `${isHere ? '' : btn('🙈 지도에서 숨기기', 'map-hide', p.name, 'xs')}</div></div>`;
 }
@@ -430,7 +439,7 @@ function cal(r) {
         + ` ${btn('날씨', 'c-wx', '', 'xs')}</span></div></div>`;
     h += `<div class="ml-timebar">${btn(`⏭ ${periodName(S.t + 180) !== periodName(S.t) ? periodName(S.t + 180) : '다음 시간대'}`, 'c-time', 'next', 'xs')}${btn('+1시간', 'c-time', '+1h', 'xs')}${btn('☀️ 다음 날 아침', 'c-time', '+1d', 'xs')}${btn('🕰 시각 맞추기', 'c-time', 'set', 'xs')}</div>`;
     const cells = []; for (let k = 0; k < first; k++) cells.push('<div class="ml-cc x"></div>');
-    for (let d = 1; d <= days; d++) { const { out, day } = eventsOnDay(r, y, m, d), cc = calCell(r, day); cells.push(`<button class="ml-cc${day === today ? ' today' : ''}${calDay === d ? ' sel' : ''}${day < today ? ' past' : ''}${cc.cls}" data-act="c-day" data-v="${d}">`
+    for (let d = 1; d <= days; d++) { const { out, day } = eventsOnDay(r, y, m, d), cc = calCell(r, day); cells.push(`<button class="ml-cc${day === today ? ' today' : ''}${calDay === d ? ' sel' : ''}${day < today ? ' past' : ''}${day <= today && lived(r, day) ? ' lived' : ''}${cc.cls}" data-act="c-day" data-v="${d}">`
         + `<span>${d}</span>${out.length ? `<i>${out.slice(0, 3).map(() => '<b></b>').join('')}</i>` : ''}${cc.mark}</button>`); }
     h += `<div class="ml-calh">${btn('‹', 'c-nav', '-1', 'xs')}<b>${st0.cal?.era ? `${esc(st0.cal.era)} ` : ''}${y}년 ${esc(monthName(st0, m))}`
         + `</b>${btn('›', 'c-nav', '1', 'xs')}${y !== now.y || m !== now.m ? btn('오늘', 'c-today', '', 'xs') : ''}</div><div `
@@ -441,6 +450,7 @@ function cal(r) {
             + `</span>${btn('✕', 'c-day', '', 'xs')}`
             + `</div>${out.map(e => `<div class="ml-rl${e.i != null ? ' tap' : ''}"${e.i != null ? ` data-act="jump" data-v="${e.i}"` : ''}><i>${e.icon}</i>${esc(e.text)}</div>`).join('') || '<div class="ml-rl dim"><i>·</i>일정 없음</div>'}`
             + calDayExtra(r, day)
+            + dayThread(r, day) // 🧵 그날 있었던 일 (보기만)
             + `<div class="ml-acts">${btn('＋ 이 날 일정', 'c-add', `${m}/${calDay}`, 'xs')}`
             + `${day > today ? btn('⏩ 이 날로 시간 이동', 'c-go', `${m}/${calDay}`, 'xs') : ''}</div></div>`;
     } else h += '<div class="ml-hint">날짜를 누르면 그날 일정을 보고 추가할 수 있어요.</div>';
@@ -457,12 +467,23 @@ const news = (r) => newsView(r); // 종류 · 탭 · 피드: ui/newskinds.js
 const REC_F = [['all', '전체'], ['need', '수치'], ['cash', '돈'], ['item', '물건'], ['rel', '관계'], ['loc', '장소'], ['status', '딱지']];
 let recF = 'all';
 export const setRecFilter = (v) => { recF = v; };
+let recView = 'line';
+export const setRecView = (v) => { recView = v; };
 function rec(r) {
     const { book } = r, chat = ctx().chat ?? [], meta = getMeta();
+    // 📒 보기: 타임라인 · 🎞 앨범 · 📖 하루씩 · 📊 통계 (모두 같은 기록을 다르게 묶은 것 · 저장 0)
+    const views = `<div class="ml-tools">${seg('v:rec', [['line', '🕰 타임라인'], ['album', '🎞 앨범'], ['days', '📖 하루씩'], ['stats', '📊 통계']], recView)}</div>`;
+    if (recView === 'album') return views + albumView(r);
+    if (recView === 'days') return views + daysView(r);
+    if (recView === 'stats') return views + statsView(r);
     const L = [];
+    let lastDay = null;
     for (let i = chat.length - 1; i >= 0 && L.length < 120; i--) for (const c of r.changes[i] ?? []) {
         if (c.src === 'time') continue;
         if (recF !== 'all' && !c.f.startsWith(recF) && !(recF === 'rel' && (c.f.startsWith('stage') || c.f.startsWith('npc') || c.f.startsWith('gone')))) continue;
+        // 📖 날짜가 바뀌는 곳에 구분선 (챕터)
+        const d = dayOfI(r, i);
+        if (d != null && d !== lastDay) { L.push(`<div class="ml-chap">${esc(dateText(book.world.start, d * DAY, false))}</div>`); lastDay = d; }
         L.push(
             row({
                 icon: c.icon,
@@ -485,6 +506,7 @@ function rec(r) {
     const marks = (meta.marks ?? []).map(m => ({ ...m, i: chat.findIndex(x => msgKey(x) === m.key) })).filter(m => m.i >= 0);
     const RF = REC_F.filter(([k]) => ({ need: 'stats', cash: 'wallet', item: 'wallet', rel: 'rel', loc: 'map', status: 'stats' }[k] ?? null) == null || modOn({ need: 'stats', cash: 'wallet', item: 'wallet', rel: 'rel', loc: 'map', status: 'stats' }[k]));
     return (
+        views +
         `<div class="ml-tools">${seg('recf', RF, recF)}${btn('⭐ 마지막 답 책갈피', 'mark')}${btn('🕰 그때 상태 보기', 'past')}</div>` +
         card('책갈피', marks.map((m) => row({ icon: '⭐', title: esc(m.name), sub: `#${m.i}`, act: 'jump', data: m.i, more: true })).join('')) +
         card('하이라이트', hi.join('')) +
@@ -497,7 +519,8 @@ function graph(r, key) {
     const P = pts.slice(-40), x0 = P[0][0], x1 = P[P.length - 1][0] || 1;
     const X = (i) => ((i - x0) / Math.max(1, x1 - x0) * 100).toFixed(1), Y = (v) => (30 - v * 0.3).toFixed(1);
     return `<svg class="ml-graph" viewBox="0 0 100 30" preserveAspectRatio="none"><polyline points="${P.map(([i, v]) => `${X(i)},${Y(v)}`).join(' ')}`
-        + `"/>${P.map(([i, v]) => `<circle class="tap" cx="${X(i)}" cy="${Y(v)}" r="2.2" data-act="jump" data-v="${i}"><title>#${i} · ${Math.round(v)}</title></circle>`).join('')}`
+        + `"/>${P.map(([i, v]) => { const ev = (r.changes[i] ?? []).find(c => c.f === `need.${key}` && c.src !== 'time'); // 📍 시간 말고 일이 있어 바뀐 점은 크게 · 이유를 띄움
+            return `<circle class="tap${ev ? ' ev' : ''}" cx="${X(i)}" cy="${Y(v)}" r="${ev ? 3 : 2.2}" data-act="jump" data-v="${i}"><title>#${i} · ${Math.round(v)}${ev ? ` · ${esc(ev.why)} ${signed(ev.to - ev.from)}` : ''}</title></circle>`; }).join('')}`
         + `</svg>`;
 }
 // ───── 속마음 · 관전자 · 세포 (본편 답에 같이 적힌 것만) ─────
@@ -612,6 +635,7 @@ export const RENDER = { music, quote, now, dice, bag, rel, map, cal, news, rec, 
 export async function onAct(act, v, el) {
     const meta = getMeta(), r = fold();
     if (String(act).startsWith('cp-')) return calAct(act, v, el); // 📅 달력 더하기
+    if (String(act).startsWith('th-')) { threadAct(act, v, r); return; } // 🧵 실타래 (D-day로 · 물건 이력)
     switch (act) {
         case 'nk-tab': case 'nk-on':
             if (newsAct(act, v)) app.refresh?.();

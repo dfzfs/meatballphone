@@ -16,6 +16,25 @@ export const bar = (v, kind = '') => `<span class="ml-bar ${kind}"><i style="wid
 export const empty = (text, btn = '', act = '') => `<div class="ml-empty">${mascot('lg', 'think', 'bob')}<p>${text}</p>${btn ? `<button class="ml-btn" data-act="${act}">${btn}</button>` : ''}</div>`;
 export const btn = (text, act, data = '', kind = '') => `<button class="ml-btn ${kind}" data-act="${act}"${data !== '' && data != null ? ` data-v="${esc(data)}"` : ''}>${text}</button>`;
 
+// 🧷 떠 있는 창(전체화면 · 미니바 · 시트 · 알림 · 플레이어)을 붙일 곳
+//   보통은 <body>. 그런데 body에 transform · filter · backdrop-filter · contain 같은 게 걸려 있으면(아이폰 · 일부 테마 · 다른 확장 · 사용자 CSS)
+//   position:fixed가 화면이 아니라 body를 기준으로 잡혀서 높이 0 → 눌러도 아무것도 안 보인다. 그럴 땐 <html>에 붙인다.
+let hostCache = null;
+export function layerHost() {
+    const b = document.body; if (!b) return document.documentElement;
+    if (hostCache && hostCache.isConnected) return hostCache;
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:100vh;visibility:hidden;pointer-events:none';
+    b.appendChild(probe);
+    const r = probe.getBoundingClientRect(); probe.remove();
+    const cs = getComputedStyle(b), trap = [cs.transform, cs.filter, cs.backdropFilter, cs.webkitBackdropFilter, cs.perspective].some(v => v && v !== 'none')
+        || /paint|layout|strict|content/.test(cs.contain || '') || /transform|filter|perspective/.test(cs.willChange || '');
+    // 기준이 화면이 아니면(위치가 어긋나거나 trap) <html>로
+    hostCache = trap || Math.abs(r.top) > 2 || r.height < innerHeight * 0.6 ? document.documentElement : b;
+    if (hostCache !== b) console.warn('[미트볼폰] body가 position:fixed 기준을 바꾸고 있어서 창을 <html>에 붙여요.');
+    return hostCache;
+}
+export const resetLayerHost = () => { hostCache = null; };
 // 바텀시트: 보는 화면과 고치는 화면을 나눈다
 export function sheet(title, html, { onOk = null, ok = '저장' } = {}) {
     document.querySelector('.ml-bs')?.remove();
@@ -23,7 +42,7 @@ export function sheet(title, html, { onOk = null, ok = '저장' } = {}) {
     el.className = 'ml-bs ml-scope';
     el.innerHTML = `<div class="ml-bs-dim"></div><div class="ml-bs-box"><header><b>${title}</b><button class="ml-x" data-bs="x">✕</button></header><div class="ml-bs-body">${html}</div>${onOk ? `<footer><button class="ml-btn main" data-bs="ok">${ok}</button></footer>` : ''}</div>`;
     // 패널(펼친 화면)이 열려 있으면 그 안에 띄운다 — 화면 전체를 덮지 않게
-    (document.getElementById('ml-full') ?? document.body).appendChild(el);
+    (document.getElementById('ml-full') ?? layerHost()).appendChild(el);
     const close = () => el.remove();
     el.addEventListener('click', async (e) => {
         const b = e.target.closest('[data-bs]');
@@ -33,7 +52,7 @@ export function sheet(title, html, { onOk = null, ok = '저장' } = {}) {
     return el;
 }
 export function toast(text, kind = 'mid') {
-    const host = document.querySelector('.ml-toasts') ?? Object.assign(document.body.appendChild(document.createElement('div')), { className: 'ml-toasts ml-scope' });
+    const host = document.querySelector('.ml-toasts') ?? Object.assign(layerHost().appendChild(document.createElement('div')), { className: 'ml-toasts ml-scope' });
     const t = document.createElement('div'); t.className = `ml-toast ${kind}`; t.textContent = text; host.appendChild(t);
     setTimeout(() => t.remove(), kind === 'mind' ? 5200 : 3200);
 }

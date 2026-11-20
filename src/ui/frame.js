@@ -1,9 +1,9 @@
 // 화면은 셋뿐: HUD · 미니바 · 전체화면
 import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, ready, msgData, TITLE, MODS, setEyes, shut } from '../base/st.js';
-import { esc, dateText, periodName, short, fmt, clockText } from '../base/util.js';
+import { esc, dateText, periodName, short, fmt, clockText, DAY } from '../base/util.js';
 import { fold, derived, needStage } from '../rules/engine.js';
 import { placeOf } from '../rules/book.js';
-import { RENDER, onAct, changeRow, setRecFilter } from './tabs.js';
+import { RENDER, onAct, changeRow, setRecFilter, setRecView } from './tabs.js';
 import { home, market, cat, look, appOf, installed, markSeen, firstView, setupView, homeCfg, homeEditing, setHomeEdit, wallCss, setMktTab } from './home.js';
 import { renderExt, setAppsChange, installApp } from '../extra/apps.js';
 import { resetCal } from './calplus.js';
@@ -11,7 +11,7 @@ import { loveAct } from './love.js';
 import { bindHomeEdit } from './homeedit.js';
 import { toolbar, onTool, TOOL_ACTS, applyGloss } from './tools.js';
 import { applyTr, trOn, trBusy } from '../extra/translate.js';
-import { chip, sheet, bar, toast } from './kit.js';
+import { chip, sheet, bar, toast, layerHost, resetLayerHost } from './kit.js';
 
 import { mascot } from './mascot.js';
 import { isWaiting } from '../rules/classify.js';
@@ -40,7 +40,13 @@ function hudHTML(r) {
 function miniHTML(r) {
     const { S, book } = r;
     const needs = modOn('stats') ? book.me.needs.map(n => { const v = Math.round(S.needs[n.key] ?? 0); return `<div class="ml-mb-n" title="${esc(n.name)}">${n.icon}${bar(v, needStage(v) === '위험' ? 'bad' : '')}</div>`; }).join('') : '';
-    const night = /심야|밤/.test(periodName(S.t)), face = derived(book, S).some(d => d.stage === '위험') ? 'sad' : night && settings().mascotPick === 'idle' ? 'sleep' : '';
+    // 😺 미트볼 표정: 위험 → 슬픔 · 방금 단계가 오름 → 파티 · 돈이 바닥 → 생각 · 밤 → 잠 (지금 상태만 봄 · 저장 0)
+    const night = /심야|밤/.test(periodName(S.t)), last = r.changes?.[r.changes.length - 1] ?? [], idle = settings().mascotPick === 'idle' || !settings().mascotPick;
+    const face = derived(book, S).some(d => d.stage === '위험') ? 'sad'
+        : !idle ? ''
+        : last.some(c => /^stage\./.test(c.f) && !c.f.startsWith('stage.need') && c.why === '단계가 올랐어요') ? 'party'
+        : modOn('wallet') && S.cash <= 0 ? 'think'
+        : night ? 'sleep' : '';
     return `${mascot('sm', face, 'ml-mascot')}${needs}<div class="ml-mb-t">${dateText(book.world.start, S.t, false)}</div><button class="ml-btn sm" data-act="open" data-v="now">펼치기</button>`;
 }
 export function drawFrame() {
@@ -55,7 +61,7 @@ export function drawFrame() {
             if (hud.dataset.h !== one) { hud.innerHTML = one; hud.dataset.h = one; }
         } else hud?.remove();
         if (settings().minibar) {
-            if (!mb) { mb = document.createElement('div'); mb.id = 'ml-mini'; mb.className = 'ml-scope'; document.body.appendChild(mb); }
+            if (!mb) { mb = document.createElement('div'); mb.id = 'ml-mini'; mb.className = 'ml-scope'; layerHost().appendChild(mb); }
             const h = `${mascot('sm', '', 'ml-mascot')}<button class="ml-btn sm" data-act="open" data-v="home">${line}</button>`; if (mb.innerHTML !== h) mb.innerHTML = h;
         } else mb?.remove();
         return;
@@ -68,7 +74,7 @@ export function drawFrame() {
         if (hud.dataset.h !== h) { hud.innerHTML = h; hud.dataset.h = h; applyGloss(hud); applyTr(hud); }
     } else hud?.remove();
     if (settings().minibar) {
-        if (!mb) { mb = document.createElement('div'); mb.id = 'ml-mini'; mb.className = 'ml-scope'; document.body.appendChild(mb); }
+        if (!mb) { mb = document.createElement('div'); mb.id = 'ml-mini'; mb.className = 'ml-scope'; layerHost().appendChild(mb); }
         const h = miniHTML(r); if (mb.innerHTML !== h) mb.innerHTML = h;
     } else mb?.remove();
 }
@@ -81,13 +87,18 @@ export function openSheet(tab = 'home') {
     let el = document.getElementById('ml-full');
     if (!el) {
         el = document.createElement('div'); el.id = 'ml-full'; el.className = 'ml-scope';
-        document.body.appendChild(el);
+        resetLayerHost(); layerHost().appendChild(el); // body가 fixed 기준을 바꾸면 <html>에 (아이폰 · 테마 · 다른 확장)
         el.addEventListener('click', clickHandler);
         el.addEventListener('change', changeHandler);
         bindHomeEdit(el); // ✏️ 꾹 누르기 · 끌어서 순서
     }
-    drawSheet();
     document.body.classList.add('ml-open');
+    try { drawSheet(); } catch (e) {
+        // 그리다 실패해도 빈 화면이 아니라 무엇이 잘못됐는지 보이게 (📋로 복사해서 보내 줄 수 있음)
+        console.error(`[${TITLE}] 화면 그리기 실패`, e);
+        el.innerHTML = `<header class="ml-top"><b>${TITLE}</b><span class="ml-sp"></span><button class="ml-ib" data-act="report" title="전체 복사">📋</button><button class="ml-ib" data-act="close">✕</button></header>`
+            + `<main class="ml-body"><div class="ml-hint">⚠ 화면을 그리다 멈췄어요. 위 📋를 눌러 복사해서 보내 주세요.</div><pre class="ml-err">${esc(String(e?.stack || e)).slice(0, 1200)}</pre></main>`;
+    }
 }
 export function closeSheet() { document.getElementById('ml-full')?.remove(); document.body.classList.remove('ml-open'); }
 export function drawSheet() {
@@ -132,7 +143,7 @@ export function drawSheet() {
     el.innerHTML = `<header class="ml-top"><button class="ml-ib back" data-tab="home" title="홈">‹</button><b>${a ? `${a.icon} ${a.name}` : ''}</b>`
         + `${past != null ? chip(`🕰 #${past} 시점 · 읽기 전용`, 'mid', 'past-off') : ''}<span class="ml-sp"></span><button class="ml-ib${meta.paused || meta.skipNext || eyesShut().length ? ' on' : ''}" data-act="pause" `
         + `title="멈춤 · 건너뛰기 · 😌 눈 감기">${pauseLabel(meta)}</button><button class="ml-ib" data-act="find" title="검색">🔍</button><button class="ml-ib" data-act="report" title="📋 전체 복사">📋</button><button class="ml-ib" data-act="close">✕</button></header>`
-        + `<main class="ml-body" data-tab="${cur}">${a && !a.sys ? toolbar(cur) : ''}${R2[cur](view)}</main>`;
+        + `<main class="ml-body" data-tab="${cur}">${a && !a.sys ? toolbar(cur) : ''}${past != null && cur === 'now' ? thenNow(view.S, r) : ''}${R2[cur](view)}</main>`;
     applyGloss(el.querySelector('.ml-body')); applyTr(el.querySelector('.ml-body'));
     if (trOn() && trBusy()) el.querySelector('.ml-sp')?.insertAdjacentHTML('beforebegin', '<span class="ml-pill">🌐 번역 중…</span>');
     if (a && !a.sys) markSeen(cur, r);
@@ -144,6 +155,7 @@ async function clickHandler(e) {
     const o = e.target.closest('[data-act="open"]'); if (o && !e.target.closest('[data-act]:not([data-act="open"])')) { if (o.dataset.v === 'cal' && cur !== 'cal') resetCal(); cur = o.dataset.v; drawSheet(); el0()?.querySelector('.ml-body')?.scrollTo(0, 0); return; }
     const s = e.target.closest('.ml-seg button'); if (s) { const name = s.parentElement.dataset.seg, v = s.dataset.v, meta = getMeta();
         if (name === 'mkt') { setMktTab(v); drawSheet(); return; }
+        if (name === 'v:rec') { setRecView(v); drawSheet(); return; } // 보기만 바꿈 · 저장 안 함
         if (name === 'hide') meta.hideNums = v === '1';
         if (name === 'scope') { meta.influence = v === 'chat' ? structuredClone(settings().influence) : null; }
         if (name === 'recf') setRecFilter(v);
@@ -182,6 +194,19 @@ function changeHandler(e) {
     if (id === 'all') tgt.all = v; else { tgt.by ??= {}; tgt.by[id] = v - (tgt.all ?? 2); }
     meta.influence ? saveMeta() : ctx().saveSettingsDebounced();
     drawSheet(); app.inject?.();
+}
+// 🕰 그때 ↔ 지금: 그때 상태와 지금 상태의 차이 한 장 (보기만 · 저장 0)
+function thenNow(T, r) {
+    const N = r.S, book = r.book, L = [];
+    const d = (a, b) => { const x = Math.round(b - a); return x ? `<b class="${x > 0 ? 'pos' : 'neg'}">${x > 0 ? '+' : '−'}${fmt(Math.abs(x))}</b>` : ''; };
+    if (T.loc !== N.loc) L.push(`<div class="ml-rl"><i>📍</i>${esc(T.loc || '-')} → <b>${esc(N.loc || '-')}</b></div>`);
+    if (modOn('wallet') && T.cash !== N.cash) L.push(`<div class="ml-rl"><i>💰</i>${fmt(T.cash)} → ${fmt(N.cash)} ${esc(book.world.currency)} ${d(T.cash, N.cash)}</div>`);
+    if (modOn('stats')) for (const n of book.me.needs) { const a = T.needs[n.key] ?? 0, b = N.needs[n.key] ?? 0; if (Math.round(a) !== Math.round(b)) L.push(`<div class="ml-rl"><i>${n.icon}</i>${esc(n.name)} ${Math.round(a)} → ${Math.round(b)} ${d(a, b)}</div>`); }
+    if (modOn('rel')) for (const [n, x] of Object.entries(N.rel)) { const t = T.rel[n]; if (!t) { L.push(`<div class="ml-rl"><i>👤</i>${esc(n)} <span>그 뒤에 만남</span></div>`); continue; } if (t.aff !== x.aff) L.push(`<div class="ml-rl"><i>💗</i>${esc(n)} 애정 ${t.aff} → ${x.aff} ${d(t.aff, x.aff)}</div>`); }
+    const gone = T.items.filter(it => !N.items.some(x => x.name === it.name)).map(it => it.name), got = N.items.filter(it => !T.items.some(x => x.name === it.name)).map(it => it.name);
+    if (modOn('wallet') && (gone.length || got.length)) L.push(`<div class="ml-rl"><i>👜</i>${got.length ? `생김 ${got.slice(0, 5).map(esc).join(' · ')}` : ''}${gone.length ? ` <span>없어짐 ${gone.slice(0, 5).map(esc).join(' · ')}</span>` : ''}</div>`);
+    const days = Math.floor(N.t / DAY) - Math.floor(T.t / DAY);
+    return `<section class="ml-sec"><h4>그때 → 지금 <span>${days > 0 ? `${days}일 지남` : '같은 날'}</span></h4><div class="ml-card ml-thennow">${L.join('') || '<div class="ml-rl dim"><i>·</i>달라진 게 없어요</div>'}</div></section>`;
 }
 export function openPast(i) { openSheet('now'); past = i; drawSheet(); }
 // 바깥(HUD · 미니바) 누르기

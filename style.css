@@ -22,11 +22,11 @@
 .ml-h{white-space:nowrap;padding:4px 8px;border-radius:999px;background:color-mix(in srgb,var(--fg) 6%,transparent)}
 .ml-h.tap,.tap{cursor:pointer}.ml-h.bad{color:#fff;background:var(--bad)}.ml-h.mid{background:color-mix(in srgb,var(--bad) 22%,transparent)}
 /* 미니바 */
-#ml-mini{position:fixed;right:8px;top:50%;transform:translateY(-50%);z-index:3000;width:64px;display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px 4px;background:var(--bg);border:var(--bd) solid var(--line);border-radius:var(--r);box-shadow:var(--sh);backdrop-filter:blur(8px)}
+#ml-mini{position:fixed;right:8px;top:50vh;transform:translateY(-50%);z-index:3000;width:64px;display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px 4px;background:var(--bg);border:var(--bd) solid var(--line);border-radius:var(--r);box-shadow:var(--sh);backdrop-filter:blur(8px)}
 #ml-mini .ml-mascot{width:48px;height:48px;cursor:pointer}.ml-mb-n{display:flex;align-items:center;gap:4px;width:100%;font-size:12px}.ml-mb-n .ml-bar{flex:1}.ml-mb-t{font-size:11px;color:var(--sub);text-align:center}
 body.ml-open #ml-mini{display:none}
 /* 전체화면 */
-#ml-full{position:fixed;inset:0;z-index:4000;display:flex;flex-direction:column;background:var(--bg);backdrop-filter:blur(16px)}
+#ml-full{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;z-index:4000;display:flex;flex-direction:column;background:var(--bg);backdrop-filter:blur(16px)}
 .ml-top{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:var(--bd) solid var(--line)}.ml-top b{font-size:1.15em}.ml-sp{flex:1}
 .ml-ib{min-width:44px;min-height:44px;border:0;background:none;color:inherit;font-size:1.1em;cursor:pointer;border-radius:var(--r)}
 .ml-body{flex:1;overflow-y:auto;padding:16px;max-width:760px;width:100%;margin:0 auto}
@@ -58,7 +58,7 @@ body.ml-open #ml-mini{display:none}
 .ml-graph{width:72px;height:24px}.ml-graph polyline{fill:none;stroke:var(--a);stroke-width:2;vector-effect:non-scaling-stroke}
 .ml-quote{font-size:1.1em;line-height:1.6}
 /* 바텀시트 · 알림 */
-.ml-bs{position:fixed;inset:0;z-index:5000;display:flex;align-items:flex-end;justify-content:center}.ml-bs-dim{position:absolute;inset:0;background:rgb(0 0 0/.35)}
+.ml-bs{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;z-index:5000;display:flex;align-items:flex-end;justify-content:center}.ml-bs-dim{position:absolute;inset:0;background:rgb(0 0 0/.35)}
 .ml-bs-box{position:relative;width:100%;max-width:640px;max-height:85vh;display:flex;flex-direction:column;background:var(--bg);border-radius:var(--r) var(--r) 0 0;box-shadow:var(--sh)}
 .ml-bs-box header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line)}.ml-x{min-width:44px;min-height:44px;border:0;background:none;color:inherit;cursor:pointer}
 .ml-bs-body{overflow-y:auto;padding:16px}.ml-bs-box footer{padding:12px 16px;border-top:1px solid var(--line);display:flex;justify-content:flex-end}
@@ -103,12 +103,12 @@ body.ml-open #ml-mini{display:none}
 @media (max-width:600px){.ml-rc-h .ml-btn[data-act="person"]{display:none}}
 /* 노트북 · PC: 채팅 옆에 붙는 패널 (전체화면 아님 · 여백 없음) — 휴대폰만 전체화면 */
 @media (min-width:900px){
-#ml-full{inset:0 0 0 auto;width:min(480px,40vw);border-left:var(--bd) solid var(--line);box-shadow:-8px 0 24px rgb(0 0 0/.12)}
+#ml-full{inset:0 0 0 auto;left:auto;width:min(480px,40vw);border-left:var(--bd) solid var(--line);box-shadow:-8px 0 24px rgb(0 0 0/.12)}
 #ml-full .ml-body{max-width:none;padding:12px}
 #ml-full .ml-top{padding:8px 12px}
 }
 @media (min-width:900px){
-#ml-full.left{inset:0 auto 0 0;border-left:0;border-right:var(--bd) solid var(--line);box-shadow:8px 0 24px rgb(0 0 0/.12)}
+#ml-full.left{inset:0 auto 0 0;right:auto;border-left:0;border-right:var(--bd) solid var(--line);box-shadow:8px 0 24px rgb(0 0 0/.12)}
 }
 /* 영향력 게이지: 이름 줄 위 · 막대 아래 · 단계 이름 눈금 (실리태번 기본 슬라이더 규칙을 이김) */
 .ml-gauge{padding:8px 12px;border-bottom:1px solid var(--line)}.ml-gauge:last-child{border-bottom:0}
@@ -116,7 +116,7 @@ body.ml-open #ml-mini{display:none}
 #ml-full input[type="range"].ml-range{display:block;width:100%;min-width:0;margin:8px 0 2px;padding:0;accent-color:var(--a)}
 .ml-gauge-t{display:flex;justify-content:space-between;font-size:10px;color:var(--sub)}.ml-gauge-t span.on{color:var(--a);font-weight:700}
 /* 바텀시트는 패널 안에서 (패널 폭 · 패널 높이 안) */
-#ml-full .ml-bs{position:absolute;z-index:10;align-items:flex-end}
+#ml-full .ml-bs{position:absolute;inset:0;width:auto;height:auto;z-index:10;align-items:flex-end}
 #ml-full .ml-bs-box{max-width:none;max-height:88%;border-radius:var(--r) var(--r) 0 0}
 /* ───── 🚇 지도 (dev 노선도 기준) ───── */
 .ml-scope{--hi:var(--a)}
@@ -503,3 +503,38 @@ a.ml-play,a.ml-scene{text-decoration:none;color:inherit}
 @media (prefers-reduced-motion:reduce){.ml-app.love>i,.ml-hearts i{animation:none}.ml-hearts{display:none}}
 /* calendar: 바로 받기 */
 .ml-cpnow{align-items:center}.ml-cpnow>small{color:var(--sub);font-size:11px;margin-right:2px}
+
+/* 🧵 실타래 — 보기만 하는 묶음 화면 (가계부 · 앨범 · 통계 · 하루씩 · 챕터) */
+.ml-thv{font-weight:600;opacity:.75;margin-left:2px}
+.ml-calg .ml-cc.lived:not(.today)::after{content:'';position:absolute;left:50%;bottom:3px;width:10px;height:2px;margin-left:-5px;border-radius:2px;background:color-mix(in srgb,var(--a) 55%,transparent)}
+.ml-calg .ml-cc.lived.past{opacity:.8}
+.ml-chap{position:sticky;top:0;z-index:1;margin:8px 0 2px;padding:3px 10px;border-radius:999px;width:max-content;max-width:100%;font-size:.78em;font-weight:700;background:color-mix(in srgb,var(--a) 14%,var(--bg,#fff));color:inherit}
+.ml-ledger{display:flex;align-items:flex-end;gap:6px;height:70px;padding:6px 4px 16px;position:relative}
+.ml-lg{flex:1;display:flex;align-items:flex-end;justify-content:center;gap:2px;height:100%;position:relative}
+.ml-lg span{width:40%;border-radius:3px 3px 0 0}
+.ml-lg .out{background:color-mix(in srgb,#e85d5d 75%,transparent)}.ml-lg .in{background:color-mix(in srgb,#2f9e7a 75%,transparent)}
+.ml-lg small{position:absolute;bottom:-15px;font-size:10px;opacity:.6}
+.ml-album{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.ml-alb{display:flex;flex-direction:column;gap:2px;padding:10px;border:var(--bd,1px) solid var(--line);border-radius:var(--r,12px);background:color-mix(in srgb,var(--fg) 3%,transparent);min-width:0}
+.ml-alb i{font-style:normal;font-size:20px}.ml-alb b{font-size:.9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ml-alb span{font-size:.85em;font-weight:600;color:var(--a)}.ml-alb small{font-size:.75em;opacity:.7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ml-alb em{font-style:normal;font-size:.7em;opacity:.5}
+.ml-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:6px 0}
+.ml-stat{display:flex;flex-direction:column;align-items:center;gap:1px;padding:10px 4px;border-radius:var(--r,12px);background:color-mix(in srgb,var(--a) 8%,transparent)}
+.ml-stat i{font-style:normal;font-size:18px}.ml-stat b{font-size:1.1em}.ml-stat small{font-size:.72em;opacity:.65;text-align:center}
+.ml-dayc{margin:6px 0;border:var(--bd,1px) solid var(--line);border-radius:var(--r,12px);overflow:hidden}
+.ml-dayc summary{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;cursor:pointer;list-style:none}
+.ml-dayc summary::-webkit-details-marker{display:none}
+.ml-dayc summary small{flex:1;min-width:0;opacity:.65;font-size:.78em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ml-dayc .ml-card{margin:0 8px 8px}
+@media (max-width:420px){.ml-album{grid-template-columns:1fr}}
+.ml-graph circle.ev{fill:#fff;stroke:var(--a);stroke-width:1.6}
+/* 👣 지도 발자국: 자주 간 역일수록 진하게 · 아직 안 간 곳은 이름을 흐리게 */
+.ml-map .node.v1 .stn{fill:color-mix(in srgb,var(--c,var(--sub)) 22%,var(--bg))}
+.ml-map .node.v2 .stn{fill:color-mix(in srgb,var(--c,var(--sub)) 48%,var(--bg))}
+.ml-map .node.v3 .stn{fill:color-mix(in srgb,var(--c,var(--sub)) 78%,var(--bg))}
+.ml-map .node.new:not(.here):not(.sel) text.lb{opacity:.55}
+.ml-thennow .ml-rl b.pos{color:#2f9e7a}.ml-thennow .ml-rl b.neg{color:#e85d5d}
+
+/* 🧷 body 대신 <html>에 붙었을 때(아이폰 · 테마 · 다른 확장이 body에 transform 등을 건 경우) 글꼴을 실리태번 것으로 */
+html > .ml-scope{font-family:var(--ml-font,var(--mainFontFamily,system-ui,sans-serif))}
+.ml-err{white-space:pre-wrap;font-size:11px;opacity:.75;max-height:40vh;overflow:auto}

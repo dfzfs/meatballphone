@@ -41,12 +41,21 @@ export function periodName(min) {
 }
 export function hhmm(min) { const m = ((min % DAY) + DAY) % DAY; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; }
 // 「14:30」 「오후 2시」 「저녁」 → 하루 안의 분 (모르면 null)
+//   「밤 11시」→23:00 · 「저녁 7시」→19:00 · 「새벽 3시 반」→03:30 · 「11 PM」→23:00 · 「2시간」은 시각이 아님(null)
 export function clockOf(v) {
     const s = String(v ?? '').trim().toLowerCase();
-    let m = /(\d{1,2})\s*[:시]\s*(\d{1,2})?/.exec(s);
-    if (m) { let h = Number(m[1]); const mi = Number(m[2] ?? 0); if (/오후|pm/.test(s) && h < 12) h += 12; if (/오전|am/.test(s) && h === 12) h = 0; if (h < 24 && mi < 60) return h * 60 + mi; }
+    const m = /(\d{1,2})\s*:\s*(\d{1,2})/.exec(s) ?? /(\d{1,2})\s*시(?!간)\s*(?:(\d{1,2})\s*분|(반))?/.exec(s) ?? /(\d{1,2})\s*(am|pm|a\.m\.|p\.m\.)/.exec(s);
+    if (m) {
+        let h = Number(m[1]); const mi = m[3] === '반' ? 30 : /^\d+$/.test(m[2] ?? '') ? Number(m[2]) : 0;
+        if (/오후|저녁|pm|p\.m\./.test(s) && h < 12) h += 12;
+        else if (/밤|night/.test(s) && h >= 6 && h < 12) h += 12;
+        else if (/낮/.test(s) && h <= 6) h += 12;
+        else if (/오전|새벽|아침|am|a\.m\./.test(s) && h === 12) h = 0;
+        if (h < 24 && mi < 60) return h * 60 + mi;
+    }
+    if (/\d\s*(시간|h|hours?|hrs?|분|min|일|d|days?)/.test(s)) return null; // 「2시간 후」 같은 길이는 시각이 아님
     for (const [w, h] of PERIODS) if (s.includes(w)) return h * 60;
-    for (const [w, h] of Object.entries(PERIOD_EN)) if (s.includes(w)) return h * 60;
+    for (const [w, h] of Object.entries(PERIOD_EN).sort((a, b) => b[0].length - a[0].length)) if (s.includes(w)) return h * 60; // midnight를 night보다 먼저
     return null;
 }
 // 「6h」 「6시간」 「30분」 「반나절」 「3일」 → 분

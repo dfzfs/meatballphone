@@ -8,10 +8,10 @@ let tab = 'all';
 export const newsTab = () => tab;
 
 // 📱 피드 카드: 얼굴 · 이름 · 글 · 시각 · 반응
-function feedCard(book, n) {
+function feedCard(book, n, rel = {}) {
     const who = n.who || '', p = personOf(book, who), face = p?.face || faceOf(who, '🙂');
     const text = n.text.startsWith(`${who} — `) ? n.text.slice(who.length + 3) : n.text;
-    return `<div class="ml-feed"><div class="ml-feed-h"><span class="ml-face">${face}</span><b>${esc(who)}</b>`
+    return `<div class="ml-feed"><div class="ml-feed-h"><span class="ml-face">${face}</span><b${who && rel[who] ? ` class="tap" data-act="person" data-v="${esc(who)}"` : ''}>${esc(who)}</b>`
         + `<small>${dateText(book.world.start, n.t, false)}</small></div><p>${esc(text)}</p>`
         + `<div class="ml-feed-r">${reactions(text).map(x => `<span>${x.e} ${x.n}</span>`).join('')}</div></div>`;
 }
@@ -26,9 +26,10 @@ export function newsView(r) {
     h += `<div class="ml-nk-tabs">${[['all', '전체', S.news.length], ...NEWS_KINDS.map(k => [k.id, k.icon, cnt(k.id)])].map(([id, l, c]) => `<button class="${tab === id ? 'on' : ''}" data-act="nk-tab" data-v="${id}" title="${esc(kindInfo(id)?.name ?? '전체')}">`
         + `${l}${c ? ` <small>${c}</small>` : ''}</button>`).join('')}</div>`;
     const list = S.news.filter(n => tab === 'all' || n.kind === tab).slice(0, 20);
-    if (tab === 'feed') return h + (list.length ? `<div class="ml-feeds">${list.map(n => feedCard(book, n)).join('')}</div>` : empty('아직 올라온 글이 없어요.'));
+    if (tab === 'feed') return h + (list.length ? `<div class="ml-feeds">${list.map(n => feedCard(book, n, S.rel)).join('')}</div>` : empty('아직 올라온 글이 없어요.'));
     const L = [];
-    for (const n of list) L.push(row({ icon: n.icon, title: esc(n.text), sub: `${kindInfo(n.kind)?.name ?? '소식'} · ${dateText(book.world.start, n.t, false)}` }));
+    // 인물이 있는 소식은 누르면 그 사람 카드 (연표 · 이 사람 소식)
+    for (const n of list) L.push(row({ icon: n.icon, title: esc(n.text), sub: `${kindInfo(n.kind)?.name ?? '소식'} · ${dateText(book.world.start, n.t, false)}`, act: n.who && S.rel[n.who] ? 'person' : '', data: n.who && S.rel[n.who] ? n.who : '' }));
     if (tab === 'all' || tab === 'life') for (const [n, x] of Object.entries(S.rel)) if (x.want && !x.gone) L.push(row({ icon: '🎯', title: `${esc(n)}의 속셈`, sub: esc(x.want), faint: true }));
     const hint = on.life && tab === 'life' ? '<div class="ml-hint">🌙 화면 밖 소식은 영향력 3(강하게)부터 본편에 적어 달라고 해요.</div>' : '';
     return h + (L.length ? card(tab === 'all' ? '세계 소식' : `${kindInfo(tab).icon} ${kindInfo(tab).name}`, L.join('')) : empty(tab === 'all' ? '조용한 하루예요.' : '아직 이 종류 소식이 없어요.')) + hint;

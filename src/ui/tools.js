@@ -17,11 +17,11 @@ const APPS_MOD = { now: 'stats', bag: 'wallet', rel: 'rel', map: 'map', cal: 'ca
 export const APP_GAUGE = { now: 'stats', bag: 'wallet', rel: 'rel', map: 'map', cal: 'calendar', dice: 'dice', news: 'news', mind: 'mind', quote: 'quote' };
 // 👁 보일 것 — 앱 안의 칸
 export const PARTS = {
-    home: [['hero', '오늘 · 장소'], ['tags', '상태 딱지'], ['scene', '이 장면'], ['soon', '곧 일어날 일'], ['stats', '수치'], ['dice', '주사위'], ['with', '같이 있는 사람'], ['turn', '이번 답'], ['cal', '달력'], ['news', '세계 소식']],
-    now: [['tags', '상태 딱지'], ['scene', '이 장면'], ['needs', '욕구'], ['gauges', '게이지'], ['attrs', '능력치'], ['turn', '이번 답']],
-    rel: [['line', '성격 한 줄'], ['meters', '애정 · 우정 막대'], ['call', '호칭 · 행동'], ['next', '다음 단계'], ['last', '최근 변화'], ['want', '속셈'], ['mem', '감정 기억'], ['taste', '취향'], ['place', '장소 · 생일']],
-    map: [['map', '노선도'], ['pins', '인물 목록'], ['goods', '물가'], ['building', '건물 안 · 사진']],
-    bag: [['cash', '재산'], ['items', '소지품'], ['shop', '가게']],
+    home: [['hero', '오늘 · 장소'], ['tags', '상태 딱지'], ['scene', '이 장면'], ['soon', '곧 일어날 일'], ['stats', '수치'], ['dice', '주사위'], ['with', '같이 있는 사람'], ['turn', '이번 답'], ['cal', '달력'], ['news', '세계 소식'], ['today', '오늘 한 줄']],
+    now: [['tags', '상태 딱지'], ['scene', '이 장면'], ['needs', '욕구'], ['gauges', '게이지'], ['attrs', '능력치'], ['turn', '이번 답'], ['history', '딱지 이력']],
+    rel: [['line', '성격 한 줄'], ['meters', '애정 · 우정 막대'], ['call', '호칭 · 행동'], ['next', '다음 단계'], ['last', '최근 변화'], ['want', '속셈'], ['mem', '감정 기억'], ['taste', '취향'], ['place', '장소 · 생일'], ['thread', '처음 · 연표 (더보기)']],
+    map: [['map', '노선도'], ['pins', '인물 목록'], ['goods', '물가'], ['building', '건물 안 · 사진'], ['life', '여기서 있었던 일'], ['foot', '발자국 (자주 간 곳 진하게)']],
+    bag: [['cash', '재산'], ['ledger', '가계부'], ['items', '소지품'], ['shop', '가게']],
 };
 export const vis = (appId, part) => !(settings().partsOff?.[appId] ?? []).includes(part);
 export const hiddenAI = (gid) => !!getMeta()?.hideAI?.[gid];
