@@ -62,6 +62,9 @@ export function dayThread(r, day) {
     const sum = [D.spend && `💸 ${money(r, D.spend)}`, D.earn && `💰 +${money(r, D.earn)}`, places.length && `📍 ${places.map(esc).join(' → ')}`].filter(Boolean);
     if (sum.length) L.push(`<div class="ml-rl"><i>📖</i>${sum.join(' <span>·</span> ')}</div>`);
     if (ppl.length) L.push(`<div class="ml-rl"><i>👥</i>${ppl.map(n => `<span class="tap" data-act="person" data-v="${esc(n)}">${face(r, n)} ${esc(n)}</span>`).join(' · ')}</div>`);
+    // 🎵 그날 들은 곡
+    const songs = (r.S.bgmLog ?? []).filter(s => s?.m != null && s.m >= D.first && s.m <= D.last).slice(-3);
+    if (songs.length) L.push(`<div class="ml-rl"><i>🎵</i>${songs.map(s => `<span class="tap" data-act="jump" data-v="${s.m}">${esc(s.title)}${s.artist ? ` <small>${esc(s.artist)}</small>` : ''}</span>`).join(' · ')}</div>`);
     L.push(dayTop(D, 5).map(e => evRow(r, e, false)).join(''));
     return `<h4 class="ml-h4">그날 있었던 일 <span class="tap" data-act="jump" data-v="${D.first}">#${D.first}~</span></h4>${L.join('')}`;
 }
@@ -99,7 +102,9 @@ export function itemSheet(r, name) {
 export function statusCard(r) {
     const L = statusLife(r, 10); if (!L.length) return '';
     const dur = (s) => (s.t0 != null && s.t1 != null ? (s.t1 - s.t0 >= DAY ? `${Math.round((s.t1 - s.t0) / DAY)}일` : `${Math.max(1, Math.round((s.t1 - s.t0) / 60))}시간`) : '');
-    return card('딱지 이력', L.map(s => row({ icon: s.icon, title: `${esc(s.name)}${s.to == null ? ' <span class="ml-pill bad">지금</span>' : ''}`, sub: `${esc(short(s.why, 24))}${dur(s) ? ` · ${dur(s)} 동안` : ''}`, act: 'jump', data: s.to ?? s.from })).join(''), '최근 10개');
+    // 🔗 딱지가 붙은 날 무슨 일이 있었나 (그날 큰 일 2개 · 날씨)
+    const ctxOf = (s) => { if (s.from == null) return ''; const d = dayInfo(r, Math.floor((r.at?.[s.from]?.t ?? 0) / DAY)); if (!d) return ''; const t = dayTop({ ev: d.ev.filter(e => !e.c.f.startsWith('status.') && !e.c.f.startsWith('need.')) }, 2).map(e => short(e.c.label, 10)); return t.length ? ` · 그날: ${t.map(esc).join(', ')}` : ''; };
+    return card('딱지 이력', L.map(s => row({ icon: s.icon, title: `${esc(s.name)}${s.to == null ? ' <span class="ml-pill bad">지금</span>' : ''}`, sub: `${esc(short(s.why, 24))}${dur(s) ? ` · ${dur(s)} 동안` : ''}${ctxOf(s)}`, act: 'jump', data: s.to ?? s.from })).join(''), '최근 10개');
 }
 
 // ───── 🎲 판정 일지 (이미 저장된 최근 굴림 목록에서) ─────

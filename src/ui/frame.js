@@ -107,8 +107,12 @@ export function bindOuter() {
 }
 // ───── 답 밑 칩: 보이는 최근 메시지에만 ─────
 const CHIP_N = 6;
+let chipLast = { r: null, n: -1, w: '', boxes: -1 };
 export function drawChips() {
     const r = fold(); const chat = ctx().chat ?? [];
+    // 🏎 계산 결과 · 메시지 수 · 기다리는 분류 · 붙은 칩 수가 그대로면 아무것도 안 함 (답마다 12개 메시지를 다시 훑던 것)
+    const wk = chat.slice(-CHIP_N * 2).map((_, k) => (isWaiting(chat.length - CHIP_N * 2 + k) ? 1 : 0)).join(''), boxes = document.querySelectorAll('.ml-msg').length;
+    if (r && r === chipLast.r && chat.length === chipLast.n && wk === chipLast.w && boxes === chipLast.boxes && !getMeta()?.off && settings().enabled) return;
     document.querySelectorAll('.ml-msg').forEach(x => { const i = Number(x.closest('.mes')?.getAttribute('mesid')); if (!(i >= chat.length - CHIP_N * 2)) x.remove(); });
     if (getMeta()?.off || !settings().enabled || !r) { document.querySelectorAll('.ml-msg').forEach(x => x.remove()); return; } // 「켜기(모든 채팅)」를 끄면 붙어 있던 칩도 뗌
     for (let i = Math.max(0, chat.length - CHIP_N * 2); i < chat.length; i++) {
@@ -126,5 +130,6 @@ export function drawChips() {
         if (!box) { box = document.createElement('div'); box.className = 'ml-msg ml-scope'; el.after(box); }
         if (box.dataset.h !== paintKey(h)) { box.innerHTML = h; box.dataset.h = paintKey(h); applyTr(box); applyGloss(box); }
     }
+    chipLast = { r, n: chat.length, w: wk, boxes: document.querySelectorAll('.ml-msg').length };
 }
 const signed2 = (n) => (n > 0 ? `+${Math.round(n)}` : `−${Math.abs(Math.round(n))}`);

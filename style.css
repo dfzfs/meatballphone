@@ -558,3 +558,6 @@ html > .ml-scope{font-family:var(--ml-font,var(--mainFontFamily,system-ui,sans-s
 .ml-lgsum{font-size:.95em;padding:8px 12px 0}.ml-lgsum b{font-variant-numeric:tabular-nums}
 .ml-lgkey{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:.78em;opacity:.8;padding:0 12px 8px}.ml-lgkey span{display:inline-flex;align-items:center;gap:4px}.ml-lgkey i{width:8px;height:8px;border-radius:2px;display:inline-block}.ml-lgkey i.in{background:color-mix(in srgb,#2f9e7a 75%,transparent)}
 .ml-bagh{font-size:.78em;font-weight:700;opacity:.6;padding:8px 14px 2px}
+.ml-map .node .mood{fill:none;stroke-width:.9;opacity:.55;stroke-dasharray:1.2 .8}.ml-map .node.m-good .mood{stroke:#2f9e7a}.ml-map .node.m-bad .mood{stroke:#e85d5d}
+.ml-map .node .ord{font-size:2.4px;font-weight:800;fill:#fff;paint-order:stroke;stroke:var(--a,#e0567f);stroke-width:.9px;pointer-events:none}
+.ml-cc{position:relative}.ml-cc .ml-ce{position:absolute;top:1px;right:2px;font-style:normal;font-size:10px;line-height:1;pointer-events:none}

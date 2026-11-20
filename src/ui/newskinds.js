@@ -29,7 +29,9 @@ export function newsView(r) {
     if (tab === 'feed') return h + (list.length ? `<div class="ml-feeds">${list.map(n => feedCard(book, n, S.rel)).join('')}</div>` : empty('아직 올라온 글이 없어요.'));
     const L = [];
     // 인물이 있는 소식은 누르면 그 사람 카드 (연표 · 이 사람 소식)
-    for (const n of list) L.push(row({ icon: n.icon, title: esc(n.text), sub: `${kindInfo(n.kind)?.name ?? '소식'} · ${dateText(book.world.start, n.t, false)}`, act: n.who && S.rel[n.who] ? 'person' : '', data: n.who && S.rel[n.who] ? n.who : '' }));
+    // 🗺️ 인물이 없고 장소 이름이 나오는 소식은 누르면 지도에서 그 장소
+    const placeIn = (t) => book.world.places.find(p => p.name.length >= 2 && String(t).includes(p.name))?.name ?? '';
+    for (const n of list) L.push(row({ icon: n.icon, title: esc(n.text), sub: `${kindInfo(n.kind)?.name ?? '소식'} · ${dateText(book.world.start, n.t, false)}`, act: n.who && S.rel[n.who] ? 'person' : placeIn(n.text) ? 'map-open' : '', data: n.who && S.rel[n.who] ? n.who : placeIn(n.text) }));
     if (tab === 'all' || tab === 'life') for (const [n, x] of Object.entries(S.rel)) if (x.want && !x.gone) L.push(row({ icon: '🎯', title: `${esc(n)}의 속셈`, sub: esc(x.want), faint: true }));
     const hint = on.life && tab === 'life' ? '<div class="ml-hint">🌙 화면 밖 소식은 영향력 3(강하게)부터 본편에 적어 달라고 해요.</div>' : '';
     return h + (L.length ? card(tab === 'all' ? '세계 소식' : `${kindInfo(tab).icon} ${kindInfo(tab).name}`, L.join('')) : empty(tab === 'all' ? '조용한 하루예요.' : '아직 이 종류 소식이 없어요.')) + hint;

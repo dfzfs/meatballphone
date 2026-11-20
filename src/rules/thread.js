@@ -193,3 +193,58 @@ export function isNewDay(r, i) {
     for (let k = i - 1; k >= 0; k--) { const p = dayOfI(r, k); if (p != null && (r.changes?.[k] ?? []).some(real)) return p !== d; }
     return false;
 }
+
+// ───── ❤️ 리듬 · 회복 맛집 (수치 앱) ─────
+// 욕구마다: 경계를 넘던 시간대(가장 잦은 것) · 제일 많이 회복한 곳
+export function needRhythm(r) {
+    const T = thread(r), low = new Map(), up = new Map();
+    for (const e of T.ev) {
+        const c = e.c, at = r.at?.[e.i]; if (!at) continue;
+        if (c.f.startsWith('stage.need.') && c.kind === 'bad') { const k = c.f.slice(11), h = Math.floor(((at.t % DAY) + DAY) % DAY / 60); const m = low.get(k) ?? new Map(); const p = h < 5 ? '심야' : h < 7 ? '새벽' : h < 11 ? '아침' : h < 17 ? '낮' : h < 21 ? '저녁' : '밤'; m.set(p, (m.get(p) ?? 0) + 1); low.set(k, m); }
+        if (c.f.startsWith('need.') && typeof c.to === 'number' && c.to > c.from && at.loc) { const k = c.f.slice(5), m = up.get(k) ?? new Map(); m.set(at.loc, (m.get(at.loc) ?? 0) + (c.to - c.from)); up.set(k, m); }
+    }
+    const top = (m, min = 1) => { const b = [...(m?.entries() ?? [])].sort((a, b) => b[1] - a[1])[0]; return b && b[1] >= min ? b : null; };
+    const out = new Map();
+    for (const k of new Set([...low.keys(), ...up.keys()])) out.set(k, { low: top(low.get(k), 2), spot: top(up.get(k)) });
+    return out;
+}
+// ───── 💞 관계 날씨 · 마지막으로 본 날 ─────
+export function relWeather(r, name) {
+    let sum = 0, n = 0; const ev = thread(r).ev;
+    for (let k = ev.length - 1; k >= 0 && n < 5; k--) { const c = ev[k].c; if (c.f === `rel.${name}.aff` || c.f === `rel.${name}.trust`) { sum += c.to - c.from; n++; } }
+    return n < 2 ? null : sum >= 3 ? ['☀️', '좋아지는 중'] : sum <= -3 ? ['🌧', '식는 중'] : ['☁️', '그대로'];
+}
+export function lastSeen(r, name) {
+    for (let i = (r.at?.length ?? 0) - 1; i >= 0; i--) if (r.at[i]?.with.includes(name)) return Math.floor((r.S?.t ?? 0) / DAY) - Math.floor(r.at[i].t / DAY);
+    return null;
+}
+// ───── 🗺️ 장소 기분 · 오늘 동선 ─────
+export function placeMood(r) {
+    const T = thread(r), m = new Map();
+    for (const e of T.ev) {
+        const c = e.c, loc = r.at?.[e.i]?.loc; if (!loc) continue;
+        let s = 0;
+        if (/^rel\..+\.(aff|trust)$/.test(c.f) && typeof c.to === 'number') s = Math.sign(c.to - c.from);
+        else if (c.cross || c.f.startsWith('status.')) s = c.kind === 'good' ? 1 : c.kind === 'bad' ? -1 : 0;
+        if (s) m.set(loc, (m.get(loc) ?? 0) + s);
+    }
+    return m;
+}
+export function todayRoute(r) {
+    const day = Math.floor((r.S?.t ?? 0) / DAY), out = [];
+    for (let i = 0; i < (r.at?.length ?? 0); i++) { const at = r.at[i]; if (!at?.loc || Math.floor(at.t / DAY) !== day) continue; if (out[out.length - 1] !== at.loc) out.push(at.loc); }
+    return out;
+}
+// ───── 📒 이번 주 하이라이트 ─────
+export function weekTop(r, max = 3) {
+    const today = Math.floor((r.S?.t ?? 0) / DAY), L = [];
+    for (const e of thread(r).ev) if (e.day > today - 7 && !e.c.f.startsWith('stage.need') && !e.c.f.startsWith('need.') && e.c.f !== 'loc' && e.c.f !== 'cash') L.push(e);
+    return L.sort((a, b) => RANK(a.c) - RANK(b.c) || b.i - a.i).slice(0, max);
+}
+// ───── 📅 그날 맨 위 사건 이모지 (달력 칸) ─────
+export function dayEmoji(r, day) {
+    const D = thread(r).days.get(day); if (!D?.ev.length) return '';
+    const big = D.ev.filter(e => !e.c.f.startsWith('need.') && !e.c.f.startsWith('stage.need') && e.c.f !== 'loc');
+    if (!big.length) return D.spend >= (r.book?.world?.meal ?? 10) * 5 ? '💸' : '';
+    return dayTop({ ev: big }, 1)[0]?.c.icon ?? '';
+}

@@ -236,9 +236,10 @@ async function wallUpload(file) {
     try {
         const url = await new Promise((ok, no) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = no; fr.readAsDataURL(file); });
         const img = await new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = url; });
-        const k = Math.min(1, 1280 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+        const k = Math.min(1, 1080 / Math.max(img.width, img.height)), c = document.createElement('canvas'); // 💾 폰 화면엔 1080이면 충분 (설정 저장이 가벼워짐)
         c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-        let out = c.toDataURL('image/jpeg', 0.82); if (out.length > 900000) out = c.toDataURL('image/jpeg', 0.6);
+        const wp = c.toDataURL('image/webp', 0.8);
+        let out = wp.startsWith('data:image/webp') ? wp : c.toDataURL('image/jpeg', 0.8); if (out.length > 600000) out = c.toDataURL('image/jpeg', 0.6);
         const L = settings().look; L.wallImg = out; L.wall = 'img'; saveSettings(); drawSheet();
     } catch { toast('사진을 못 읽었어요', 'bad'); }
 }

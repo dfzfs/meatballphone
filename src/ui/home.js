@@ -3,7 +3,8 @@
 import { ctx, getMeta, saveMeta, settings, modOn } from '../base/st.js';
 import { esc, signed, dateText, dateOf, DAY, periodName, clockText, fmt, num, faceOf, inPeriod } from '../base/util.js';
 import { derived, needStage, relStage, diceParts, whereNow } from '../rules/engine.js';
-import { personOf, placeOf, PLACE_KINDS } from '../rules/book.js';
+import { personOf, placeOf, PLACE_KINDS, isStar } from '../rules/book.js';
+import { lastSeen } from '../rules/thread.js';
 import { quoteLine, songLink } from './music.js';
 import { luckOf } from '../rules/luck.js';
 import { level } from '../rules/inject.js';
@@ -264,6 +265,16 @@ function soon(r) {
                 if (m < 360) out.push({ m, icon: n.icon, text: `${n.name} ${st === '정상' ? '주의' : '위험'}`, when: H(m) });
             }
         }
+    // 👀 눈치 알림: 낮아진 욕구 + 가방 · 여기 가게에 채울 것이 있으면 한 줄로 (앱 여러 개를 엮어서 · 보기만)
+    if (modOn('stats')) for (const n of book.me.needs) {
+        const v = S.needs[n.key] ?? 0; if (needStage(v) === '정상') continue;
+        const it = modOn('wallet') && S.items.find(x => !x.worn && num(x.fx?.[n.key]) > 0);
+        const g = !it && modOn('wallet') && placeOf(book, S.loc)?.goods.filter(x => num(x.fx?.[n.key]) > 0 && x.price <= S.cash).sort((a, b) => num(b.fx[n.key]) - num(a.fx[n.key]))[0];
+        if (it || g) { out.push({ m: -1, icon: '👀', text: it ? `${n.name} 낮음 · 가방에 ${it.name} (${n.name} +${num(it.fx[n.key])})` : `${n.name} 낮음 · 여기서 ${g.name} ${fmt(g.price)} ${book.world.currency}`, when: '지금' }); break; }
+    }
+    // 🕰 오래 못 본 주요 인물 (7일 넘게)
+    if (modOn('rel')) { const meta = getMeta(); let best = null; for (const [nm, x] of Object.entries(S.rel)) { if (x.gone || S.with.includes(nm) || !isStar(meta, book, nm)) continue; const d = lastSeen(r, nm); if (d != null && d >= 7 && (!best || d > best.d)) best = { nm, d }; }
+        if (best) out.push({ m: DAY * 2, icon: personOf(book, best.nm)?.face || '🙂', text: `${best.nm} · ${best.d}일째 못 봄`, when: '연락해 볼까요' }); }
     for (const st of S.status) if (st.until != null && st.until - S.t < 720) out.push({ m: st.until - S.t, icon: st.src === 'fate' ? '🔮' : '🏷️', text: `${st.name} 풀림`, when: H(st.until - S.t) });
     if (modOn('calendar')) {
         for (const p of S.promises) if (!p.done && p.due != null && p.due >= S.t && p.due - S.t <= DAY) out.push({ m: p.due - S.t, icon: '🤝', text: p.text, when: H(p.due - S.t) });

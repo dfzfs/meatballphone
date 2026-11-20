@@ -19,7 +19,7 @@ import { ddaysOn } from '../rules/calplus.js';
 import { isSecret, secretSub, sneakCard, sneakUndo } from './sneak.js';
 import { sneakOnDay } from '../rules/sneak.js';
 import { personThread, placeThread, dayThread, lived, ledgerCard, statusCard, diceLog, albumView, statsView, daysView, threadAct } from './threadui.js';
-import { dayOfI, thread, itemKind, itemLife } from '../rules/thread.js';
+import { dayOfI, thread, itemKind, itemLife, needRhythm, relWeather, lastSeen, placeMood, todayRoute, weekTop, dayEmoji } from '../rules/thread.js';
 
 const lastAI = () => { const c = ctx().chat ?? []; for (let i = c.length - 1; i >= 0; i--) if (!c[i].is_user && !c[i].is_system) return i; return -1; };
 const money = (r, n) => `${fmt(n)} ${esc(r.book.world.currency)}`;
@@ -113,9 +113,13 @@ function now(r) {
                 })
                 .join('')}</div>`;
     }
+    if (modOn('stats') && V('rhythm')) { // 🕰 리듬 · 회복 맛집 (지난 기록에서 · 보기만)
+        const RH = needRhythm(r), L = book.me.needs.map(n => { const x = RH.get(n.key); if (!x?.low && !x?.spot) return '';
+            return row({ icon: n.icon, title: esc(n.name), sub: [x.low && `보통 ${x.low[0]}에 바닥 (${x.low[1]}번)`, x.spot && `회복은 ${esc(x.spot[0])}에서 제일 많이 (+${Math.round(x.spot[1])})`].filter(Boolean).join(' · ') }); }).filter(Boolean);
+        if (L.length) h += card('리듬 · 회복 맛집', L.join(''), '지난 기록에서');
+    }
     if (V('turn')) h += turnCard(r, li);
     if (V('history')) h += statusCard(r); // 🧵 딱지 이력 (보기만)
-    if (false) h += `<h4 class="ml-h4">같이 있는 사람</h4><div class="ml-rcs">${S.with.map(n => relCard(r, n)).join('')}</div>`;
     return h;
 }
 // ───── 🎲 주사위: 능력치 + 보정 내역 → d20 · 결과는 입력창에 (이야기에 남게) ─────
@@ -278,7 +282,9 @@ function relCard(r, name, inSheet = false) {
     const pills = [x.gone ? `<span class="ml-pill mid">🕊 ${esc(x.gone)}</span>` : `<span class="ml-pill love">${esc(p?.noLove ? '친구' : st.name)}</span>`,
         S.with.includes(name) && '<span class="ml-pill good">함께 있음</span>',
         x.jealous && `<span class="ml-pill bad">💢 질투</span>`,
-        p?.noLove && '<span class="ml-pill mid">애정 꺼 둠</span>'].filter(Boolean).join('');
+        p?.noLove && '<span class="ml-pill mid">애정 꺼 둠</span>',
+        !x.gone && (() => { const w = relWeather(r, name); return w ? `<span class="ml-pill" title="최근 변화 5개">${w[0]} ${w[1]}</span>` : ''; })(), // 🌦 관계 날씨
+        !x.gone && !S.with.includes(name) && (() => { const d = lastSeen(r, name); return d != null && d >= 3 ? `<span class="ml-pill mid">${d}일째 못 봄</span>` : ''; })()].filter(Boolean).join('');
     const L = [], V = (k) => vis('rel', k);
     if (!x.gone) {
         if (V('meters') && !p?.noLove) L.push(meter('love', '애정', x.aff, ticks, hide, name));
@@ -294,6 +300,11 @@ function relCard(r, name, inSheet = false) {
         if (V('mem') && mem[0]) L.push(`<div class="ml-rl"><i>💬</i>${esc(mem[0].text)}${mem.length > 1 ? ` <span>외 ${mem.length - 1}개</span>` : ''}</div>`);
         const tl = [...x.seen.likes.map(t => `<span class="ml-tag good">${esc(t)}</span>`), ...x.seen.hates.map(t => `<span class="ml-tag bad">${esc(t)}</span>`)];
         if (V('taste') && tl.length) L.push(`<div class="ml-rl"><i>🎁</i>${tl.join('')}</div>`);
+        { // 🎁 선물 궁합: 그 사람이 좋아하는 게 내 가방에 있으면
+            const likes = [...x.seen.likes, ...(p?.likes ?? [])].map(norm).filter(l => l.length >= 2);
+            const fit = S.items.filter(it => !it.worn && likes.some(l => norm(it.name).includes(l) || l.includes(norm(it.name)))).slice(0, 2);
+            if (V('taste') && fit.length && !x.gone) L.push(`<div class="ml-rl"><i>💝</i>가방에 ${esc(name)}이(가) 좋아할 것: ${fit.map(it => `<b>${esc(it.name)}</b>`).join(' · ')} ${btn('건네기', 'say', `${name}에게 ${fit[0].name}을(를) 건넨다.`, 'xs')}</div>`);
+        }
         const day = p?.day || x.day, meta2 = [nowAt && `📍 ${esc(nowAt)}`, day && `🎂 ${esc(day)}`].filter(Boolean);
         if (V('place') && meta2.length) L.push(`<div class="ml-rl dim"><i></i>${meta2.join('<span>·</span>')}</div>`);
     }
@@ -344,7 +355,10 @@ function map(r) {
     for (const e of pairs) e.route = onPath.has(e.key);
     const net = lineEdges(pairs, pos);
     const T = vis('map', 'foot') ? thread(r) : null;
-    const nodes = lineNodes(places, { pos, here: S.loc, sel: sel.name, net, pins: (p) => at.get(p.name) ?? [], visits: T ? (n) => T.visits.get(n) ?? 0 : null });
+    // 🙂 장소 기분(좋은 일 · 나쁜 일이 많았던 곳) · 🔢 오늘 동선 순서 — 보기만
+    const MO = T ? placeMood(r) : null, RT = T ? todayRoute(r) : [];
+    const nodes = lineNodes(places, { pos, here: S.loc, sel: sel.name, net, pins: (p) => at.get(p.name) ?? [], visits: T ? (n) => T.visits.get(n) ?? 0 : null,
+        mood: MO ? (n) => { const v = MO.get(n) ?? 0; return v >= 2 ? 'good' : v <= -2 ? 'bad' : ''; } : null, order: RT.length > 1 ? (n) => RT.lastIndexOf(n) + 1 : null });
     const [x0, y0, x1, y1] = nodes.ext, pad = 4;
     const svg = `<svg class="ml-map" viewBox="${x0 - pad} ${y0 - pad} ${x1 - x0 + pad * 2} ${y1 - y0 + pad * 2}" preserveAspectRatio="xMidYMid meet"><g class="edges">${net.svg}</g>${nodes.svg}</svg>`;
     const V = (k) => vis('map', k);
@@ -446,7 +460,7 @@ function cal(r) {
     h += `<div class="ml-timebar">${btn(`⏭ ${periodName(S.t + 180) !== periodName(S.t) ? periodName(S.t + 180) : '다음 시간대'}`, 'c-time', 'next', 'xs')}${btn('+1시간', 'c-time', '+1h', 'xs')}${btn('☀️ 다음 날 아침', 'c-time', '+1d', 'xs')}${btn('🕰 시각 맞추기', 'c-time', 'set', 'xs')}</div>`;
     const cells = []; for (let k = 0; k < first; k++) cells.push('<div class="ml-cc x"></div>');
     for (let d = 1; d <= days; d++) { const { out, day } = eventsOnDay(r, y, m, d), cc = calCell(r, day); cells.push(`<button class="ml-cc${day === today ? ' today' : ''}${calDay === d ? ' sel' : ''}${day < today ? ' past' : ''}${day <= today && lived(r, day) ? ' lived' : ''}${cc.cls}" data-act="c-day" data-v="${d}">`
-        + `<span>${d}</span>${out.length ? `<i>${out.slice(0, 3).map(() => '<b></b>').join('')}</i>` : ''}${cc.mark}</button>`); }
+        + `<span>${d}</span>${out.length ? `<i>${out.slice(0, 3).map(() => '<b></b>').join('')}</i>` : ''}${day <= today ? (() => { const e = dayEmoji(r, day); return e ? `<em class="ml-ce">${e}</em>` : ''; })() : ''}${cc.mark}</button>`); } // 📅 그날 제일 큰 일 이모지
     h += `<div class="ml-calh">${btn('‹', 'c-nav', '-1', 'xs')}<b>${st0.cal?.era ? `${esc(st0.cal.era)} ` : ''}${y}년 ${esc(monthName(st0, m))}`
         + `</b>${btn('›', 'c-nav', '1', 'xs')}${y !== now.y || m !== now.m ? btn('오늘', 'c-today', '', 'xs') : ''}</div><div `
         + `class="ml-calg">${WK.map(w => `<div class="ml-cw">${esc(w)}</div>`).join('')}${cells.join('')}</div>`;
@@ -473,7 +487,7 @@ const news = (r) => newsView(r); // 종류 · 탭 · 피드: ui/newskinds.js
 const REC_F = [['all', '전체'], ['need', '수치'], ['cash', '돈'], ['item', '물건'], ['rel', '관계'], ['loc', '장소'], ['status', '딱지']];
 let recF = 'all';
 export const setRecFilter = (v) => { recF = v; };
-let recView = 'line';
+let recView = 'line', recMore = 30; // 🏎 타임라인은 30줄부터 · 「더 보기」로 30줄씩 (긴 채팅에서 DOM이 수천 개 생기던 것)
 export const setRecView = (v) => { recView = v; };
 function rec(r) {
     const { book } = r, chat = ctx().chat ?? [], meta = getMeta();
@@ -484,7 +498,8 @@ function rec(r) {
     if (recView === 'stats') return views + statsView(r);
     const L = [];
     let lastDay = null;
-    for (let i = chat.length - 1; i >= 0 && L.length < 120; i--) for (const c of r.changes[i] ?? []) {
+    let cut = false;
+    for (let i = chat.length - 1; i >= 0 && !(cut = L.length >= recMore); i--) for (const c of r.changes[i] ?? []) {
         if (c.src === 'time') continue;
         if (recF !== 'all' && !c.f.startsWith(recF) && !(recF === 'rel' && (c.f.startsWith('stage') || c.f.startsWith('npc') || c.f.startsWith('gone')))) continue;
         // 📖 날짜가 바뀌는 곳에 구분선 (챕터)
@@ -515,8 +530,9 @@ function rec(r) {
         views +
         `<div class="ml-tools">${seg('recf', RF, recF)}${btn('⭐ 마지막 답 책갈피', 'mark')}${btn('🕰 그때 상태 보기', 'past')}</div>` +
         card('책갈피', marks.map((m) => row({ icon: '⭐', title: esc(m.name), sub: `#${m.i}`, act: 'jump', data: m.i, more: true })).join('')) +
+        (() => { const W = weekTop(r, 3); return W.length ? card('이번 주 하이라이트', W.map(e => row({ icon: e.c.icon, title: `${esc(e.c.label)} ${typeof e.c.to === 'number' && typeof e.c.from === 'number' ? signed(e.c.to - e.c.from) : `→ ${esc(e.c.to)}`}`, sub: `${esc(short(e.c.why, 30))} · ${esc(dateText(book.world.start, r.at?.[e.i]?.t ?? 0, false))}`, act: 'jump', data: e.i })).join(''), '최근 7일 · 큰 일 3개') : ''; })() +
         card('하이라이트', hi.join('')) +
-        card('타임라인', L.join('') || row({ title: '아직 기록이 없어요', faint: true }))
+        card('타임라인', (L.join('') || row({ title: '아직 기록이 없어요', faint: true })) + (cut ? `<div class="ml-acts">${btn('더 보기', 'rec-more', '', 'sm')}</div>` : ''))
     );
 }
 function graph(r, key) {
@@ -540,7 +556,9 @@ function mind(r) {
     const sec = (t, o, ic) => card(t, Object.entries(o).map(([n, v]) => row({ icon: S.rel[n] ? personOf(r.book, n)?.face || '🙂' : ic, title: esc(n), sub: esc(v) })).join(''));
     const h = sec('지금 속마음', S.mind, '💭') + sec('관전자', S.watch, '👀') + sec('세포들', S.cell, '🧠');
     const log = (S.mindLog ?? []).slice(-14).reverse();
-    const hist = log.length ? card('지난 속마음', log.map(e => row({ icon: personOf(r.book, e.who)?.face ?? IC[e.k], title: esc(e.who), sub: `${esc(e.text)} · ${dateText(r.book.world.start, e.t)}`, act: 'jump', data: e.m, more: true })).join('')) : '';
+    // 💞 그 답에서 그 사람 애정 · 우정이 어떻게 됐나 (속마음 ↔ 관계)
+    const then = (e) => { const c = e.m != null && (r.changes[e.m] ?? []).find(c => c.f === `rel.${e.who}.aff` || c.f === `rel.${e.who}.trust`); return c ? ` · <b class="${c.to < c.from ? 'neg' : 'pos'}">그때 ${c.f.endsWith('aff') ? '💗' : '🤝'}${signed(c.to - c.from)}</b>` : ''; };
+    const hist = log.length ? card('지난 속마음', log.map(e => row({ icon: personOf(r.book, e.who)?.face ?? IC[e.k], title: esc(e.who), sub: `${esc(e.text)} · ${dateText(r.book.world.start, e.t)}${then(e)}`, act: 'jump', data: e.m, more: true })).join('')) : '';
     return tools + opts + (h || empty('다음 답부터 같이 적혀요.')) + hist;
 }
 // ───── 내 탭 ─────
@@ -669,6 +687,9 @@ export async function onAct(act, v, el) {
         case 'mapsel':
             setMapSel(v);
             app.refresh?.();
+            return;
+        case 'map-open': // 📰 소식 · 다른 앱에서 장소 이름을 누르면 지도에서 그 장소
+            setMapSel(v); app.openSheet?.('map');
             return;
         case 'map-pins': {
             const ppl = meta.book.people.map((p) => p.name),
@@ -843,6 +864,8 @@ export async function onAct(act, v, el) {
             if (!fv?.t.trim()) return;
             return hand(`promise: ${fv.t.trim()} | ${v}`, '일정 추가');
         }
+        case 'rec-more':
+            recMore += 30; return app.refresh?.();
         case 'c-go':
             return hand(`date: ${v}`, '이 날로 이동');
         case 'look-set': {
@@ -1377,7 +1400,7 @@ async function pickPhoto() {
                 c.height = Math.round(img.height * k);
                 c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
                 URL.revokeObjectURL(img.src);
-                res(c.toDataURL('image/jpeg', 0.78));
+                const w = c.toDataURL('image/webp', 0.75); res(w.startsWith('data:image/webp') ? w : c.toDataURL('image/jpeg', 0.78)); // 💾 webp가 되면 더 작게 (사파리는 jpeg)
             };
             img.onerror = () => res(null); img.src = URL.createObjectURL(f);
         };
