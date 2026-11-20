@@ -6,6 +6,10 @@ import { ask, parseJSON } from '../rules/ai.js';
 
 export const trOn = () => settings().saveLang === 'en';
 const LATIN = /[A-Za-z]{2,}/;
+// 번역할 말이 아님: 숫자 + 단위(18.7ms · 632t · 4.2KB) · 주소 · 오류 글 — 숫자가 바뀔 때마다 새 글로 보여 번역을 끝없이 부르던 것
+const UNIT = /^(ms|s|sec|kb|mb|gb|tok|toks|tokens?|px|min|h|hr|hrs|d|x|ok|api|ai|id|url|http|https|json|html|css|js|utf|st|vs)$/i;
+const notWords = (p) => /:\/\/|www\.|\.(com|org|net|io)\b|\b(error|failed|exception|status|code)\b.*\d{3}|\d{3}\b.*\b(error|failed|too many|exhausted)/i.test(p)
+    || !(p.match(/[A-Za-z]{2,}/g) ?? []).some(w => !UNIT.test(w));
 const pending = new Set();
 let timer = 0, busy = false;
 const engine = () => (settings().trEngine === 'ai' ? 'ai' : 'st'); // st = 실리 기본 번역(무료 · 빠름 · dev와 같음) · ai = AI(분류 연결)
@@ -34,7 +38,7 @@ export function applyTr(root) {
         let x = raw; for (const [re, to] of res) x = x.replace(re, to);
         if (x !== raw) n.nodeValue = x;
         // 아직 영어가 남은 덩어리 (문장 부호로 자름 · 너무 긴 건 빼고)
-        for (const piece of x.split(/[·|,()\[\]「」:→]/)) { const p = piece.trim(); if (LATIN.test(p) && p.length <= 300 && !d[p] && !tried.has(p)) pending.add(p); }
+        for (const piece of x.split(/[·|,()\[\]「」:→]/)) { const p = piece.trim(); if (LATIN.test(p) && p.length <= 300 && !d[p] && !tried.has(p) && !notWords(p)) pending.add(p); }
     }
     if (pending.size && autoOn()) { clearTimeout(timer); timer = setTimeout(flush, 400); }
 }

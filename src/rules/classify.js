@@ -132,6 +132,8 @@ const SYSTEM = 'You label what happened in ONE roleplay reply for a status track
         + 'Output ONLY a <meatball> block, one "key: value" per line.';
 // 분류 연결로 보냄 (「미트볼 분류용」 프리셋: 온도 0 · 답 1000토큰 · 생각 최소 · 스트리밍 끔)
 export const clsStats = { calls: 0, tok: 0, lastTok: 0, fails: 0 };
+const RATE = /\b429\b|RESOURCE_EXHAUSTED|Resource exhausted|Too Many Requests|rate.?limit|quota/i;
+let rateWarned = false;
 async function send(system, user) {
     clsStats.calls++; clsStats.lastSent = { system, user }; clsStats.lastReply = null;
     try { clsStats.lastReply = await sendClean(system, user); }
@@ -201,8 +203,18 @@ async function run(i, force) {
         const P = buildPrompt(i); if (!P) return;
         tok = P.tok; clsStats.lastTok = tok; clsStats.tok += tok;
         const r = fold(), S = r.stateAt?.(i - 1) ?? r.S;
-        for (let n = 0; n < 2 && !ops; n++) {
-            try { ops = filterOps(await send(P.system, P.user), r.book, S, aiNoOf(i)); } catch (e) { if (n) { clsStats.fails++; console.info(`[${TITLE}] 분류 실패 (칩의 「다시」) · ${e.message}`); } }
+        // ⏳ 사용량 한도(429)에 걸린 지 얼마 안 됐으면 부르지 않음 (바로 또 부르면 한도가 더 오래 감) — 칩의 「다시」로
+        if (Date.now() < (clsStats.coolUntil ?? 0) && !force) { clsStats.fails++; }
+        else for (let n = 0; n < 2 && !ops; n++) {
+            try { ops = filterOps(await send(P.system, P.user), r.book, S, aiNoOf(i)); } catch (e) {
+                if (RATE.test(String(e?.message ?? e))) { // 429: 다시 부르지 않고 30초 쉼
+                    clsStats.fails++; clsStats.coolUntil = Date.now() + 30000;
+                    console.info(`[${TITLE}] 분류 모델 사용량 한도(429) · 30초 쉬어요 (칩의 「다시」) · ${e.message}`);
+                    if (!rateWarned) { rateWarned = true; (await import('../ui/kit.js')).toast('분류 모델이 사용량 한도(429)에 걸렸어요 · 30초 쉬어요. 자주 걸리면 다른 모델 · 키를 골라 주세요', 'bad'); }
+                    break;
+                }
+                if (n) { clsStats.fails++; console.info(`[${TITLE}] 분류 실패 (칩의 「다시」) · ${e.message}`); }
+            }
         }
     }
     // 😌 그 답에 눈 감은 앱의 줄은 버림 (저장된 결과를 다시 쓸 때도)
