@@ -115,7 +115,7 @@ export async function sources(pick = getMeta()?.srcPick ?? null) {
     return { text: text.slice(0, HARD_MAX), cut: text.length > HARD_MAX, sig, texts, char: ch.name ?? '' };
 }
 export const SRC_HARD_MAX = HARD_MAX;
-const SCHEMA = `{"world":{"genre":"","currency":"","meal":10,"weather":["맑음","비"],"start":{"y":2026,"m":3,"d":1,"clock":480},"places":[{"name":"","kind":"home|shop|food|bath|work|street|school|other","line":"노선 `
+const SCHEMA = `{"world":{"genre":"","summary":"세계관 요약 2~3문장 (시대 · 무대 · 지금 상황 · 큰 갈등)","rules":["이 세계에서 꼭 지켜지는 규칙 짧게 (마법 · 기술 · 신분 · 금기 등) 3~5개"],"currency":"","meal":10,"weather":["맑음","비"],"start":{"y":2026,"m":3,"d":1,"clock":480},"places":[{"name":"","kind":"home|shop|food|bath|work|street|school|other","line":"노선 `
     + `이름","near":["이어진 장소"],"floors":[],"goods":[{"name":"","price":3,"fx":{"hunger":20}}],"rest":{"energy":20},"note":""}]},
 "me":{"name":"","traits":"","day":"3월 14일","needs":[{"key":"hunger","name":"허기","icon":"🍞","start":80,"rate":4}]},
 "people":[{"name":"","aka":[],"face":"🙂","line":"성격 한 `

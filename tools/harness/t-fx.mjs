@@ -3,7 +3,7 @@ import { open, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open();
 try {
     await page.evaluate(() => window.__quickStart()); await sleep(300);
-    await page.evaluate(() => { const m = __ML__.getMeta(); m.book.world.currency = '베리'; m.book.world.meal = 10; m.book.world.places[0].goods = [{ name: '빵', price: 3, fx: { hunger: 20 } }]; __ML__.app.refresh?.(true); });
+    await page.evaluate(() => { const m = __ML__.getMeta(); m.book.world.currency = '은화'; m.book.world.meal = 10; m.book.world.places[0].goods = [{ name: '빵', price: 3, fx: { hunger: 20 } }]; __ML__.app.refresh?.(true); });
     await page.evaluate(() => window.__addUser('.')); await page.evaluate(() => window.__addAI('a\n<meatball>\ncash: 50\n</meatball>')); await sleep(300);
     await page.evaluate(() => __ML__.app.openSheet('bag')); await sleep(300);
     await page.evaluate(() => document.querySelector('[data-act="edit-fx"]').click()); await sleep(300);
@@ -25,6 +25,6 @@ try {
     const w3 = await page.evaluate(() => __ML__.fold().book.world.meal);
     check(w3 * 10 >= 5000, '같은 환율로 다시 저장해도 어긋난 물가는 맞춤', String(w3));
     const inj = await page.evaluate(async () => (await import('/ext/src/rules/book.js')).bookText?.(__ML__.getMeta().book) ?? '');
-    check(!inj || /1 베리 ≈ 10원/.test(inj), '설정집 줄에 환율', inj.slice(0, 120));
+    check(!inj || /1 은화 ≈ 10원/.test(inj), '설정집 줄에 환율', inj.slice(0, 120));
     check(!logs.length && !(await page.evaluate(() => window.__errors.length)), '콘솔 오류 없음', logs.join('\n'));
 } finally { await close(); }

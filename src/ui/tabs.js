@@ -603,6 +603,8 @@ function book(r) {
             act: 'bk-world',
             more: true,
         }) +
+            (b.world.summary ? row({ icon: '📖', title: '세계관 요약', sub: esc(b.world.summary), act: 'bk-world', more: true }) : row({ icon: '📖', title: '세계관 요약 없음', sub: '눌러서 적거나 🔄 다시 채우기', act: 'bk-world', faint: true })) +
+            (b.world.rules?.length ? row({ icon: '📏', title: '이 세계 규칙', sub: b.world.rules.map(esc).join(' · '), act: 'bk-world', more: true }) : '') +
             row({
                 icon: '📍',
                 title: `장소 ${b.world.places.length}곳`,
@@ -1139,7 +1141,7 @@ export async function onAct(act, v, el) {
             //   전에 환율이 있었으면 현실 값이 그대로 남게(옛/새) · 처음이면 식사 한 끼 ≈ 9,000원이 되게
             const factorOf = (rate) => (!(rate > 0) ? 1 : old > 0 && old !== rate ? old / rate : w.meal * rate < 3000 || w.meal * rate > 30000 ? 9000 / (w.meal * rate) : 1); // 같은 환율로 다시 저장해도 어긋난 물가면 맞춤
             const fv = await form('💱 화폐 · 환율', [
-                { k: 'cur', label: '이 세계의 돈 이름', v: w.currency, chips: ['원', '달러', '골드', '은화', '동화', '베리', '냥', '크레딧'] },
+                { k: 'cur', label: '이 세계의 돈 이름', v: w.currency, chips: ['원', '달러', '골드', '은화', '동전', '냥', '크레딧', '젬'] },
                 { k: 'rate', label: '1 (이 세계 돈) = 몇 원?', type: 'number', v: w.fx?.rate || '', ph: '예: 1000', hint: `적어 두면 돈이 나오는 곳마다 「≈ 12만 원」이 같이 보이고 AI도 이 물가로 써요 · 지금 식사 한 끼 ${fmt(w.meal)} ${esc(w.currency)}` },
                 { k: 'fit', label: '물가 · 가진 돈도 이 환율에 맞출까요? (빵이 30원처럼 어긋나지 않게)', type: 'pick', v: 'yes', opts: [['yes', '✅ 맞추기'], ['no', '숫자는 그대로']] },
             ]);
@@ -1259,6 +1261,8 @@ async function editBook(act, v) {
             cal = w.start.cal ?? {},
             fv = await form('🌍 세계', [
                 { k: 'genre', label: '장르', v: w.genre, chips: ['현대', '판타지', '학원', '무협', 'SF', '아포칼립스'] },
+                { k: 'summary', label: '세계관 요약 (2~3문장)', type: 'area', v: w.summary ?? '', ph: '예: 마법이 사라진 지 100년 · 작은 항구 도시 · 왕위 다툼이 막 시작됨' },
+                { k: 'rules', label: '이 세계 규칙 (줄마다 하나)', type: 'area', v: (w.rules ?? []).join('\n'), ph: '예: 마법은 밤에만 쓸 수 있음\n귀족만 말을 탈 수 있음' },
                 { k: 'cur', label: '화폐 단위', v: w.currency, chips: ['원', '골드', '달러', '엔', '냥'] },
                 { k: 'meal', label: '식사 한 끼 값 (물가 기준)', type: 'number', v: w.meal },
                 { k: 'wx', label: '날씨 (쉼표로)', v: L(w.weather) },
@@ -1300,6 +1304,8 @@ async function editBook(act, v) {
             world: {
                 ...w,
                 genre: fv.genre,
+                summary: fv.summary,
+                rules: String(fv.rules ?? '').split(/\r?\n/).map(x => x.trim()).filter(Boolean),
                 currency: fv.cur,
                 meal: num(fv.meal, w.meal),
                 weather: P(fv.wx),
