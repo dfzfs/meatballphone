@@ -2,21 +2,34 @@
 import { ctx, settings, userName, getMeta } from '../base/st.js';
 import { normBook, emptyBook, REL_STAGES } from './book.js';
 import { isEN } from './lang.js';
+import { TOO_BIG } from './clsconn.js';
 import { short, hash } from '../base/util.js';
 import { gloss } from '../base/gloss.js';
 
 export const stats = { calls: 0, ms: 0, last: 0 };
-// 답 길이: 생각하는 모델(제미니 등)은 생각도 이 안에서 써서, 3000이면 설정집 JSON이 중간에 잘렸다(finish_reason: length) → 넉넉히
-export const ASK_MAX = 8192;
+// 🔓 답 길이는 사실상 제한 없음 (모델 최대까지) — 생각하는 모델이 생각에 다 써서 설정집이 잘리던 것.
+//   서버가 「너무 크다」고 거절하면 그때만 8192 → 4096으로 줄여 다시 (그 뒤로는 그 값)
+export const ASK_MAX = 32000;
+let askCap = 0;
 export async function ask(prompt, system = '', maxTok = ASK_MAX) {
     const t0 = performance.now(); stats.calls++;
-    try {
+    const once = async (n) => {
         const prof = settings().profile, c = ctx();
         if (prof && c.ConnectionManagerRequestService) {
-            const r = await c.ConnectionManagerRequestService.sendRequest(prof, [{ role: 'system', content: system }, { role: 'user', content: prompt }], maxTok);
+            const r = await c.ConnectionManagerRequestService.sendRequest(prof, [{ role: 'system', content: system }, { role: 'user', content: prompt }], n);
             return String(r?.content ?? r ?? '');
         }
-        return String(await c.generateRaw({ prompt, systemPrompt: system, responseLength: maxTok }) ?? '');
+        return String(await c.generateRaw({ prompt, systemPrompt: system, responseLength: n }) ?? '');
+    };
+    try {
+        let n = askCap ? Math.min(askCap, maxTok) : maxTok;
+        for (;;) {
+            try { return await once(n); } catch (e) {
+                const next = [8192, 4096].find(x => x < n);
+                if (!next || !TOO_BIG.test(String(e?.message ?? e))) throw e;
+                n = askCap = next;
+            }
+        }
     } finally { stats.last = performance.now() - t0; stats.ms += stats.last; }
 }
 export let lastCut = false; // 마지막 parseJSON이 끊긴 답을 살려 읽었는지
@@ -48,7 +61,7 @@ function repairJSON(s) {
 // ───── 📚 설정집이 읽을 곳 ─────
 // 고를 수 있는 것: 카드 · 페르소나 · 첫 메시지 · 최근 대화 · 실리태번에 있는 모든 로어북. 고른 건 잘라 내지 않고 다 읽는다.
 //   기본으로 켜지는 로어북: 이 채팅 · 이 캐릭터 · 캐릭터 추가 · 전체로 켜 둔 것. 고른 건 채팅마다 기억(meta.srcPick).
-const HARD_MAX = 200000; // 안전선 (이보다 길면 뒤를 자름 · 고르는 화면에 경고)
+const HARD_MAX = 200000; // 💡 권장선 (자르지 않음 · 넘으면 고르는 화면에 경고만)
 async function wiMod() { try { return await import('/scripts/world-info.js'); } catch { return null; } }
 async function linkedBooks() {
     const c = ctx(), ch = c.characters?.[c.characterId] ?? {}, wi = await wiMod();
@@ -113,7 +126,7 @@ export async function sources(pick = getMeta()?.srcPick ?? null) {
     }
     lore.sort((x, y) => y.on - x.on); L.push(...lore.map(x => x.t)); // 늘 켜진(세계관) 항목 먼저
     const text = L.join('\n\n');
-    return { text: text.slice(0, HARD_MAX), cut: text.length > HARD_MAX, sig, texts, char: ch.name ?? '' };
+    return { text, cut: false, long: text.length > HARD_MAX, sig, texts, char: ch.name ?? '' };
 }
 export const SRC_HARD_MAX = HARD_MAX;
 const SCHEMA = `{"world":{"genre":"","summary":"세계관 요약 2~3문장 (시대 · 무대 · 지금 상황 · 큰 갈등)","rules":["이 세계에서 꼭 지켜지는 규칙 짧게 (마법 · 기술 · 신분 · 금기 등) 3~5개"],"currency":"","meal":10,"weather":["맑음","비"],"start":{"y":2026,"m":3,"d":1,"clock":480},"places":[{"name":"","kind":"home|shop|food|bath|work|street|school|other","line":"노선 `

@@ -1,4 +1,4 @@
-// 🧠 생각을 못 끄는 모델: 생각이 답 길이(1000)를 다 써서 빈 답 · 「Candidate text empty」 오류 → 답 길이를 늘려 한 번 더 · 다음부터 늘린 채로
+// 🔓 답 길이 제한 없음(32000 · 모델 최대) · 서버가 너무 크다고 하면 그때만 8192 → 4096으로 줄여 다시 · 그 연결은 그 값으로 기억 · 빈 답이면 한 번 더
 import { open, sleep, check } from './lib.mjs';
 const { page, close } = await open();
 try {
@@ -6,22 +6,31 @@ try {
     const r = await page.evaluate(async () => {
         const st = await import('/ext/src/base/st.js'), C = await import('/ext/src/rules/classify.js'), K = await import('/ext/src/rules/clsconn.js');
         st.settings().mode = 'B'; st.settings().clsProfile = 'p-flash';
-        const out = {};
-        // 1) 서버가 빈 답을 오류로 (Vertex 「Candidate text empty」)
-        window.__max = []; window.__cls = (p, info) => { window.__max.push(info.max); return info.max < 2000 ? new Error('API request failed', { cause: { message: 'Google Vertex AI Candidate text empty' } }) : '<meatball>\nloc: 편의점\n</meatball>'; };
-        const t1 = await C.testConnection(); out.t1 = { ok: t1.ok, max: [...window.__max], big: K.connStats.bigMax };
-        // 2) 다음 요청은 처음부터 늘린 채로 (한 번에)
+        const out = {}; K.resetThink();
+        // 1) 보통: 32000 한 번
+        window.__max = []; window.__cls = (p, info) => { window.__max.push(info.max); return '<meatball>\nloc: 편의점\n</meatball>'; };
+        const t0 = await C.testConnection(); out.t0 = { ok: t0.ok, max: [...window.__max] };
+        // 2) 서버가 「max_tokens is too large」 → 8192로 다시 → 성공 · 다음부턴 8192 한 번에
+        K.resetThink(); window.__max = []; window.__cls = (p, info) => { window.__max.push(info.max); return info.max > 8192 ? new Error('max_tokens: 32000 > 8192, which is the maximum allowed number of output tokens') : '<meatball>\nloc: 편의점\n</meatball>'; };
+        const t1 = await C.testConnection(); out.t1 = { ok: t1.ok, max: [...window.__max], cap: K.connStats.cap };
         window.__max = []; const t2 = await C.testConnection(); out.t2 = { ok: t2.ok, max: [...window.__max] };
-        // 3) 빈 글로 오는 경우 (오류 아님)
-        K.resetThink(); window.__max = []; window.__cls = (p, info) => { window.__max.push(info.max); return info.max < 2000 ? '' : '<meatball>\nloc: 편의점\n</meatball>'; };
+        // 3) 빈 글로 오면 한 번 더
+        K.resetThink(); let n = 0; window.__max = []; window.__cls = (p, info) => { window.__max.push(info.max); return n++ ? '<meatball>\nloc: 편의점\n</meatball>' : ''; };
         const t3 = await C.testConnection(); out.t3 = { ok: t3.ok, max: [...window.__max] };
-        // 4) 늘려도 비면 예전처럼 「빈 답」 오류
-        K.resetThink(); window.__cls = () => ''; const t4 = await C.testConnection(); out.t4 = { ok: t4.ok, err: t4.error, big: K.connStats.bigMax };
+        // 4) 계속 비면 「빈 답」 오류 그대로
+        K.resetThink(); window.__cls = () => ''; const t4 = await C.testConnection(); out.t4 = { ok: t4.ok, err: t4.error };
         out.preset = C.presetText();
+        // 5) 설정집 만들기(ask)도: 너무 크다고 하면 8192로 다시
+        const A = await import('/ext/src/rules/ai.js'), c = SillyTavern.getContext(), g0 = c.generateRaw, seen = []; st.settings().profile = '';
+        c.generateRaw = async ({ responseLength }) => { seen.push(responseLength); if (responseLength > 8192) throw new Error('max_tokens is too large: 32000. This model supports at most 8192 completion tokens'); return 'ok'; };
+        out.ask = { text: await A.ask('hi', 'sys'), seen }; c.generateRaw = g0;
         return out;
     });
-    check(r.t1.ok && r.t1.max.join() === '1000,4000' && r.t1.big, 'Candidate text empty → 4000으로 한 번 더 · 성공', JSON.stringify(r.t1));
-    check(r.t2.ok && r.t2.max.join() === '4000', '다음 요청은 처음부터 4000 (두 번 안 부름)', JSON.stringify(r.t2));
-    check(r.t3.ok && r.t3.max.join() === '1000,4000', '빈 글 답 → 4000으로 한 번 더', JSON.stringify(r.t3));
-    check(!r.t4.ok && /빈 답/.test(r.t4.err) && !r.t4.big, '늘려도 비면 빈 답 오류 그대로', JSON.stringify(r.t4));
+    check(r.t0.ok && r.t0.max.join() === '32000', '보통은 답 길이 32000 (제한 없음) 한 번', JSON.stringify(r.t0));
+    check(r.t1.ok && r.t1.max.join() === '32000,8192' && r.t1.cap === 8192, '너무 크다고 하면 8192로 다시 · 성공', JSON.stringify(r.t1));
+    check(r.t2.ok && r.t2.max.join() === '8192', '다음 요청은 처음부터 8192 (두 번 안 부름)', JSON.stringify(r.t2));
+    check(r.t3.ok && r.t3.max.length === 2, '빈 글 답 → 한 번 더', JSON.stringify(r.t3));
+    check(!r.t4.ok && /빈 답/.test(r.t4.err), '계속 비면 빈 답 오류', JSON.stringify(r.t4));
+    check(r.ask.text === 'ok' && r.ask.seen.join() === '32000,8192', '설정집 만들기도: 너무 크면 8192로 다시', JSON.stringify(r.ask));
+    check(/제한 없음/.test(r.preset) && /권장/.test(r.preset), '설정엔 「제한 없음 · 💡 권장」', r.preset);
 } finally { await close(); }

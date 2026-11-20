@@ -46,7 +46,7 @@ export async function pickSources(title = '📚 설정집이 읽을 곳') {
                 if (on) n += sz;
             }
             el.querySelector('.ml-src-sum').innerHTML = `고른 양: <b>${kChars(n)}</b> · 약 ${tok(n).toLocaleString()}토큰 (이번 1회만)`
-                + (n > SRC_HARD_MAX ? `<br><span class="neg">⚠ ${kChars(SRC_HARD_MAX)}가 넘는 뒷부분은 잘려요. 덜 중요한 항목을 꺼 주세요.</span>`
+                + (n > SRC_HARD_MAX ? `<br><span class="neg">💡 ${kChars(SRC_HARD_MAX)}가 넘어요 · 자르지 않고 다 보내지만, 모델에 따라 못 받거나 느려질 수 있어요 (권장: 덜 중요한 항목 끄기)</span>`
                     : n > 60000 ? '<br><span class="neg">⚠ 꽤 길어요. 쓰는 모델이 한 번에 이만큼 못 읽으면 실패할 수 있어요.</span>' : '');
         };
         el.addEventListener('change', (e) => { if (e.target.matches('.ml-src-cb, .ml-src-x')) sum(); });

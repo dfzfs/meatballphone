@@ -129,7 +129,7 @@ export function buildPrompt(i) {
         `[KEYS]\n${keys}`,
         isEN() ? '' : gloss(`${story}\n${u >= 0 ? chat[u].mes : ''}`), // 🌐 용어집(한국어 표기)은 화면용 — 영어 이야기면 분류에 안 보냄 (값이 한국어로 나오던 것)
         u >= 0 ? `[USER] ${short(storyOnly(chat[u].mes), 300)}` : '',
-        `[REPLY]\n${short(story, 4000)}`,
+        `[REPLY]\n${story}`, // 🔓 답 글은 자르지 않음 (긴 답 끝쪽 사건을 놓치던 것)
     ].filter(Boolean).join('\n\n');
     return { system, user, tok: tokens(system) + tokens(user) };
 }
@@ -274,7 +274,7 @@ export async function testConnection() {
         return { ok: ok && ops.length > 0, ms, route, reply, ops, error: ok ? (ops.length ? '' : '답은 왔지만 고른 사건이 0개예요') : '답에 <meatball> 블록이 없어요' };
     } catch (e) { return { ok: false, ms: Math.round(performance.now() - t0), route, error: e.message }; }
 }
-export const presetText = () => `${CLS_PRESET.name}: 온도 ${CLS_PRESET.temperature} · 답 ${connStats.bigMax ? '4000토큰(이 모델은 생각을 못 꺼서 늘림 · 답마다 생각 토큰이 들어요 → 생각 없는 가벼운 모델을 권해요)' : `${CLS_PRESET.max_tokens}토큰`} · 생각 ${connStats.thinkOff ? '설정 안 보냄(모델이 거절)' : CLS_PRESET.reasoning_effort} · 스트리밍 끔 · 사용자 프리셋 안 씀`;
+export const presetText = () => `${CLS_PRESET.name}: 온도 ${CLS_PRESET.temperature} · 답 길이 ${connStats.cap ? `${connStats.cap}토큰 (이 모델이 더 긴 답을 거절해서 줄임)` : '제한 없음 (모델 최대)'}${connStats.bigMax ? ' · 💡 권장: 이 모델은 생각을 못 꺼서 답마다 생각 토큰이 들어요 → 생각 없는 가벼운 모델을 권해요' : ' · 💡 권장: 분류는 답 몇 백 토큰이면 충분 · 생각을 끌 수 있는 가벼운 모델'} · 생각 ${connStats.thinkOff ? '설정 안 보냄(모델이 거절)' : CLS_PRESET.reasoning_effort} · 스트리밍 끔 · 사용자 프리셋 안 씀`;
 
 // ───── 6-2 새 인물 규칙 채우기: npc로 처음 나온 인물은 그 인물당 한 번만 ─────
 export async function fillPerson(name, why = '') {
@@ -291,7 +291,7 @@ export async function fillPerson(name, why = '') {
         + 'up = 3 actions that raise their affection, down = 3 that lower it. Short words.';
     const chat = ctx().chat ?? [], last = [...chat].reverse().find(m => !m.is_user && m.mes?.includes(name));
     try {
-        const raw = await askLight(sys, `Character: ${name}${why ? ` — ${why}` : ''}\nScene:\n${short(stripTags(last?.mes ?? ''), 1500)}`);
+        const raw = await askLight(sys, `Character: ${name}${why ? ` — ${why}` : ''}\nScene:\n${stripTags(last?.mes ?? '')}`);
         const j = JSON.parse(String(raw).slice(String(raw).indexOf('{'), String(raw).lastIndexOf('}') + 1));
         const m2 = getMeta(); if (personOf(m2.book, name)) return false; // 그새 직접 넣었으면 건드리지 않음
         const up = (j.up ?? []).filter(a => a?.act).slice(0, 3), down = (j.down ?? []).filter(a => a?.act).slice(0, 3);

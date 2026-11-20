@@ -34,9 +34,9 @@ try {
     check(/\[ACTIONS\][\s\S]*도윤 — up: 칭찬/.test(u), '답 글에 이름이 나온 인물(도윤)은 장면에 없어도 행동 목록에', u.slice(u.indexOf('[ACTIONS]'), u.indexOf('[ACTIONS]') + 120));
     check(await page.evaluate(() => __ML__.fold().S.rel['도윤']?.aff) > 10, '도윤 칭찬이 계산됨');
     let sent = await page.evaluate(() => window.__sent.at(-1));
-    check(sent.custom?.includePreset === false && sent.custom?.includeInstruct === false && sent.custom?.stream === false && sent.max === 1000
+    check(sent.custom?.includePreset === false && sent.custom?.includeInstruct === false && sent.custom?.stream === false && sent.max === 32000
         && sent.over.temperature === 0 && sent.over.reasoning_effort === 'min' && sent.over.include_reasoning === false && sent.prompt.length === 2 && /status tracker/.test(sent.prompt[0].content),
-    '프로필: API · 모델만 빌림 (프리셋 · 지시문 안 씀) · 미트볼 분류용 값 (온도 0 · 1000 · 생각 최소 · 스트리밍 끔) · 지시는 라이트 것만', JSON.stringify({ c: sent.custom, max: sent.max, over: sent.over }));
+    '프로필: API · 모델만 빌림 (프리셋 · 지시문 안 씀) · 미트볼 분류용 값 (온도 0 · 답 길이 제한 없음 · 생각 최소 · 스트리밍 끔) · 지시는 라이트 것만', JSON.stringify({ c: sent.custom, max: sent.max, over: sent.over }));
 
     // 진짜 오류: 「API request failed」 안의 cause를 로그 · 전체 복사에
     await page.evaluate(() => { window.__cls = () => new Error('API request failed', { cause: { error: { code: 400, message: 'Model gemini-x does not support SECRET-free test', status: 'INVALID_ARGUMENT' } } }); });
@@ -68,7 +68,7 @@ try {
     sent = await page.evaluate(() => window.__sent.at(-1));
     const b = sent.over;
     check(r4.ok && sent.id === '@current' && b.model === 'gemini-3.8-flash' && b.chat_completion_source === 'vertexai' && b.vertexai_region === 'us-central1' && b.vertexai_auth_mode === 'full'
-        && b.temperature === 0 && b.max_tokens === 1000 && b.stream === false && b.reasoning_effort === 'min' && !('temp_openai' in b) && !('openai_max_tokens' in b) && !sent.options?.presetName,
+        && b.temperature === 0 && b.max_tokens === 32000 && b.stream === false && b.reasoning_effort === 'min' && !('temp_openai' in b) && !('openai_max_tokens' in b) && !sent.options?.presetName,
     '지금 API(Vertex) + 모델 이름만 → 연결 칸만 복사 · 사용자 프리셋 값(온도 1.4 · 8000)은 안 섞임', JSON.stringify(b));
     check(await page.evaluate(async () => (await import('/ext/src/rules/classify.js')).mode()) === 'B', '「지금 API」도 B 모드로 침');
     check(sent.options?.direct === true, '지금 API: 만든 몸통을 그대로 서버로 (sendRequest · 연결 칸이 안 버려짐)');
@@ -97,6 +97,6 @@ try {
         return document.querySelector('.ml-cls-res')?.textContent ?? '';
     });
     check(/❌ 실패/.test(bad) && /403/.test(bad) && /Permission denied on Vertex/.test(bad), '🔌 시험 버튼: 실패면 서버 오류 내용', bad);
-    check(await page.evaluate(() => /🧼 미트볼 분류용: 온도 0 · 답 1000토큰/.test(document.querySelector('.ml-set')?.textContent ?? '')), '설정에 「미트볼 분류용」 프리셋 값 한 줄');
+    check(await page.evaluate(() => /🧼 미트볼 분류용: 온도 0 · 답 길이 제한 없음/.test(document.querySelector('.ml-set')?.textContent ?? '')), '설정에 「미트볼 분류용」 프리셋 값 한 줄');
     check(!logs.length, '콘솔 오류 없음', logs.join('\n'));
 } finally { await close(); }

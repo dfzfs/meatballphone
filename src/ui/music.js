@@ -20,7 +20,7 @@ export const songLink = (x) => (MUSIC_APPS[settings().musicApp] ?? MUSIC_APPS.yo
 const songData = (x) => esc(JSON.stringify({ title: x.title, artist: x.artist ?? '' }));
 const play = (x) => `<a class="ml-btn xs ml-play" href="${esc(songLink(x))}" target="_blank" rel="noopener" data-song="${songData(x)}" title="${canPlay() ? '폰에서 듣기' : `${esc((MUSIC_APPS[settings().musicApp] ?? MUSIC_APPS.youtube).name)}에서 열기`}">▶</a>`;
 const lastAIOf = () => { const c = ctx().chat ?? []; for (let i = c.length - 1; i >= 0; i--) if (!c[i].is_user && !c[i].is_system) return i; return -1; };
-const sceneText = () => { const i = lastAIOf(); return i >= 0 ? short(stripTags(ctx().chat[i].mes), 1500) : ''; };
+const sceneText = () => { const i = lastAIOf(); return i >= 0 ? stripTags(ctx().chat[i].mes) : ''; }; // 🔓 장면 글 자르지 않음
 
 // 「이 장면」 한 줄 (홈 · 수치 화면)
 export function songLine(S) {
