@@ -133,10 +133,11 @@ export function dateText(start, min, withTime = true) {
 export function dayOfDate(start, v, now = 0) {
     const s = String(v ?? '');
     let mo = null, d = null;
-    const m1 = /(\d{1,2})\s*[월/.]\s*(\d{1,2})/.exec(s);
+    // 「2026-12-25」 「2026.12.25」 「2026년 12월 25일」은 해를 떼고 읽음 (전에는 「26.12」 → 26월이 됨)
+    const m1 = /\d{4}\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})/.exec(s) ?? /(\d{1,2})\s*[월/.]\s*(\d{1,2})/.exec(s);
     if (m1) { mo = Number(m1[1]); d = Number(m1[2]); }
     else if (isCustom(start)) { const i = start.cal.months.findIndex(x => x.name && s.includes(x.name)); const dd = /(\d{1,2})\s*일/.exec(s); if (i >= 0 && dd) { mo = i + 1; d = Number(dd[1]); } }
-    if (!mo || !d) return null;
+    if (!mo || !d || d > 40 || (!isCustom(start) && mo > 12)) return null;
     const cur = dateOf(start, now), today = Math.floor(now / DAY);
     for (const y of [cur.y, cur.y + 1]) { const dn = dayIndexOf(start, y, mo, d); if (dn >= today) return dn * DAY; }
     return null;
