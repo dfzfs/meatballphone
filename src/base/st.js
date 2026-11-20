@@ -1,10 +1,11 @@
 // 실리태번과 닿는 곳 하나: 설정 · 채팅 메타 · 메시지마다 적는 칸
 import { clone, hash } from './util.js';
 import { normBook } from '../rules/book.js';
+import { kindOf } from '../rules/tags.js';
 
 export const MODULE = 'meatlite';
 export const OLD = 'statussim';
-export const VERSION = '0.45.1';
+export const VERSION = '0.45.2';
 export const DATA_V = 2;
 export const TITLE = '미트볼폰';
 export const INJ = { facts: 'meatlite_facts', hint: 'meatlite_hint', rule: 'meatlite_rule' };
@@ -177,7 +178,8 @@ export function shut(mod, aiNo = nextAiNo()) {
     // 「다음 1번」: 다음 답 · 그리고 새 답이 오기 전이면 지금 마지막 답을 다시 만들거나(스와이프) 다시 분류할 때도
     return e.mode === 'on' || (e.mode === 'once' && (aiNo === e.at || (aiNo === e.at - 1 && nextAiNo() === e.at)));
 }
-export const shutKey = (key, aiNo) => { const mod = KEY_MOD[String(key ?? '').trim().toLowerCase()]; return (!!mod && !modOn(mod)) || shut(mod, aiNo); }; // 🗑 지운 앱의 키도 버림
+// 다른 이름으로 쓴 키(먹음 · meal · 장소 · went …)도 종류(kindOf)로 바꿔서 찾는다
+export const shutKey = (key, aiNo) => { const raw = String(key ?? '').trim().toLowerCase(), mod = KEY_MOD[raw] ?? KEY_MOD[kindOf(raw)]; return (!!mod && !modOn(mod)) || shut(mod, aiNo); }; // 🗑 지운 앱의 키도 버림
 export function setEyes(mod, mode) {
     const m = getMeta(); if (!m) return;
     m.eyes ??= {};

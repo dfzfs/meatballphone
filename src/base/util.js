@@ -21,10 +21,31 @@ export const safeKey = (k) => { const s = String(k ?? '').trim().slice(0, 40); r
 // 「+5」 「-3」 「−3」 「5」 → 수 · 부호 여부
 export function parseDelta(raw) {
     const s = String(raw ?? '').replace(/[−–—]/g, '-').replace(/,/g, '').trim();
-    const m = /^([+-]?)\s*(\d+(?:\.\d+)?)/.exec(s);
+    const m = /^([+-]?)\s*[₩$€¥£]?\s*(\d+(?:\.\d+)?)/.exec(s);
     if (!m) return null;
-    const n = Number(m[2]) * (m[1] === '-' ? -1 : 1);
-    return { n, rel: !!m[1] };
+    // 💰 「120만원」 「3만 5천원」 「1억 2천만」 → 만 · 천 · 억 단위를 셈 (단위가 없으면 그 수 그대로)
+    let n = Number(m[2]), rest = s.slice(m[0].length);
+    const U = /^\s*(\d+(?:\.\d+)?)?\s*(억|만|천)/;
+    let u = /^\s*(억|만|천)/.exec(rest);
+    if (u) {
+        let total = 0, chunk = 0, cur = n, unit = u[1]; rest = rest.slice(u[0].length);
+        for (;;) {
+            if (unit === '천') chunk += cur * 1000;
+            else if (unit === '만') { total += (chunk + cur) * 1e4; chunk = 0; }
+            else { total += (chunk + cur) * 1e8; chunk = 0; }
+            const nx = U.exec(rest);
+            if (nx) { cur = nx[1] ? Number(nx[1]) : 0; unit = nx[2]; rest = rest.slice(nx[0].length); continue; }
+            const tail = /^\s*(\d+(?:\.\d+)?)/.exec(rest); // 「3만 5000원」의 끝자리
+            n = total + chunk + (tail ? Number(tail[1]) : 0); break;
+        }
+    }
+    return { n: n * (m[1] === '-' ? -1 : 1), rel: !!m[1] };
+}
+// 🗓 루틴 시각(「오후」 「점심」 「14:00」 「morning」)이 지금 시간대(periodName)에 드는가 — 지도 · 관계 · 곧 일어날 일이 같이 씀
+export function inPeriod(at, period) {
+    const c = clockOf(at);
+    if (c != null) return periodName(c) === period;
+    return String(period).includes(String(at ?? '').slice(0, 1)) || String(at ?? '').includes(period);
 }
 // 간단한 해시 (캐시 열쇠용)
 export function hash(s) { let h = 2166136261; s = String(s ?? ''); for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }

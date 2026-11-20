@@ -1,7 +1,7 @@
 // 🏠 홈: 위에 위젯(지금 · 이 장면 · 운세 · 욕구 · 주사위 · 달력 · 소식 · 같이 있는 사람) + 아래에 받은 앱 아이콘
 // 🛍 마켓: 앱을 「받는」 느낌 — 실제로는 다 들어 있고 칸을 켜고 끈다 (지우면 홈 · 본편 주입에서 빠짐)
 import { ctx, getMeta, saveMeta, settings, modOn } from '../base/st.js';
-import { esc, signed, dateText, dateOf, DAY, periodName, clockText, fmt, num, faceOf } from '../base/util.js';
+import { esc, signed, dateText, dateOf, DAY, periodName, clockText, fmt, num, faceOf, inPeriod } from '../base/util.js';
 import { derived, needStage, relStage, diceParts, whereNow } from '../rules/engine.js';
 import { personOf, placeOf, PLACE_KINDS } from '../rules/book.js';
 import { quoteLine, songLink } from './music.js';
@@ -282,7 +282,7 @@ function soon(r) {
         const nextPeriod = periodName(S.t + 180);
         if (nextPeriod !== periodName(S.t))
             for (const p of book.people)
-                if (!S.with.includes(p.name) && p.routine.some((q) => q.place === S.loc && nextPeriod.includes(String(q.at).slice(0, 1))))
+                if (!S.with.includes(p.name) && p.routine.some((q) => q.place === S.loc && inPeriod(q.at, nextPeriod)))
                     out.push({ m: 180, icon: p.face, text: `${p.name}이(가) 여기로 옴`, when: nextPeriod });
     }
     return out.sort((a, b) => a.m - b.m).slice(0, 5);

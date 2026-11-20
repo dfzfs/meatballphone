@@ -169,12 +169,12 @@ const waiting = new Set(); // 지금 고르는 중인 메시지 번호 (칩 「�
 export const isWaiting = (i) => waiting.has(i);
 export function enqueue(i, force = false) {
     const k = queue.findIndex(q => q.i === i); if (k >= 0) queue.splice(k, 1); // 같은 메시지는 마지막 것만
-    queue.push({ i, force }); waiting.add(i); app.refresh?.();
+    queue.push({ i, force, chat: ctx().getCurrentChatId?.() }); waiting.add(i); app.refresh?.();
     if (!busy) pump();
 }
 async function pump() {
     busy = true;
-    try { while (queue.length) { const q = queue.shift(); try { await run(q.i, q.force); } catch (e) { console.warn(`[${TITLE}] 분류`, e); } waiting.delete(q.i); app.refresh?.(); } }
+    try { while (queue.length) { const q = queue.shift(); try { if (q.chat === ctx().getCurrentChatId?.()) await run(q.i, q.force); /* 🔀 채팅을 옮겼으면 그 채팅의 줄은 버림 (다른 채팅의 같은 번호 메시지를 고르지 않게) */ } catch (e) { console.warn(`[${TITLE}] 분류`, e); } waiting.delete(q.i); app.refresh?.(); } }
     finally { busy = false; }
 }
 export const idle = () => !busy && !queue.length;
@@ -201,6 +201,7 @@ async function run(i, force) {
     if (ops) ops = ops.filter(([k]) => !shutKey(k, aiNoOf(i)));
     // 그새 다른 스와이프로 넘어갔거나 글이 바뀌었으면 이 칸엔 안 씀 (결과는 지문으로 남겨 둠)
     if (ops) { meta.clsCache ??= {}; meta.clsCache[fp] = ops; const keys = Object.keys(meta.clsCache); if (keys.length > 300) delete meta.clsCache[keys[0]]; }
+    if (ctx().chat?.[i] !== m || getMeta() !== meta) return; // 기다리는 사이 채팅이 바뀜
     if ((m.swipe_id ?? 0) !== sid || fingerprint(i) !== fp) { saveMeta(); return; }
     const s2 = msgData(m, true);
     if (ops) { s2.ops = ops; s2.src = 'cls'; s2.fp = fp; delete s2.clsFail; if (tok) s2.tok = tok; }

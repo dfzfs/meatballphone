@@ -1,6 +1,6 @@
 // 엔진: 채팅 메시지들 → 상태. 계산은 코드가, AI는 사건만.
 // 원본은 메시지(extra.meatlite.sw)에 있고, 여기서는 매번 처음부터 접어 만든다(바뀐 곳부터만 다시).
-import { clamp, num, norm, short, safeKey, parseDelta, spanOf, clockOf, dayOfDate, DAY, hash, periodName, faceOf } from '../base/util.js';
+import { clamp, num, norm, short, safeKey, parseDelta, spanOf, clockOf, dayOfDate, DAY, hash, periodName, faceOf, inPeriod } from '../base/util.js';
 import { msgData, getMeta, ctx, metaRev } from '../base/st.js';
 import { readOps, kindOf, parts } from './tags.js';
 import { match } from './names.js';
@@ -372,7 +372,9 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             if (cl == null) return;
             const cur = ((S.t % DAY) + DAY) % DAY;
             let d = cl - cur;
-            if (d < 0) d += DAY;
+            // ⏪ 조금 이른 시각(3시간 안: 19:30에 「저녁」=19:00 · 분류가 「19h」를 19:00으로 적음)은 하루를 넘기지 않고 무시
+            //   날을 넘기는 건 +Nh · date · slept · 3시간보다 더 이른 시각(밤 → 새벽)으로만
+            if (d < 0) { if (d > -180) return; d += DAY; }
             if (d > 0 && d < DAY) x.pass(d, `${periodName(cl)}이 됨`, i);
             return;
         }
@@ -581,6 +583,13 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
         case 'gone': {
             const name = x.who(a);
             if (!name) return;
+            // 🔙 돌아옴: 「gone: 이름 | 돌아옴」 (관계 앱의 「돌아옴」 버튼 · 옛 버튼이 적은 빈 사유의 ✋ 직접 줄도)
+            if (/^(돌아옴|복귀|back|returned?)$/i.test(b.trim()) || (src === 'hand' && !b.trim())) {
+                const r = x.rel(name); if (!r.gone) return;
+                r.gone = null;
+                ch.push({ f: `gone.${name}`, label: name, icon: '🔙', from: '이야기에서 빠짐', to: '돌아옴', why: '돌아옴', src, sure: true, i, who: name });
+                return;
+            }
             x.rel(name).gone = short(b || '떠남', 80);
             ch.push({
                 f: `gone.${name}`,
@@ -841,7 +850,7 @@ export function whereNow(book, S, p) {
     const r = S.rel[p.name];
     if (r?.gone) return null;
     if (S.with.includes(p.name)) return { place: S.loc, why: '함께 있음' };
-    const sl = periodName(S.t), rt = p.routine.find(q => sl.includes(String(q.at).slice(0, 1)) || String(q.at).includes(sl));
+    const sl = periodName(S.t), rt = p.routine.find(q => inPeriod(q.at, sl));
     if (rt) return { place: rt.place, why: `${rt.at} 루틴` };
     if (p.haunt[0]) return { place: p.haunt[0], why: '자주 있는 곳' };
     return null;

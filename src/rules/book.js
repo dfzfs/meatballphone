@@ -37,7 +37,7 @@ const acts = (v) =>
         .map((x) =>
             typeof x === 'string'
                 ? (() => {
-                      const m = /^(.*?)\s*([+-−]\s*\d+)?$/.exec(x);
+                      const m = /^(.*?)\s*([+\-−]\s*\d+)?$/.exec(x);
                       return { act: line(m[1], 80), d: m[2] ? Number(m[2].replace(/\s/g, '').replace('−', '-')) : null };
                   })()
                 : { act: line(x?.act ?? x?.name, 80), d: x?.d == null ? null : num(x.d) },

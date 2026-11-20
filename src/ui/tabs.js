@@ -1,6 +1,6 @@
 // 전체화면 안의 탭들 — 목록 행 + 묶음 카드. 설명은 한 줄까지.
 import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, msgData, syncSwipe, msgKey, userName, bumpMeta, saveChatSoon } from '../base/st.js';
-import { esc, fmt, signed, short, dateText, dateOf, DAY, periodName, num, norm, tokens, dayIndexOf, monthDays, monthName, weekName, faceOf, clockOf } from '../base/util.js';
+import { esc, fmt, signed, short, dateText, dateOf, DAY, periodName, num, norm, tokens, dayIndexOf, monthDays, monthName, weekName, faceOf, clockOf, inPeriod } from '../base/util.js';
 import { row, card, chip, seg, bar, empty, btn, sheet, toast, putInput, form } from './kit.js';
 import { fold, derived, needStage, relStage, nextStage, stagesOf, pairKey, diceParts, whereNow } from '../rules/engine.js';
 import { luckOf } from '../rules/luck.js';
@@ -269,7 +269,7 @@ function relCard(r, name, inSheet = false) {
     const ticks = stagesOf(book, name).map(s => s.at).filter(a => a > 0 && a < 100);
     const sign = p?.signs?.filter(s => x.aff >= s.at).pop()?.text;
     const last = lastRel(r, name);
-    const nowAt = p?.routine?.find(q => periodName(S.t).includes(String(q.at).slice(0, 1)))?.place ?? p?.haunt?.[0];
+    const nowAt = p?.routine?.find(q => inPeriod(q.at, periodName(S.t)))?.place ?? p?.haunt?.[0];
     const pills = [x.gone ? `<span class="ml-pill mid">🕊 ${esc(x.gone)}</span>` : `<span class="ml-pill love">${esc(p?.noLove ? '친구' : st.name)}</span>`,
         S.with.includes(name) && '<span class="ml-pill good">함께 있음</span>',
         x.jealous && `<span class="ml-pill bad">💢 질투</span>`,
@@ -816,7 +816,9 @@ export async function onAct(act, v, el) {
                     awake = m - sleep;
                 return handLines([...(awake > 0 ? [`pass: ${awake}분`] : []), `slept: ${sleep}분`], '다음 날 아침으로');
             }
-            return hand(v === 'next' ? `time: ${periodName(r.S.t + 180)}` : 'time: +1h', '직접 시간 넘김');
+            // ⏭ 다음 시간대가 시작하는 시각까지 (낮 11~17시에 눌러도 다음 날로 안 넘어감)
+            if (v === 'next') { const cur = ((r.S.t % DAY) + DAY) % DAY, nx = [300, 420, 660, 1020, 1260, 1740].find(b => b > cur); return hand(`pass: ${nx - cur}분`, '직접 시간 넘김'); }
+            return hand('time: +1h', '직접 시간 넘김');
         }
         case 'c-wx': {
             const fv = await form('🌦 날씨', [
@@ -1142,7 +1144,7 @@ export async function onAct(act, v, el) {
             return;
         }
         case 'gone':
-            hand(`gone: ${v} | ${r.S.rel[v]?.gone ? '' : '직접 뺌'}`, '직접');
+            hand(`gone: ${v} | ${r.S.rel[v]?.gone ? '돌아옴' : '직접 뺌'}`, '직접');
             return;
         case 'edit-cash': {
             const fv = await form('💰 가진 돈 고치기', [

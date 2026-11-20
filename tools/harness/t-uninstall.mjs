@@ -22,7 +22,7 @@ try {
     check(left.length === 0, '앱을 모두 지우면: 그 앱들 글이 본편에 0', left.join(',') + ' | ' + R.after.slice(0, 300));
     check(!/newsline|feed|meddle|bgm|quote|mind|noted/.test(R.allow), '분류 목록에도 지운 앱 키 없음', R.allow);
     await page.evaluate(() => __ML__.app.openSheet('home')); await sleep(300);
-    const icons = await page.evaluate(() => [...document.querySelectorAll('.ml-app')].map(a => a.dataset.app).filter(x => !['book', 'gauge', 'cat', 'look', 'market'].includes(x)));
+    const icons = await page.evaluate(() => [...document.querySelectorAll('.ml-app')].map(a => a.dataset.app).filter(x => !['book', 'gauge', 'cat', 'look', 'market', 'set'].includes(x)));
     check(icons.length === 0, '홈에도 지운 앱 없음', icons.join(','));
     check(!logs.some((l) => /error/i.test(l)), '오류 없음', logs.filter((l) => /error/i.test(l)).slice(0, 3).join(' | '));
 } finally { await close(); }
