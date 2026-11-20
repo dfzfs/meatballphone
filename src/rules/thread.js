@@ -9,6 +9,8 @@ import { DAY, norm } from '../base/util.js';
 const memo = new WeakMap();
 // 화면에 보일 만한 변화만 (시간 흐름 · 시간에 따른 욕구 감소는 뺌)
 const real = (c) => c && c.src !== 'time' && c.f !== 'time';
+// 💰 가계부에 넣는 돈 변화: 이야기 속에서 쓰고 번 것만 — ✋ 직접 고침(계산이 틀려서 맞춘 것 · 환율에 맞춤)은 빼기
+const isMoney = (c) => c.f === 'cash' && typeof c.to === 'number' && c.src !== 'hand';
 const dayOfI = (r, i) => (r.at?.[i] ? Math.floor(r.at[i].t / DAY) : null);
 
 function build(r) {
@@ -32,7 +34,7 @@ function build(r) {
         }
         for (const c of ch) {
             ev.push({ i, c, day }); D.ev.push({ i, c });
-            if (c.f === 'cash' && typeof c.to === 'number') { const d = c.to - c.from; if (d < 0) D.spend -= d; else D.earn += d; }
+            if (isMoney(c)) { const d = c.to - c.from; if (d < 0) D.spend -= d; else D.earn += d; }
         }
         if (at.loc && at.loc !== prevLoc) { visits.set(at.loc, (visits.get(at.loc) ?? 0) + 1); if (!firstAt.has(at.loc)) firstAt.set(at.loc, i); }
         prevLoc = at.loc;
@@ -131,7 +133,7 @@ export function ledger(r, days = 7) {
     if (list.some(D => D.spend || D.earn)) { const lo = Math.min(...list.map(D => D.day)); for (let d = today; d > today - days; d--) recent.push(T.days.get(d) ?? { day: d, spend: 0, earn: 0, pre: d < lo }); } // 이야기 전 날은 이름 없이 빈칸
     const by = new Map(), kinds = new Map(), week = { spend: 0, earn: 0, kind: new Map() }, dayKind = new Map(); let spend = 0, earn = 0;
     for (const e of T.ev) {
-        const c = e.c; if (c.f !== 'cash' || typeof c.to !== 'number') continue;
+        const c = e.c; if (!isMoney(c)) continue;
         const d = c.to - c.from, inWeek = e.day > today - days;
         if (d < 0) {
             spend -= d; const k = cashWhy(c.why), sk = spendKind(r.book, c.why); by.set(k, (by.get(k) ?? 0) - d); kinds.set(sk, (kinds.get(sk) ?? 0) - d);
@@ -171,7 +173,7 @@ export function stats(r) {
     let spend = 0, earn = 0;
     for (const e of T.ev) {
         const c = e.c;
-        if (c.f === 'cash' && typeof c.to === 'number') { const d = c.to - c.from; if (d < 0) spend -= d; else earn += d; }
+        if (isMoney(c)) { const d = c.to - c.from; if (d < 0) spend -= d; else earn += d; }
         if (/^rel\..+\.aff$/.test(c.f) && c.who) aff.set(c.who, (aff.get(c.who) ?? 0) + (c.to - c.from));
     }
     const best = (M) => [...M.entries()].sort((a, b) => b[1] - a[1])[0] ?? null;
