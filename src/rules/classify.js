@@ -6,7 +6,7 @@ import { short, hash, norm, tokens, safeKey, hhmm } from '../base/util.js';
 import { readOps, kindOf, parts, stripTags, storyOnly } from './tags.js';
 import { sendClean, clsRoute, connStats, routeText, CLS_PRESET } from './clsconn.js';
 import { fold } from './engine.js';
-import { personOf, normBook, BASIC_ACTS } from './book.js';
+import { personOf, normBook, BASIC_ACTS, LIMIT } from './book.js';
 import { gloss } from '../base/gloss.js';
 import { clsKeys } from './newskinds.js';
 import { notedKey } from './calplus.js';
@@ -237,6 +237,8 @@ export const presetText = () => `${CLS_PRESET.name}: 온도 ${CLS_PRESET.tempera
 // ───── 6-2 새 인물 규칙 채우기: npc로 처음 나온 인물은 그 인물당 한 번만 ─────
 export async function fillPerson(name, why = '') {
     const meta = getMeta(); if (!meta?.book || personOf(meta.book, name)) return false;
+    // 👥 설정집 인물이 꽉 차면(LIMIT.people) 넣어도 잘려 나감 → AI를 부르지 않음 (기본 행동으로만)
+    if (meta.book.people.length >= LIMIT.people) { (meta.npcTried ??= {})[name] = 'full'; saveMeta(); (await import('../ui/kit.js')).toast(`설정집 인물이 꽉 찼어요(${LIMIT.people}명) · 안 나오는 인물을 지우면 ${name}의 규칙을 채울 수 있어요`, 'bad'); return false; }
     (meta.npcTried ??= {})[name] = 'try'; saveMeta();
     const sys = 'You write a tiny rule card for a new roleplay character. Output JSON only, Korean values: '
         + '{"line":"성격 한 줄","face":"이모지 하나","up":[{"act":"칭찬","d":3},{"act":"","d":2},{"act":"","d":4}],"down":[{"act":"거짓말","d":-5},{"act":"","d":-3},{"act":"","d":-4}],"start":{"aff":10,"trust":10}}. '
