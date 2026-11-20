@@ -1,5 +1,6 @@
 // 본편 주입: 이야기 영향력 게이지(0~4)를 따라 켜고 끈다
 import { settings, getMeta, modOn, userName, ctx, shut, shutKey, nextAiNo } from '../base/st.js';
+import { bondKeys, bondHints } from './bond.js';
 // 😌 눈 감은 앱은 다음 답에 없는 셈 (켜져 있어도)
 const onNow = (id) => modOn(id) && !shut(id);
 import { clamp, dateText, dateTextEN, short, tokens, DAY } from '../base/util.js';
@@ -49,6 +50,7 @@ export function ruleText(book) {
     if (onNow('stats')) K.push('ate: 음식', 'slept: 6h', 'washed: -', 'rest: 1h', 'worked: 4h | +30');
     if (onNow('wallet')) K.push('buy: 물건 | 가격', 'earn: 30 | 이유', 'got: 물건', 'used: 물건', 'sell: 물건 | 값', 'lost: 물건', 'wear: 옷', 'unwear: 옷');
     if (onNow('rel')) K.push('act: 이름 | 한 일 (맞는 게 없으면 「기쁘게 함」 · 「상처 줌」)', 'gift: 이름 | 물건', 'memory: 이름 | 큰 사건', 'jealous: 이름 | 이유', ...(level('rel') >= 3 ? ['pair: 이름 | 이름 | +3 | 이유'] : []), 'promise: 내용 | 3/14', 'promise: -지킨 약속');
+    if (onNow('rel')) { const r0 = fold(); if (r0) K.push(...bondKeys(r0.book, r0.S, false).map(([k, v, w]) => `${k}: ${v} — ${w}`)); }
     if (onNow('calendar')) K.push('weather: 비');
     K.push('status: 감기 | 3d', 'status: -나은 상태', 'npc: 이름 | 성격 한 줄', 'gone: 이름 | 사유');
     if (onNow('news')) K.push(...newsRuleKeys(level('news')));
@@ -82,6 +84,7 @@ function ruleTextEN(book) {
     if (onNow('stats')) K.push('ate: food', 'slept: 6h', 'washed: -', 'rest: 1h', 'worked: 4h | +30');
     if (onNow('wallet')) K.push('buy: item | price', 'earn: 30 | reason', 'got: item', 'used: item', 'sell: item | price', 'lost: item', 'wear: clothes', 'unwear: clothes');
     if (onNow('rel')) K.push(`act: name | what they did to/for them (if nothing listed fits: "${BASIC_ACTS_EN.up.act}" or "${BASIC_ACTS_EN.down.act}")`, 'gift: name | item', 'memory: name | big event', 'jealous: name | reason', ...(level('rel') >= 3 ? ['pair: name | name | +3 | reason'] : []), 'promise: what | 3/14', 'promise: -kept promise');
+    if (onNow('rel')) { const r0 = fold(); if (r0) K.push(...bondKeys(r0.book, r0.S, true).map(([k, v, w]) => `${k}: ${v} — ${w}`)); }
     if (onNow('calendar')) K.push('weather: rain');
     K.push('status: cold | 3d', 'status: -recovered status', 'npc: name | one-line personality', 'gone: name | reason');
     if (onNow('news')) { const on = kindsOn(); if (on.world) K.push('newsline: news | one line of world news (now and then)'); if (on.rumor) K.push('newsline: rumor | a rumor going around (now and then)'); if (on.feed) K.push('feed: name | a short social media post by that person (now and then)'); if (on.life && level('news') >= 3) K.push('life: name | what they did off-screen (now and then)'); }
@@ -132,12 +135,12 @@ export function factText(r, lastChanges = []) {
         const r2 = S.rel[name], p = personOf(book, name); if (!r2) continue;
         if (r2.gone && lv('rel') >= 1) { L.push(`${name} has left the story (${r2.gone}) — must not appear`); continue; }
         if (lv('rel') >= 2) {
-            const st = relStage(book, r2.aff, name);
-            L.push(`${name}: ${p?.noLove ? 'friend' : `${st.name} (${st.act})`}${r2.mem[0] ? ` · remembers: ${r2.mem[0].text}` : ''}${r2.jealous ? ` · jealous: ${r2.jealous}` : ''}`);
+            const st = relStage(book, r2.aff, name, r2.lv);
+            L.push(`${name}: ${p?.noLove ? 'friend' : `${r2.lv === 3 ? 'married to user · ' : r2.lv === 2 ? 'dating user · ' : r2.ex ? `${r2.ex === '전 배우자' ? 'ex-spouse' : 'ex'} · ` : ''}${st.name} (${st.act})`}${r2.mem[0] ? ` · remembers: ${r2.mem[0].text}` : ''}${r2.jealous ? ` · jealous: ${r2.jealous}` : ''}`);
             // 📘 설정집 예외: 장면에 나온 인물만 증상 한 줄
             const sign = p?.signs?.filter(s => r2.aff >= s.at).pop(); if (sign && settings().pinBook !== 'off') L.push(`${name} shows: ${sign.text}`);
         }
-        if (lv('rel') >= 3 && !p?.noLove) L.push(`${name}: no actions beyond 「${relStage(book, r2.aff, name).name}」 yet`);
+        if (lv('rel') >= 3 && !p?.noLove) L.push(`${name}: no actions beyond 「${relStage(book, r2.aff, name, r2.lv).name}」 yet${(r2.lv ?? 1) === 1 ? ' — not dating; they only become a couple through a confession' : ''}`);
     }
     if (lv('rel') >= 2 && scene.length > 1)
         for (const [k, pr] of Object.entries(S.pairs ?? {})) {
@@ -149,6 +152,7 @@ export function factText(r, lastChanges = []) {
                 );
         }
     if (lv('rel') >= 4 && S.turn % 6 === 3) H.push('add one small heart-flutter moment this reply');
+    if (lv('rel') >= 1) H.push(...bondHints(book, S, userName())); // 💍 고백 · 청혼 때 · 대답 기다림
     // 바뀐 단계 · 딱지
     for (const c of lastChanges) if (c.cross && lv('rel') >= 1) H.push(`${c.label}: ${c.from} → ${c.to}`);
     for (const st of S.status) if (lv('stats') >= 2) L.push(`status: ${st.name}`);

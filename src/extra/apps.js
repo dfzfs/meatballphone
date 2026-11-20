@@ -20,6 +20,7 @@ export function addApp(def) {
             name: String(def.name || def.id).slice(0, 12), icon: faceOf(def.icon, '📦') || '📦',
             desc: String(def.desc ?? '').slice(0, 120), c: /^#[0-9a-f]{3,8}$/i.test(def.color ?? '') ? def.color : '#8d99ae',
             version: String(def.version ?? '').slice(0, 16), render: def.render,
+            asks: def.asks === true, // 💌 고백 · 청혼을 이 앱이 받음 (연락)
         });
         onChange();
         return () => { if (EXT.get(key)?.render === def.render) { EXT.delete(key); onChange(); } };

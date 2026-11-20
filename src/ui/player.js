@@ -24,18 +24,38 @@ export function canPlay() {
     return s.musicPlay !== 'tab' && ['youtube', 'ytmusic'].includes(s.musicApp || 'youtube') && !!String(s.ytKey ?? '').trim();
 }
 
-// YouTube Data API 검색 1회 → 퍼갈 수 있는 첫 영상 id
-async function findId(song) {
+// YouTube Data API 검색 1회 → 퍼갈 수 있는 후보 여러 개
+//   「사용할 수 없는 영상」: 음반사 공식 뮤비(VEVO 등)는 다른 사이트에서 막아 둔 게 많음 →
+//   다른 사이트 재생 허용(videoSyndicated) 영상만 · 공식 뮤비는 뒤로 · 막히면 유튜브가 알려 주는 오류로 다음 후보 자동
+async function findIds(song) {
     const k = keyOf(song);
     if (ids.has(k)) return ids.get(k);
-    const u = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&maxResults=1&q=${encodeURIComponent(query(song))}&key=${encodeURIComponent(String(settings().ytKey).trim())}`;
+    const u = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&videoSyndicated=true&maxResults=8&q=${encodeURIComponent(query(song))}&key=${encodeURIComponent(String(settings().ytKey).trim())}`;
     const res = await fetch(u, { signal: AbortSignal.timeout?.(8000) });
     const j = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(j?.error?.message ? `유튜브: ${j.error.message}` : `유튜브 ${res.status}`);
-    const id = j?.items?.[0]?.id?.videoId;
-    if (!id || !/^[\w-]{6,20}$/.test(id)) throw new Error('영상을 못 찾았어요');
-    ids.set(k, id);
-    return id;
+    const bad = (it) => /vevo/i.test(it?.snippet?.channelTitle ?? '') || /official\s*(music\s*)?video|\bM\/?V\b|뮤직비디오/i.test(it?.snippet?.title ?? '');
+    const L = (j?.items ?? []).filter(it => /^[\w-]{6,20}$/.test(it?.id?.videoId ?? '')).sort((a, b) => bad(a) - bad(b)).map(it => it.id.videoId);
+    if (!L.length) throw new Error('영상을 못 찾았어요');
+    ids.set(k, L);
+    return L;
+}
+let tries = [], tryAt = 0;
+function loadId(v, id, song) {
+    v.innerHTML = '';
+    const f = document.createElement('iframe');
+    f.src = `${EMBED}/embed/${id}?autoplay=1&enablejsapi=1&playsinline=1&rel=0&origin=${encodeURIComponent(location.origin)}`;
+    f.title = song.title; f.allow = 'autoplay; encrypted-media; picture-in-picture'; f.referrerPolicy = 'strict-origin-when-cross-origin';
+    f.addEventListener('load', () => { try { f.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: ID, channel: 'widget' }), EMBED); } catch { /* 없음 */ } });
+    v.appendChild(f);
+}
+// 이 영상이 막혔음 (유튜브 오류 100 · 101 · 150 · 153 등) → 다음 후보 · 다 막히면 새 탭 링크
+function nextTry() {
+    const el = document.getElementById(ID); if (!el || !cur) return;
+    const v = el.querySelector('.mbp-v'), song = cur;
+    if (++tryAt < tries.length) { head(el, song, `다른 영상으로 (${tryAt + 1}/${tries.length})`); loadId(v, tries[tryAt], song); setTimeout(() => { if (cur === song) head(el, song); }, 2500); return; }
+    v.innerHTML = `<a class="mbp-out" href="${esc(songLink(song))}" target="_blank" rel="noopener">새 탭에서 열기 ↗</a>`;
+    playing = false; setIcon(); head(el, song, '폰에서 틀 수 있는 영상이 없어요');
 }
 
 // ───── 작은 창 ─────
@@ -67,14 +87,9 @@ export async function playSong(song, href = '') {
     const v = el.querySelector('.mbp-v');
     place();
     try {
-        const id = await findId(song);
+        const L = await findIds(song);
         if (cur !== song) return; // 그 사이 다른 곡을 눌렀음
-        v.innerHTML = '';
-        const f = document.createElement('iframe');
-        f.src = `${EMBED}/embed/${id}?autoplay=1&enablejsapi=1&playsinline=1&rel=0&origin=${encodeURIComponent(location.origin)}`;
-        f.title = song.title; f.allow = 'autoplay; encrypted-media; picture-in-picture'; f.referrerPolicy = 'strict-origin-when-cross-origin';
-        f.addEventListener('load', () => { try { f.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: ID, channel: 'widget' }), EMBED); } catch { /* 없음 */ } });
-        v.appendChild(f);
+        tries = L; tryAt = 0; loadId(v, L[0], song);
         playing = true; setIcon();
         head(el, song);
         if (narrow() && document.getElementById('ml-full')) toast('🎵 폰 창을 닫으면 위쪽 작은 창이 보여요');
@@ -86,7 +101,8 @@ export async function playSong(song, href = '') {
         toast(`폰에서 못 틀었어요 · ${e.message}`, 'bad');
     }
 }
-export const closePlayer = () => closeBox(); // 🗑 음악 앱을 지우거나 이 채팅에서 끌 때
+export const closePlayer = () => closeBox();
+export const skipVideo = () => nextTry(); // 시험용 · 유튜브가 「사용할 수 없는 영상」을 알렸을 때와 같음 // 🗑 음악 앱을 지우거나 이 채팅에서 끌 때
 function closeBox() { document.getElementById(ID)?.remove(); cur = null; pending = null; playing = false; big = false; }
 function send(func) {
     const f = document.querySelector(`#${ID} iframe`);
@@ -106,6 +122,7 @@ function onBox(e) {
 addEventListener('message', (e) => {
     if (e.origin !== EMBED || !document.getElementById(ID)) return;
     let d; try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch { return; }
+    if (d?.event === 'onError') { nextTry(); return; }
     const s = d?.info?.playerState;
     if (typeof s === 'number' && (s === 1 || s === 2 || s === 0)) { playing = s === 1; setIcon(); }
 });

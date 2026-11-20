@@ -97,6 +97,6 @@ try {
         return document.querySelector('.ml-cls-res')?.textContent ?? '';
     });
     check(/❌ 실패/.test(bad) && /403/.test(bad) && /Permission denied on Vertex/.test(bad), '🔌 시험 버튼: 실패면 서버 오류 내용', bad);
-    check(await page.evaluate(() => /🧼 미트볼 분류용: 온도 0 · 답 길이 제한 없음/.test(document.querySelector('.ml-set')?.textContent ?? '')), '설정에 「미트볼 분류용」 프리셋 값 한 줄');
+    check(await page.evaluate(() => /🧼 미트볼 분류용: 온도 0 · 답 길이 자동/.test(document.querySelector('.ml-set')?.textContent ?? '')), '설정에 「미트볼 분류용」 프리셋 값 한 줄');
     check(!logs.length, '콘솔 오류 없음', logs.join('\n'));
 } finally { await close(); }

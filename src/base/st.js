@@ -5,7 +5,7 @@ import { kindOf } from '../rules/tags.js';
 
 export const MODULE = 'meatlite';
 export const OLD = 'statussim';
-export const VERSION = '0.50.4';
+export const VERSION = '0.51.0';
 export const DATA_V = 2;
 export const TITLE = '미트볼폰';
 export const INJ = { facts: 'meatlite_facts', hint: 'meatlite_hint', rule: 'meatlite_rule' };
@@ -47,6 +47,8 @@ export const DEFAULTS = Object.freeze({
     injExtra: '',           // ✍ 본편에 덧붙일 지시 (모든 채팅 · 채팅마다 meta.injExtra가 먼저)
     clsExtra: '',           // ✍ 분류 모델에 덧붙일 지시
     saveLang: 'auto',       // 🌐 AI에게 가는 말(설정집 값 · 본편 지시 · 분류)의 언어: auto(이야기 언어) | en | ko — 화면은 번역으로
+    clsMax: 'auto',         // 📏 분류 답 길이 (토큰) — auto | 숫자 · 사용자가 정함
+    askMax: 'auto',         // 📏 설정집 · AI 고치기 답 길이 (토큰)
     trMode: 'off',          // 🌐 상태창 번역: off | free(실리태번 기본 번역 · 무료 · 빠름) | ai(고른 AI · 제대로)
     trProfile: '',          // AI 번역 연결 (비우면 상태창 만들기 연결)
     trSent: true, trPhrase: true, trPlace: false, trName: false, trUnit: false, // 번역할 종류 (장소 · 명칭은 용어집으로 고치기 권함)

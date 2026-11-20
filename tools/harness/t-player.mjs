@@ -3,11 +3,13 @@ import { open, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open({ width: 1440, height: 900 });
 try {
     let searches = 0, fail = false;
+    let window_synd = null;
     await page.route('https://www.googleapis.com/youtube/v3/search**', async (r) => {
         searches++;
         const q = new URL(r.request().url()).searchParams;
         if (fail) return r.fulfill({ status: 403, contentType: 'application/json', body: '{"error":{"message":"quota"}}' });
-        await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [{ id: { videoId: /Moon/.test(q.get('q')) ? 'moonRiver01' : 'plasticLove1' } }] }) });
+        window_synd = q.get('videoSyndicated');
+        await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: /Moon/.test(q.get('q')) ? [{ id: { videoId: 'moonRiver01' } }] : [{ id: { videoId: 'plasticVEVO1' }, snippet: { channelTitle: 'MariyaVEVO', title: 'Plastic Love (Official Music Video)' } }, { id: { videoId: 'plasticLove1' }, snippet: { channelTitle: 'fan', title: 'Plastic Love' } }] }) });
     });
     await page.route('https://www.youtube-nocookie.com/**', r => r.fulfill({ status: 200, contentType: 'text/html', body: '<body style="margin:0;background:#222;color:#fff;font:12px sans-serif">영상</body>' }));
     // 새 탭이 열리면 세기(열리면 안 되는 때 확인용)
@@ -30,6 +32,14 @@ try {
         src: document.querySelector('#mbp iframe')?.src ?? '', t: document.querySelector('#mbp .mbp-t')?.textContent, nav: window.__nav.length }));
     check(p1.n === 1 && p1.inBody && !p1.inFull && /youtube-nocookie\.com\/embed\/plasticLove1\?autoplay=1/.test(p1.src), '▶ → 작은 창 · iframe은 body에 1개 (폰 창 밖)', JSON.stringify(p1));
     check(/Plastic Love/.test(p1.t) && p1.nav === 0 && searches === 1 && popups === 0, '곡 이름 · 새 탭 안 열림 · 검색 1회', JSON.stringify({ p1, searches, popups }));
+    check(window_synd === 'true', '다른 사이트 재생 허용 영상만 검색 (videoSyndicated)', String(window_synd));
+    // 「사용할 수 없는 영상」 → 다음 후보 (공식 뮤비는 뒤로 갔으므로 다음은 VEVO) → 다 막히면 새 탭 링크
+    await page.evaluate(async () => (await import('/ext/src/ui/player.js')).skipVideo()); await sleep(200);
+    check(await page.evaluate(() => /plasticVEVO1/.test(document.querySelector('#mbp iframe')?.src ?? '')), '막힌 영상이면 다음 후보로 자동', '');
+    await page.evaluate(async () => (await import('/ext/src/ui/player.js')).skipVideo()); await sleep(200);
+    check(await page.evaluate(() => !!document.querySelector('#mbp .mbp-out') && !document.querySelector('#mbp iframe')), '다 막히면 「새 탭에서 열기」', '');
+    await page.evaluate(() => { document.querySelector('#mbp [data-mbp="close"]')?.click(); }); await sleep(100);
+    await page.evaluate(() => document.querySelector('.ml-song a.ml-play')?.click()); await sleep(400);
     // 같은 곡 다시 → 검색 안 함 · iframe 여전히 1개
     await page.evaluate(() => document.querySelector('.ml-song a.ml-play').click()); await sleep(300);
     check(searches === 1 && await page.evaluate(() => document.querySelectorAll('iframe').length) === 1, '같은 곡 다시 누르면 검색 안 함 · iframe 1개');

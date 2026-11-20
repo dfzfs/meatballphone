@@ -3,10 +3,10 @@ import { open, sleep, check } from './lib.mjs';
 const { page, logs, close } = await open({ width: 1300, height: 900 });
 try {
     await page.evaluate(() => window.__quickStart()); await sleep(300);
-    const who = await page.evaluate(async () => { const st = await import('/ext/src/base/st.js'); const b = st.getMeta().book; const p = b.people[0]; p.start = { aff: 95, trust: 50 }; st.saveMeta(); return p.name; });
+    const who = await page.evaluate(async () => { const st = await import('/ext/src/base/st.js'); const b = st.getMeta().book; const p = b.people[0]; p.bond = 2; p.start = { aff: 30, trust: 50 }; /* 💍 공식 연인 */ st.saveMeta(); return p.name; });
     await page.evaluate(() => window.__addUser('안녕')); await page.evaluate(() => window.__addAI('…')); await sleep(400);
     await page.evaluate(() => __ML__.app.openSheet('home')); await sleep(300);
-    check(await page.evaluate(() => document.querySelector('.ml-app[data-app="market"] .ml-badge')?.textContent === '⬆'), '맨 위 단계면 마켓에 ⬆ 배지');
+    check(await page.evaluate(() => document.querySelector('.ml-app[data-app="market"] .ml-badge')?.textContent === '⬆'), '연인(Lv.2)이면 마켓에 ⬆ 배지');
     await page.evaluate(() => __ML__.app.openSheet('market')); await sleep(200);
     check(await page.evaluate((w) => !!document.querySelector(`[data-act="love-up"][data-v="${w}"]`), who), '마켓 맨 위에 「관계 앱 업데이트」');
     await page.evaluate((w) => document.querySelector(`[data-act="love-up"][data-v="${w}"]`).click(), who); await sleep(300);

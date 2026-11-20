@@ -52,9 +52,9 @@ export async function quickEdit(appId, handLines) {
         if (!names.length) { toast('아직 만난 사람이 없어요'); return false; }
         const F = [];
         names.forEach((n, j) => {
-            const x = S.rel[n], p = personOf(b, n), st = relStage(b, x.aff, n);
+            const x = S.rel[n], p = personOf(b, n), st = relStage(b, x.aff, n, x.lv);
             if (!p?.noLove) F.push({ k: `ra${j}`, label: `${p?.face || x.face || '🙂'} ${esc(n)} · 💗 애정 (지금 「${esc(st.name)}」)`, type: 'number', v: x.aff,
-                chips: stagesOf(b, n).map(s2 => `${s2.at}`).slice(0, 6), hint: stagesOf(b, n).map(s2 => `${s2.name} ${s2.at}~`).join(' · ') });
+                chips: stagesOf(b, n, x.lv).map(s2 => `${s2.at}`).slice(0, 6), hint: stagesOf(b, n, x.lv).map(s2 => `${s2.name} ${s2.at}~`).join(' · ') });
             F.push({ k: `rt${j}`, label: `${p?.face || x.face || '🙂'} ${esc(n)} · 🤝 우정`, type: 'number', v: x.trust });
         });
         F.push(WHY);

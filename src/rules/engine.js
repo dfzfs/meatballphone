@@ -1,10 +1,10 @@
 // 엔진: 채팅 메시지들 → 상태. 계산은 코드가, AI는 사건만.
 // 원본은 메시지(extra.meatlite.sw)에 있고, 여기서는 매번 처음부터 접어 만든다(바뀐 곳부터만 다시).
 import { clamp, num, norm, short, safeKey, parseDelta, spanOf, clockOf, dayOfDate, DAY, hash, periodName, faceOf, inPeriod } from '../base/util.js';
-import { msgData, getMeta, ctx, metaRev } from '../base/st.js';
+import { msgData, getMeta, ctx, metaRev, msgKey } from '../base/st.js';
 import { readOps, kindOf, parts } from './tags.js';
 import { match } from './names.js';
-import { NEED_STAGES, NEED_SYMPTOM, NEED_SYMPTOM_EN, personOf, placeOf, BASIC_ACTS, BASIC_ACTS_EN } from './book.js';
+import { NEED_STAGES, NEED_SYMPTOM, NEED_SYMPTOM_EN, personOf, placeOf, BASIC_ACTS, BASIC_ACTS_EN, LOVE_NAME, LV1_TOP, LV_STAGES } from './book.js';
 import { glossList } from '../base/gloss.js';
 import { readNewsline, kindInfo } from './newskinds.js';
 import { applySneak } from './sneak.js';
@@ -18,20 +18,30 @@ export function initState(book) {
         needs: Object.fromEntries(book.me.needs.map(n => [n.key, n.start])),
         gauges: Object.fromEntries(book.me.gauges.map(g => [g.key, g.start])), attrs: Object.fromEntries(book.me.attrs.map(a => [a.name, a.v])),
         cash: 0, items: [], status: [], promises: [], news: [], rel: {},
-        mind: {}, watch: {}, cell: {}, bgm: '', custom: {}, turn: 0, rolls: [], pairs: {},
+        mind: {}, watch: {}, cell: {}, bgm: '', custom: {}, turn: 0, rolls: [], pairs: {}, asks: {},
     };
     for (const p of book.people) if (p.auto !== 'npc') S.rel[p.name] = relOf(p); // 이야기 중에 나온 인물은 처음 나온 답부터
     for (const p of book.people) for (const s of p.syn ?? []) if (personOf(book, s.to)) { const k = pairKey(p.name, personOf(book, s.to).name); S.pairs[k] ??= { v: 0, label: s.text, why: '' }; }
     return S;
 }
-const relOf = (p) => ({ aff: p?.start?.aff ?? 10, trust: p?.start?.trust ?? 10, mem: [], gone: null, jealous: '', life: '', want: p?.want ?? '', seen: { likes: [], hates: [] }, last: [], extra: !p });
+const relOf = (p) => ({ lv: p?.noLove ? 1 : p?.bond ?? 1, aff: p?.start?.aff ?? 10, trust: p?.start?.trust ?? 10, mem: [], gone: null, jealous: '', life: '', want: p?.want ?? '', seen: { likes: [], hates: [] }, last: [], extra: !p });
 
 // 단계 (욕구 · 관계)
 export function needStage(v) { for (const s of NEED_STAGES) if (v >= s.at) return s.name; return '위험'; }
 // 💞 인물마다 다른 단계 (설정집 인물 → 단계) · 없으면 공통
-export const stagesOf = (book, name) => { const p = name ? personOf(book, name) : null; return p?.stages?.length >= 2 ? p.stages : book.stages; };
-export function relStage(book, v, name) { const L = stagesOf(book, name); let st = L[0]; for (const s of L) if (v >= s.at) st = s; return st; }
-export function nextStage(book, v, name) { return stagesOf(book, name).find(s => s.at > v) ?? null; }
+//   💍 lv: 관계 레벨 1 (연인 전 · 연인 이름 단계는 빼고 맨 위에 「고백 직전」) · 2 연인 · 3 부부 — 레벨마다 애정 0~100 새로
+const lvCache = new WeakMap();
+export const stagesOf = (book, name, lv = 1) => {
+    const p = name ? personOf(book, name) : null, base = p?.stages?.length >= 2 ? p.stages : book.stages, en = book.lang === 'en' ? 'en' : 'ko';
+    if (lv >= 2) return LV_STAGES[en][Math.min(3, lv)];
+    let m = lvCache.get(base); if (m) return m;
+    m = base.filter(s => !LOVE_NAME.test(s.name) || s.at === 0); if (m.length < 1) m = [base[0]];
+    if (!m.some(s => s.at >= 100)) m = [...m, { ...LV1_TOP[en], call: m[m.length - 1].call }];
+    lvCache.set(base, m); return m;
+};
+export function relStage(book, v, name, lv = 1) { const L = stagesOf(book, name, lv); let st = L[0]; for (const s of L) if (v >= s.at) st = s; return st; }
+export function nextStage(book, v, name, lv = 1) { return stagesOf(book, name, lv).find(s => s.at > v) ?? null; }
+export const LV_NAME = { 1: '', 2: '💗 연인', 3: '💍 부부' };
 // 🔗 인물끼리: 이름 둘을 정렬한 열쇠
 export const pairKey = (a, b) => [a, b].sort().join('|');
 
@@ -89,6 +99,8 @@ function makeCtx(book, S, ch, flags, G = glossList()) {
     const setRel = (name, axis, d, why, src, sure, i) => {
         const p = personOf(book, name), r = rel(name);
         if (axis === 'aff' && p?.noLove) axis = 'trust'; // 💔 애정 꺼 두기 — 우정으로만
+        // 🧊 동결: 고정한 뒤의 답에서는 이 축이 안 움직임 (✋ 직접 고침은 그대로 됨)
+        { const fz = curFreeze[`${name}|${axis}`]; if (fz != null && curMsg > fz && src !== 'hand') return; }
         // 💗 로맨스 보정: 같은 행동을 연달아 하면 반만 · 한 답에 ±8까지 · 단계 하나를 건너뛰지 못함
         if (src !== 'hand' && src !== 'meddle' && src !== 'ai') {
             d = Math.sign(d) * Math.max(1, Math.round(Math.abs(d)));
@@ -99,13 +111,13 @@ function makeCtx(book, S, ch, flags, G = glossList()) {
             r.last = [key, ...r.last].filter(Boolean).slice(0, 3);
             const done = ch.filter(c => c.f === `rel.${name}.${axis}` && c.src !== 'hand').reduce((a, c) => a + c.to - c.from, 0);
             d = clamp(d, -8 - done, 8 - done);
-            if (axis === 'aff' && d > 0) { const nx = nextStage(book, r.aff, name); const nx2 = nx && nextStage(book, nx.at, name); if (nx2 && r.aff + d >= nx2.at) d = nx2.at - 1 - r.aff; }
+            if (axis === 'aff' && d > 0) { const nx = nextStage(book, r.aff, name, r.lv); const nx2 = nx && nextStage(book, nx.at, name, r.lv); if (nx2 && r.aff + d >= nx2.at) d = nx2.at - 1 - r.aff; }
         }
         const from = r[axis], to = clamp(Math.round(from + d), 0, 100);
         if (to === from) return;
         r[axis] = to;
         ch.push({ f: `rel.${name}.${axis}`, label: `${name} ${axis === 'aff' ? '애정' : '우정'}`, icon: axis === 'aff' ? '💗' : '🤝', from, to, why, src, sure, i, who: name });
-        const a = relStage(book, from, name), b = relStage(book, to, name);
+        const a = relStage(book, from, name, r.lv), b = relStage(book, to, name, r.lv);
         if (axis === 'aff' && a.name !== b.name) ch.push({ f: `stage.${name}`, label: `${name} 단계`, icon: '💞', from: a.name, to: b.name, why: to > from ? '단계가 올랐어요' : '단계가 내려갔어요', src: 'auto', sure: true, i, cross: true, who: name });
     };
     const pass = (min, why, i, opt = {}) => {
@@ -130,6 +142,13 @@ function makeCtx(book, S, ch, flags, G = glossList()) {
 const DEF = { meal: 35, snack: 15, sleepPerH: 12, wash: 60, restPerH: 10, workPerH: 6, giftLike: 6, giftHate: -4, gift: 2, up: 3, down: -4 };
 const isSnack = (t) => /간식|빵|과자|사탕|snack|cookie|bread|커피|coffee|음료|차\b/i.test(t);
 
+// 💍 레벨 올리기: 연인(2) · 부부(3) — 새 애정 0부터 · 🐱 폰 알림은 화면 쪽
+function bondUp(S, book, ch, name, lv, kind, src, i) {
+    const r = S.rel[name]; if (!r || r.lv >= lv) return;
+    const from = r.lv, fa = r.aff; r.lv = lv; r.aff = 0; r.ex = ''; delete S.asks?.[name];
+    ch.push({ f: `bond.${name}`, label: `${name} 관계`, icon: lv === 3 ? '💍' : '💗', from: ['', '연인 전', '연인'][from], to: lv === 3 ? '부부' : '연인', why: kind === 'confess' ? '고백이 이루어졌어요' : '청혼이 이루어졌어요', src, sure: true, i, cross: true, who: name, lvUp: lv });
+    ch.push({ f: `rel.${name}.aff`, label: `${name} 애정`, icon: '💗', from: fa, to: 0, why: `${lv === 3 ? '부부' : '연인'} 애정 새로 시작`, src: 'auto', sure: true, i, who: name });
+}
 export function applyOp(book, S, x, k, v, i, src, ch) {
     const kind = kindOf(k, [...book.me.needs.flatMap(n => [n.name, n.key]), ...book.me.gauges.flatMap(g => [g.name, g.key])]);
     if (kind === 'skip' && /^(attr|능력치|능력)$/i.test(String(k).trim())) {
@@ -582,6 +601,40 @@ export function applyOp(book, S, x, k, v, i, src, ch) {
             ch.push({ f: `npc.${name}`, label: name, icon: '👤', from: '', to: '새 인물', why: short(b, 20), src, sure: true, i, who: name });
             return;
         }
+        // 💍 고백 · 청혼 · 이별 — 「confess: 이름」(대답 기다림) 「confess: 이름 | yes」(이야기에서 받아들임) 「| no」(거절)
+        case 'confess':
+        case 'propose': {
+            const name = x.who(a); if (!name) return;
+            const r = x.rel(name), p = personOf(book, name), want = kind === 'confess' ? 1 : 2;
+            if (p?.noLove || r.lv !== want) return;
+            if (r.aff < 100 && src !== 'hand') { ch.push({ f: `ask.${name}`, label: `${name} ${kind === 'confess' ? '고백' : '청혼'}`, icon: '💌', from: '', to: '아직 (애정 100 전)', why: '애정이 다 차야 이루어져요', src, sure: true, i, who: name }); return; }
+            const said = /^(yes|y|ok|예|네|응|수락|받아들임|accepted?)$/i.test(b.trim()) ? 'yes' : /^(no|n|아니오|아니|거절|refused?|rejected?|declined?)$/i.test(b.trim()) ? 'no' : (curAnswers[`${curKey}|${name}|${kind}`] ?? '');
+            if (said === 'yes') { bondUp(S, book, ch, name, want + 1, kind, src, i); return; }
+            if (said === 'no') {
+                delete S.asks?.[name]; const from = r.aff; r.aff = Math.max(0, r.aff - 15);
+                ch.push({ f: `bond.${name}`, label: `${name} ${kind === 'confess' ? '고백' : '청혼'}`, icon: '💔', from: kind === 'confess' ? '고백' : '청혼', to: '거절', why: '거절했어요', src, sure: true, i, cross: true, who: name });
+                if (from !== r.aff) ch.push({ f: `rel.${name}.aff`, label: `${name} 애정`, icon: '💗', from, to: r.aff, why: '거절당함', src, sure: true, i, who: name });
+                return;
+            }
+            (S.asks ??= {})[name] = { kind, key: curKey, at: S.t };
+            ch.push({ f: `ask.${name}`, label: `${name} ${kind === 'confess' ? '고백' : '청혼'}`, icon: '💌', from: '', to: '대답을 기다려요', why: kind === 'confess' ? '고백했어요' : '청혼했어요', src, sure: true, i, who: name });
+            return;
+        }
+        case 'breakup': {
+            const name = x.who(a); if (!name) return;
+            const r = x.rel(name); if (r.lv < 2) return;
+            const from = r.lv, fa = r.aff; r.lv = 1; r.aff = 30; r.ex = from === 3 ? '전 배우자' : '전 연인'; delete S.asks?.[name];
+            ch.push({ f: `bond.${name}`, label: `${name} 관계`, icon: '💔', from: from === 3 ? '부부' : '연인', to: r.ex, why: b || (from === 3 ? '이혼' : '헤어짐'), src, sure: true, i, cross: true, who: name });
+            ch.push({ f: `rel.${name}.aff`, label: `${name} 애정`, icon: '💗', from: fa, to: 30, why: '헤어짐', src, sure: true, i, who: name });
+            return;
+        }
+        case 'bond': { // ✋ 직접: 「bond: 이름 | 2」
+            const name = x.who(a); if (!name || src !== 'hand') return;
+            const r = x.rel(name), to = Math.round(num(b, 1)); if (![1, 2, 3].includes(to) || to === r.lv || personOf(book, name)?.noLove) return;
+            const from = r.lv; r.lv = to; r.aff = to > from ? 0 : 30; if (to === 1) r.ex = ''; delete S.asks?.[name];
+            ch.push({ f: `bond.${name}`, label: `${name} 관계`, icon: '💞', from: ['', '연인 전', '연인', '부부'][from], to: ['', '연인 전', '연인', '부부'][to], why: '직접 고침', src, sure: true, i, cross: true, who: name });
+            return;
+        }
         case 'gone': {
             const name = x.who(a);
             if (!name) return;
@@ -754,6 +807,9 @@ function bookFor(meta, i) {
 let cache = { chatId: null, bookSig: '', sig: [], states: [], changes: [], flags: [], base: null };
 const caches = new Map();
 let curCustom = [];
+let curMsg = -1, curKey = '', curAnswers = {}; // 💍 고백 대답: 「메시지열쇠|이름|confess」 → yes | no // 지금 계산 중인 메시지 번호 (applyOp의 i는 줄 번호라 따로)
+let curFreeze = {}; // 🧊 「이름|aff」 → 고정한 메시지 번호 (그 뒤 답부터 안 움직임)
+function freezeOf(meta, chat) { const out = {}; for (const [n, ax] of Object.entries(meta.freeze ?? {})) for (const [k, key] of Object.entries(ax ?? {})) { if (!key) continue; const j = key === '@0' ? -1 : chat.findIndex(m => msgKey(m) === key); if (key === '@0' || j >= 0) out[`${n}|${k}`] = j; } return out; }
 const sigOf = (m) => (m.is_user ? `u${m.mes?.length}` : `${m.swipe_id ?? 0}:${m.mes?.length}:${msgData(m)?.rev ?? 0}:${m.is_system ? 1 : 0}`);
 // 메시지 i의 변화 줄: 태그(답 글) → 저장해 둔 ops → 손으로 고친 것 · 손댄 것
 // 🏎 답 글에서 사건 줄 읽기는 글이 같으면 한 번만 (메시지 칸에 저장 안 된 옛 답 · 다시 계산할 때마다 다시 읽던 것)
@@ -778,11 +834,11 @@ export function fold(force = false) {
     // 빠른 길: 채팅 · 마지막 메시지 · 스와이프 · 설정집 저장 번호가 그대로면 지난 결과 (선택지 미리 보기처럼 한 화면에 여러 번 부를 때)
     const last = chat[chat.length - 1], qk = `${id}|${chat.length}|${last ? sigOf(last) : ''}|${metaRev}|${meta.book === quick.book ? 1 : 0}`;
     if (!force && quick.r && quick.key === qk) return quick.r;
-    const bsig = hash(JSON.stringify(meta.book, noPhoto) + /* 🏎 장소 사진(수백 KB)은 계산과 무관 → 길이만 */ JSON.stringify(meta.start ?? {}) + (meta.startAt ?? 0) + JSON.stringify(meta.ruleVers ?? []) + JSON.stringify(meta.preHand ?? []));
+    const bsig = hash(JSON.stringify(meta.book, noPhoto) + /* 🏎 장소 사진(수백 KB)은 계산과 무관 → 길이만 */ JSON.stringify(meta.start ?? {}) + (meta.startAt ?? 0) + JSON.stringify(meta.ruleVers ?? []) + JSON.stringify(meta.preHand ?? []) + JSON.stringify(meta.freeze ?? {}) + JSON.stringify(meta.answers ?? {}) + JSON.stringify(meta.love ?? {}));
     // 💾 채팅마다 계산 결과를 메모리에 둔다 (최근 4개 채팅) — 다른 채팅에 갔다 와도 처음부터 다시 안 셈
     if (cache.chatId !== id) { if (cache.chatId != null) { caches.delete(cache.chatId); caches.set(cache.chatId, cache); while (caches.size > 4) caches.delete(caches.keys().next().value); } const old = caches.get(id); if (old) cache = old; }
     if (force || cache.chatId !== id || cache.bookSig !== bsig) cache = { chatId: id, bookSig: bsig, sig: [], snap: [], needs: [], at: [], changes: [], flags: [], base: null, last: null };
-    const G = glossList(); curCustom = meta.custom ?? [];
+    const G = glossList(); curCustom = meta.custom ?? []; curFreeze = freezeOf(meta, chat); curAnswers = meta.answers ?? {}; curMsg = -1;
     if (!cache.base) {
         cache.base = startState(meta);
         // ✋ AI 답이 아직 없을 때 고친 것(다른 곡 · AI로 수정 · 직접 고치기)은 시작 상태에 붙인다
@@ -804,6 +860,7 @@ export function fold(force = false) {
             S.mind = {}; S.watch = {}; S.cell = {}; S.turn++;
             const bk = bookFor(meta, i), x = makeCtx(bk, S, ch, flags, G);
             const W = null, P = { tasted: S.tasted?.length ?? 0, visited: S.visited?.length ?? 0, rolls: S.rolls?.length ?? 0, kept: (S.promises ?? []).filter(q => q.done).length, custom: JSON.stringify(S.custom) }; // ⭐ 이 답 전에 원하던 것 · 그때 개수
+            curMsg = i; curKey = msgKey(m);
             for (const o of opsOf(m, bk)) { const n0 = ch.length; try { applyOp(bk, S, x, o.k, o.v, o.j, o.src, ch); } catch (e) { console.warn('[미트볼폰] 줄 건너뜀', o, e); } if (o.src === 'hand') for (let q = n0; q < ch.length; q++) ch[q].hand = true; /* ✋ 직접 고침에서 따라 생긴 변화(단계 오름 · 경계 등)도 고침으로 */ if (o.why) for (let q = n0; q < ch.length; q++) if (ch[q].src === o.src) ch[q].why = o.why; }
             for (const e of [...(S.mindLog ?? []), ...(S.bgmLog ?? []), ...(S.quoteLog ?? []), S.bgm, S.quote]) if (e) e.m ??= i; // 💭🎵📜 몇 번째 메시지에서 떴나
             afterTurn(bk, S, x, ch, W, i, P);
@@ -820,13 +877,14 @@ export function fold(force = false) {
 // 🕰 그때 상태: 가장 가까운 사진에서 그 메시지까지 다시 계산 (읽기 전용)
 export function stateAt(i) {
     const meta = getMeta(), chat = ctx().chat ?? []; if (!meta?.book || i < 0) return null;
-    curCustom = meta.custom ?? []; const G = glossList();
+    curCustom = meta.custom ?? []; curFreeze = freezeOf(meta, chat); curAnswers = meta.answers ?? {}; const G = glossList();
     let k = i; while (k >= 0 && !cache.snap[k]) k--;
     const S = structuredClone(k >= 0 ? cache.snap[k] : cache.base);
     for (let j = k + 1; j <= i && j < chat.length; j++) {
         const m = chat[j]; if (m.is_user || m.is_system || j < (meta.startAt ?? 0)) continue;
         const ch = [], flags = []; S.mind = {}; S.watch = {}; S.cell = {}; S.turn++;
         const bk = bookFor(meta, j), x = makeCtx(bk, S, ch, flags, G), W = null, P = { tasted: S.tasted?.length ?? 0, visited: S.visited?.length ?? 0, custom: JSON.stringify(S.custom) };
+        curMsg = j; curKey = msgKey(m);
         for (const o of opsOf(m, bk)) { try { applyOp(bk, S, x, o.k, o.v, o.j, o.src, ch); } catch { /* 건너뜀 */ } }
         afterTurn(bk, S, x, ch, W, j, P);
     }
@@ -845,6 +903,9 @@ export function startState(meta) {
     if (st.weather) S.weather = String(st.weather);
     if (Array.isArray(st.status)) S.status = st.status.filter(x => x?.name).map(x => ({ name: short(x.name, 12), kind: 'mid', note: x.note ?? '', until: null, dice: num(x.dice), src: 'old', at: S.t }));
     if (st.pairs) S.pairs = { ...S.pairs, ...structuredClone(st.pairs) };
+    if (st.rel) for (const [k, v] of Object.entries(st.rel)) if (S.rel[k] && [1, 2, 3].includes(v.lv)) S.rel[k].lv = v.lv;
+    // 💍 고백 기능 전에 💗 연인 모드를 받아 둔 인물은 연인(Lv.2)으로 이어서
+    for (const [n, on] of Object.entries(meta.love ?? {})) if (on && S.rel[n] && (S.rel[n].lv ?? 1) < 2 && !personOf(meta.book, n)?.noLove) S.rel[n].lv = 2;
     return S;
 }
 export const resetCache = () => { cache.chatId = null; caches.clear(); quick.key = ''; };

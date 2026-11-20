@@ -16,12 +16,13 @@ import { nextAiNo } from '../base/st.js';
 import { mascot, MASCOTS, MEATCON, mascotUrl, MASCOT_SOUNDS, PACK, packOn } from './mascot.js';
 import { extApps, extOf, catalog, loadCatalog, hasApp, waitsReload } from '../extra/apps.js';
 import { loveCards, loveBadge, loveAny, homeHearts } from './love.js';
+import { askCards } from './bondui.js';
 import { todayLine } from './threadui.js';
 import { wallSrc } from './wall.js';
 
 // 앱 목록 — mod가 있으면 받기 · 지우기 가능, sys는 늘 있음
 export const APPS = [
-    { id: 'now', to: 'main', main: '증상 · 상태 딱지 이름', icon: '❤️', name: '수치', mod: 'stats', desc: '욕구 · 게이지 · 능력치 · 상태 딱지', c: '#ff6b6b' },
+    { id: 'now', to: 'main', main: '증상 · 상태 딱지 이름', icon: '❤️', name: '수치', mod: 'stats', desc: '욕구 · 게이지 · 능력치', c: '#ff6b6b' },
     { id: 'dice', to: 'main', main: '판정 결과 문장', icon: '🎲', name: '주사위', mod: 'dice', desc: '판정 · 보정 내역 · 오늘 운세 주사위', c: '#7c5cff' },
     { id: 'bag', to: 'main', main: '가진 돈 · 물건 · 착용 중', icon: '👜', name: '소지품', mod: 'wallet', desc: '돈 · 물건 · 착용 중 · 가게', c: '#f4a261' },
     { id: 'rel', to: 'main', main: '관계 단계 · 감정 기억 · 질투', icon: '💞', name: '관계', mod: 'rel', desc: '애정 · 우정 · 단계 · 기억 · 취향 도감', c: '#e0567f' },
@@ -97,7 +98,7 @@ export function home(r) {
                     const x = S.rel[n],
                         p = personOf(book, n);
                     if (!x) return '';
-                    const st = relStage(book, x.aff, n);
+                    const st = relStage(book, x.aff, n, x.lv);
                     return (
                         `<div class="ml-wp tap" data-act="person" data-v="${esc(n)}"><span>${p?.face || '🙂'}</span><b>${esc(n)}</b><span class="ml-pill ` +
                         `love">${esc(p?.noLove ? '친구' : st.name)}</span><span class="ml-bar love"><i style="width:${p?.noLove ? x.trust : x.aff}%"></i></span>` +
@@ -122,7 +123,7 @@ export function home(r) {
     }
     // 소식
     if (modOn('news')) { const N = S.news.slice(0, 3); if (N.length) put('세계 소식', N.map(n => `<div class="ml-rl"><i>${n.icon}</i>${esc(n.text)}</div>`).join(''), 'news', '', 'news'); }
-    return homeHearts() + holder(r, P);
+    return homeHearts() + (Object.keys(r.S.asks ?? {}).length ? `<div class="ml-mks">${askCards(r)}</div>` : '') + holder(r, P);
 }
 
 

@@ -778,3 +778,10 @@ html > .ml-scope{font-family:var(--ml-font,var(--mainFontFamily,system-ui,sans-s
 
 
 
+/* 🐱 수상한 고양이 알림 (고백 · 청혼 · 축하) — 폰을 닫아도 보임 */
+.ml-cat{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:3100;width:min(340px,92vw);background:var(--SmartThemeBlurTintColor,#1d1b22);color:var(--SmartThemeBodyColor,#eee);border:1px solid rgba(255,92,138,.5);border-radius:16px;box-shadow:0 8px 28px rgba(0,0,0,.35);padding:10px 12px;animation:ml-cat-in .35s ease-out}
+#ml-full .ml-cat{position:absolute}
+.ml-cat-h{display:flex;align-items:center;gap:6px;font-size:.85em;opacity:.85}.ml-cat-h b{flex:1}.ml-cat-x{background:none;border:0;color:inherit;cursor:pointer}
+.ml-cat p{margin:8px 0 6px;line-height:1.45}.ml-cat small{opacity:.7}.ml-cat-yay{text-align:center;font-size:1.05em}
+.ml-cat-b{display:flex;gap:8px;justify-content:flex-end}
+@keyframes ml-cat-in{from{opacity:0;transform:translate(-50%,-12px)}to{opacity:1;transform:translate(-50%,0)}}

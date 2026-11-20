@@ -485,3 +485,21 @@ a.ml-play,a.ml-scene{text-decoration:none;color:inherit}
 .ml-map .node .ord{font-size:2.4px;font-weight:800;fill:#fff;paint-order:stroke;stroke:var(--a,#e0567f);stroke-width:.9px;pointer-events:none}
 .ml-cc{position:relative}
 .ml-cc .ml-ce{position:absolute;top:1px;right:2px;font-style:normal;font-size:10px;line-height:1;pointer-events:none}
+.ml-frz{gap:6px}.ml-frz .ml-btn.on{background:color-mix(in srgb,#5aa9e6 25%,transparent)}
+/* ✏️ 편집 (항목마다 펼쳐서 다 고치기) */
+.ml-scope .ml-ed-sec{margin:10px 0 4px}
+.ml-scope .ml-ed-top{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 10px;margin-bottom:6px}
+.ml-scope .ml-ed-list{display:flex;flex-direction:column;gap:6px}
+.ml-scope .ml-ed-it{border:1px solid var(--ml-line,rgba(127,127,127,.25));border-radius:var(--ml-r,12px);background:var(--ml-card,rgba(127,127,127,.06))}
+.ml-scope .ml-ed-it>summary{display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer;list-style:none}
+.ml-scope .ml-ed-it>summary::-webkit-details-marker{display:none}
+.ml-scope .ml-ed-it>summary b{flex:0 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ml-scope .ml-ed-it>summary small{flex:1;opacity:.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ml-scope .ml-ed-it>summary .ml-ed-del{margin-left:auto}
+.ml-scope .ml-ed-it.gone{opacity:.45}.ml-scope .ml-ed-it.gone>summary b{text-decoration:line-through}
+.ml-scope .ml-ed-it.gone .ml-ed-fs{display:none}
+.ml-scope .ml-ed-fs{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px 10px;padding:0 10px 10px}
+.ml-scope .ml-ed-f.wide,.ml-scope .ml-ed-top .ml-ed-f.wide{grid-column:1/-1}
+.ml-scope .ml-ed-f.chk{flex-direction:row;align-items:center;gap:6px}
+.ml-scope .ml-ed-add{margin-top:6px}
+.ml-scope .ml-bs-box.wide{max-width:min(720px,96vw)}

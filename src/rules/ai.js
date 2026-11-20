@@ -10,8 +10,10 @@ export const stats = { calls: 0, ms: 0, last: 0 };
 // 🔓 답 길이는 사실상 제한 없음 (모델 최대까지) — 생각하는 모델이 생각에 다 써서 설정집이 잘리던 것.
 //   서버가 「너무 크다」고 거절하면 그때만 8192 → 4096으로 줄여 다시 (그 뒤로는 그 값)
 export const ASK_MAX = 32000;
+// 📏 답 길이는 사용자가 정함 (설정 › AI › 답 길이) · 'auto'면 넉넉히 + 서버가 거절할 때만 줄여 다시
+export const userMax = (k) => { const v = Number(settings()[k]); return v > 0 ? v : 0; };
 let askCap = 0;
-export async function ask(prompt, system = '', maxTok = ASK_MAX) {
+export async function ask(prompt, system = '', maxTok = userMax('askMax') || ASK_MAX) {
     const t0 = performance.now(); stats.calls++;
     const once = async (n) => {
         const prof = settings().profile, c = ctx();
@@ -22,9 +24,10 @@ export async function ask(prompt, system = '', maxTok = ASK_MAX) {
         return String(await c.generateRaw({ prompt, systemPrompt: system, responseLength: n }) ?? '');
     };
     try {
-        let n = askCap ? Math.min(askCap, maxTok) : maxTok;
+        const fixed = userMax('askMax'); let n = fixed || (askCap ? Math.min(askCap, maxTok) : maxTok);
         for (;;) {
             try { return await once(n); } catch (e) {
+                if (fixed && TOO_BIG.test(String(e?.message ?? e))) throw new Error(`이 모델은 답 길이 ${fixed}토큰을 못 받아요 · 설정 › AI › 「설정집 · AI 고치기 답 길이」를 줄여 주세요`);
                 const next = [8192, 4096].find(x => x < n);
                 if (!next || !TOO_BIG.test(String(e?.message ?? e))) throw e;
                 n = askCap = next;
@@ -132,6 +135,7 @@ export const SRC_HARD_MAX = HARD_MAX;
 const SCHEMA = `{"world":{"genre":"","summary":"세계관 요약 2~3문장 (시대 · 무대 · 지금 상황 · 큰 갈등)","rules":["이 세계에서 꼭 지켜지는 규칙 짧게 (마법 · 기술 · 신분 · 금기 등) 3~5개"],"currency":"","meal":10,"weather":["맑음","비"],"start":{"y":2026,"m":3,"d":1,"clock":480},"places":[{"name":"","kind":"home|shop|food|bath|work|street|school|other","line":"노선 `
     + `이름","near":["이어진 장소"],"floors":[],"goods":[{"name":"","price":3,"fx":{"hunger":20}}],"rest":{"energy":20},"note":""}]},
 "me":{"name":"","traits":"","day":"3월 14일","needs":[{"key":"hunger","name":"허기","icon":"🍞","start":80,"rate":4}]},
+"bag":{"cash":50,"items":[{"name":"휴대폰","n":1,"worn":false},{"name":"교복","n":1,"worn":true}]},
 "people":[{"name":"","aka":[],"face":"🙂","line":"성격 한 `
     + `줄","start":{"aff":10,"trust":10},"up":[{"act":"칭찬","d":3}],"down":[{"act":"거짓말","d":-5}],"signs":[{"at":60,"text":"눈을 `
     + `피함"}],"syn":[{"to":"","text":""}],"haunt":[],"routine":[{"at":"아침","place":""}],"likes":[],"hates":[],"day":"3월 14일 생일","want":"지금 원하는 `
@@ -139,6 +143,7 @@ const SCHEMA = `{"world":{"genre":"","summary":"세계관 요약 2~3문장 (시�
 // 🌐 영어 이야기용 견본 (값을 한국어로 보여 주면 AI가 한국어로 따라 씀)
 const SCHEMA_EN = `{"world":{"genre":"","summary":"2-3 sentence world summary (era · setting · current situation · main conflict)","rules":["3-5 short rules this world always keeps (magic · tech · class · taboos)"],"currency":"","meal":10,"weather":["Clear","Rain"],"start":{"y":2026,"m":3,"d":1,"clock":480},"places":[{"name":"","kind":"home|shop|food|bath|work|street|school|other","line":"line name","near":["connected place"],"floors":[],"goods":[{"name":"","price":3,"fx":{"hunger":20}}],"rest":{"energy":20},"note":""}]},
 "me":{"name":"","traits":"","day":"March 14","needs":[{"key":"hunger","name":"Hunger","icon":"🍞","start":80,"rate":4}]},
+"bag":{"cash":50,"items":[{"name":"Phone","n":1,"worn":false},{"name":"School uniform","n":1,"worn":true}]},
 "people":[{"name":"","aka":[],"face":"🙂","line":"one-line personality","start":{"aff":10,"trust":10},"up":[{"act":"praise","d":3}],"down":[{"act":"lying","d":-5}],"signs":[{"at":60,"text":"avoids eye contact"}],"syn":[{"to":"","text":""}],"haunt":[],"routine":[{"at":"morning","place":""}],"likes":[],"hates":[],"day":"March 14","want":"what they want right now","official":"-","noLove":false}]}`;
 export async function fillBook(only = null, pick = undefined) {
     const src = await sources(pick), en = isEN();
@@ -150,6 +155,7 @@ export async function fillBook(only = null, pick = undefined) {
         + 'Keep every line short. Prices must be consistent with '
         + '"meal" (one meal). 3-6 places that matter, 3-5 goods per shop/food place. needs: 3-5 (hunger/energy/hygiene/mood style; rate = drop per '
         + 'hour). Birthdays as 「M월 D일」 if known. '
+        + 'bag = what the user has at the START (from the source and first message; else what this person would plausibly carry): money in this currency and 3-8 items, clothes they wear marked worn. '
         + 'RELATIONSHIP START: "official" = the relationship with the user that the source states as a FACT right now (연인 · 부부 · 약혼 · 전 연인 · 짝사랑 · 친구 · 가족 · 동료 · "-"). '
         + 'Words like love, devotion, obsession, "meant for each other" or a romantic subtext do NOT make them 연인 — only an explicit, current dating/marriage/engagement does. '
         + 'start.aff (romantic love, 0-100) must match the OFFICIAL status: 80+ only when official is 연인 · 부부 · 약혼; otherwise at most 75 even if they clearly have feelings (put the depth into trust and the line instead). '

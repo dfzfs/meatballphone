@@ -25,7 +25,7 @@ try {
     check(!/\[\[\d+\]\] 레온\s*$/m.test(a.sent) && !/\]\] Leon\s*$/m.test(a.sent), '용어집으로 다 바뀌는 글(「Leon」)은 안 보냄', a.sent);
     check(a.dict['Sleepy']?.t === 'KO:Sleepy' && a.dict['Leon is tired today']?.t === 'KO:레온 is tired today', '받은 번역을 저장', JSON.stringify(a.dict));
     // 화면: 번역 · 용어집이 입혀짐
-    await page.evaluate(() => __ML__.app.openSheet('now')); await sleep(500);
+    await page.evaluate(() => __ML__.app.openSheet('home')); await sleep(500); // 딱지는 홈 위젯에 (수치 앱엔 수치만)
     const body = await page.evaluate(() => document.querySelector('.ml-body')?.textContent ?? '');
     check(body.includes('KO:Sleepy'), '화면에 번역', body.slice(0, 300));
     // 같은 것 다시: 새로 고쳐 그려도 다시 안 물음 · 숫자 단위는 안 보냄

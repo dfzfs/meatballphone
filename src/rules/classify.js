@@ -2,6 +2,7 @@
 //   본편은 소설만 쓰고, 숫자는 지금처럼 설정집 규칙으로 계산한다.
 //   결과는 그 메시지 · 그 스와이프의 칸(msgData)에 src: 'cls'로 저장 → 다시 열기 · 다시 계산에는 다시 부르지 않음.
 import { ctx, settings, getMeta, saveMeta, msgData, syncSwipe, bumpMeta, msgKey, app, TITLE, saveChatSoon, shut, shutKey, aiNoOf, saveSettings } from '../base/st.js';
+import { bondKeys } from './bond.js';
 import { short, hash, norm, tokens, safeKey, hhmm } from '../base/util.js';
 import { readOps, kindOf, parts, stripTags, storyOnly } from './tags.js';
 import { sendClean, clsRoute, connStats, routeText, CLS_PRESET } from './clsconn.js';
@@ -49,7 +50,7 @@ const MIND = [['mind', '이름 | 짧은 속마음', '장면 속 인물의 속마
 const BGM = [['bgm', '곡 제목 - 가수 | 분위기 한 단어 | 왜 어울리는지', '장면 분위기가 바뀌었을 때만 · 실제로 있는 곡 · 나라 · 장르는 장면 시대 · 무대에 맞게 (케이팝으로 쏠리지 않게) · [NOW]의 취향 참고 · 안 바뀌었으면 쓰지 않음']];
 const QUOTE = [['quote', '구절 원문 | 출처(작품 · 사람 · 나라) | 한국어 뜻(외국어일 때만) | 왜 어울리는지', '장면 분위기가 바뀌었을 때만 · 속담 · 영화/드라마 명대사 · 책/시 한 줄 · 유명인의 말 · 사자성어 · 노래 가사는 안 됨 · 한두 문장 · [NOW]의 최근 구절은 피함']];
 // aiNo: 몇 번째 AI 답을 고르는지 — 😌 그 답에 눈 감은 앱의 키는 뺀다
-const keyList = (aiNo) => { const M = getMeta()?.mods ?? {}; return [...(isEN() ? KEYS_EN : KEYS), ...(M.rel ? MEDDLE : []), ...(M.mind ? MIND : []), ...(M.music ? BGM : []), ...(M.quote ? QUOTE : []), ...(M.news ? clsKeys() : []), ...(M.calendar ? notedKey(fold()) : []), ...(M.custom ? customKey() : [])].filter(([k]) => aiNo == null || !shutKey(k, aiNo)); };
+const keyList = (aiNo) => { const M = getMeta()?.mods ?? {}; return [...(isEN() ? KEYS_EN : KEYS), ...(M.rel ? MEDDLE : []), ...(M.rel ? (() => { const r0 = fold(); return r0 ? bondKeys(r0.book, r0.S, isEN()) : []; })() : []), ...(M.mind ? MIND : []), ...(M.music ? BGM : []), ...(M.quote ? QUOTE : []), ...(M.news ? clsKeys() : []), ...(M.calendar ? notedKey(fold()) : []), ...(M.custom ? customKey() : [])].filter(([k]) => aiNo == null || !shutKey(k, aiNo)); };
 // 🧩 내 탭: 만든 탭이 있을 때만 · 탭과 칸 이름을 알려 줌 (숫자 칸은 지금 값으로)
 export function customKey() {
     const T = (getMeta()?.custom ?? []).filter(t => t?.name && t.fields?.length); if (!T.length) return [];
@@ -274,7 +275,7 @@ export async function testConnection() {
         return { ok: ok && ops.length > 0, ms, route, reply, ops, error: ok ? (ops.length ? '' : '답은 왔지만 고른 사건이 0개예요') : '답에 <meatball> 블록이 없어요' };
     } catch (e) { return { ok: false, ms: Math.round(performance.now() - t0), route, error: e.message }; }
 }
-export const presetText = () => `${CLS_PRESET.name}: 온도 ${CLS_PRESET.temperature} · 답 길이 ${connStats.cap ? `${connStats.cap}토큰 (이 모델이 더 긴 답을 거절해서 줄임)` : '제한 없음 (모델 최대)'}${connStats.bigMax ? ' · 💡 권장: 이 모델은 생각을 못 꺼서 답마다 생각 토큰이 들어요 → 생각 없는 가벼운 모델을 권해요' : ' · 💡 권장: 분류는 답 몇 백 토큰이면 충분 · 생각을 끌 수 있는 가벼운 모델'} · 생각 ${connStats.thinkOff ? '설정 안 보냄(모델이 거절)' : CLS_PRESET.reasoning_effort} · 스트리밍 끔 · 사용자 프리셋 안 씀`;
+export const presetText = () => `${CLS_PRESET.name}: 온도 ${CLS_PRESET.temperature} · 답 길이 ${connStats.cap ? `${connStats.cap}토큰 (이 모델이 더 긴 답을 거절해서 줄임)` : (Number(settings().clsMax) > 0 ? `${settings().clsMax}토큰 (설정에서 정함)` : '자동 (넉넉히 · 설정 › 답 길이에서 정할 수 있어요)')}${connStats.bigMax ? ' · 💡 권장: 이 모델은 생각을 못 꺼서 답마다 생각 토큰이 들어요 → 생각 없는 가벼운 모델을 권해요' : ' · 💡 권장: 분류는 답 몇 백 토큰이면 충분 · 생각을 끌 수 있는 가벼운 모델'} · 생각 ${connStats.thinkOff ? '설정 안 보냄(모델이 거절)' : CLS_PRESET.reasoning_effort} · 스트리밍 끔 · 사용자 프리셋 안 씀`;
 
 // ───── 6-2 새 인물 규칙 채우기: npc로 처음 나온 인물은 그 인물당 한 번만 ─────
 export async function fillPerson(name, why = '') {

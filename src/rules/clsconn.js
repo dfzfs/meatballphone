@@ -102,13 +102,17 @@ export async function sendClean(system, user) {
     if (!route) throw new Error('분류 연결 없음');
     const messages = [{ role: 'system', content: system }, { role: 'user', content: user }];
     const t0 = performance.now();
-    let P = { ...CLS_PRESET, ...(connStats.cap ? { max_tokens: connStats.cap } : {}) };
+    // 📏 사용자가 정한 답 길이가 있으면 그 값 그대로 (줄이거나 늘리지 않음)
+    const fixed = Number(settings().clsMax) > 0 ? Number(settings().clsMax) : 0;
+    let P = { ...CLS_PRESET, ...(fixed ? { max_tokens: fixed } : connStats.cap ? { max_tokens: connStats.cap } : {}) };
     if (connStats.thinkOff) for (const k of NO_THINK) delete P[k];
     const go = () => (route === 'current' ? viaCurrent(messages, P) : viaProfile(messages, P));
     try {
         let r;
         try { r = await go(); } catch (e) {
             // 서버가 빈 답을 오류로 돌려준 경우(「Candidate text empty」 · MAX_TOKENS) → 답 길이를 늘려 한 번 더
+            if (fixed && TOO_BIG.test(errText(e))) throw new Error(`이 모델은 답 길이 ${fixed}토큰을 못 받아요 · 설정 › AI › 「분류 답 길이」를 줄여 주세요`);
+            if (fixed && EMPTY_ERR.test(errText(e))) throw new Error(`빈 답 · 답 길이 ${fixed}토큰을 생각이 다 쓴 듯해요 · 설정 › AI › 「분류 답 길이」를 늘려 주세요`);
             if (TOO_BIG.test(errText(e)) && !(connStats.cap && connStats.cap <= CAPS.at(-1))) { // 🔓 이 모델은 그렇게 긴 답을 못 받음 → 줄여서 다시
                 let ok = false;
                 for (const cap of CAPS) { if (connStats.cap && cap >= connStats.cap) continue; P = { ...P, max_tokens: cap }; try { r = await go(); connStats.cap = cap; ok = true; break; } catch (e2) { if (!TOO_BIG.test(errText(e2))) throw e2; } }
@@ -125,7 +129,7 @@ export async function sendClean(system, user) {
         }
         let text = String(r?.content ?? (typeof r === 'string' ? r : '') ?? '');
         // 🧠 생각을 끄지 못하는 모델(생각이 답 길이를 다 씀 → 빈 답): 답 길이를 늘려 한 번 더 · 되면 다음부터 늘린 채로
-        if (!text.trim() && !connStats.bigMax) { P = { ...P, max_tokens: connStats.cap || BIG_MAX }; r = await go(); text = String(r?.content ?? (typeof r === 'string' ? r : '') ?? ''); if (text.trim()) connStats.bigMax = true; }
+        if (!text.trim() && !connStats.bigMax && !fixed) { P = { ...P, max_tokens: connStats.cap || BIG_MAX }; r = await go(); text = String(r?.content ?? (typeof r === 'string' ? r : '') ?? ''); if (text.trim()) connStats.bigMax = true; }
         connStats.lastMs = Math.round(performance.now() - t0); connStats.lastRoute = routeText();
         if (!text.trim()) throw new Error(`빈 답 (생각이 답 길이 ${P.max_tokens}토큰을 다 썼거나 안전 필터에 막혔을 수 있어요)${r?.reasoning ? ` · 생각 글 ${String(r.reasoning).length}자` : ''}`);
         connStats.lastError = null;

@@ -66,7 +66,7 @@ function collect(r) {
 
 // ───── 모으기 → 한 번에 보내기 ─────
 const pending = new Map();
-let busy = false, timer = 0, coolUntil = 0, warned = '', lastScan = null;
+let busy = false, timer = 0, coolUntil = 0, lastScan = null;
 export const trStats = { calls: 0, items: 0, ms: 0, lastError: '' };
 export const trBusy = () => busy;
 export function trScan(r) {
@@ -103,7 +103,7 @@ async function run() {
         const msg = String(e?.message ?? e);
         trStats.lastError = short(msg, 200); coolUntil = Date.now() + COOL;
         console.info(`[${TITLE}] 번역 실패 · 1분 쉬어요 · ${msg}`);
-        if (warned !== trMode()) { warned = trMode(); (await import('../ui/kit.js')).toast(`번역이 안 됐어요 · 1분 뒤 다시 해요 (${short(msg, 80)})${trMode() === 'free' ? ' · 확장 메뉴에서 실리태번 기본 「번역」 확장이 켜져 있는지 봐 주세요' : ''}`, 'bad'); }
+        // 🔕 번역 실패는 알림 안 띄움 (콘솔에만 · 다음에 다시 해 봄)
     } finally {
         busy = false; app.refresh?.();
         if (pending.size) { clearTimeout(timer); timer = setTimeout(run, Date.now() < coolUntil ? coolUntil - Date.now() + 50 : 0); }

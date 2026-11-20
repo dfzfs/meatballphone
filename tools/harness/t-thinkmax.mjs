@@ -24,13 +24,19 @@ try {
         const A = await import('/ext/src/rules/ai.js'), c = SillyTavern.getContext(), g0 = c.generateRaw, seen = []; st.settings().profile = '';
         c.generateRaw = async ({ responseLength }) => { seen.push(responseLength); if (responseLength > 8192) throw new Error('max_tokens is too large: 32000. This model supports at most 8192 completion tokens'); return 'ok'; };
         out.ask = { text: await A.ask('hi', 'sys'), seen }; c.generateRaw = g0;
+        // 6) 📏 사용자가 정한 답 길이: 그 값 그대로 (줄이거나 늘리지 않음)
+        K.resetThink(); st.settings().clsMax = '4096'; window.__max = []; window.__cls = (p, info) => { window.__max.push(info.max); return '<meatball>\nloc: 편의점\n</meatball>'; };
+        await C.testConnection(); out.u1 = [...window.__max];
+        const seen2 = []; st.settings().askMax = '16000'; c.generateRaw = async ({ responseLength }) => { seen2.push(responseLength); return 'ok'; }; await A.ask('hi', 'sys'); c.generateRaw = g0; out.u2 = seen2;
+        st.settings().clsMax = 'auto'; st.settings().askMax = 'auto';
         return out;
     });
+    check(r.u1.join() === '4096' && r.u2.join() === '16000', '📏 설정에서 정한 답 길이 그대로', JSON.stringify([r.u1, r.u2]));
     check(r.t0.ok && r.t0.max.join() === '32000', '보통은 답 길이 32000 (제한 없음) 한 번', JSON.stringify(r.t0));
     check(r.t1.ok && r.t1.max.join() === '32000,8192' && r.t1.cap === 8192, '너무 크다고 하면 8192로 다시 · 성공', JSON.stringify(r.t1));
     check(r.t2.ok && r.t2.max.join() === '8192', '다음 요청은 처음부터 8192 (두 번 안 부름)', JSON.stringify(r.t2));
     check(r.t3.ok && r.t3.max.length === 2, '빈 글 답 → 한 번 더', JSON.stringify(r.t3));
     check(!r.t4.ok && /빈 답/.test(r.t4.err), '계속 비면 빈 답 오류', JSON.stringify(r.t4));
     check(r.ask.text === 'ok' && r.ask.seen.join() === '32000,8192', '설정집 만들기도: 너무 크면 8192로 다시', JSON.stringify(r.ask));
-    check(/제한 없음/.test(r.preset) && /권장/.test(r.preset), '설정엔 「제한 없음 · 💡 권장」', r.preset);
+    check(/자동/.test(r.preset) && /권장/.test(r.preset), '설정엔 「자동 · 💡 권장」 (답 길이는 설정에서 정함)', r.preset);
 } finally { await close(); }

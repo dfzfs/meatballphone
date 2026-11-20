@@ -1,39 +1,22 @@
-// ✏️ 지금 값 한 화면 (수치 · 소지품 · 관계 · 지도) → ✋ 줄 · 📘 규칙 버튼 · ✨ 미리 보기가 읽히는 글
+// ✏️ 편집(새 화면) — 관계: 지금 애정 · 우정은 ✋ 그대로 · 인물 설명 · 레벨 / 지도: 지금 장소 · 혼자 · 장소 설명
 import { open, sleep, check } from './lib.mjs';
-const { page, logs, close } = await open({ width: 390, height: 844 });
-const edit = async (app, fill) => {
-    await page.evaluate((a) => __ML__.app.openSheet(a), app); await sleep(150);
-    await page.evaluate(() => document.querySelector('.ml-tools2 [data-act="t-edit"]').click()); await sleep(200);
-    await page.evaluate((f) => { for (const [k, v] of Object.entries(f)) { const el = document.querySelector(`.ml-bs #mlf-${k}`); if (el) el.value = v; else { const b = document.querySelector(`.ml-bs .ml-picks[data-k="${k}"] [data-pick="${v}"]`); b?.click(); } } document.querySelector('.ml-bs [data-bs="ok"]').click(); }, fill); await sleep(300);
-};
+const { page, logs, close } = await open();
+const ai = async (b) => { await page.evaluate(() => window.__addUser('.')); await page.evaluate((b) => window.__addAI(`a\n<meatball>\n${b}\n</meatball>`), b); await sleep(220); };
+const edit = async (app, fn) => { await page.evaluate((app) => __ML__.app.openSheet(app), app); await sleep(150); await page.evaluate(() => document.querySelector('[data-act="t-edit"]').click()); await sleep(300); await page.evaluate(fn); await sleep(100); await page.evaluate(() => document.querySelector('.ml-bs [data-bs="ok"]').click()); await sleep(400); };
 try {
     await page.evaluate(() => window.__quickStart()); await sleep(300);
-    await page.evaluate(() => window.__addUser('hi')); await page.evaluate(() => window.__addAI('…\n<meatball>\nloc: 시장\nwith: Leon\nbuy: 빵 | 3\nstatus: 감기 | 1d\n</meatball>')); await sleep(300);
-    await edit('now', { n0: '30', a0: '2', st: '기분 좋음', why: '테스트' });
-    let r = await page.evaluate(() => { const R = __ML__.fold(); return { h: R.S.needs.hunger, a: Object.values(R.S.attrs)[0], st: R.S.status.map(s => s.name), hand: R.changes.at(-1).filter(c => c.src === 'hand').length }; });
-    check(r.h === 30 && r.a === 2 && r.st.join() === '기분 좋음' && r.hand >= 3, '수치: 허기 30 · 능력치 +2 · 딱지 감기 풀림/기분 좋음 붙음 (✋)', JSON.stringify(r));
-    await edit('bag', { cash: '100', i0: '0', add: '우산, 사과 ×3' });
-    r = await page.evaluate(() => { const S = __ML__.fold().S; return { cash: S.cash, items: S.items.map(i => `${i.name}${i.n}`).join() }; });
-    check(r.cash === 100 && r.items === '우산1,사과3', '소지품: 돈 100 · 빵 0개(없앰) · 새 물건', JSON.stringify(r));
-    await edit('rel', { ra0: '45', rt0: '30' });
-    r = await page.evaluate(() => { const x = __ML__.fold().S.rel.Leon; return { a: x.aff, t: x.trust }; });
-    check(r.a === 45 && r.t === 30, '관계: 애정 45 · 우정 30 (보정 없이 그대로)', JSON.stringify(r));
-    await edit('map', { loc: '집', with: '' });
-    r = await page.evaluate(() => { const S = __ML__.fold().S; return { loc: S.loc, w: S.with.length }; });
-    check(r.loc === '집' && r.w === 0, '지도: 장소 집 · 혼자', JSON.stringify(r));
-    // 📘 규칙 버튼 → 설정집 칸 목록
-    await page.evaluate(() => __ML__.app.openSheet('now')); await sleep(100);
-    await page.evaluate(() => document.querySelector('.ml-tools2 [data-act="t-edit"]').click()); await sleep(200);
-    await page.evaluate(() => document.querySelector('.ml-bs [data-act="t-rules"]').click()); await sleep(250);
-    check(await page.evaluate(() => !!document.querySelector('.ml-bs [data-act="e-need"]')), '📘 규칙 고치기 → 욕구 규칙 목록');
-    await page.evaluate(() => document.querySelectorAll('.ml-bs').forEach(x => x.remove()));
-    // ✨ 미리 보기: 사람이 읽는 글
-    await page.evaluate(() => { window.__ai = () => '<meatball>\naff: Leon -10 | 아직 연인 아님\ncash: +5\n</meatball>'; });
-    await page.evaluate(() => __ML__.app.openSheet('rel')); await sleep(100);
-    await page.evaluate(() => document.querySelector('.ml-tools2 [data-act="t-ai"]').click()); await sleep(150);
-    await page.evaluate(() => { document.querySelector('.ml-bs #mlf-say').value = '아직 연인 아냐'; document.querySelector('.ml-bs [data-bs="ok"]').click(); }); await sleep(400);
-    const pv = await page.evaluate(() => document.querySelector('.ml-bs')?.textContent ?? '');
-    check(/애정/.test(pv) && /Leon -10/.test(pv) && !/aff:/.test(pv), '✨ 미리 보기: 「💗 애정 Leon -10」 (aff: 줄 아님)', pv.slice(0, 120));
-    const errs = await page.evaluate(() => window.__errors);
-    check(!errs.length && !logs.some(l => /pageerror/.test(l)), '오류 없음', [...errs, ...logs].join('\n'));
+    const A = await page.evaluate(() => __ML__.getMeta().book.people[0].name);
+    await ai(`loc: 시장\nwith: ${A}`);
+    await edit('rel', () => { const d = document.querySelector('.ml-ed-sec[data-sec="people"] .ml-ed-it'); d.querySelector('[data-f="na"]').value = '45'; d.querySelector('[data-f="nt"]').value = '30'; d.querySelector('[data-f="line"]').value = '무뚝뚝하지만 다정함'; });
+    const r1 = await page.evaluate((A) => { const r = __ML__.fold(true); return { a: r.S.rel[A].aff, t: r.S.rel[A].trust, line: __ML__.getMeta().book.people[0].line, hand: r.changes.flat().some(c => c?.hand) }; }, A);
+    check(r1.a === 45 && r1.t === 30 && r1.hand, '관계: 애정 45 · 우정 30 (보정 없이 그대로 · ✋)', JSON.stringify(r1));
+    check(r1.line === '무뚝뚝하지만 다정함', '인물 설명 저장', r1.line);
+    await edit('rel', () => { const d = document.querySelector('.ml-ed-sec[data-sec="people"] .ml-ed-it'); d.querySelector('[data-f="lv"]').value = '2'; d.querySelector('[data-f="na"]').value = '20'; });
+    const r2 = await page.evaluate((A) => { const x = __ML__.fold(true).S.rel[A]; return { lv: x.lv, a: x.aff }; }, A);
+    check(r2.lv === 2 && r2.a === 20, '관계 레벨 직접 (Lv.2 · 연인 애정 20)', JSON.stringify(r2));
+    const home = await page.evaluate(() => __ML__.getMeta().book.world.places.find(p => p.kind === 'home')?.name);
+    await edit('map', () => { const s = document.querySelector('.ml-ed-top [data-f="loc"]'); s.value = [...s.options].find(o => o.value !== '시장')?.value; document.querySelector('.ml-ed-top [data-f="with"]').value = ''; document.querySelector('.ml-ed-sec[data-sec="places"] .ml-ed-it [data-f="note"]').value = '조용한 곳'; });
+    const m = await page.evaluate(() => { const r = __ML__.fold(true); return { loc: r.S.loc, w: r.S.with.length, note: __ML__.getMeta().book.world.places[0].note }; });
+    check(m.loc !== '시장' && m.w === 0 && m.note === '조용한 곳', '지도: 장소 바꿈 · 혼자 · 장소 설명', JSON.stringify({ ...m, home }));
+    check(!logs.length && !(await page.evaluate(() => window.__errors.length)), '콘솔 오류 없음', logs.join('\n'));
 } finally { await close(); }

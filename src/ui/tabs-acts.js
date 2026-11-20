@@ -48,6 +48,24 @@ export async function onAct(act, v, el) {
         case 'person':
             personSheet(r, v);
             return;
+        case 'bond-ans': { // 💍 고백 · 청혼 대답 → 그 메시지에서 이루어짐 (대답은 채팅에 저장 · 다시 계산)
+            const [key, n, kind, yes] = String(v).split('|'); if (!key || !n) return;
+            (await import('./bondui.js')).answer(key, n, kind, yes === 'yes');
+            return;
+        }
+        case 'bond-break': { // 💔 직접 헤어지기 (✋ 직접 · 기록엔 남지 않는 고침)
+            const r0 = fold(), lv = r0?.S.rel[v]?.lv ?? 1; if (lv < 2) return;
+            const fv = await (await import('./kit.js')).form(`💔 ${esc(v)}와(과) ${lv === 3 ? '이혼' : '헤어지기'}`, [{ k: 'go', label: `애정은 30 · 「${lv === 3 ? '전 배우자' : '전 연인'}」이 되고 Lv.1부터 다시예요`, type: 'pick', v: '', opts: [['yes', lv === 3 ? '이혼하기' : '헤어지기'], ['', '그만두기']] }], { ok: '확인' });
+            if (fv?.go !== 'yes') return;
+            hand(`breakup: ${v} | 직접`, '직접'); return;
+        }
+        case 'rel-freeze': { // 🧊 애정 · 우정 동결 — 지금 마지막 메시지 뒤 답부터 안 움직임 (다시 누르면 풀림)
+            const [n, ax] = String(v).split('|'); if (!n || !['aff', 'trust'].includes(ax)) return;
+            const F = (meta.freeze ??= {}), cur = (F[n] ??= {});
+            if (cur[ax]) { delete cur[ax]; if (!Object.keys(cur).length) delete F[n]; toast(`${n} ${ax === 'aff' ? '애정' : '우정'} 고정을 풀었어요 · 다음 답부터 다시 움직여요`); }
+            else { const c = ctx().chat ?? [], last = c[c.length - 1]; cur[ax] = last ? msgKey(last) : '@0'; toast(`🧊 ${n} ${ax === 'aff' ? '애정' : '우정'}을 고정했어요 · 다음 답부터 안 움직여요 (직접 고치기는 돼요)`, 'good'); }
+            saveMeta(); app.refresh?.(true); return;
+        }
         case 'mapsel':
             setMapSel(v);
             app.refresh?.();
@@ -584,7 +602,7 @@ export async function onAct(act, v, el) {
             toast('설정집을 영어로 바꾸는 중…');
             try {
                 const j = await toEnglish(meta.book); if (!j?.world || !Array.isArray(j.people)) throw new Error('답을 못 읽었어요');
-                meta.book = normBook(j); saveMeta(); app.refresh?.(true); toast('설정집을 영어로 바꿨어요 · 화면은 🌐 번역으로 한국어', 'good');
+                meta.book = normBook(j); saveMeta(); app.refresh?.(true); toast('설정집을 영어로 바꿨어요', 'good');
             } catch (e) { toast(`못 바꿨어요: ${e.message}`, 'bad'); }
             return;
         }
@@ -612,8 +630,8 @@ export function hand(line, why) {
 }
 async function editBook(act, v) {
     const meta = getMeta(), b = meta.book;
-    if (act === 'bk-me') return (await import('./tools.js')).editRules('now');
-    if (act === 'bk-places') return (await import('./tools.js')).editRules('map');
+    if (act === 'bk-me') return (await import('./tools.js')).editApp('now');
+    if (act === 'bk-places') return (await import('./tools.js')).editApp('map');
     const L = (a) => (a ?? []).join(', '), P = (t) => String(t ?? '').split(/[,、]/).map(x => x.trim()).filter(Boolean);
     if (act === 'bk-start') { // 📅 이야기 시작 날짜 · 시각만 빠르게 (쓸 앱 고르기 화면 · 달력)
         const st = b.world.start, hh = Math.floor((st.clock ?? 480) / 60), mm = (st.clock ?? 480) % 60;

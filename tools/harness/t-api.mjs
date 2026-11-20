@@ -25,7 +25,7 @@ try {
     console.log(JSON.stringify(p));
     check(/Leon/.test(p.item?.text ?? '') && /🙂|🛡|Leon/.test(p.who?.text ?? ''), 'preview: 인물 이름 · 다른 이름으로 먼저 맞춤', JSON.stringify([p.item, p.who]));
     check(/📍목욕탕/.test(p.place?.text ?? '') && /\+/.test(p.guess?.text ?? '') && p.none === null, 'preview: 장소 · 낱말 짐작은 마지막 · 아무것도 없으면 null');
-    check(p.api === 'act,addApp,diceParts,facts,luck,mode,paused,pendingChoice,people,preview,ready,scene,state,version', '통로 이름 그대로', p.api);
+    check(p.api === 'act,addApp,answer,asks,diceParts,facts,luck,mode,paused,pendingChoice,people,preview,ready,scene,state,version', '통로 이름 그대로', p.api);
     check(!p.keys.some(k => /coin|hag|asp/.test(k)), 'state에 지운 값 없음', p.keys.join(','));
     const sc = await page.evaluate(() => { __ML__.getMeta().book.people[0].want = '동맹의 무사 항해'; __ML__.app.refresh(true); return globalThis.MeatballLite.scene(); });
     check(sc && sc.goods.some(g => g.name === '빵' && g.price === 3) && Array.isArray(sc.people), 'scene: 지금 장소 물건 · 값', JSON.stringify(sc));

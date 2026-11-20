@@ -2,12 +2,12 @@
 import { app, ctx, settings, saveSettings, getMeta, saveMeta, modOn, msgData, syncSwipe, msgKey, userName, bumpMeta, saveChatSoon } from '../base/st.js';
 import { esc, fmt, fxText, signed, short, dateText, dateOf, DAY, periodName, num, norm, tokens, dayIndexOf, monthDays, monthName, weekName, faceOf, clockOf, inPeriod } from '../base/util.js';
 import { row, card, chip, seg, bar, empty, btn, sheet, toast, putInput, form } from './kit.js';
-import { fold, derived, needStage, relStage, nextStage, stagesOf, pairKey, diceParts, whereNow } from '../rules/engine.js';
+import { fold, needStage, relStage, nextStage, stagesOf, pairKey, diceParts, whereNow } from '../rules/engine.js';
 import { luckOf } from '../rules/luck.js';
 import { vis, handLines } from './tools.js';
 import { layout, lineEdges, lineNodes, route, floorsOf } from './metro.js';
 import { personOf, placeOf, bookTokens, personTokens, normBook, PLACE_KINDS, LIMIT, isStar } from '../rules/book.js';
-import { musicView, quoteView, songLine, quoteLine, musicAct } from './music.js';
+import { musicView, quoteView, musicAct } from './music.js';
 import { LEVELS, GAUGES, PRESETS, level, gaugeCfg, levelCost } from '../rules/inject.js';
 import { fillBook } from '../rules/ai.js';
 import { isEN } from '../rules/lang.js';
@@ -16,21 +16,14 @@ import { calBar, calTabView, calCell, calDayExtra, calSettings, calAct } from '.
 import { ddaysOn } from '../rules/calplus.js';
 import { isSecret, secretSub, sneakCard, sneakUndo } from './sneak.js';
 import { sneakOnDay } from '../rules/sneak.js';
-import { personThread, placeThread, dayThread, lived, ledgerCard, statusCard, diceLog, albumView, statsView, daysView, threadAct } from './threadui.js';
-import { dayOfI, thread, itemKind, itemLife, needRhythm, relWeather, lastSeen, placeMood, todayRoute, weekTop, dayEmoji } from '../rules/thread.js';
-import { d20Svg, lastAI, money, fxOf, itemBtns, itemMemo, changeRow, turnCard, STAGE_COLOR, recoverOf, needCard, gaugeCard } from './tabs-shared.js';
+import { personThread, placeThread, dayThread, lived, ledgerCard, diceLog, albumView, statsView, daysView, threadAct } from './threadui.js';
+import { dayOfI, thread, itemKind, itemLife, relWeather, lastSeen, placeMood, todayRoute, weekTop, dayEmoji } from '../rules/thread.js';
+import { d20Svg, lastAI, money, fxOf, itemBtns, itemMemo, changeRow, STAGE_COLOR, recoverOf, needCard, gaugeCard } from './tabs-shared.js';
 function now(r) {
+    // ❤️ 수치 앱엔 수치만: 욕구 · 게이지 · 능력치 (딱지 · 장면 · 운세 · 이번 답 · 이력은 홈 위젯 · 기록 앱에)
     const { S, book } = r, li = lastAI(), last = r.changes[li] ?? [];
-    const dz = derived(book, S);
-    const tags = [...S.status.map(s => chip(`${s.src === 'fate' ? '🔮 ' : ''}${esc(s.name)}${s.until ? ` · ${Math.max(1, Math.round((s.until - S.t) / 60))}h` : ''}${s.dice ? ` · 🎲${signed(s.dice)}` : ''}`, s.kind === 'good' ? 'good' : s.kind === 'bad' ? 'bad' : 'mid')),
-        ...dz.filter(d => d.stage === '위험').map(d => chip(`${d.icon} ${esc(d.name)} 위험 · 🎲${d.dice}`, 'bad'))];
     const V = (k) => vis('now', k);
-    let h = !V('tags') ? '' : `<h4 class="ml-h4">상태 딱지</h4><div class="ml-chips">${tags.join('') || '<span class="ml-sub">없음</span>'}</div>`;
-    const side = [];
-    if (modOn('music')) side.push(songLine(S));
-    if (modOn('quote')) side.push(quoteLine(S));
-    { const l = luckOf(book, S, ctx().getCurrentChatId?.(), getMeta().luckRoll); side.push(`<div class="ml-scene luck"><i>🍀</i><span><b>${esc(l.text)}</b><small>오늘 운세 · 선택지에 🍀 · ⚠로 보여요</small></span></div>`); }
-    if (side.length && V('scene')) h += `<h4 class="ml-h4">이 장면</h4><div class="ml-scenes">${side.join('')}</div>`;
+    let h = '';
     if (modOn('stats')) {
         if (V('needs')) h += `<h4 class="ml-h4">욕구 <span>달력 시간으로 줄어요</span></h4><div class="ml-gcs">${book.me.needs.map(n => needCard(r, n, last)).join('')}</div>`;
         if (book.me.gauges.length && V('gauges')) h += `<h4 class="ml-h4">게이지</h4><div class="ml-gcs">${book.me.gauges.map(g => gaugeCard(r, g, last)).join('')}</div>`;
@@ -45,14 +38,7 @@ function now(r) {
                 })
                 .join('')}</div>`;
     }
-    if (modOn('stats') && V('rhythm')) { // 🕰 리듬 · 회복 맛집 (지난 기록에서 · 보기만)
-        const RH = needRhythm(r), L = book.me.needs.map(n => { const x = RH.get(n.key); if (!x?.low && !x?.spot) return '';
-            return row({ icon: n.icon, title: esc(n.name), sub: [x.low && `보통 ${x.low[0]}에 바닥 (${x.low[1]}번)`, x.spot && `회복은 ${esc(x.spot[0])}에서 제일 많이 (+${Math.round(x.spot[1])})`].filter(Boolean).join(' · ') }); }).filter(Boolean);
-        if (L.length) h += card('리듬 · 회복 맛집', L.join(''), '지난 기록에서');
-    }
-    if (V('turn')) h += turnCard(r, li);
-    if (V('history')) h += statusCard(r); // 🧵 딱지 이력 (보기만)
-    return h;
+    return h || empty('보여 줄 수치가 없어요');
 }
 // ───── 🎲 주사위: 능력치 + 보정 내역 → d20 · 결과는 입력창에 (이야기에 남게) ─────
 const DCS = [['쉬움', 8], ['보통', 12], ['어려움', 15], ['매우 어려움', 18], ['극한', 22]];
@@ -154,7 +140,7 @@ function rel(r) {
     if (view === 'route') return head + routeView(r, on);
     if (view === 'pair') return head + pairView(r, on);
     const meta = getMeta(), stars = on.filter(n => isStar(meta, r.book, n)), rest = on.filter(n => !isStar(meta, r.book, n));
-    const lite = (n) => { const x = r.S.rel[n], p = personOf(r.book, n), st = relStage(r.book, x.aff, n), v = p?.noLove ? x.trust : x.aff;
+    const lite = (n) => { const x = r.S.rel[n], p = personOf(r.book, n), st = relStage(r.book, x.aff, n, x.lv), v = p?.noLove ? x.trust : x.aff;
         return `<div class="ml-wp tap" data-act="person" data-v="${esc(n)}"><span>${faceOf(p?.face || x.face, '🙂')}</span><b>${esc(n)}</b><span class="ml-pill love">${esc(p?.noLove ? '친구' : st.name)}</span>`
             + `${here.has(n) ? '<span class="ml-pill good">함께</span>' : ''}<span class="ml-bar love"><i style="width:${v}%"></i></span><em>${getMeta().hideNums ? '' : v}</em>`
             + `<button class="ml-star" data-act="star" data-v="${esc(n)}" title="주요 인물로">☆</button></div>`; };
@@ -167,7 +153,7 @@ function routeView(r, on) {
     const { book, S } = r, hide = getMeta().hideNums, love = on.filter(n => !personOf(book, n)?.noLove);
     if (!love.length) return empty('애정을 켠 사람이 없어요.');
     const since = Math.max(0, r.changes.length - 30), trend = (n) => { let t = 0; for (let i = since; i < r.changes.length; i++) for (const c of r.changes[i] ?? []) if (c.f === `rel.${n}.aff`) t += c.to - c.from; return t; };
-    const rows = love.map(n => { const x = S.rel[n], L = stagesOf(book, n), st = relStage(book, x.aff, n), k = L.indexOf(st), nx = nextStage(book, x.aff, n); return { n, x, L, st, k, nx, tr: trend(n), p: personOf(book, n) }; }).sort((a, b) => b.x.aff - a.x.aff);
+    const rows = love.map(n => { const x = S.rel[n], L = stagesOf(book, n, x.lv), st = relStage(book, x.aff, n, x.lv), k = L.indexOf(st), nx = nextStage(book, x.aff, n, x.lv); return { n, x, L, st, k, nx, tr: trend(n), p: personOf(book, n) }; }).sort((a, b) => b.x.aff - a.x.aff);
     const top = rows[0];
     let h = `<div class="ml-sub">애정이 가장 높은 사람: <b>${esc(top.p?.face ?? '🙂')} ${esc(top.n)}</b> · 「${esc(top.st.name)}」</div><div class="ml-route">`;
     h += rows.map((q, i) => `<div class="ml-rt tap" data-act="person" data-v="${esc(q.n)}"><div class="ml-rt-h"><b>${i + 1}</b><span class="ml-face">${q.p?.face ?? '🙂'}</span>`
@@ -204,10 +190,18 @@ function meter(kind, label, v, ticks, hide, who = '') {
         + `"${who ? ` data-act="edit-val" data-v="${kind === 'love' ? 'aff' : 'trust'}|${esc(who)}" title="고치기"` : ''}><span>${label}</span><span `
         + `class="ml-track"><b style="width:${v}%"></b>${ticks.map(t => `<i style="left:${t}%"></i>`).join('')}</span><em>${hide ? '' : v}</em></div>`;
 }
+// 💍 관계 레벨 줄: 고백 · 청혼 때 · 대답 기다림(예 · 아니오) · 헤어지기
+function bondRow(r, name) {
+    const x = r.S.rel[name], ask = r.S.asks?.[name], lv = x.lv ?? 1, nm = esc(name);
+    if (ask) return `<div class="ml-rl ml-bond ask"><i>💌</i><b>${nm}이(가) ${ask.kind === 'confess' ? '고백했어요' : '청혼했어요'}</b><span><button class="ml-btn xs good" data-act="bond-ans" data-v="${esc(ask.key)}|${nm}|${ask.kind}|yes">예</button><button class="ml-btn xs" data-act="bond-ans" data-v="${esc(ask.key)}|${nm}|${ask.kind}|no">아니오</button></span></div>`;
+    const t = lv === 1 ? (x.aff >= 100 ? '💌 마음이 가득 차서 고백할 때를 엿봐요' : `Lv.1 · 애정 100이 되면 고백할 수 있어요${x.aff >= 80 ? ' (거의 다 왔어요)' : ''}`)
+        : lv === 2 ? (x.aff >= 100 ? '💍 청혼할 때를 엿봐요' : 'Lv.2 연인 · 연인 애정 100이 되면 청혼할 수 있어요') : 'Lv.3 부부';
+    return `<div class="ml-rl dim ml-bond"><i>${lv === 3 ? '💍' : lv === 2 ? '💗' : '💞'}</i><span>${t}</span>${lv >= 2 ? `<button class="ml-btn xs" data-act="bond-break" data-v="${nm}">💔 ${lv === 3 ? '이혼' : '헤어지기'}</button>` : ''}</div>`;
+}
 function relCard(r, name, inSheet = false) {
     const { book, S } = r, x = S.rel[name]; if (!x) return '';
-    const p = personOf(book, name), st = relStage(book, x.aff, name), nx = nextStage(book, x.aff, name), hide = getMeta().hideNums;
-    const ticks = stagesOf(book, name).map(s => s.at).filter(a => a > 0 && a < 100);
+    const p = personOf(book, name), st = relStage(book, x.aff, name, x.lv), nx = nextStage(book, x.aff, name, x.lv), hide = getMeta().hideNums;
+    const ticks = stagesOf(book, name, x.lv).map(s => s.at).filter(a => a > 0 && a < 100);
     const sign = p?.signs?.filter(s => x.aff >= s.at).pop()?.text;
     const last = lastRel(r, name);
     const nowAt = p?.routine?.find(q => inPeriod(q.at, periodName(S.t)))?.place ?? p?.haunt?.[0];
@@ -215,12 +209,18 @@ function relCard(r, name, inSheet = false) {
         S.with.includes(name) && '<span class="ml-pill good">함께 있음</span>',
         x.jealous && `<span class="ml-pill bad">💢 질투</span>`,
         p?.noLove && '<span class="ml-pill mid">애정 꺼 둠</span>',
+        !p?.noLove && x.lv >= 2 && `<span class="ml-pill love">${x.lv === 3 ? '💍 부부' : '💗 연인'}</span>`,
+        !p?.noLove && (x.lv ?? 1) === 1 && x.ex && `<span class="ml-pill mid">💔 ${esc(x.ex)}</span>`,
         !x.gone && (() => { const w = relWeather(r, name); return w ? `<span class="ml-pill" title="최근 변화 5개">${w[0]} ${w[1]}</span>` : ''; })(), // 🌦 관계 날씨
         !x.gone && !S.with.includes(name) && (() => { const d = lastSeen(r, name); return d != null && d >= 3 ? `<span class="ml-pill mid">${d}일째 못 봄</span>` : ''; })()].filter(Boolean).join('');
     const L = [], V = (k) => vis('rel', k);
     if (!x.gone) {
-        if (V('meters') && !p?.noLove) L.push(meter('love', '애정', x.aff, ticks, hide, name));
-        if (V('meters')) L.push(meter('trust', '우정', x.trust, [], hide, name));
+        const fz = getMeta().freeze?.[name] ?? {};
+        if (V('meters') && !p?.noLove) L.push(meter('love', `${fz.aff ? '🧊 ' : ''}${x.lv === 3 ? '💍 부부 애정' : x.lv === 2 ? '💗 연인 애정' : '애정'}`, x.aff, ticks, hide, name));
+        if (!p?.noLove) L.push(bondRow(r, name));
+        if (V('meters')) L.push(meter('trust', `${fz.trust ? '🧊 ' : ''}우정`, x.trust, [], hide, name));
+        // 🧊 동결: 고정하면 다음 답부터 그 축이 안 움직임 (✋ 직접 고침은 됨)
+        if (V('meters')) L.push(`<div class="ml-rl dim ml-frz"><i>🧊</i>${p?.noLove ? '' : `<button class="ml-btn xs${fz.aff ? ' on' : ''}" data-act="rel-freeze" data-v="${esc(name)}|aff">애정 ${fz.aff ? '고정 중' : '고정'}</button>`}<button class="ml-btn xs${fz.trust ? ' on' : ''}" data-act="rel-freeze" data-v="${esc(name)}|trust">우정 ${fz.trust ? '고정 중' : '고정'}</button></div>`);
         if (hide) L.push(`<div class="ml-rl"><i>👀</i>${esc(sign || '아직 속을 모르겠다')}</div>`);
         if (V('call') && !p?.noLove) L.push(`<div class="ml-rl"><i>🗣</i><b>${esc(st.call)}</b><span>· ${esc(st.act)}</span></div>`);
         if (V('next') && nx && !p?.noLove) L.push(`<div class="ml-rl"><i>🔓</i>다음 「${esc(nx.name)}」까지 ${hide ? '조금 더' : `애정 ${nx.at - x.aff}`} <span>→ ${esc(nx.call)} · ${esc(nx.act)}</span></div>`);
@@ -252,7 +252,7 @@ export function personSheet(r, name) {
     const { book, S } = r, x = S.rel[name], p = personOf(book, name); if (!x) return;
     const L = [];
     if (p?.noLove) L.push('<h4 class="ml-h4">관계 단계</h4><div class="ml-rl"><i>💔</i>애정 꺼 둠 · 「친구」로만 지내요 <span>우정만 쌓여요</span></div>');
-    else L.push(`<h4 class="ml-h4">관계 단계</h4><div class="ml-steps">${p?.stages ? '<small class="ml-sub">이 사람만의 단계</small>' : ''}${stagesOf(book, name).map(s2 => `<div class="${relStage(book, x.aff, name).name === s2.name ? 'on' : x.aff >= s2.at ? 'done' : ''}"><b>${esc(s2.name)}</b><small>${s2.at}`
+    else L.push(`<h4 class="ml-h4">관계 단계</h4><div class="ml-steps">${p?.stages ? '<small class="ml-sub">이 사람만의 단계</small>' : ''}${stagesOf(book, name, x.lv).map(s2 => `<div class="${relStage(book, x.aff, name).name === s2.name ? 'on' : x.aff >= s2.at ? 'done' : ''}"><b>${esc(s2.name)}</b><small>${s2.at}`
         + `~ · ${esc(s2.call)} · ${esc(s2.act)}</small></div>`).join('')}</div>`);
     const mine = Object.entries(S.pairs ?? {}).filter(([k]) => k.split('|').includes(name));
     if (mine.length) L.push(`<h4 class="ml-h4">다른 사람과</h4>${mine.map(([k, pr]) => { const o = k.split('|').find(z => z !== name); return `<div class="ml-rl"><i>${personOf(book, o)?.face ?? '🙂'}</i><b>${esc(o)}</b> ${pr.label ? `<span class="ml-tag">${esc(pr.label)}</span>` : ''}`
@@ -552,7 +552,7 @@ function book(r) {
     h += card('나', row({ icon: '🧍', title: esc(b.me.name || userName()), sub: b.me.needs.map(n => `${n.icon}${esc(n.name)} −${n.rate}/h`).join(' · '), act: 'bk-me', more: true }));
     h += card('인물', b.people.map(p => row({ icon: p.face, title: esc(p.name), sub: esc(p.line || '성격 비어 있음'), value: `<small>${personTokens(b, p)}t</small>`, act: 'bk-person', data: p.name, more: true })).join('') || row({ title: '아직 없어요', faint: true }), `인물당 ${LIMIT.lines}줄까지`);
     h += `<div class="ml-acts">${btn('＋ 인물', 'bk-person', '')}${btn('🔄 로어북에서 다시 채우기', 'bk-refill')}${btn('✨ AI로 수정', 't-ai', 'book')}</div>`;
-    return h;
+    return `<div class="ml-tr-off">${h}</div>`; // 🌐 설정집은 번역 안 함 (AI에게 가는 원문 그대로)
 }
 // ───── 🎚 영향력 게이지 ─────
 const GAUGE_DO = {

@@ -50,6 +50,18 @@ export const REL_STAGES = [
     { at: 60, name: '가까운 사이', call: '별명', act: '스킨십 조금 · 속마음 조금' },
     { at: 80, name: '연인', call: '애칭', act: '애정 표현 · 약속' },
 ];
+// 💍 관계 레벨: 1 (연인 전 · 애정 100 = 고백할 때) → 고백이 이루어지면 2 연인 (새 애정 0부터) → 청혼이 이루어지면 3 부부
+//   레벨 1 단계에서는 연인 · 부부 같은 이름을 뺀다 (고백 없이 연인이 되지 않게)
+export const LOVE_NAME = /연인|애인|부부|배우자|약혼|lover|partner|married|spouse|engaged/i;
+export const LV1_TOP = { ko: { at: 100, name: '고백 직전', call: '', act: '마음을 숨기기 힘듦 · 고백할 때를 엿봄' }, en: { at: 100, name: 'About to confess', call: '', act: 'can barely hide their feelings · waiting for the moment to confess' } };
+export const LV_STAGES = {
+    ko: { 2: [{ at: 0, name: '연인', call: '애칭', act: '애정 표현 · 데이트 · 약속' }, { at: 40, name: '깊은 연인', call: '애칭', act: '미래 이야기 · 서로의 일상에 스며듦' }, { at: 80, name: '평생 함께하고 싶은', call: '애칭', act: '함께 사는 상상 · 가족 이야기' }, { at: 100, name: '청혼 직전', call: '애칭', act: '청혼할 때를 엿봄' }],
+        3: [{ at: 0, name: '부부', call: '애칭 · 여보', act: '함께 사는 일상' }, { at: 50, name: '오래된 부부', call: '애칭 · 여보', act: '말 안 해도 앎 · 편안한 애정' }, { at: 90, name: '평생의 짝', call: '애칭 · 여보', act: '서로의 전부' }] },
+    en: { 2: [{ at: 0, name: 'Lovers', call: 'pet name', act: 'affection · dates · promises' }, { at: 40, name: 'Devoted', call: 'pet name', act: 'talks about the future · part of each other\'s days' }, { at: 80, name: 'Forever', call: 'pet name', act: 'imagines living together · family talk' }, { at: 100, name: 'About to propose', call: 'pet name', act: 'waiting for the moment to propose' }],
+        3: [{ at: 0, name: 'Married', call: 'pet name · honey', act: 'a shared daily life' }, { at: 50, name: 'Old married couple', call: 'pet name · honey', act: 'understands without words · easy love' }, { at: 90, name: 'Soulmates', call: 'pet name · honey', act: 'each other\'s everything' }] },
+};
+const MARRIED = /부부|배우자|남편|아내|결혼|married|spouse|husband|wife/i, DATING = /연인|애인|약혼|사귀|dating|lover|girlfriend|boyfriend|engaged|fianc/i, EXW = /전\s*(연인|애인|남편|아내|배우자)|ex[- ]|former|헤어진|이혼|짝사랑|crush/i;
+export const bondOf = (official) => { const o = String(official ?? ''); if (!o || EXW.test(o)) return 1; return MARRIED.test(o) ? 3 : DATING.test(o) ? 2 : 1; };
 export const PLACE_KINDS = { home: '🏠', shop: '🛒', food: '🍜', bath: '🛁', work: '💼', street: '🛣️', school: '🏫', other: '📍' };
 
 const line = (v, n = LIMIT.line) => short(v, n);
@@ -98,6 +110,7 @@ export function normPerson(p) {
         day: line(p.day, 24),
         want: line(p.want),
         noLove: !!p.noLove,
+        bond: [1, 2, 3].includes(Number(p.bond)) ? Number(p.bond) : bondOf(p.official), // 💍 시작 관계 레벨 (공식 관계가 연인이면 2 · 부부면 3)
         auto: p.auto === 'npc' ? 'npc' : undefined, // 이야기 중 npc로 나와 규칙을 채운 인물
     };
 }
@@ -153,6 +166,7 @@ export function normBook(b) {
             icon: line(n?.icon, 4) || '•',
             start: clamp(num(n?.start, 80), 0, 100),
             rate: clamp(num(n?.rate, 2), 0, 50),
+            desc: line(n?.desc, 160), // 📝 설명 (편집에서 · AI에게도 감)
             sym: n?.sym && typeof n.sym === 'object' ? { 주의: line(n.sym.주의, 120), 위험: line(n.sym.위험, 120) } : null,
         }))
         .filter((n) => n.key && n.name)
@@ -163,6 +177,7 @@ export function normBook(b) {
             .map((g) => ({
                 key: safeKey(g?.key) || safeKey(g?.name),
                 name: line(g?.name, 16),
+                icon: line(g?.icon, 4) || '❤️',
                 max: Math.max(1, num(g?.max, 100)),
                 start: num(g?.start, num(g?.max, 100)),
                 desc: line(g?.desc, 120),
@@ -170,7 +185,7 @@ export function normBook(b) {
             }))
             .filter((g) => g.key && g.name)
             .slice(0, 4);
-    if (Array.isArray(me.attrs)) e.me.attrs = me.attrs.map(a => ({ name: line(a?.name, 6), v: clamp(num(a?.v), -5, 10) })).filter(a => a.name).slice(0, 6);
+    if (Array.isArray(me.attrs)) e.me.attrs = me.attrs.map(a => ({ name: line(a?.name, 6), v: clamp(num(a?.v), -5, 10), desc: line(a?.desc, 160) })).filter(a => a.name).slice(0, 6);
     e.people = arr(b.people).map(normPerson).filter(Boolean).slice(0, LIMIT.people);
     if (arr(b.stages).length >= 2) e.stages = arr(b.stages).map(s => ({ at: clamp(num(s?.at), 0, 100), name: line(s?.name, 16), call: line(s?.call, 40), act: line(s?.act, 100) })).filter(s => s.name).sort((a, b2) => a.at - b2.at);
     e.src = { from: line(b.src?.from, 10) || 'user', at: num(b.src?.at), sig: b.src?.sig && typeof b.src.sig === 'object' ? b.src.sig : {} };
@@ -192,7 +207,7 @@ export function bookText(book, who = null) {
     const w = book.world;
     const L = [...(w.summary ? [`[SETTING] ${w.summary}`] : []), ...(w.rules?.length ? [`[RULES] ${w.rules.join(' · ')}`] : []), `[WORLD] ${w.genre || '-'} · money: ${w.currency} (${w.fx?.rate > 0 ? `1 ${w.currency} ≈ ${w.fx.rate}원 · ` : ''}meal ≈ ${w.meal}) · weather: ${w.weather.join('/')}`];
     if (w.places.length) L.push(`[PLACES] ${w.places.map(p => `${p.name}(${p.kind}${p.goods.length ? `: ${p.goods.map(g => `${g.name} ${g.price}`).join(', ')}` : ''})`).join(' · ')}`);
-    L.push(`[ME] ${book.me.name || '{{user}}'}${book.me.traits ? ` · ${book.me.traits}` : ''} · needs: ${book.me.needs.map(n => n.name).join('/')}`);
+    L.push(`[ME] ${book.me.name || '{{user}}'}${book.me.traits ? ` · ${book.me.traits}` : ''} · needs: ${book.me.needs.map(n => `${n.name}${n.desc ? ` (${n.desc})` : ''}`).join('/')}${book.me.gauges.length ? ` · gauges: ${book.me.gauges.map(g => `${g.name}${g.desc ? ` (${g.desc})` : ''}`).join('/')}` : ''}${book.me.attrs.some(a => a.desc) ? ` · stats: ${book.me.attrs.map(a => `${a.name}${a.desc ? ` (${a.desc})` : ''}`).join('/')}` : ''}`);
     for (const p of book.people) {
         if (who && !who.includes(p.name)) continue;
         L.push(`[${p.name}] ${p.line}${p.noLove ? ' · (friendship only)' : ''}${p.up.length ? ` · +${p.up.map(a => a.act).join('/')}` : ''}`

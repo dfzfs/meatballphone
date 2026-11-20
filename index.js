@@ -37,7 +37,7 @@ export function refresh(force = false) {
     cancelAnimationFrame(pending);
     pending = requestAnimationFrame(() => {
         const t0 = performance.now();
-        try { drawFrame(); drawChips(); if (document.getElementById('ml-full')) drawSheet(); inject(); announce(); syncChatState(); const r = !getMeta()?.off && fold(); if (r) { maybeAskCard(r); trScan(r); } } catch (e) { console.error(`[${TITLE}]`, e); }
+        try { drawFrame(); drawChips(); if (document.getElementById('ml-full')) drawSheet(); inject(); announce(); syncChatState(); const r = !getMeta()?.off && fold(); if (r) { maybeAskCard(r); trScan(r); if (Object.keys(r.S.asks ?? {}).length || r.changes.at(-1)?.some?.(c => c?.lvUp) || getMeta()?.bondJust) import('./src/ui/bondui.js').then(m => m.bondNotify(r)); } } catch (e) { console.error(`[${TITLE}]`, e); }
         perf.refresh.push(performance.now() - t0); if (perf.refresh.length > 50) perf.refresh.shift();
     });
 }
@@ -191,14 +191,16 @@ async function create(useAI) {
     const meta = getMeta(true), first = !meta.book;
     let b = null;
     let pick; if (useAI) { pick = await (await import('./src/ui/srcpick.js')).pickSources(); if (!pick) return; }
-    if (useAI) { toast('로어북 · 카드를 읽고 설정집을 채우는 중…'); try { const { book, src } = await fillBook(null, pick); if (book) { b = normBook(book); b.src = { from: 'ai', at: Date.now(), sig: src.sig }; } } catch (e) { console.warn(e); } if (!b) toast('AI로 못 채워서 기본 틀로 시작해요', 'bad'); }
+    let bag = null; // 🎒 AI가 채운 시작 소지품 · 돈
+    if (useAI) { toast('로어북 · 카드를 읽고 설정집을 채우는 중…'); try { const { book, src } = await fillBook(null, pick); if (book) { bag = book.bag; b = normBook(book); b.src = { from: 'ai', at: Date.now(), sig: src.sig }; } } catch (e) { console.warn(e); } if (!b) toast('AI로 못 채워서 기본 틀로 시작해요', 'bad'); }
     b ??= templateBook();
     if (!b.people.length) b.people = templateBook().people;
     // 시작 상태: 첫 메시지의 돈 · 시각 · 장소를 먼저 (못 읽으면 끼니 값 × 5 · 집)
     if (!meta.start) {
         const fm = parseStart(firstMessage(), b);
         if (fm.clock != null) b.world.start.clock = fm.clock;
-        meta.start = { cash: fm.cash ?? b.world.meal * 5, loc: fm.loc ?? b.world.places.find(p => p.kind === 'home')?.name ?? '', from: Object.keys(fm).length ? 'first' : 'default' };
+        const bc = Number(bag?.cash), items = (Array.isArray(bag?.items) ? bag.items : []).filter(it => it && typeof it.name === 'string' && it.name.trim()).slice(0, 12).map(it => ({ name: it.name.trim().slice(0, 40), n: Math.max(1, Math.min(99, Number(it.n) || 1)), worn: !!it.worn }));
+        meta.start = { cash: fm.cash ?? (Number.isFinite(bc) && bc >= 0 ? bc : b.world.meal * 5), ...(items.length ? { items } : {}), loc: fm.loc ?? b.world.places.find(p => p.kind === 'home')?.name ?? '', from: Object.keys(fm).length ? 'first' : 'default' };
     }
     meta.book = b;
     // 처음 만든 설정집이면 앱은 아직 안 깔림 → 🛍️ 쓸 앱 고르기 한 화면 (직접 쓰기면 시작 뒤 설정집으로)
@@ -235,6 +237,7 @@ function settingsHTML() {
             + `<small class="ml-set-note">🧼 ${esc(presetText())}</small>`
             + `<div class="ml-set-btns"><button class="menu_button" data-ml="cls-test">🔌 분류 연결 시험</button></div><div class="ml-cls-test"></div>`;
     };
+    const LEN_OPTS = [['auto', '자동 (넉넉히 · 거절되면 줄임)'], ...[2048, 4096, 8192, 16000, 32000, 64000].map(n => [String(n), `${n}`])];
     const sel = (k, label, opts) => `<label>${label} <select class="text_pole" data-ml-s="${k}">${opts.map(([v, l]) => `<option value="${v}" ${String(s[k]) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`;
     return `<div class="inline-drawer ml-set"><div class="inline-drawer-toggle inline-drawer-header"><b>😼 ${TITLE} <small>v${VERSION}</small></b><div `
         + `class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div><div class="inline-drawer-content">
@@ -255,6 +258,7 @@ ${sw('enabled', '켜기 (모든 채팅)')}<label class="checkbox_label"><input t
 ${sel('mode', '사건 고르기', [['B', 'B. 분류 모델 (본편은 소설만 · 답마다 1회)'], ['A', 'A. 본편 태그 (추가 호출 0회)']])}${clsPick()}`
         + `${modeNote() ? `<small class="ml-set-note">⚠ ${esc(modeNote())}</small>` : ''}${prof('profile', '상태창 만들기 연결', '지금 연결')}
 ${sel('pinBook', '장면 인물의 증상 한 줄 본편에', [['auto', '붙이기'], ['off', '안 붙이기']])}
+<h4>📏 답 길이 (토큰)</h4>${sel('clsMax', '분류 답 길이', LEN_OPTS)}${sel('askMax', '설정집 · AI 고치기 답 길이', LEN_OPTS)}<small class="ml-set-note">💡 권장: 분류 8192 · 설정집 16000 이상 · 생각하는 모델은 32000. 답이 잘리면 늘리고, 모델이 「너무 크다」고 하면 줄이세요. 「자동」은 넉넉히 보내고 거절될 때만 줄여요.</small>
 <h4>🌐 언어</h4>${sel('saveLang', 'AI에게 보내는 말', [['auto', `자동 · 이야기 언어 (지금: ${isEN() ? '영어' : '한국어'})`], ['en', '영어'], ['ko', '한국어']])}<small class="ml-set-note">설정집 값 · 본편 지시 · 분류가 이 언어로 가요. 화면은 아래 번역으로 한국어.</small>
 <h4>🌐 상태창 번역</h4>${sel('trMode', '번역', [['off', '끄기'], ['free', '무료 · 빠름 (실리태번 기본 번역)'], ['ai', '제대로 (AI · 토큰 씀)']])}${s.trMode === 'ai' ? prof('trProfile', 'AI 번역 연결', '상태창 만들기 연결') : ''}${s.trMode !== 'off' && s.trMode ? `<small class="ml-set-note">번역할 것</small>${TR_CATS.map(([k, , l, d]) => sw(k, `${l} <small>(${d})</small>`)).join('')}<small class="ml-set-note">용어집에 있는 말은 번역기를 안 거치고 바로 바뀌어요 · 새로 나온 말만 모아서 한 번에 보내요 · 다시 번역은 폰의 🌐 용어집에서</small>` : ''}
 <h4>저장 · 옮기기</h4><div class="ml-set-btns"><button class="menu_button" data-ml="perf">🏎 부하 재기</button><button class="menu_button" data-ml="report">📋 전체 복사</button><button class="menu_button" data-ml="doctor">🩺 `
