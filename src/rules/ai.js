@@ -1,6 +1,6 @@
 // 미트볼이 부르는 AI (설정집 채우기 · 번역). 사건 고르기(B 모드)는 classify.js. 본편이 아니므로 설정집을 여기서만 본다.
 import { ctx, settings, userName, getMeta } from '../base/st.js';
-import { normBook, emptyBook } from './book.js';
+import { normBook, emptyBook, REL_STAGES } from './book.js';
 import { short, hash } from '../base/util.js';
 import { gloss } from '../base/gloss.js';
 
@@ -121,7 +121,7 @@ const SCHEMA = `{"world":{"genre":"","currency":"","meal":10,"weather":["맑음"
 "people":[{"name":"","aka":[],"face":"🙂","line":"성격 한 `
     + `줄","start":{"aff":10,"trust":10},"up":[{"act":"칭찬","d":3}],"down":[{"act":"거짓말","d":-5}],"signs":[{"at":60,"text":"눈을 `
     + `피함"}],"syn":[{"to":"","text":""}],"haunt":[],"routine":[{"at":"아침","place":""}],"likes":[],"hates":[],"day":"3월 14일 생일","want":"지금 원하는 `
-    + `것","noLove":false}]}`;
+    + `것","official":"-","noLove":false}]}`;
 export async function fillBook(only = null, pick = undefined) {
     const src = await sources(pick);
     const sys = `You build a compact status-sheet rulebook for a roleplay. Output JSON only. Korean values. `
@@ -131,14 +131,32 @@ export async function fillBook(only = null, pick = undefined) {
         + 'If something is not in the source, make it fit the source\'s setting, not the original canon. '
         + 'Keep every line short. Prices must be consistent with '
         + '"meal" (one meal). 3-6 places that matter, 3-5 goods per shop/food place. needs: 3-5 (hunger/energy/hygiene/mood style; rate = drop per '
-        + 'hour). Birthdays as 「M월 D일」 if known. Write minified JSON (no indentation, no code fence) so it fits in one reply.';
+        + 'hour). Birthdays as 「M월 D일」 if known. '
+        + 'RELATIONSHIP START: "official" = the relationship with the user that the source states as a FACT right now (연인 · 부부 · 약혼 · 전 연인 · 짝사랑 · 친구 · 가족 · 동료 · "-"). '
+        + 'Words like love, devotion, obsession, "meant for each other" or a romantic subtext do NOT make them 연인 — only an explicit, current dating/marriage/engagement does. '
+        + 'start.aff (romantic love, 0-100) must match the OFFICIAL status: 80+ only when official is 연인 · 부부 · 약혼; otherwise at most 75 even if they clearly have feelings (put the depth into trust and the line instead). '
+        + 'Write minified JSON (no indentation, no code fence) so it fits in one reply.';
     const ask2 = only ? `Rebuild ONLY these people: ${only.join(', ')}. Output {"people":[...]}` : 'Fill the whole rulebook.';
     const note = String(getMeta()?.srcNote ?? '').trim();
     const raw = await ask(`${ask2}\n${gloss()}${note ? `\nUSER'S EXTRA INSTRUCTIONS (follow these over the source when they conflict):\n${note}\n` : ''}\nSchema:\n${SCHEMA}\n\nSource:\n${src.text}`, sys);
     const j = parseJSON(raw);
     if (!j) return { book: null, src };
+    capLove(j);
     if (lastCut) import('../ui/kit.js').then(k => k.toast('AI 답이 길이 제한에서 끊겨서 받은 데까지만 채웠어요 · 빠진 인물은 인물 편집의 ✨로 다시 채울 수 있어요', 'mid')).catch(() => {});
     return { book: j, src, cut: lastCut };
+}
+// 💞 공식 관계가 연인 · 부부 · 약혼이 아니면 시작 애정을 「연인」 단계 아래로 (사랑한다는 말이 많아도 사귀는 사이가 아니면 연인으로 시작하지 않게)
+const LOVER = /연인|애인|부부|배우자|남편|아내|약혼|결혼|사귀|dating|lover|girlfriend|boyfriend|married|spouse|husband|wife|engaged|fianc/i;
+const EX = /전\s*(연인|애인|남편|아내|배우자)|ex[- ]|former|헤어진|이혼|짝사랑|crush/i;
+export function capLove(j) {
+    for (const p of Array.isArray(j?.people) ? j.people : []) {
+        const off = String(p?.official ?? ''); if (!p || typeof p !== 'object' || (LOVER.test(off) && !EX.test(off)) || !p.start || typeof p.start !== 'object') continue;
+        const L = Array.isArray(p.stages) && p.stages.length >= 2 ? p.stages : REL_STAGES;
+        const top = [...L].reverse().find(s => /연인|애인|lover/i.test(String(s?.name ?? ''))) ?? L[L.length - 1];
+        const cap = Math.max(0, Number(top?.at ?? 80) - 5), a = Number(p.start.aff);
+        if (Number.isFinite(a) && a > cap) p.start.aff = cap;
+    }
+    return j;
 }
 // AI 없이 바로 시작하는 틀 (입력 거의 없게)
 export function templateBook() {
