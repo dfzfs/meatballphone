@@ -279,7 +279,7 @@ function relCard(r, name, inSheet = false) {
         if (V('meters') && !p?.noLove) L.push(meter('love', '애정', x.aff, ticks, hide, name));
         if (V('meters')) L.push(meter('trust', '우정', x.trust, [], hide, name));
         if (hide) L.push(`<div class="ml-rl"><i>👀</i>${esc(sign || '아직 속을 모르겠다')}</div>`);
-        if (V('call')) L.push(`<div class="ml-rl"><i>🗣</i><b>${esc(st.call)}</b><span>· ${esc(st.act)}</span></div>`);
+        if (V('call') && !p?.noLove) L.push(`<div class="ml-rl"><i>🗣</i><b>${esc(st.call)}</b><span>· ${esc(st.act)}</span></div>`);
         if (V('next') && nx && !p?.noLove) L.push(`<div class="ml-rl"><i>🔓</i>다음 「${esc(nx.name)}」까지 ${hide ? '조금 더' : `애정 ${nx.at - x.aff}`} <span>→ ${esc(nx.call)} · ${esc(nx.act)}</span></div>`);
         if (V('last') && last) L.push(`<div class="ml-rl tap" data-act="jump" data-v="${last.i}"><i>${last.c.icon}</i>최근 ${hide ? '' : `<b class="${last.c.to < last.c.from ? 'neg' : 'pos'}">${signed(last.c.to - last.c.from)}</b>`} ${esc(last.c.why)} <span>#${last.i}</span></div>`);
         if (V('want') && x.want) L.push(`<div class="ml-rl"><i>🎯</i>${esc(x.want)}</div>`);
@@ -303,7 +303,8 @@ function relCard(r, name, inSheet = false) {
 export function personSheet(r, name) {
     const { book, S } = r, x = S.rel[name], p = personOf(book, name); if (!x) return;
     const L = [];
-    L.push(`<h4 class="ml-h4">관계 단계</h4><div class="ml-steps">${p?.stages ? '<small class="ml-sub">이 사람만의 단계</small>' : ''}${stagesOf(book, name).map(s2 => `<div class="${relStage(book, x.aff, name).name === s2.name ? 'on' : x.aff >= s2.at ? 'done' : ''}"><b>${esc(s2.name)}</b><small>${s2.at}`
+    if (p?.noLove) L.push('<h4 class="ml-h4">관계 단계</h4><div class="ml-rl"><i>💔</i>애정 꺼 둠 · 「친구」로만 지내요 <span>우정만 쌓여요</span></div>');
+    else L.push(`<h4 class="ml-h4">관계 단계</h4><div class="ml-steps">${p?.stages ? '<small class="ml-sub">이 사람만의 단계</small>' : ''}${stagesOf(book, name).map(s2 => `<div class="${relStage(book, x.aff, name).name === s2.name ? 'on' : x.aff >= s2.at ? 'done' : ''}"><b>${esc(s2.name)}</b><small>${s2.at}`
         + `~ · ${esc(s2.call)} · ${esc(s2.act)}</small></div>`).join('')}</div>`);
     const mine = Object.entries(S.pairs ?? {}).filter(([k]) => k.split('|').includes(name));
     if (mine.length) L.push(`<h4 class="ml-h4">다른 사람과</h4>${mine.map(([k, pr]) => { const o = k.split('|').find(z => z !== name); return `<div class="ml-rl"><i>${personOf(book, o)?.face ?? '🙂'}</i><b>${esc(o)}</b> ${pr.label ? `<span class="ml-tag">${esc(pr.label)}</span>` : ''}`

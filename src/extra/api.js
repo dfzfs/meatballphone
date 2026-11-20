@@ -94,8 +94,9 @@ function people() {
     const { S, book } = r, meta = getMeta();
     return structuredClone(Object.entries(S.rel).filter(([, x]) => !x.gone).map(([name, x]) => {
         const p = personOf(book, name);
-        return { name, face: faceOf(x.face || p?.face, '🙂'), star: isStar(meta, book, name), stage: relStage(book, x.aff, name)?.name ?? '', aff: x.aff, trust: x.trust,
-            here: S.with.includes(name), love: !!meta?.love?.[name], likes: x.seen.likes, hates: x.seen.hates, about: p?.line || x.line || '' };
+        const nl = !!p?.noLove; // 💔 애정 꺼 둔 인물: 단계는 「친구」 · 연인 모드 없음 (앱이 「연인」으로 착각해 AI에 넘기던 것)
+        return { name, face: faceOf(x.face || p?.face, '🙂'), star: isStar(meta, book, name), stage: nl ? '친구' : relStage(book, x.aff, name)?.name ?? '', aff: nl ? x.trust : x.aff, trust: x.trust, noLove: nl,
+            here: S.with.includes(name), love: !nl && !!meta?.love?.[name], likes: x.seen.likes, hates: x.seen.hates, about: p?.line || x.line || '' };
     }).sort((a, b) => b.star - a.star || b.aff - a.aff));
 }
 // ✋ 앱이 상태에 손대기 (좁은 칸만 · 마지막 AI 답에 손 고침으로 붙음 → 기록에 앱 이름 · 되돌리기 · 리롤 · 삭제를 그대로 따라감)

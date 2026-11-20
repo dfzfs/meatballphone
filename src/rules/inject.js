@@ -103,7 +103,7 @@ export function factText(r, lastChanges = []) {
             // 📘 설정집 예외: 장면에 나온 인물만 증상 한 줄
             const sign = p?.signs?.filter(s => r2.aff >= s.at).pop(); if (sign && settings().pinBook !== 'off') L.push(`${name} shows: ${sign.text}`);
         }
-        if (lv('rel') >= 3) L.push(`${name}: no actions beyond 「${relStage(book, r2.aff, name).name}」 yet`);
+        if (lv('rel') >= 3 && !p?.noLove) L.push(`${name}: no actions beyond 「${relStage(book, r2.aff, name).name}」 yet`);
     }
     if (lv('rel') >= 2 && scene.length > 1)
         for (const [k, pr] of Object.entries(S.pairs ?? {})) {
