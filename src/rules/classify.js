@@ -1,7 +1,7 @@
 // 🧭 B 모드: 가벼운 모델(분류 모델)이 답을 읽고, 미트볼이 준 목록 안에서만 일어난 사건을 고른다.
 //   본편은 소설만 쓰고, 숫자는 지금처럼 설정집 규칙으로 계산한다.
 //   결과는 그 메시지 · 그 스와이프의 칸(msgData)에 src: 'cls'로 저장 → 다시 열기 · 다시 계산에는 다시 부르지 않음.
-import { ctx, settings, getMeta, saveMeta, msgData, syncSwipe, bumpMeta, msgKey, app, TITLE, saveChatSoon, shut, shutKey, aiNoOf } from '../base/st.js';
+import { ctx, settings, getMeta, saveMeta, msgData, syncSwipe, bumpMeta, msgKey, app, TITLE, saveChatSoon, shut, shutKey, aiNoOf, saveSettings } from '../base/st.js';
 import { short, hash, norm, tokens, safeKey, hhmm } from '../base/util.js';
 import { readOps, kindOf, parts, stripTags, storyOnly } from './tags.js';
 import { sendClean, clsRoute, connStats, routeText, CLS_PRESET } from './clsconn.js';
@@ -197,7 +197,9 @@ async function run(i, force) {
     if (sl.skip) return;
     if (!force && sl.src === 'cls' && sl.fp === fp && !sl.clsFail) return; // 이미 고른 같은 글
     // 같은 글이면 저장된 결과 (리롤로 같은 글이 나왔을 때 · 옛 스와이프로 돌아왔을 때)
-    const cached = !force && meta.clsCache?.[fp];
+    // 👋 인사말(사용자 말 전의 첫 답)은 채팅이 달라도 같은 글이면 같은 결과 — 새 채팅을 열 때마다 AI를 다시 불러 딱지를 새로 붙이던 것
+    const greet = userBefore(i) < 0, gk = greet ? `${ctx().characters?.[ctx().characterId]?.avatar ?? ctx().groupId ?? ''}|${fp}` : '';
+    const cached = !force && (meta.clsCache?.[fp] ?? (greet ? settings().greetCls?.[gk] : null));
     let ops = cached ?? null, tok = 0;
     if (!ops) {
         const P = buildPrompt(i); if (!P) return;
@@ -220,6 +222,7 @@ async function run(i, force) {
     // 😌 그 답에 눈 감은 앱의 줄은 버림 (저장된 결과를 다시 쓸 때도)
     if (ops) ops = ops.filter(([k]) => !shutKey(k, aiNoOf(i)));
     // 그새 다른 스와이프로 넘어갔거나 글이 바뀌었으면 이 칸엔 안 씀 (결과는 지문으로 남겨 둠)
+    if (ops && greet) { const G = (settings().greetCls ??= {}); delete G[gk]; G[gk] = ops; const ks = Object.keys(G); while (ks.length > 30) delete G[ks.shift()]; saveSettings(); }
     if (ops) { meta.clsCache ??= {}; meta.clsCache[fp] = ops; const keys = Object.keys(meta.clsCache); if (keys.length > 300) delete meta.clsCache[keys[0]]; }
     if (getMeta() !== meta) return; // 기다리는 사이 채팅이 바뀜
     if (ctx().chat?.[i] !== m) { i = (ctx().chat ?? []).indexOf(m); if (i < 0) return; } // 🗑 앞 메시지가 지워져 번호가 밀림 → 그 메시지에 그대로
