@@ -233,5 +233,5 @@
         macros: { register() {}, category: { MISC: 'misc' }, valueType: { STRING: 'string' } },
         registerMacro() {},
     };
-    window.SillyTavern = { getContext: () => ctx };
+    window.__lf = new Map(); window.SillyTavern = { getContext: () => ctx, libs: { localforage: { getItem: async (k) => window.__lf.get(k) ?? null, setItem: async (k, v) => { window.__lf.set(k, v); return v; }, removeItem: async (k) => { window.__lf.delete(k); } } } };
 })();

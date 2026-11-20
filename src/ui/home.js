@@ -17,6 +17,7 @@ import { mascot, MASCOTS, MEATCON, mascotUrl, MASCOT_SOUNDS, PACK, packOn } from
 import { extApps, extOf, catalog, loadCatalog, hasApp, waitsReload } from '../extra/apps.js';
 import { loveCards, loveBadge, loveAny, homeHearts } from './love.js';
 import { todayLine } from './threadui.js';
+import { wallSrc } from './wall.js';
 
 // 앱 목록 — mod가 있으면 받기 · 지우기 가능, sys는 늘 있음
 export const APPS = [
@@ -331,7 +332,7 @@ export const WALLS = [
     ['mint', '민트', 'linear-gradient(160deg,#e3f5e6 0%,#c4e8cf 50%,#fbf8e8 100%)'],
     ['night', '밤', 'linear-gradient(180deg,#25253f 0%,#4b4e6d 55%,#9a8c98 100%)'],
 ];
-export const wallCss = (L) => (L.wall === 'img' && L.wallImg ? `url("${L.wallImg}") center/cover no-repeat` : WALLS.find(w => w[0] === L.wall)?.[2] ?? '');
+export const wallCss = (L) => (L.wall === 'img' && wallSrc(L) ? `url("${wallSrc(L)}") center/cover no-repeat` : WALLS.find(w => w[0] === L.wall)?.[2] ?? '');
 export function look() {
     const L = settings().look;
     const sl = (k, n, min, max, step) => `<div class="ml-gauge"><div class="ml-gauge-h"><b>${n}</b><span class="ml-pill">${L[k]}</span></div><input type="range" class="ml-range" min="${min}" max="${max}" step="${step}" value="${L[k]}" data-look="${k}"></div>`;
@@ -340,7 +341,7 @@ export function look() {
         <div class="ml-card">${sl('size', '글자 크기', 0.85, 1.3, 0.05)}${sl('radius', '모서리', 0, 24, 2)}${sl('border', '테두리 두께', 0, 3, 1)}${sl('shadow', '그림자', 0, 3, 1)}</div>
         <h4 class="ml-h4">🖼 배경화면 <span>홈 화면 · 위젯은 유리처럼 비쳐요</span></h4>
         <div class="ml-walls">${WALLS.map(([id, n, bg]) => `<button class="ml-wall${(L.wall ?? '') === id ? ' on' : ''}" data-act="look-set" data-v="wall|${id}" style="background:${bg}"><span>${n}</span></button>`).join('')}`
-        + `<label class="ml-wall up${L.wall === 'img' ? ' on' : ''}"${L.wallImg ? ` style="background:url('${L.wallImg}') center/cover"` : ''}><span>🖼 내 사진</span><input type="file" accept="image/*" data-wallfile hidden></label></div>
+        + `<label class="ml-wall up${L.wall === 'img' ? ' on' : ''}"${wallSrc(L) ? ` style="background:url('${wallSrc(L)}') center/cover"` : ''}><span>🖼 내 사진</span><input type="file" accept="image/*" data-wallfile hidden></label></div>
         <div class="ml-card"><div class="ml-gauge"><div class="ml-gauge-h"><b>배경 어둡게</b><span class="ml-pill">${L.wallDim ?? 0}%</span></div><input type="range" class="ml-range" min="0" max="60" step="5" value="${L.wallDim ?? 0}" data-look="wallDim"></div></div>
         <h4 class="ml-h4">창 자리 <span>노트북 · PC만 · 휴대폰은 늘 꽉 차요</span></h4><div class="ml-picks">${[['left', '◧ 왼쪽'], ['right', '◨ 오른쪽']].map(([v, n]) => `<button class="ml-btn xs${(L.side ?? 'left') === v ? ' on' : ''}" data-act="look-set" data-v="side|${v}">${n}</button>`).join('')}</div>
         <h4 class="ml-h4">앱 아이콘</h4><div class="ml-picks">${[['color', '컬러'], ['tone', '배경 톤에 맞춤']].map(([v, n]) => `<button class="ml-btn xs${(L.icons ?? 'color') === v ? ' on' : ''}" data-act="look-set" data-v="icons|${v}">${n}</button>`).join('')}</div>

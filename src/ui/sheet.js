@@ -19,13 +19,16 @@ import { mascot } from './mascot.js';
 import { isWaiting } from '../rules/classify.js';
 import { applyTr, trSig, trBusy } from '../extra/trgate.js';
 import { chipCheck } from '../extra/doctor.js';
+import { wallLoad, wallSave } from './wall.js';
 let cur = 'home', past = null, lastHtml = ''; // lastHtml: 지난번에 그린 폰 화면 (같으면 다시 안 그림)
 // ───── 전체화면 ─────
 setAppsChange(() => { if (document.getElementById('ml-full') && (cur === 'home' || cur === 'market')) drawSheet(); });
+let wallAsked = false;
 export function openSheet(tab = 'home') {
     if (tab === 'now' && !document.getElementById('ml-full')) tab = 'home';
     if (tab === 'cal') resetCal();
     cur = tab; past = null;
+    if (settings().look?.wallImg && !wallAsked) { wallAsked = true; wallLoad().then(u => { if (u && document.getElementById('ml-full')) drawSheet(); }); } // 🖼 저장소의 배경 사진 (처음 한 번)
     let el = document.getElementById('ml-full');
     if (!el) {
         el = document.createElement('div'); el.id = 'ml-full'; el.className = 'ml-scope';
@@ -240,7 +243,7 @@ async function wallUpload(file) {
         c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
         const wp = c.toDataURL('image/webp', 0.8);
         let out = wp.startsWith('data:image/webp') ? wp : c.toDataURL('image/jpeg', 0.8); if (out.length > 600000) out = c.toDataURL('image/jpeg', 0.6);
-        const L = settings().look; L.wallImg = out; L.wall = 'img'; saveSettings(); drawSheet();
+        await wallSave(out); drawSheet();
     } catch { toast('사진을 못 읽었어요', 'bad'); }
 }
 export const redraw = () => drawSheet();

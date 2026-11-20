@@ -114,8 +114,10 @@ export function buildPrompt(i) {
     const story = storyOnly(m.mes);
     const items = S.items.map(it => it.name).slice(0, 20).join(', ') || '-';
     const acts = actionsOf(book, S, story).map(a => `${a.name} — up: ${a.up.join(', ') || '-'} / down: ${a.down.join(', ') || '-'}`);
-    const places = book.world.places.map(p => `${p.name}${p.goods.length ? `(${p.goods.map(g => g.name).join('·')})` : ''}`).join(', ');
-    const keys = keyList(aiNoOf(i)).map(([k, v, when]) => `${k}: ${v}  — ${when}`).join('\n');
+    // 🏎 상품은 지금 장소 것만 (살 수 있는 건 여기 것뿐) · 다른 곳은 이름만 — 분류에 보내는 글 줄이기
+    const here = norm(S.loc), places = book.world.places.map(p => `${p.name}${p.goods.length && norm(p.name) === here ? `(${p.goods.map(g => g.name).join('·')})` : ''}`).join(', ');
+    // 뻔한 키(먹음 · 잠 · 삼 …)는 「언제」 설명 없이 · 둘 이상 같이 있을 때만 인물끼리(pair)
+    const keys = keyList(aiNoOf(i)).filter(([k]) => k !== 'pair' || S.with.length >= 2).map(([k, v, when]) => (OBVIOUS.has(k) && !String(v).startsWith('-') ? `${k}: ${v}` : `${k}: ${v}  — ${when}`)).join('\n');
     const ch = choiceText(choiceOf(u));
     const SYS = isEN() ? SYSTEM_EN : SYSTEM, ex = String(settings().clsExtra ?? '').trim(), system = ex ? `${SYS}\nExtra instruction from the user (keep the output format): ${ex.slice(0, 600)}` : SYS; // ✍ ⚙️ 설정 앱
     const user = [
@@ -132,6 +134,7 @@ export function buildPrompt(i) {
     return { system, user, tok: tokens(system) + tokens(user) };
 }
 // 분류 지시 (미트볼폰의 분류 지시만 · 사용자 프리셋 · 탈옥 없음)
+const OBVIOUS = new Set(['ate', 'slept', 'washed', 'rest', 'buy', 'got', 'used', 'lost', 'wear', 'unwear', 'sell', 'weather', 'gift']);
 const SYSTEM_EN = 'You label what happened in ONE roleplay reply for a status tracker. Use ONLY the keys and actions listed. Write every value in English (names exactly as written). '
         + 'If the wording differs, map it to the closest listed action (e.g. "spoke sweetly" → the listed "praise"). '
         + 'Never invent an event that did not happen in the reply. No numbers except the formats shown. '
