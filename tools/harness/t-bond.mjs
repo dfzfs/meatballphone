@@ -19,11 +19,12 @@ try {
     await ai(`confess: ${A}`);
     const r1 = await rel(A);
     check(r1.lv === 1 && r1.ask?.kind === 'confess', '고백 → 대답 기다림 (아직 연인 아님)', JSON.stringify(r1));
-    check(await page.evaluate(() => !!document.querySelector('.ml-cat [data-cat="yes"]')), '🐱 수상한 고양이 알림에 예 · 아니오', '');
-    await page.evaluate(() => document.querySelector('.ml-cat [data-cat="yes"]').click()); await sleep(500);
+    check(await page.evaluate(() => !document.querySelector('.ml-cat')), '🔕 따로 뜨는 알림 없음', '');
+    await page.evaluate(() => __ML__.app.openSheet('home')); await sleep(300);
+    check(await page.evaluate(() => !!document.querySelector('[data-act="bond-ans"][data-v$="|yes"]')), '폰 홈 맨 위 카드에 예 · 아니오', '');
+    await page.evaluate(() => document.querySelector('[data-act="bond-ans"][data-v$="|yes"]').click()); await sleep(600);
     const r2 = await rel(A);
     check(r2.lv === 2 && r2.aff === 0 && !r2.ask, '예 → Lv.2 연인 · 새 애정 0', JSON.stringify(r2));
-    check(await page.evaluate(() => /축하/.test(document.querySelector('.ml-cat')?.textContent ?? '')), '🐱 축하 알림', '');
     await ai(`aff: ${A} +5`);
     check((await rel(A)).aff > 0 && (await rel(A)).lv === 2, '연인 애정이 따로 쌓임', '');
     await ai(`breakup: ${A} | 다툼`);
@@ -40,7 +41,7 @@ try {
     check((await rel(A)).lv === 2, '이야기에서 받아들임(| yes) → 바로 연인', '');
     await hand(`aff: ${A} +100`); await sleep(200);
     await ai(`propose: ${A}`);
-    await page.evaluate(() => document.querySelector('.ml-cat [data-cat="yes"]')?.click()); await sleep(500);
+    await page.evaluate(() => __ML__.app.openSheet('home')); await sleep(300); await page.evaluate(() => document.querySelector('[data-act="bond-ans"][data-v$="|yes"]').click()); await sleep(600);
     check((await rel(A)).lv === 3, '청혼 예 → Lv.3 부부', JSON.stringify(await rel(A)));
     // 연락 앱 API
     const api = await page.evaluate(() => MeatballPhone.people()[0]);

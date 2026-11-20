@@ -23,7 +23,7 @@ try {
     const rt3 = await page.evaluate(async () => { const m = await import('/ext/src/rules/inject.js'); return m.ruleText(__ML__.getMeta().book); });
     check(/confess:/.test(rt3), '하루 지나면 다시', '');
     await ai(`confess: ${A}`);
-    await page.evaluate(() => document.querySelector('.ml-cat [data-cat="yes"]').click()); await sleep(600);
+    await page.evaluate(() => __ML__.app.openSheet('home')); await sleep(300); await page.evaluate(() => document.querySelector('[data-act="bond-ans"][data-v$="|yes"]').click()); await sleep(600);
     check(await page.evaluate((A) => (__ML__.getMeta().cal?.dday ?? []).some(d => d.name.includes(A) && /사귄 날/.test(d.name)), A), '📌 사귄 날이 D-day에', JSON.stringify(await page.evaluate(() => __ML__.getMeta().cal?.dday)));
     const th = await page.evaluate(async (A) => { const T = await import('/ext/src/ui/threadui.js'); return T.personThread(__ML__.fold(), A); }, A);
     check(/관계 흐름/.test(th) && /연인/.test(th), '💍 인물 카드에 관계 흐름', '');
