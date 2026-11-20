@@ -232,7 +232,7 @@ export async function testConnection() {
         return { ok: ok && ops.length > 0, ms, route, reply, ops, error: ok ? (ops.length ? '' : '답은 왔지만 고른 사건이 0개예요') : '답에 <meatball> 블록이 없어요' };
     } catch (e) { return { ok: false, ms: Math.round(performance.now() - t0), route, error: e.message }; }
 }
-export const presetText = () => `${CLS_PRESET.name}: 온도 ${CLS_PRESET.temperature} · 답 ${CLS_PRESET.max_tokens}토큰 · 생각 ${connStats.thinkOff ? '설정 안 보냄(모델이 거절)' : CLS_PRESET.reasoning_effort} · 스트리밍 끔 · 사용자 프리셋 안 씀`;
+export const presetText = () => `${CLS_PRESET.name}: 온도 ${CLS_PRESET.temperature} · 답 ${connStats.bigMax ? '4000토큰(이 모델은 생각을 못 꺼서 늘림 · 답마다 생각 토큰이 들어요 → 생각 없는 가벼운 모델을 권해요)' : `${CLS_PRESET.max_tokens}토큰`} · 생각 ${connStats.thinkOff ? '설정 안 보냄(모델이 거절)' : CLS_PRESET.reasoning_effort} · 스트리밍 끔 · 사용자 프리셋 안 씀`;
 
 // ───── 6-2 새 인물 규칙 채우기: npc로 처음 나온 인물은 그 인물당 한 번만 ─────
 export async function fillPerson(name, why = '') {

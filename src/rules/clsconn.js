@@ -16,6 +16,9 @@ export const CLS_PRESET = Object.freeze({
 });
 // 생각 설정을 못 받는 모델이면 이것만 빼고 한 번 더
 const NO_THINK = ['reasoning_effort', 'include_reasoning'];
+// 생각을 못 끄는 모델: 생각이 1000토큰을 다 써서 빈 답 → 이만큼으로 늘려 다시
+const BIG_MAX = 4000;
+const EMPTY_ERR = /text empty|empty (?:response|candidate)|MAX_TOKENS|no candidates/i;
 const THINK_ERR = /reason|think|budget|unsupported|unknown (?:field|param)|invalid.*(?:param|argument)/i;
 
 export const CURRENT = '@current'; // 「지금 쓰는 API에서 모델만 고르기」
@@ -88,27 +91,33 @@ async function viaProfile(messages, P) {
 }
 
 // 마지막 요청 기록 (전체 복사 · 시험 버튼)
-export const connStats = { lastError: null, lastMs: 0, lastRoute: '', thinkOff: false };
-export const resetThink = () => { connStats.thinkOff = false; }; // 연결을 바꾸면 생각 설정 다시 보내 봄
+export const connStats = { lastError: null, lastMs: 0, lastRoute: '', thinkOff: false, bigMax: false };
+export const resetThink = () => { connStats.thinkOff = false; connStats.bigMax = false; }; // 연결을 바꾸면 생각 설정 다시 보내 봄
 // 분류 지시 + 글 하나 보내기 → 답 글
 export async function sendClean(system, user) {
     const route = clsRoute();
     if (!route) throw new Error('분류 연결 없음');
     const messages = [{ role: 'system', content: system }, { role: 'user', content: user }];
     const t0 = performance.now();
-    let P = { ...CLS_PRESET };
+    let P = { ...CLS_PRESET, ...(connStats.bigMax ? { max_tokens: BIG_MAX } : {}) };
     if (connStats.thinkOff) for (const k of NO_THINK) delete P[k];
     const go = () => (route === 'current' ? viaCurrent(messages, P) : viaProfile(messages, P));
     try {
         let r;
         try { r = await go(); } catch (e) {
+            // 서버가 빈 답을 오류로 돌려준 경우(「Candidate text empty」 · MAX_TOKENS) → 답 길이를 늘려 한 번 더
+            if (!connStats.bigMax && EMPTY_ERR.test(errText(e))) { P = { ...P, max_tokens: BIG_MAX }; r = await go(); connStats.bigMax = true; }
+            else {
             if (connStats.thinkOff || !THINK_ERR.test(errText(e))) throw e;
             // 이 모델은 생각 설정을 못 받는 듯 → 빼고 한 번 더 (되면 다음부터 계속 뺌 · 안 되면 처음 오류를 그대로)
             P = { ...P }; for (const k of NO_THINK) delete P[k];
             try { r = await go(); } catch { throw e; }
             connStats.thinkOff = true;
+            }
         }
-        const text = String(r?.content ?? (typeof r === 'string' ? r : '') ?? '');
+        let text = String(r?.content ?? (typeof r === 'string' ? r : '') ?? '');
+        // 🧠 생각을 끄지 못하는 모델(생각이 답 길이를 다 씀 → 빈 답): 답 길이를 늘려 한 번 더 · 되면 다음부터 늘린 채로
+        if (!text.trim() && !connStats.bigMax) { P = { ...P, max_tokens: BIG_MAX }; r = await go(); text = String(r?.content ?? (typeof r === 'string' ? r : '') ?? ''); if (text.trim()) connStats.bigMax = true; }
         connStats.lastMs = Math.round(performance.now() - t0); connStats.lastRoute = routeText();
         if (!text.trim()) throw new Error(`빈 답 (생각이 답 길이 ${CLS_PRESET.max_tokens}토큰을 다 썼거나 안전 필터에 막혔을 수 있어요)${r?.reasoning ? ` · 생각 글 ${String(r.reasoning).length}자` : ''}`);
         connStats.lastError = null;
